@@ -1,0 +1,50 @@
+
+> mqr-webapp@0.1.0 build
+> next build
+
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+  ▲ Next.js 14.2.35
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Skipping linting
+   Checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/12) ...
+   Generating static pages (3/12) 
+   Generating static pages (6/12) 
+   Generating static pages (9/12) 
+ ✓ Generating static pages (12/12)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ƒ /                                    139 B          87.7 kB
+├ ○ /_not-found                          876 B          88.4 kB
+├ ƒ /api/auth/login                      0 B                0 B
+├ ƒ /api/auth/logout                     0 B                0 B
+├ ƒ /api/records                         0 B                0 B
+├ ƒ /api/records/[jobId]                 0 B                0 B
+├ ƒ /api/upload                          0 B                0 B
+├ ƒ /api/vehicles/[serial]               0 B                0 B
+├ ƒ /dashboard                           101 kB          188 kB
+├ ○ /login                               1.18 kB        88.7 kB
+├ ƒ /records                             176 B          96.4 kB
+├ ƒ /records/[jobId]                     1.74 kB          98 kB
+└ ƒ /report                              3.86 kB        91.4 kB
++ First Load JS shared by all            87.5 kB
+  ├ chunks/117-d66023f319d69c96.js       31.9 kB
+  ├ chunks/fd9d1056-93c81328cce69892.js  53.6 kB
+  └ other shared chunks (total)          2 kB
+
+
+ƒ Middleware                             32.2 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
