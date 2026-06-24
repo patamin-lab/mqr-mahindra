@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { listRecords } from '@/lib/db';
+import { canExport } from '@/lib/scope';
 import { buildRecordsWorkbook } from '@/lib/exportExcel';
 import { renderRecordsListPdf } from '@/lib/exportPdf';
 
@@ -11,6 +12,9 @@ export async function GET(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
+  if (!canExport(session.role)) {
+    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์ส่งออกข้อมูล' }, { status: 403 });
+  }
 
   const { searchParams, origin } = new URL(req.url);
   const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
@@ -20,10 +24,10 @@ export async function GET(req: NextRequest) {
     dealerId: searchParams.get('dealerId') ?? undefined,
   });
 
-  const filenameBase = `mqr-records-${new Date().toISOString().slice(0, 10)}`;
+  const filenameBase = `qir-records-${new Date().toISOString().slice(0, 10)}`;
 
   if (format === 'pdf') {
-    const buf = await renderRecordsListPdf(records, 'รายงานสถานะงานทั้งหมด', origin);
+    const buf = await renderRecordsListPdf(records, 'รายงานปัญหาคุณภาพทั้งหมด', origin);
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         'Content-Type': 'application/pdf',

@@ -1,4 +1,4 @@
-export type Role = 'SuperAdmin' | 'Admin' | 'SuperUser' | 'User';
+export type Role = 'SuperAdmin' | 'CentralAdmin' | 'DealerAdmin' | 'DealerUser';
 
 export interface SessionUser {
   username: string;
@@ -78,21 +78,35 @@ export interface MqrRecord {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  updated_by: string | null;
+  deleted_by: string | null;
+  deleted_at: string | null;
+  record_status: 'Active' | 'Deleted';
 }
 
+/** New status workflow (replaces the old 7-status Thai list). Machine codes are
+ *  stored in the DB; STATUS_LABELS gives the Thai text shown in the UI. */
 export const STATUS_VALUES = [
-  'กำลังดำเนินการ',
-  'อยู่ระหว่างซ่อม',
-  'รออะไหล่',
-  'ส่งซ่อมภายนอก',
-  'ซ่อมไม่สำเร็จ',
-  'ยกเลิกการซ่อม',
-  'ซ่อมสำเร็จ',
+  'Draft',
+  'Open',
+  'UnderInvestigation',
+  'WaitingParts',
+  'Repaired',
+  'Closed',
 ] as const;
 
-export const OPEN_STATUSES = STATUS_VALUES.filter(
-  (s) => s !== 'ซ่อมสำเร็จ' && s !== 'ยกเลิกการซ่อม'
-);
+export type StatusValue = (typeof STATUS_VALUES)[number];
+
+export const STATUS_LABELS: Record<StatusValue, string> = {
+  Draft: 'แบบร่าง',
+  Open: 'เปิดเรื่อง',
+  UnderInvestigation: 'กำลังตรวจสอบ',
+  WaitingParts: 'รออะไหล่',
+  Repaired: 'ซ่อมเสร็จแล้ว',
+  Closed: 'ปิดเรื่อง',
+};
+
+export const OPEN_STATUSES = STATUS_VALUES.filter((s) => s !== 'Closed');
 
 export const PHOTO_SLOTS: { key: string; label: string }[] = [
   { key: 'vehicle_number', label: 'รูปหมายเลขรถ' },

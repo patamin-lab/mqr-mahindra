@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MqrRecord, STATUS_VALUES } from '@/lib/types';
+import { MqrRecord, STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
 
 export default function UpdateForm({ record }: { record: MqrRecord }) {
   const router = useRouter();
@@ -63,7 +63,7 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
         >
           {STATUS_VALUES.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {STATUS_LABELS[s as StatusValue]}
             </option>
           ))}
         </select>

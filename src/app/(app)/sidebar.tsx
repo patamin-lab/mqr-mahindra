@@ -7,8 +7,8 @@ import { roleLabelTh } from '@/lib/scope';
 
 const NAV = [
   { href: '/dashboard', label: 'หน้าหลัก' },
-  { href: '/report', label: 'แจ้งซ่อม' },
-  { href: '/records', label: 'ตรวจสอบสถานะรับซ่อม' },
+  { href: '/report', label: 'รายงานปัญหาคุณภาพ' },
+  { href: '/records', label: 'ติดตามรายงานปัญหาคุณภาพ' },
 ];
 
 export default function Sidebar({ session }: { session: SessionUser }) {

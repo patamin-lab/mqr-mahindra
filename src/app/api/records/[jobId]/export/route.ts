@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getRecordByJobId, getDealer } from '@/lib/db';
+import { canExport } from '@/lib/scope';
 import { buildSingleRecordWorkbook } from '@/lib/exportExcel';
 import { renderRecordPdf } from '@/lib/exportPdf';
 
@@ -11,11 +12,14 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
   if (!session) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
+  if (!canExport(session.role)) {
+    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์ส่งออกข้อมูล' }, { status: 403 });
+  }
 
   const jobId = decodeURIComponent(params.jobId);
   const record = await getRecordByJobId(jobId, session);
   if (!record) {
-    return NextResponse.json({ ok: false, error: 'ไม่พบงานนี้' }, { status: 404 });
+    return NextResponse.json({ ok: false, error: 'ไม่พบรายงานนี้' }, { status: 404 });
   }
   const dealer = await getDealer(record.dealer_id);
 

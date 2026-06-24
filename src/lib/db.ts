@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
-import { seesAllDealers, seesOwnRecordsOnly } from './scope';
-import { SessionUser, Dealer, Vehicle, ProblemCode, Technician, Branch, MqrRecord } from './types';
+import { seesAllDealers, seesOwnRecordsOnly, canDelete } from './scope';
+import { SessionUser, Dealer, Vehicle, ProblemCode, Technician, Branch, MqrRecord, OPEN_STATUSES } from './types';
 
 // ---------- Auth / users ----------
 
@@ -58,7 +58,7 @@ export async function getVehicleBySerial(serial: string, dealerId: string | null
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  // dealerId === null means the caller sees all dealers (SuperAdmin)
+  // dealerId === null means the caller sees all dealers (SuperAdmin / CentralAdmin)
   if (dealerId && data.dealer_id && data.dealer_id !== dealerId) return null;
   return data;
 }
@@ -92,27 +92,27 @@ export async function listBranches(dealerId: string | null): Promise<Branch[]> {
   return data ?? [];
 }
 
-// ---------- Job ID generation ----------
+// ---------- Report number generation ----------
 
 /**
- * Atomic per-dealer-per-year counter via the job_seq table + next_job_seq()
- * Postgres function (INSERT ... ON CONFLICT DO UPDATE ... RETURNING),
- * replacing the original Apps Script LockService + _nextJobId() approach.
- * Format: MQR-{DealerShortName}-YY-MM-000X
+ * Atomic global-per-month counter via the job_seq table + next_job_seq() Postgres
+ * function (INSERT ... ON CONFLICT DO UPDATE ... RETURNING). Reuses the existing
+ * (dealer_id, year) composite key with a constant sentinel dealer_id so the
+ * sequence is global rather than per-dealer, matching the new report number format.
+ * Format: QIR-YYMM-0001
  */
-export async function nextJobId(dealerId: string, dealerShortName: string): Promise<string> {
+export async function nextJobId(): Promise<string> {
   const supabase = getSupabase();
   const now = new Date();
-  const yy = String(now.getFullYear()).slice(-2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const yymm = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const { data, error } = await supabase.rpc('next_job_seq', {
-    p_dealer_id: dealerId,
-    p_year: yy,
+    p_dealer_id: '__QIR_GLOBAL__',
+    p_year: yymm,
   });
   if (error) throw error;
   const seq = Number(data);
   const seqStr = String(seq).padStart(4, '0');
-  return `MQR-${dealerShortName}-${yy}-${mm}-${seqStr}`;
+  return `QIR-${yymm}-${seqStr}`;
 }
 
 // ---------- Records ----------
@@ -139,12 +139,12 @@ export interface CreateRecordInput {
 
 export async function createRecord(input: CreateRecordInput, session: SessionUser): Promise<MqrRecord> {
   if (!session.dealerId) {
-    throw new Error('ผู้ใช้นี้ไม่ได้ผูกกับดีลเลอร์ ไม่สามารถสร้างงานได้');
+    throw new Error('ผู้ใช้นี้ไม่ได้ผูกกับดีลเลอร์ ไม่สามารถสร้างรายงานได้');
   }
   const dealer = await getDealer(session.dealerId);
   if (!dealer) throw new Error('ไม่พบข้อมูลดีลเลอร์');
 
-  const jobId = await nextJobId(dealer.id, dealer.short_name);
+  const jobId = await nextJobId();
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('records')
@@ -158,7 +158,7 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       problem_code: input.problemCode,
       problem_system: input.problemSystem,
       warranty_status: input.warrantyStatus,
-      status: 'กำลังดำเนินการ',
+      status: 'Open',
       customer_name: input.customerName,
       customer_phone: input.customerPhone,
       reporter_name: input.reporterName,
@@ -171,6 +171,7 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       photo_links: input.photoLinks,
       video_link: input.videoLink,
       created_by: session.username,
+      record_status: 'Active',
     })
     .select('*')
     .single();
@@ -179,6 +180,8 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
 }
 
 function applyScope(query: any, session: SessionUser) {
+  // Soft-deleted records are never visible through normal queries.
+  query = query.eq('record_status', 'Active');
   if (!seesAllDealers(session.role)) {
     query = query.eq('dealer_id', session.dealerId ?? '__none__');
   }
@@ -199,7 +202,7 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
   let query = supabase.from('records').select('*').order('created_at', { ascending: false });
   query = applyScope(query, session);
 
-  // SuperAdmin may further narrow to one dealer via the UI.
+  // SuperAdmin / CentralAdmin may further narrow to one dealer via the UI.
   if (filters.dealerId && seesAllDealers(session.role)) {
     query = query.eq('dealer_id', filters.dealerId);
   }
@@ -223,6 +226,7 @@ export async function getRecordByJobId(jobId: string, session: SessionUser): Pro
   const { data, error } = await supabase.from('records').select('*').eq('job_id', jobId).maybeSingle();
   if (error) throw error;
   if (!data) return null;
+  if (data.record_status === 'Deleted') return null;
   if (!seesAllDealers(session.role) && data.dealer_id !== session.dealerId) return null;
   if (seesOwnRecordsOnly(session.role) && data.created_by !== session.username) return null;
   return data as MqrRecord;
@@ -239,10 +243,13 @@ export interface UpdateRecordInput {
 export async function updateRecord(jobId: string, patch: UpdateRecordInput, session: SessionUser): Promise<MqrRecord> {
   // Re-validate scope before allowing the write.
   const existing = await getRecordByJobId(jobId, session);
-  if (!existing) throw new Error('ไม่พบงานนี้ หรือไม่มีสิทธิ์เข้าถึง');
+  if (!existing) throw new Error('ไม่พบรายงานนี้ หรือไม่มีสิทธิ์เข้าถึง');
 
   const supabase = getSupabase();
-  const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const updatePayload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+    updated_by: session.username,
+  };
   if (patch.status !== undefined) updatePayload.status = patch.status;
   if (patch.cause !== undefined) updatePayload.cause = patch.cause;
   if (patch.damagedParts !== undefined) updatePayload.damaged_parts = patch.damagedParts;
@@ -256,6 +263,26 @@ export async function updateRecord(jobId: string, patch: UpdateRecordInput, sess
     .single();
   if (error) throw error;
   return data as MqrRecord;
+}
+
+/** Soft-delete only — never a hard delete. Re-validates scope + the canDelete permission. */
+export async function softDeleteRecord(jobId: string, session: SessionUser): Promise<void> {
+  if (!canDelete(session.role)) {
+    throw new Error('ไม่มีสิทธิ์ลบรายงานนี้');
+  }
+  const existing = await getRecordByJobId(jobId, session);
+  if (!existing) throw new Error('ไม่พบรายงานนี้ หรือไม่มีสิทธิ์เข้าถึง');
+
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('records')
+    .update({
+      record_status: 'Deleted',
+      deleted_by: session.username,
+      deleted_at: new Date().toISOString(),
+    })
+    .eq('job_id', jobId);
+  if (error) throw error;
 }
 
 /** All prior jobs for a given vehicle serial, scoped the same way as listRecords. */
@@ -285,7 +312,7 @@ export async function dashboardStats(session: SessionUser, dealerId?: string): P
   const now = new Date();
   const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const openStatuses = new Set(['กำลังดำเนินการ', 'อยู่ระหว่างซ่อม', 'รออะไหล่', 'ส่งซ่อมภายนอก']);
+  const openStatuses = new Set<string>(OPEN_STATUSES);
   const totalOpen = records.filter((r) => openStatuses.has(r.status)).length;
   const totalThisMonth = records.filter((r) => (r.found_date ?? '').slice(0, 7) === thisMonthKey).length;
 

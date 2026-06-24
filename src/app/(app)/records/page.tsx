@@ -1,17 +1,16 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { listRecords, listDealers } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
-import { STATUS_VALUES } from '@/lib/types';
+import { seesAllDealers, canExport } from '@/lib/scope';
+import { STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
 
 const statusColor: Record<string, string> = {
-  กำลังดำเนินการ: 'bg-amber-100 text-amber-700',
-  อยู่ระหว่างซ่อม: 'bg-blue-100 text-blue-700',
-  รออะไหล่: 'bg-purple-100 text-purple-700',
-  ส่งซ่อมภายนอก: 'bg-indigo-100 text-indigo-700',
-  ซ่อมไม่สำเร็จ: 'bg-red-100 text-red-700',
-  ยกเลิกการซ่อม: 'bg-gray-200 text-gray-600',
-  ซ่อมสำเร็จ: 'bg-green-100 text-green-700',
+  Draft: 'bg-gray-100 text-gray-600',
+  Open: 'bg-amber-100 text-amber-700',
+  UnderInvestigation: 'bg-blue-100 text-blue-700',
+  WaitingParts: 'bg-purple-100 text-purple-700',
+  Repaired: 'bg-teal-100 text-teal-700',
+  Closed: 'bg-green-100 text-green-700',
 };
 
 export default async function RecordsPage({
@@ -29,6 +28,7 @@ export default async function RecordsPage({
   });
 
   const dealers = seesAllDealers(session.role) ? await listDealers() : [];
+  const allowExport = canExport(session.role);
 
   const exportQuery = new URLSearchParams();
   if (searchParams.status) exportQuery.set('status', searchParams.status);
@@ -41,22 +41,26 @@ export default async function RecordsPage({
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-brand-dark">ตรวจสอบสถานะงาน</h1>
+        <h1 className="text-2xl font-bold text-brand-dark">ติดตามรายงานปัญหาคุณภาพ</h1>
         <div className="flex items-center gap-2">
-          <a
-            href={exportHref('xlsx')}
-            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Export Excel
-          </a>
-          <a
-            href={exportHref('pdf')}
-            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Export PDF
-          </a>
+          {allowExport && (
+            <>
+              <a
+                href={exportHref('xlsx')}
+                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Export Excel
+              </a>
+              <a
+                href={exportHref('pdf')}
+                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Export PDF
+              </a>
+            </>
+          )}
           <Link href="/report" className="text-sm px-4 py-2 rounded bg-brand-red text-white">
-            + แจ้งซ่อมใหม่
+            + รายงานปัญหาใหม่
           </Link>
         </div>
       </div>
@@ -67,7 +71,7 @@ export default async function RecordsPage({
           <input
             name="q"
             defaultValue={searchParams.q ?? ''}
-            placeholder="เลขที่งาน / Serial / ลูกค้า"
+            placeholder="เลขที่รายงาน / Serial / ลูกค้า"
             className="border border-gray-300 rounded px-3 py-2 text-sm w-56"
           />
         </div>
@@ -81,7 +85,7 @@ export default async function RecordsPage({
             <option value="">ทั้งหมด</option>
             {STATUS_VALUES.map((s) => (
               <option key={s} value={s}>
-                {s}
+                {STATUS_LABELS[s as StatusValue]}
               </option>
             ))}
           </select>
@@ -115,7 +119,7 @@ export default async function RecordsPage({
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
-              <th className="text-left px-4 py-3">เลขที่งาน</th>
+              <th className="text-left px-4 py-3">เลขที่รายงาน</th>
               <th className="text-left px-4 py-3">วันที่พบ</th>
               <th className="text-left px-4 py-3">รถ / Serial</th>
               <th className="text-left px-4 py-3">ลูกค้า</th>
@@ -141,7 +145,7 @@ export default async function RecordsPage({
                 <td className="px-4 py-3 whitespace-nowrap">{r.warranty_status ?? '-'}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[r.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {r.status}
+                    {STATUS_LABELS[r.status as StatusValue] ?? r.status}
                   </span>
                 </td>
               </tr>

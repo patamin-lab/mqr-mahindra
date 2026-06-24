@@ -1,23 +1,35 @@
 import { Role } from './types';
 
-/** SuperAdmin sees every dealer's records. */
-export const seesAllDealers = (role: Role) => role === 'SuperAdmin';
+/** SuperAdmin (full system) and CentralAdmin (head-office, all dealers) see every dealer's records. */
+export const seesAllDealers = (role: Role) => role === 'SuperAdmin' || role === 'CentralAdmin';
 
-/** A plain User only sees the jobs they personally reported. */
-export const seesOwnRecordsOnly = (role: Role) => role === 'User';
+/** A Dealer User only sees the jobs they personally reported.
+ *  (Branch-level "see my whole branch" viewing lands in Phase 3 once records carry a branch field.) */
+export const seesOwnRecordsOnly = (role: Role) => role === 'DealerUser';
 
 /** Who can manage parts stock (not built into the v1 UI, kept for parity). */
 export const canManageParts = (role: Role) =>
-  role === 'SuperAdmin' || role === 'Admin' || role === 'SuperUser';
+  role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';
 
-/** Only a plain User cannot update job status / close jobs. */
-export const canUpdateStatus = (role: Role) => role !== 'User';
+/** Only a Dealer User cannot update job status / close jobs (they may still edit their own open record). */
+export const canUpdateStatus = (role: Role) => role !== 'DealerUser';
 
-export const canDelete = (role: Role) => role === 'SuperAdmin';
+/** Soft-delete: SuperAdmin (any case) and Dealer Admin (their own dealer's cases — enforced at the query level). */
+export const canDelete = (role: Role) => role === 'SuperAdmin' || role === 'DealerAdmin';
+
+/** Dealer User cannot export. Dealer Admin export is scoped to their own dealer at the query level. */
+export const canExport = (role: Role) => role !== 'DealerUser';
+
+/** Master-data / user management (Phase 2). */
+export const canManageUsers = (role: Role) => role !== 'DealerUser';
+export const canDeleteUsers = (role: Role) => role === 'SuperAdmin';
+export const canCreateSuperAdmin = (role: Role) => role === 'SuperAdmin';
+export const canManageMasterData = (role: Role) =>
+  role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';
 
 export const roleLabelTh: Record<Role, string> = {
   SuperAdmin: 'ผู้ดูแลระบบสูงสุด',
-  Admin: 'ผู้ดูแลดีลเลอร์',
-  SuperUser: 'ผู้ใช้งานระดับสูง',
-  User: 'ผู้ใช้งานทั่วไป',
+  CentralAdmin: 'ผู้ดูแลส่วนกลาง',
+  DealerAdmin: 'ผู้ดูแลดีลเลอร์',
+  DealerUser: 'ผู้ใช้งานดีลเลอร์',
 };

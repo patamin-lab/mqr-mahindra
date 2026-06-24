@@ -405,7 +405,7 @@ export default function ReportForm({ problemCodes }: { problemCodes: ProblemCode
         disabled={submitting}
         className="w-full sm:w-auto px-6 py-3 rounded bg-brand-red hover:bg-brand-redDark text-white font-medium disabled:opacity-50"
       >
-        {submitting ? 'กำลังบันทึก...' : 'บันทึกการแจ้งซ่อม'}
+        {submitting ? 'กำลังบันทึก...' : 'บันทึกรายงานปัญหาคุณภาพ'}
       </button>
     </form>
   );

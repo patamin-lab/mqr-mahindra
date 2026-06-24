@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { getRecordByJobId, getVehicleHistory, getDealer } from '@/lib/db';
-import { canUpdateStatus } from '@/lib/scope';
+import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
+import { STATUS_LABELS, StatusValue } from '@/lib/types';
 import UpdateForm from './update-form';
+import DeleteButton from './delete-button';
 
 export default async function RecordDetailPage({ params }: { params: { jobId: string } }) {
   const session = await getSession();
@@ -17,6 +19,8 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
   const history = record.serial ? await getVehicleHistory(record.serial, session) : [];
   const otherHistory = history.filter((h) => h.job_id !== record.job_id);
   const encodedJobId = encodeURIComponent(record.job_id);
+  const allowExport = canExport(session.role);
+  const allowDelete = canDelete(session.role);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -25,22 +29,32 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
           <Link href="/records" className="text-sm text-gray-500 hover:underline">
             ← กลับไปหน้ารายการ
           </Link>
-          <h1 className="text-2xl font-bold text-brand-dark mt-1">{record.job_id}</h1>
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-2xl font-bold text-brand-dark">{record.job_id}</h1>
+            <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              {STATUS_LABELS[record.status as StatusValue] ?? record.status}
+            </span>
+          </div>
           <p className="text-sm text-gray-500">{dealer?.full_name ?? record.dealer_id}</p>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href={`/api/records/${encodedJobId}/export?format=xlsx`}
-            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Export Excel
-          </a>
-          <a
-            href={`/api/records/${encodedJobId}/export?format=pdf`}
-            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Export PDF
-          </a>
+          {allowExport && (
+            <>
+              <a
+                href={`/api/records/${encodedJobId}/export?format=xlsx`}
+                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Export Excel
+              </a>
+              <a
+                href={`/api/records/${encodedJobId}/export?format=pdf`}
+                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Export PDF
+              </a>
+            </>
+          )}
+          {allowDelete && <DeleteButton jobId={record.job_id} />}
         </div>
       </div>
 
@@ -87,14 +101,6 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             <div>{record.stock_note}</div>
           </div>
         )}
-        <div>
-          <div className="text-gray-400 text-xs">ผู้บันทึก</div>
-          <div>{record.user_name ?? record.created_by ?? '-'}</div>
-        </div>
-        <div>
-          <div className="text-gray-400 text-xs">วันที่บันทึก</div>
-          <div>{new Date(record.created_at).toLocaleString('th-TH')}</div>
-        </div>
         {record.lat !== null && record.lng !== null && (
           <div className="sm:col-span-2">
             <div className="text-gray-400 text-xs">พิกัด</div>
@@ -145,7 +151,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
                 </Link>
                 <span className="text-gray-500">{h.found_date}</span>
                 <span className="text-gray-700 flex-1">{h.problem_code}</span>
-                <span className="text-gray-500">{h.status}</span>
+                <span className="text-gray-500">{STATUS_LABELS[h.status as StatusValue] ?? h.status}</span>
               </li>
             ))}
           </ul>
@@ -153,11 +159,19 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
       )}
 
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h2 className="font-semibold text-brand-dark mb-3">อัปเดตสถานะงาน</h2>
+        <h2 className="font-semibold text-brand-dark mb-3">อัปเดตสถานะ</h2>
         {canUpdateStatus(session.role) ? (
           <UpdateForm record={record} />
         ) : (
-          <p className="text-sm text-gray-500">คุณไม่มีสิทธิ์อัปเดตสถานะงานนี้</p>
+          <p className="text-sm text-gray-500">คุณไม่มีสิทธิ์อัปเดตสถานะรายงานนี้</p>
+        )}
+      </section>
+
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-xs text-gray-500 space-y-1">
+        <h2 className="font-semibold text-brand-dark text-sm mb-2">ข้อมูลการบันทึก (Audit Trail)</h2>
+        <div>สร้างโดย: {record.created_by ?? record.user_name ?? '-'} · {new Date(record.created_at).toLocaleString('th-TH')}</div>
+        {record.updated_by && (
+          <div>แก้ไขล่าสุดโดย: {record.updated_by} · {new Date(record.updated_at).toLocaleString('th-TH')}</div>
         )}
       </section>
     </div>
