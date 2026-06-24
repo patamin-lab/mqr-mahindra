@@ -1013,7 +1013,6 @@ export async function createUserAdmin(
   input: {
     username: string;
     passwordHash: string;
-    passwordSalt: string;
     fullName: string;
     email: string | null;
     mobile: string | null;
@@ -1029,8 +1028,6 @@ export async function createUserAdmin(
     .insert({
       username: input.username,
       password_hash: input.passwordHash,
-      password_salt: input.passwordSalt,
-      password_algo: 'scrypt',
       full_name: input.fullName,
       email: input.email,
       mobile: input.mobile,
@@ -1083,7 +1080,6 @@ export async function updateUserAdmin(
 export async function resetUserPassword(
   id: string,
   passwordHash: string,
-  passwordSalt: string,
   session: SessionUser
 ): Promise<void> {
   const supabase = getSupabase();
@@ -1091,8 +1087,6 @@ export async function resetUserPassword(
     .from('users')
     .update({
       password_hash: passwordHash,
-      password_salt: passwordSalt,
-      password_algo: 'scrypt',
       updated_by: session.username,
       updated_at: new Date().toISOString(),
     })
