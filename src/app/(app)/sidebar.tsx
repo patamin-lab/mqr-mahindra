@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
-import { roleLabelTh } from '@/lib/scope';
+import { roleLabelTh, canManageMasterData, seesAllDealers } from '@/lib/scope';
 
 const NAV = [
   { href: '/dashboard', label: 'หน้าหลัก' },
@@ -21,6 +21,16 @@ export default function Sidebar({ session }: { session: SessionUser }) {
     router.refresh();
   }
 
+  const showMasterData = canManageMasterData(session.role);
+  const showDealers = seesAllDealers(session.role);
+
+  const adminNav = [
+    ...(showDealers ? [{ href: '/admin/dealers', label: 'ดีลเลอร์' }] : []),
+    { href: '/admin/branches', label: 'สาขา' },
+    { href: '/admin/technicians', label: 'ช่างซ่อม' },
+    { href: '/admin/users', label: 'ผู้ใช้งาน' },
+  ];
+
   return (
     <aside className="w-64 bg-brand-dark text-white flex flex-col shrink-0">
       <div className="p-4 border-b border-white/10">
@@ -33,7 +43,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
           {session.dealerId ? ` · ${session.dealerId}` : ''}
         </div>
       </div>
-      <nav className="flex-1 p-2 space-y-1">
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
         {NAV.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/');
           return (
@@ -48,6 +58,26 @@ export default function Sidebar({ session }: { session: SessionUser }) {
             </Link>
           );
         })}
+
+        {showMasterData && (
+          <>
+            <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">จัดการข้อมูลหลัก</div>
+            {adminNav.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(item.href + '/');
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`block px-3 py-2 rounded text-sm transition ${
+                    active ? 'bg-brand-red text-white' : 'text-white/80 hover:bg-white/10'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
       <button
         onClick={logout}

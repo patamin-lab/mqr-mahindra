@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import { seesAllDealers, seesOwnRecordsOnly, canDelete } from './scope';
-import { SessionUser, Dealer, Vehicle, ProblemCode, Technician, Branch, MqrRecord, OPEN_STATUSES } from './types';
+import { SessionUser, Dealer, Vehicle, ProblemCode, Technician, Branch, MqrRecord, OPEN_STATUSES, AdminUser, Role } from './types';
 
 // ---------- Auth / users ----------
 
@@ -359,4 +359,226 @@ export async function dashboardStats(session: SessionUser, dealerId?: string): P
     monthly,
     pareto: pareto.slice(0, 12),
   };
+}
+
+// ---------- Master data management (Phase 2) ----------
+// All writes here are scoped/permission-checked again at the API route layer —
+// never rely on the frontend alone (spec section 27).
+
+export async function listAllDealersAdmin(): Promise<Dealer[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('dealers').select('*').order('short_name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createDealer(
+  input: { id: string; short_name: string; full_name: string; address: string | null },
+  session: SessionUser
+): Promise<Dealer> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('dealers')
+    .insert({ ...input, created_by: session.username, updated_by: session.username })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Dealer;
+}
+
+export async function updateDealer(
+  id: string,
+  patch: Partial<{ short_name: string; full_name: string; address: string | null; active: boolean }>,
+  session: SessionUser
+): Promise<Dealer> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('dealers')
+    .update({ ...patch, updated_by: session.username, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Dealer;
+}
+
+export async function listAllBranchesAdmin(dealerId: string | null): Promise<Branch[]> {
+  const supabase = getSupabase();
+  let q = supabase.from('branches').select('*').order('name');
+  if (dealerId) q = q.eq('dealer_id', dealerId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createBranch(
+  input: { code: string | null; name: string; dealer_id: string },
+  session: SessionUser
+): Promise<Branch> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('branches')
+    .insert({ ...input, created_by: session.username, updated_by: session.username })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Branch;
+}
+
+export async function updateBranch(
+  id: string,
+  patch: Partial<{ code: string | null; name: string; active: boolean }>,
+  session: SessionUser
+): Promise<Branch> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('branches')
+    .update({ ...patch, updated_by: session.username, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Branch;
+}
+
+export async function listAllTechniciansAdmin(dealerId: string | null): Promise<Technician[]> {
+  const supabase = getSupabase();
+  let q = supabase.from('technicians').select('*').order('name');
+  if (dealerId) q = q.eq('dealer_id', dealerId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createTechnician(
+  input: { code: string | null; name: string; mobile: string | null; branch: string | null; dealer_id: string },
+  session: SessionUser
+): Promise<Technician> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('technicians')
+    .insert({ ...input, created_by: session.username, updated_by: session.username })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Technician;
+}
+
+export async function updateTechnician(
+  id: string,
+  patch: Partial<{ code: string | null; name: string; mobile: string | null; branch: string | null; active: boolean }>,
+  session: SessionUser
+): Promise<Technician> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('technicians')
+    .update({ ...patch, updated_by: session.username, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Technician;
+}
+
+const ADMIN_USER_COLUMNS =
+  'id, username, full_name, email, mobile, role, dealer_id, branch, active, created_at';
+
+export async function listAllUsersAdmin(dealerId: string | null): Promise<AdminUser[]> {
+  const supabase = getSupabase();
+  let q = supabase.from('users').select(ADMIN_USER_COLUMNS).order('username');
+  if (dealerId) q = q.eq('dealer_id', dealerId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as AdminUser[];
+}
+
+export async function getUserById(id: string): Promise<AdminUser | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('users').select(ADMIN_USER_COLUMNS).eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data as AdminUser | null;
+}
+
+export async function createUserAdmin(
+  input: {
+    username: string;
+    passwordHash: string;
+    fullName: string;
+    email: string | null;
+    mobile: string | null;
+    role: Role;
+    dealerId: string | null;
+    branch: string | null;
+  },
+  session: SessionUser
+): Promise<AdminUser> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      username: input.username,
+      password_hash: input.passwordHash,
+      full_name: input.fullName,
+      email: input.email,
+      mobile: input.mobile,
+      role: input.role,
+      dealer_id: input.dealerId,
+      branch: input.branch,
+      active: true,
+      created_by: session.username,
+      updated_by: session.username,
+    })
+    .select(ADMIN_USER_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data as AdminUser;
+}
+
+export async function updateUserAdmin(
+  id: string,
+  patch: Partial<{
+    fullName: string;
+    email: string | null;
+    mobile: string | null;
+    role: Role;
+    dealerId: string | null;
+    branch: string | null;
+    active: boolean;
+  }>,
+  session: SessionUser
+): Promise<AdminUser> {
+  const supabase = getSupabase();
+  const updatePayload: Record<string, unknown> = { updated_by: session.username, updated_at: new Date().toISOString() };
+  if (patch.fullName !== undefined) updatePayload.full_name = patch.fullName;
+  if (patch.email !== undefined) updatePayload.email = patch.email;
+  if (patch.mobile !== undefined) updatePayload.mobile = patch.mobile;
+  if (patch.role !== undefined) updatePayload.role = patch.role;
+  if (patch.dealerId !== undefined) updatePayload.dealer_id = patch.dealerId;
+  if (patch.branch !== undefined) updatePayload.branch = patch.branch;
+  if (patch.active !== undefined) updatePayload.active = patch.active;
+
+  const { data, error } = await supabase
+    .from('users')
+    .update(updatePayload)
+    .eq('id', id)
+    .select(ADMIN_USER_COLUMNS)
+    .single();
+  if (error) throw error;
+  return data as AdminUser;
+}
+
+export async function resetUserPassword(id: string, passwordHash: string, session: SessionUser): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('users')
+    .update({ password_hash: passwordHash, updated_by: session.username, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/** Hard delete — SuperAdmin only, enforced again at the API route layer. */
+export async function deleteUserAdmin(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('users').delete().eq('id', id);
+  if (error) throw error;
 }

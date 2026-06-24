@@ -33,3 +33,19 @@ export const roleLabelTh: Record<Role, string> = {
   DealerAdmin: 'ผู้ดูแลดีลเลอร์',
   DealerUser: 'ผู้ใช้งานดีลเลอร์',
 };
+
+/** Which roles an actor is allowed to assign to a user they create/edit. */
+export function assignableRoles(actorRole: Role): Role[] {
+  if (actorRole === 'SuperAdmin') return ['SuperAdmin', 'CentralAdmin', 'DealerAdmin', 'DealerUser'];
+  if (actorRole === 'CentralAdmin') return ['CentralAdmin', 'DealerAdmin', 'DealerUser'];
+  if (actorRole === 'DealerAdmin') return ['DealerUser'];
+  return [];
+}
+
+/** Whether `actorRole` may manage (edit/reset password/delete) a user currently holding `targetRole`. */
+export function canManageRoleTarget(actorRole: Role, targetRole: Role): boolean {
+  if (actorRole === 'SuperAdmin') return true;
+  if (actorRole === 'CentralAdmin') return targetRole !== 'SuperAdmin';
+  if (actorRole === 'DealerAdmin') return targetRole === 'DealerUser';
+  return false;
+}

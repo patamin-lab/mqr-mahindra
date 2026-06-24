@@ -1,5 +1,7 @@
 export type Role = 'SuperAdmin' | 'CentralAdmin' | 'DealerAdmin' | 'DealerUser';
 
+export const ROLE_VALUES: Role[] = ['SuperAdmin', 'CentralAdmin', 'DealerAdmin', 'DealerUser'];
+
 export interface SessionUser {
   username: string;
   fullName: string;
@@ -13,6 +15,7 @@ export interface Dealer {
   short_name: string;
   full_name: string;
   address: string | null;
+  active?: boolean;
 }
 
 export interface Vehicle {
@@ -32,15 +35,34 @@ export interface ProblemCode {
 
 export interface Technician {
   id: string;
+  code?: string | null;
   name: string;
+  mobile?: string | null;
   branch: string | null;
   dealer_id: string | null;
+  active?: boolean;
 }
 
 export interface Branch {
   id: string;
+  code?: string | null;
   name: string;
   dealer_id: string | null;
+  active?: boolean;
+}
+
+/** Admin-facing user record (never includes password_hash). */
+export interface AdminUser {
+  id: string;
+  username: string;
+  full_name: string;
+  email: string | null;
+  mobile: string | null;
+  role: Role;
+  dealer_id: string | null;
+  branch: string | null;
+  active: boolean;
+  created_at: string;
 }
 
 export interface PhotoLink {
