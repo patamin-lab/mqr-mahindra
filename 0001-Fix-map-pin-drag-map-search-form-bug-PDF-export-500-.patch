@@ -1,0 +1,472 @@
+From aae9fd49086126fe30bacb7321156ff74ce686a8 Mon Sep 17 00:00:00 2001
+From: patamin-lab <patamin@gmail.com>
+Date: Wed, 24 Jun 2026 06:44:25 +0000
+Subject: [PATCH 1/2] Fix map pin drag, map-search form bug, PDF export 500,
+ redesign PDF layout
+
+- middleware.ts: exclude /fonts/* from auth check (fixed root cause of
+  every PDF export 500 - react-pdf's server-side font fetch was being
+  redirected to /login and getting HTML instead of font binary)
+- map-view.tsx: make marker draggable with dragend handler so users can
+  drag the pin instead of only re-clicking the map
+- location-picker.tsx: remove nested <form> around map search (was
+  bubbling submit up to the outer report form and bouncing to a new
+  blank report); search button is now type=button, Enter key handled
+  explicitly
+- exportPdf.tsx: redesign single-record PDF to bordered key/value grid
+  layout based on user-supplied reference reports; add RCA banner
+  section, always-shown photo slots with placeholder for empty
+  categories, video_link row (previously never surfaced), Thai status
+  label (was showing raw English status code)
+---
+ src/app/(app)/report/location-picker.tsx |  31 ++-
+ src/app/(app)/report/map-view.tsx        |  13 +-
+ src/lib/exportPdf.tsx                    | 239 +++++++++++++++++------
+ src/middleware.ts                        |   2 +-
+ 4 files changed, 214 insertions(+), 71 deletions(-)
+
+diff --git a/src/app/(app)/report/location-picker.tsx b/src/app/(app)/report/location-picker.tsx
+index db91543..cdbf7ee 100644
+--- a/src/app/(app)/report/location-picker.tsx
++++ b/src/app/(app)/report/location-picker.tsx
+@@ -36,8 +36,15 @@ export default function LocationPicker({
+   const [searchError, setSearchError] = useState('');
+   const mapRef = useRef<LeafletMap | null>(null);
+ 
+-  async function runSearch(e: React.FormEvent) {
+-    e.preventDefault();
++  async function runSearch(e?: React.SyntheticEvent) {
++    // Important: this component is rendered inside the main report <form>.
++    // It must never let Enter/submit reach that outer form (which would
++    // trigger a full report save) - stopPropagation in addition to
++    // preventDefault covers the bubbling 'submit'/'keydown' case, and using
++    // a <div> instead of a nested <form> below avoids relying on browsers'
++    // inconsistent handling of nested forms entirely.
++    e?.preventDefault();
++    e?.stopPropagation();
+     if (!query.trim()) return;
+     setSearching(true);
+     setSearchError('');
+@@ -86,21 +93,33 @@ export default function LocationPicker({
+   return (
+     <div className="space-y-2">
+       <div className="flex gap-2">
+-        <form onSubmit={runSearch} className="flex-1 flex gap-2">
++        <div className="flex-1 flex gap-2">
+           <input
+             className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+             placeholder="ค้นหาชื่อสถานที่ / อำเภอ / จังหวัด"
+             value={query}
+             onChange={(e) => setQuery(e.target.value)}
++            onKeyDown={(e) => {
++              // Enter inside a text input submits the nearest ancestor
++              // <form> by default - since LocationPicker lives inside the
++              // report form, that would silently trigger a full report
++              // save. Intercept Enter here and run the search instead.
++              if (e.key === 'Enter') {
++                e.preventDefault();
++                e.stopPropagation();
++                runSearch();
++              }
++            }}
+           />
+           <button
+-            type="submit"
++            type="button"
++            onClick={() => runSearch()}
+             className="px-3 py-2 rounded border border-gray-300 text-sm whitespace-nowrap"
+             disabled={searching}
+           >
+             {searching ? 'ค้นหา...' : 'ค้นหา'}
+           </button>
+-        </form>
++        </div>
+         <button
+           type="button"
+           onClick={useCurrentLocation}
+@@ -134,7 +153,7 @@ export default function LocationPicker({
+ 
+       <p className="text-xs text-gray-500">
+         {lat !== null && lng !== null
+-          ? `พิกัดที่เลือก: ${lat.toFixed(6)}, ${lng.toFixed(6)} (คลิกบนแผนที่เพื่อปรับตำแหน่ง)`
++          ? `พิกัดที่เลือก: ${lat.toFixed(6)}, ${lng.toFixed(6)} (คลิก หรือลากหมุดบนแผนที่ เพื่อปรับตำแหน่ง)`
+           : 'ค้นหาสถานที่ ใช้ตำแหน่งปัจจุบัน หรือคลิกบนแผนที่เพื่อปักหมุด'}
+       </p>
+     </div>
+diff --git a/src/app/(app)/report/map-view.tsx b/src/app/(app)/report/map-view.tsx
+index e279fab..6319827 100644
+--- a/src/app/(app)/report/map-view.tsx
++++ b/src/app/(app)/report/map-view.tsx
+@@ -77,7 +77,18 @@ export default function MapView({
+         </LayersControl>
+         <ClickHandler onPick={onPick} />
+         <FlyOnChange lat={lat} lng={lng} />
+-        {lat !== null && lng !== null && <Marker position={[lat, lng]} />}
++        {lat !== null && lng !== null && (
++          <Marker
++            position={[lat, lng]}
++            draggable
++            eventHandlers={{
++              dragend: (e) => {
++                const pos = (e.target as L.Marker).getLatLng();
++                onPick(pos.lat, pos.lng);
++              },
++            }}
++          />
++        )}
+       </MapContainer>
+     </div>
+   );
+diff --git a/src/lib/exportPdf.tsx b/src/lib/exportPdf.tsx
+index ccf493a..ed15f73 100644
+--- a/src/lib/exportPdf.tsx
++++ b/src/lib/exportPdf.tsx
+@@ -1,7 +1,14 @@
+ import React from 'react';
+ import { Document, Page, Text, View, StyleSheet, Font, Image, Link, renderToBuffer } from '@react-pdf/renderer';
+ import QRCode from 'qrcode';
+-import { MqrRecord, SEVERITY_LABELS, Severity, PHOTO_CATEGORIES } from './types';
++import {
++  MqrRecord,
++  SEVERITY_LABELS,
++  Severity,
++  PHOTO_CATEGORIES,
++  STATUS_LABELS,
++  StatusValue,
++} from './types';
+ 
+ let fontsRegisteredFor: string | null = null;
+ 
+@@ -12,6 +19,12 @@ let fontsRegisteredFor: string | null = null;
+  * fragile there). `baseUrl` is derived per-request from the incoming
+  * NextRequest origin, so this re-registers if it ever differs (custom
+  * domain vs. *.vercel.app preview, etc).
++ *
++ * IMPORTANT: this fetch happens server-side and never carries the user's
++ * session cookie, so /fonts/* must stay excluded from the auth middleware's
++ * matcher (see src/middleware.ts) - otherwise this request gets redirected
++ * to /login and react-pdf tries to parse the login page's HTML as a font,
++ * which throws and surfaces as a 500 on every PDF export.
+  */
+ function ensureFontsRegistered(baseUrl: string) {
+   if (fontsRegisteredFor === baseUrl) return;
+@@ -27,31 +40,74 @@ function ensureFontsRegistered(baseUrl: string) {
+ 
+ const styles = StyleSheet.create({
+   page: { padding: 28, fontFamily: 'Sarabun', fontSize: 9, color: '#1a1a1a' },
+-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+-  title: { fontSize: 14, fontWeight: 'bold', marginBottom: 2, color: '#9c1c1c' },
++  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
++  title: { fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: '#9c1c1c' },
++  titleRule: { borderBottomWidth: 2, borderColor: '#9c1c1c', marginTop: 6, marginBottom: 10 },
+   subtitle: { fontSize: 9, color: '#666', marginBottom: 2 },
+   qr: { width: 56, height: 56 },
+   qrCaption: { fontSize: 6, color: '#999', textAlign: 'center', marginTop: 2, width: 56 },
+   badgeRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
+   badge: { fontSize: 8, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, color: '#fff' },
++
++  // Bulk/list export (renderRecordsListPdf) - unchanged from the original
++  // table layout, kept separate from the single-record info table below.
+   table: { width: '100%', borderWidth: 1, borderColor: '#ddd' },
+   rowHeader: { flexDirection: 'row', backgroundColor: '#f3f3f3', borderBottomWidth: 1, borderColor: '#ccc' },
+   row: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee' },
+   cellHeader: { padding: 4, fontWeight: 'bold', fontSize: 8 },
+   cell: { padding: 4, fontSize: 8 },
+-  section: { marginBottom: 10 },
++
++  section: { marginTop: 8, marginBottom: 10 },
+   sectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 4, color: '#9c1c1c' },
+-  fieldRow: { flexDirection: 'row', marginBottom: 3 },
+-  fieldLabel: { width: 130, fontWeight: 'bold', fontSize: 9 },
+-  fieldValue: { flex: 1, fontSize: 9 },
+   paragraph: { fontSize: 9, lineHeight: 1.4 },
+-  link: { fontSize: 9, color: '#1a56db' },
+-  photoCategoryLabel: { fontSize: 8, fontWeight: 'bold', color: '#555', marginBottom: 4, marginTop: 4 },
++  link: { fontSize: 8.5, color: '#1a56db' },
++
++  // Single-record info table - a bordered grid (label/value pairs, two per
++  // row, with long-text fields spanning the full row) modeled after the
++  // legacy MSEAL/Tractor-PM report layouts the dealers are used to.
++  infoTable: { borderWidth: 1, borderColor: '#ccc' },
++  infoRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#e5e5e5' },
++  infoCellLabel: {
++    width: '17%',
++    backgroundColor: '#f3f3f3',
++    padding: 5,
++    fontSize: 8,
++    fontWeight: 'bold',
++    color: '#444',
++    borderRightWidth: 1,
++    borderColor: '#e5e5e5',
++  },
++  infoCellValue: { width: '33%', padding: 5, fontSize: 8.5, borderRightWidth: 1, borderColor: '#e5e5e5' },
++  infoCellValueLast: { width: '33%', padding: 5, fontSize: 8.5 },
++  infoCellValueFull: { width: '83%', padding: 5, fontSize: 8.5 },
++  rcaHeaderRow: { backgroundColor: '#fbeaea', padding: 5, borderBottomWidth: 1, borderColor: '#e5c5c5' },
++  rcaHeaderText: { fontSize: 9, fontWeight: 'bold', color: '#9c1c1c' },
++
++  photoCategoryLabel: {
++    fontSize: 8.5,
++    fontWeight: 'bold',
++    color: '#fff',
++    backgroundColor: '#9c1c1c',
++    paddingVertical: 3,
++    paddingHorizontal: 6,
++    marginBottom: 6,
++    marginTop: 10,
++  },
+   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+-  photoBox: { width: 110, marginBottom: 8 },
+-  photo: { width: 110, height: 90, objectFit: 'cover', borderWidth: 1, borderColor: '#ddd' },
+-  photoLabel: { fontSize: 7, marginTop: 2, textAlign: 'center', color: '#555' },
++  photoBox: { width: 120, marginBottom: 8, borderWidth: 1, borderColor: '#ddd', padding: 3 },
++  photo: { width: 112, height: 92, objectFit: 'cover' },
++  photoPlaceholder: {
++    width: 112,
++    height: 92,
++    alignItems: 'center',
++    justifyContent: 'center',
++    backgroundColor: '#fafafa',
++  },
++  photoPlaceholderText: { fontSize: 7, color: '#aaa' },
++  photoLabel: { fontSize: 7, marginTop: 3, textAlign: 'center', color: '#555' },
++
+   auditText: { fontSize: 7, color: '#999' },
++  issuedText: { fontSize: 7, color: '#999', marginTop: 2 },
+   footer: { position: 'absolute', bottom: 16, left: 28, right: 28, fontSize: 7, color: '#999', textAlign: 'right' },
+ });
+ 
+@@ -118,11 +174,46 @@ function RecordsListDocument({ records, title }: { records: MqrRecord[]; title:
+   );
+ }
+ 
+-function FieldRow({ label, value }: { label: string; value?: string | number | null }) {
++function fmt(v?: string | number | null) {
++  return v !== null && v !== undefined && v !== '' ? String(v) : '-';
++}
++
++function Row2({
++  l1,
++  v1,
++  l2,
++  v2,
++}: {
++  l1: string;
++  v1?: string | number | null;
++  l2: string;
++  v2?: string | number | null;
++}) {
+   return (
+-    <View style={styles.fieldRow}>
+-      <Text style={styles.fieldLabel}>{label}</Text>
+-      <Text style={styles.fieldValue}>{value !== null && value !== undefined && value !== '' ? String(value) : '-'}</Text>
++    <View style={styles.infoRow}>
++      <Text style={styles.infoCellLabel}>{l1}</Text>
++      <Text style={styles.infoCellValue}>{fmt(v1)}</Text>
++      <Text style={styles.infoCellLabel}>{l2}</Text>
++      <Text style={styles.infoCellValueLast}>{fmt(v2)}</Text>
++    </View>
++  );
++}
++
++function RowFull({
++  label,
++  value,
++  children,
++}: {
++  label: string;
++  value?: string | number | null;
++  children?: React.ReactNode;
++}) {
++  return (
++    <View style={styles.infoRow}>
++      <Text style={styles.infoCellLabel}>{label}</Text>
++      <View style={styles.infoCellValueFull}>
++        {children ?? <Text style={{ fontSize: 8.5 }}>{fmt(value)}</Text>}
++      </View>
+     </View>
+   );
+ }
+@@ -138,11 +229,7 @@ function RecordDocument({
+   qrDataUrl: string;
+   recordUrl: string;
+ }) {
+-  const photosByCategory = PHOTO_CATEGORIES.map((cat) => ({
+-    cat,
+-    photos: (record.photo_links ?? []).filter((p) => p.category === cat.key),
+-  })).filter((g) => g.photos.length > 0);
+-
++  const statusLabel = STATUS_LABELS[record.status as StatusValue] ?? record.status;
+   const hasRca =
+     record.cause || record.damaged_parts || record.technician_action || record.corrective_action || record.preventive_action;
+ 
+@@ -150,14 +237,14 @@ function RecordDocument({
+     <Document>
+       <Page size="A4" style={styles.page}>
+         <View style={styles.headerRow}>
+-          <View>
+-            <Text style={styles.title}>ใบรายงานปัญหาคุณภาพ (MQR)</Text>
++          <View style={{ flex: 1 }}>
++            <Text style={styles.title}>ใบรายงานปัญหาคุณภาพ (Market Quality Report)</Text>
+             <Text style={styles.subtitle}>
+               เลขที่งาน {record.job_id} — {dealerName ?? record.dealer_id}
+             </Text>
+             <Text style={styles.subtitle}>พิมพ์เมื่อ {new Date().toLocaleString('th-TH')}</Text>
+             <View style={styles.badgeRow}>
+-              <Text style={[styles.badge, { backgroundColor: '#555' }]}>{record.status}</Text>
++              <Text style={[styles.badge, { backgroundColor: '#555' }]}>{statusLabel}</Text>
+               {record.severity && (
+                 <Text style={[styles.badge, { backgroundColor: SEVERITY_COLORS[record.severity as Severity] }]}>
+                   {SEVERITY_LABELS[record.severity as Severity]}
+@@ -170,32 +257,44 @@ function RecordDocument({
+             <Text style={styles.qrCaption}>สแกนเพื่อเปิดรายงาน</Text>
+           </View>
+         </View>
++        <View style={styles.titleRule} />
+ 
+-        <View style={styles.section}>
+-          <FieldRow label="หมายเลขรถ" value={record.serial} />
+-          <FieldRow label="รุ่นรถ" value={record.model} />
+-          <FieldRow label="ชั่วโมงการใช้งาน" value={record.hours} />
+-          <FieldRow label="วันที่พบปัญหา" value={record.found_date} />
+-          <FieldRow label="วันที่นำรถเข้าซ่อม" value={record.repair_date} />
+-          <FieldRow label="อาการที่พบ" value={record.problem_code} />
+-          <FieldRow label="ระบบ" value={problemSystemLabel(record.problem_system)} />
+-          <FieldRow label="สถานะการรับประกัน" value={record.warranty_status} />
+-          <FieldRow label="ลูกค้า" value={[record.customer_name, record.customer_phone].filter(Boolean).join(' / ')} />
+-          <FieldRow label="ผู้แจ้ง" value={[record.reporter_name, record.reporter_phone].filter(Boolean).join(' / ')} />
+-          <FieldRow label="สาขา" value={record.branch_name} />
+-          <FieldRow label="ช่างซ่อม" value={record.technician_name} />
+-          {record.peripheral_equipment && <FieldRow label="อุปกรณ์ต่อพ่วงที่ใช้งาน" value={record.peripheral_equipment} />}
+-          {record.stock_note && <FieldRow label="ที่มาของรถ" value={record.stock_note} />}
++        <View style={styles.infoTable}>
++          <Row2
++            l1="ลูกค้า"
++            v1={[record.customer_name, record.customer_phone].filter(Boolean).join(' / ')}
++            l2="ผู้แจ้งงาน"
++            v2={[record.reporter_name, record.reporter_phone].filter(Boolean).join(' / ')}
++          />
++          <Row2 l1="รุ่นรถ" v1={record.model} l2="เลขรถ (Serial)" v2={record.serial} />
++          <Row2 l1="วันที่พบปัญหา" v1={record.found_date} l2="วันที่นำรถเข้าซ่อม" v2={record.repair_date} />
++          <Row2
++            l1="ชั่วโมงที่พบปัญหา"
++            v1={record.hours}
++            l2="ชั่วโมงที่นำรถเข้าซ่อม"
++            v2={record.hours_in_for_repair}
++          />
++          <Row2 l1="สาขาที่ดำเนินการ" v1={record.branch_name} l2="ช่างผู้ดำเนินการ" v2={record.technician_name} />
++          <Row2 l1="ระบบ" v1={problemSystemLabel(record.problem_system)} l2="สถานะการรับประกัน" v2={record.warranty_status} />
++          <RowFull label="อาการที่พบ" value={record.problem_code} />
++          {record.peripheral_equipment && <RowFull label="อุปกรณ์ต่อพ่วงที่ใช้งาน" value={record.peripheral_equipment} />}
++          {record.stock_note && <RowFull label="ที่มาของรถ" value={record.stock_note} />}
+           {record.lat !== null && record.lng !== null && (
+-            <View style={styles.fieldRow}>
+-              <Text style={styles.fieldLabel}>พิกัด</Text>
++            <RowFull label="พิกัดภูมิศาสตร์ (GPS)">
+               <Link
+                 style={styles.link}
+                 src={`https://www.openstreetmap.org/?mlat=${record.lat}&mlon=${record.lng}#map=16/${record.lat}/${record.lng}`}
+               >
+                 {record.lat}, {record.lng} (เปิดแผนที่ OpenStreetMap)
+               </Link>
+-            </View>
++            </RowFull>
++          )}
++          {record.video_link && (
++            <RowFull label="วิดีโอปัญหา">
++              <Link style={styles.link} src={record.video_link}>
++                เปิดวิดีโอ
++              </Link>
++            </RowFull>
+           )}
+         </View>
+ 
+@@ -205,32 +304,45 @@ function RecordDocument({
+         </View>
+ 
+         {hasRca && (
+-          <View style={styles.section}>
+-            <Text style={styles.sectionTitle}>สาเหตุและการแก้ไข (RCA)</Text>
+-            {record.cause && <FieldRow label="สาเหตุ" value={record.cause} />}
+-            {record.damaged_parts && <FieldRow label="ชิ้นส่วนที่เสียหาย" value={record.damaged_parts} />}
+-            {record.technician_action && <FieldRow label="การดำเนินการของช่าง" value={record.technician_action} />}
+-            {record.corrective_action && <FieldRow label="การแก้ไข (Corrective)" value={record.corrective_action} />}
+-            {record.preventive_action && <FieldRow label="การป้องกัน (Preventive)" value={record.preventive_action} />}
++          <View style={[styles.infoTable, { marginBottom: 10 }]}>
++            <View style={styles.rcaHeaderRow}>
++              <Text style={styles.rcaHeaderText}>สาเหตุและการแก้ไข (RCA)</Text>
++            </View>
++            {record.cause && <RowFull label="สาเหตุ" value={record.cause} />}
++            {record.damaged_parts && <RowFull label="ชิ้นส่วนที่เสียหาย" value={record.damaged_parts} />}
++            {record.technician_action && <RowFull label="การดำเนินการของช่าง" value={record.technician_action} />}
++            {record.corrective_action && <RowFull label="การแก้ไข (Corrective)" value={record.corrective_action} />}
++            {record.preventive_action && <RowFull label="การป้องกัน (Preventive)" value={record.preventive_action} />}
+           </View>
+         )}
+ 
+-        {photosByCategory.map(({ cat, photos }) => (
+-          <View key={cat.key} style={styles.section}>
+-            <Text style={styles.photoCategoryLabel}>{cat.label}</Text>
+-            <View style={styles.photoGrid}>
+-              {photos.map((p, i) => (
+-                <View key={i} style={styles.photoBox}>
+-                  {/* react-pdf fetches remote image URLs itself at render time */}
+-                  <Image src={p.url} style={styles.photo} />
+-                  <Text style={styles.photoLabel}>{p.label}</Text>
+-                </View>
+-              ))}
++        {PHOTO_CATEGORIES.map((cat) => {
++          const photos = (record.photo_links ?? []).filter((p) => p.category === cat.key);
++          return (
++            <View key={cat.key}>
++              <Text style={styles.photoCategoryLabel}>{cat.label}</Text>
++              <View style={styles.photoGrid}>
++                {photos.length > 0 ? (
++                  photos.map((p, i) => (
++                    <View key={i} style={styles.photoBox} wrap={false}>
++                      {/* react-pdf fetches remote image URLs itself at render time */}
++                      <Image src={p.url} style={styles.photo} />
++                      <Text style={styles.photoLabel}>{p.label}</Text>
++                    </View>
++                  ))
++                ) : (
++                  <View style={styles.photoBox}>
++                    <View style={styles.photoPlaceholder}>
++                      <Text style={styles.photoPlaceholderText}>ไม่มีรูป</Text>
++                    </View>
++                  </View>
++                )}
++              </View>
+             </View>
+-          </View>
+-        ))}
++          );
++        })}
+ 
+-        <View style={styles.section}>
++        <View style={{ marginTop: 10 }}>
+           <Text style={styles.auditText}>
+             สร้างโดย {record.created_by ?? record.user_name ?? '-'} ·{' '}
+             {new Date(record.created_at).toLocaleString('th-TH')}
+@@ -238,6 +350,7 @@ function RecordDocument({
+               ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${new Date(record.updated_at).toLocaleString('th-TH')}`
+               : ''}
+           </Text>
++          <Text style={styles.issuedText}>เอกสารออกเมื่อ {new Date().toLocaleString('th-TH')} โดยระบบ MQR</Text>
+         </View>
+ 
+         <Text style={styles.footer}>{recordUrl}</Text>
+diff --git a/src/middleware.ts b/src/middleware.ts
+index 57757b6..3666a75 100644
+--- a/src/middleware.ts
++++ b/src/middleware.ts
+@@ -41,5 +41,5 @@ export async function middleware(req: NextRequest) {
+ }
+ 
+ export const config = {
+-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
++  matcher: ['/((?!_next/static|_next/image|favicon.ico|fonts/).*)'],
+ };
+-- 
+2.34.1
+
