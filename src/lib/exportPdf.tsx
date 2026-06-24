@@ -1,5 +1,4 @@
 import React from 'react';
-import fs from 'fs';
 import path from 'path';
 import { Document, Page, Text, View, StyleSheet, Font, Image, Link, renderToBuffer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
@@ -16,8 +15,8 @@ import { formatThaiDateTime } from './thaiDate';
 let fontsRegistered = false;
 
 /**
- * Fonts are read directly from disk (as Buffers) instead of being fetched
- * over HTTP. We previously registered them with an absolute URL
+ * Fonts are loaded from an on-disk path instead of being fetched over HTTP.
+ * We previously registered them with an absolute URL
  * (`${baseUrl}/fonts/*.ttf`) for react-pdf to fetch at render time, but
  * that self-fetch happens server-side, with no browser session attached -
  * and this Vercel project has Deployment Protection enabled, which
@@ -31,12 +30,26 @@ let fontsRegistered = false;
  * server-side and logged the response: status 200, but the body was the
  * Vercel SSO HTML page, not font bytes.)
  *
- * Reading the files from the filesystem sidesteps HTTP - and Deployment
- * Protection - entirely. For this to work inside the Vercel serverless
- * function, the files under /public/fonts must be explicitly included in
- * the function's file trace (see `outputFileTracingIncludes` in
- * next.config.mjs) - by default Next does not bundle /public into
- * serverless functions, since it's normally served separately via the CDN.
+ * Passing the absolute file path as `src` sidesteps HTTP - and Deployment
+ * Protection - entirely: @react-pdf/font's FontSource._load() falls through
+ * to `fontkit.open(src, postscriptName)` for any src string that isn't one
+ * of the standard font names, a data: URL, or an http(s) URL, and
+ * fontkit.open() reads the file from disk itself.
+ *
+ * (We first tried passing a `Buffer` read via `fs.readFileSync` directly as
+ * `src`, which satisfies react-pdf's runtime font-loading code in some
+ * other contexts, but this version's `isDataUrl(this.src)` helper
+ * unconditionally calls `this.src.indexOf(',')` then `.substring(...)` on
+ * it - Buffer has `.indexOf` (byte search) but not `.substring`, so it blew
+ * up with "dataUrl.substring is not a function" as soon as a 0x2C byte
+ * appeared anywhere in the font's binary data. A plain path string avoids
+ * that branch entirely.)
+ *
+ * For this to work inside the Vercel serverless function, the files under
+ * /public/fonts must be explicitly included in the function's file trace
+ * (see `outputFileTracingIncludes` in next.config.mjs) - by default Next
+ * does not bundle /public into serverless functions, since it's normally
+ * served separately via the CDN.
  */
 function ensureFontsRegistered() {
   if (fontsRegistered) return;
@@ -44,18 +57,8 @@ function ensureFontsRegistered() {
   Font.register({
     family: 'Sarabun',
     fonts: [
-      {
-        // @react-pdf/renderer's TS typings declare `src` as `string`, but at
-        // runtime it accepts a Buffer directly (used here to avoid HTTP
-        // fetches - see comment above). Cast through `unknown` to satisfy
-        // the type checker without lying about the Buffer's shape.
-        src: fs.readFileSync(path.join(fontsDir, 'Sarabun-Regular.ttf')) as unknown as string,
-        fontWeight: 'normal',
-      },
-      {
-        src: fs.readFileSync(path.join(fontsDir, 'Sarabun-Bold.ttf')) as unknown as string,
-        fontWeight: 'bold',
-      },
+      { src: path.join(fontsDir, 'Sarabun-Regular.ttf'), fontWeight: 'normal' },
+      { src: path.join(fontsDir, 'Sarabun-Bold.ttf'), fontWeight: 'bold' },
     ],
   });
   fontsRegistered = true;
