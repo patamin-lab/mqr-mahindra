@@ -1,0 +1,574 @@
+From a6c93961750610d87bd0ac1604493f384c1c4c88 Mon Sep 17 00:00:00 2001
+From: patamin <patamin@gmail.com>
+Date: Wed, 24 Jun 2026 17:03:21 +0000
+Subject: [PATCH] Fix PDF export 500 (middleware /fonts/* gap), GMT+7
+ timestamps, and match print layout to PDF
+
+- middleware matcher now excludes /fonts/* so server-side font fetches
+  during PDF render are not redirected to /login (root cause of the
+  live PDF export 500)
+- add formatThaiDateTime() (explicit Asia/Bangkok timeZone) and use it
+  everywhere a timestamp is shown, replacing bare toLocaleString('th-TH')
+  calls that rendered 7 hours behind on Vercel's UTC clock
+- add print-view.tsx: print-only layout mirroring the approved PDF
+  report structure, shown via window.print(); hide the app sidebar and
+  on-screen card UI when printing
+- wrap export route handlers in try/catch so failures return a
+  diagnosable JSON error instead of a bare 500
+---
+ src/app/(app)/records/[jobId]/page.tsx       |  20 +-
+ src/app/(app)/records/[jobId]/print-view.tsx | 223 +++++++++++++++++++
+ src/app/(app)/sidebar.tsx                    |   2 +-
+ src/app/api/records/[jobId]/export/route.ts  |  36 ++-
+ src/app/api/records/export/route.ts          |  32 ++-
+ src/app/globals.css                          |  30 +--
+ src/lib/exportExcel.ts                       |   7 +-
+ src/lib/exportPdf.tsx                        |  11 +-
+ src/lib/thaiDate.ts                          |  13 ++
+ src/middleware.ts                            |   2 +-
+ 10 files changed, 324 insertions(+), 52 deletions(-)
+ create mode 100644 src/app/(app)/records/[jobId]/print-view.tsx
+
+diff --git a/src/app/(app)/records/[jobId]/page.tsx b/src/app/(app)/records/[jobId]/page.tsx
+index 5916d51..a9f0988 100644
+--- a/src/app/(app)/records/[jobId]/page.tsx
++++ b/src/app/(app)/records/[jobId]/page.tsx
+@@ -1,12 +1,16 @@
+ import Link from 'next/link';
++import { headers } from 'next/headers';
++import QRCode from 'qrcode';
+ import { notFound } from 'next/navigation';
+ import { getSession } from '@/lib/auth';
+ import { getRecordByJobId, getVehicleHistory, getDealer } from '@/lib/db';
+ import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
+ import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity, PHOTO_CATEGORIES, PhotoCategory } from '@/lib/types';
++import { formatThaiDateTime } from '@/lib/thaiDate';
+ import UpdateForm from './update-form';
+ import DeleteButton from './delete-button';
+ import PrintButton from './print-button';
++import RecordPrintView from './print-view';
+ 
+ export default async function RecordDetailPage({ params }: { params: { jobId: string } }) {
+   const session = await getSession();
+@@ -23,8 +27,17 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
+   const allowExport = canExport(session.role);
+   const allowDelete = canDelete(session.role);
+ 
++  const h = headers();
++  const proto = h.get('x-forwarded-proto') ?? 'http';
++  const host = h.get('host');
++  const baseUrl = `${proto}://${host}`;
++  const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
++  const qrDataUrl = await QRCode.toDataURL(recordUrl, { margin: 0, width: 160 });
++
+   return (
+-    <div className="max-w-4xl space-y-6">
++    <div className="max-w-4xl">
++      <RecordPrintView record={record} dealerName={dealer?.full_name} qrDataUrl={qrDataUrl} recordUrl={recordUrl} />
++      <div className="print:hidden space-y-6">
+       <div className="flex items-start justify-between gap-3 flex-wrap">
+         <div>
+           <Link href="/records" className="text-sm text-gray-500 hover:underline print:hidden">
+@@ -242,11 +255,12 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
+ 
+       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-xs text-gray-500 space-y-1">
+         <h2 className="font-semibold text-brand-dark text-sm mb-2">ข้อมูลการบันทึก (Audit Trail)</h2>
+-        <div>สร้างโดย: {record.created_by ?? record.user_name ?? '-'} · {new Date(record.created_at).toLocaleString('th-TH')}</div>
++        <div>สร้างโดย: {record.created_by ?? record.user_name ?? '-'} · {formatThaiDateTime(record.created_at)}</div>
+         {record.updated_by && (
+-          <div>แก้ไขล่าสุดโดย: {record.updated_by} · {new Date(record.updated_at).toLocaleString('th-TH')}</div>
++          <div>แก้ไขล่าสุดโดย: {record.updated_by} · {formatThaiDateTime(record.updated_at)}</div>
+         )}
+       </section>
++      </div>
+     </div>
+   );
+ }
+diff --git a/src/app/(app)/records/[jobId]/print-view.tsx b/src/app/(app)/records/[jobId]/print-view.tsx
+new file mode 100644
+index 0000000..d1c5f2e
+--- /dev/null
++++ b/src/app/(app)/records/[jobId]/print-view.tsx
+@@ -0,0 +1,223 @@
++import { MqrRecord, SEVERITY_LABELS, Severity, STATUS_LABELS, StatusValue, PHOTO_CATEGORIES } from '@/lib/types';
++import { formatThaiDateTime } from '@/lib/thaiDate';
++
++/**
++ * Print-only rendering of a record, built to mirror the PDF export
++ * (src/lib/exportPdf.tsx) layout exactly, so "พิมพ์รายงาน" (window.print)
++ * and "Export PDF" produce visually matching documents. Hidden on screen,
++ * shown only inside @media print via `hidden print:block` (the rest of the
++ * page, including the app sidebar, is `print:hidden`).
++ */
++
++const SEVERITY_COLORS: Record<Severity, string> = {
++  Critical: '#c0392b',
++  Major: '#d68910',
++  Minor: '#2471a3',
++};
++
++function problemSystemLabel(s: string | null) {
++  if (s === 'powertrain') return 'Powertrain (48 เดือน)';
++  if (s) return 'อื่นๆ (24 เดือน)';
++  return '-';
++}
++
++function fmt(v?: string | number | null) {
++  return v !== null && v !== undefined && v !== '' ? String(v) : '-';
++}
++
++function Row2({
++  l1,
++  v1,
++  l2,
++  v2,
++}: {
++  l1: string;
++  v1?: string | number | null;
++  l2: string;
++  v2?: string | number | null;
++}) {
++  return (
++    <tr className="border-b border-gray-300">
++      <td className="w-[17%] bg-gray-100 border-r border-gray-300 p-1.5 font-bold text-gray-600 align-top">{l1}</td>
++      <td className="w-[33%] border-r border-gray-300 p-1.5 align-top">{fmt(v1)}</td>
++      <td className="w-[17%] bg-gray-100 border-r border-gray-300 p-1.5 font-bold text-gray-600 align-top">{l2}</td>
++      <td className="w-[33%] p-1.5 align-top">{fmt(v2)}</td>
++    </tr>
++  );
++}
++
++function RowFull({
++  label,
++  value,
++  children,
++}: {
++  label: string;
++  value?: string | number | null;
++  children?: React.ReactNode;
++}) {
++  return (
++    <tr className="border-b border-gray-300">
++      <td className="w-[17%] bg-gray-100 border-r border-gray-300 p-1.5 font-bold text-gray-600 align-top">{label}</td>
++      <td className="p-1.5 align-top" colSpan={3}>
++        {children ?? fmt(value)}
++      </td>
++    </tr>
++  );
++}
++
++export default function RecordPrintView({
++  record,
++  dealerName,
++  qrDataUrl,
++  recordUrl,
++}: {
++  record: MqrRecord;
++  dealerName?: string | null;
++  qrDataUrl: string;
++  recordUrl: string;
++}) {
++  const statusLabel = STATUS_LABELS[record.status as StatusValue] ?? record.status;
++  const hasRca = !!(
++    record.cause ||
++    record.damaged_parts ||
++    record.technician_action ||
++    record.corrective_action ||
++    record.preventive_action
++  );
++
++  return (
++    <div className="hidden print:block text-[11px] text-gray-900">
++      <div className="flex items-start justify-between">
++        <div>
++          <h1 className="text-lg font-bold text-brand-redDark">ใบรายงานปัญหาคุณภาพ (Market Quality Report)</h1>
++          <p className="text-gray-500 text-xs mt-0.5">
++            เลขที่งาน {record.job_id} — {dealerName ?? record.dealer_id}
++          </p>
++          <p className="text-gray-500 text-xs">พิมพ์เมื่อ {formatThaiDateTime(new Date())}</p>
++          <div className="flex gap-1.5 mt-1.5">
++            <span className="text-white text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: '#555' }}>
++              {statusLabel}
++            </span>
++            {record.severity && (
++              <span
++                className="text-white text-[10px] px-2 py-0.5 rounded"
++                style={{ backgroundColor: SEVERITY_COLORS[record.severity as Severity] }}
++              >
++                {SEVERITY_LABELS[record.severity as Severity]}
++              </span>
++            )}
++          </div>
++        </div>
++        <div className="text-center">
++          {/* eslint-disable-next-line @next/next/no-img-element */}
++          <img src={qrDataUrl} alt="QR" className="w-14 h-14" />
++          <p className="text-[8px] text-gray-400 mt-0.5">สแกนเพื่อเปิดรายงาน</p>
++        </div>
++      </div>
++      <div className="border-b-2 border-brand-redDark mt-1.5 mb-2.5" />
++
++      <table className="w-full border border-gray-300 border-collapse">
++        <tbody>
++          <Row2
++            l1="ลูกค้า"
++            v1={[record.customer_name, record.customer_phone].filter(Boolean).join(' / ')}
++            l2="ผู้แจ้งงาน"
++            v2={[record.reporter_name, record.reporter_phone].filter(Boolean).join(' / ')}
++          />
++          <Row2 l1="รุ่นรถ" v1={record.model} l2="เลขรถ (Serial)" v2={record.serial} />
++          <Row2 l1="วันที่พบปัญหา" v1={record.found_date} l2="วันที่นำรถเข้าซ่อม" v2={record.repair_date} />
++          <Row2
++            l1="ชั่วโมงที่พบปัญหา"
++            v1={record.hours}
++            l2="ชั่วโมงที่นำรถเข้าซ่อม"
++            v2={record.hours_in_for_repair}
++          />
++          <Row2 l1="สาขาที่ดำเนินการ" v1={record.branch_name} l2="ช่างผู้ดำเนินการ" v2={record.technician_name} />
++          <Row2
++            l1="ระบบ"
++            v1={problemSystemLabel(record.problem_system)}
++            l2="สถานะการรับประกัน"
++            v2={record.warranty_status}
++          />
++          <RowFull label="อาการที่พบ" value={record.problem_code} />
++          {record.peripheral_equipment && <RowFull label="อุปกรณ์ต่อพ่วงที่ใช้งาน" value={record.peripheral_equipment} />}
++          {record.stock_note && <RowFull label="ที่มาของรถ" value={record.stock_note} />}
++          {record.lat !== null && record.lng !== null && (
++            <RowFull label="พิกัดภูมิศาสตร์ (GPS)">
++              <a
++                className="text-blue-700"
++                href={`https://www.openstreetmap.org/?mlat=${record.lat}&mlon=${record.lng}#map=16/${record.lat}/${record.lng}`}
++              >
++                {record.lat}, {record.lng} (เปิดแผนที่ OpenStreetMap)
++              </a>
++            </RowFull>
++          )}
++          {record.video_link && (
++            <RowFull label="วิดีโอปัญหา">
++              <a className="text-blue-700" href={record.video_link}>
++                เปิดวิดีโอ
++              </a>
++            </RowFull>
++          )}
++        </tbody>
++      </table>
++
++      <div className="mt-2.5 mb-3">
++        <h2 className="font-bold text-brand-redDark text-[12px] mb-1">รายละเอียดปัญหาที่ลูกค้าพบ</h2>
++        <p className="whitespace-pre-wrap leading-snug">{record.attachment || '-'}</p>
++      </div>
++
++      {hasRca && (
++        <table className="w-full border border-gray-300 border-collapse mb-3">
++          <tbody>
++            <tr>
++              <td colSpan={4} className="bg-red-50 border-b border-red-200 p-1.5 font-bold text-brand-redDark text-[12px]">
++                สาเหตุและการแก้ไข (RCA)
++              </td>
++            </tr>
++            {record.cause && <RowFull label="สาเหตุ" value={record.cause} />}
++            {record.damaged_parts && <RowFull label="ชิ้นส่วนที่เสียหาย" value={record.damaged_parts} />}
++            {record.technician_action && <RowFull label="การดำเนินการของช่าง" value={record.technician_action} />}
++            {record.corrective_action && <RowFull label="การแก้ไข (Corrective)" value={record.corrective_action} />}
++            {record.preventive_action && <RowFull label="การป้องกัน (Preventive)" value={record.preventive_action} />}
++          </tbody>
++        </table>
++      )}
++
++      {PHOTO_CATEGORIES.map((cat) => {
++        const photos = (record.photo_links ?? []).filter((p) => p.category === cat.key);
++        return (
++          <div key={cat.key} className="mb-2.5 break-inside-avoid">
++            <div className="bg-brand-redDark text-white text-[11px] font-bold px-2 py-1 mb-1.5">{cat.label}</div>
++            <div className="flex flex-wrap gap-2">
++              {photos.length > 0 ? (
++                photos.map((p, i) => (
++                  // eslint-disable-next-line @next/next/no-img-element
++                  <div key={i} className="w-[110px] border border-gray-300 p-1 break-inside-avoid">
++                    <img src={p.url} alt={p.label} className="w-full h-[85px] object-cover" />
++                    <p className="text-[8px] text-gray-500 text-center mt-0.5 truncate">{p.label}</p>
++                  </div>
++                ))
++              ) : (
++                <div className="w-[110px] h-[85px] border border-gray-300 bg-gray-50 flex items-center justify-center">
++                  <span className="text-[8px] text-gray-400">ไม่มีรูป</span>
++                </div>
++              )}
++            </div>
++          </div>
++        );
++      })}
++
++      <div className="mt-3 text-[9px] text-gray-400">
++        <p>
++          สร้างโดย {record.created_by ?? record.user_name ?? '-'} · {formatThaiDateTime(record.created_at)}
++          {record.updated_by
++            ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${formatThaiDateTime(record.updated_at)}`
++            : ''}
++        </p>
++        <p className="mt-0.5">เอกสารออกเมื่อ {formatThaiDateTime(new Date())} โดยระบบ MQR</p>
++        <p className="mt-0.5">{recordUrl}</p>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/(app)/sidebar.tsx b/src/app/(app)/sidebar.tsx
+index 6e5dec5..7b327bb 100644
+--- a/src/app/(app)/sidebar.tsx
++++ b/src/app/(app)/sidebar.tsx
+@@ -33,7 +33,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
+   ];
+ 
+   return (
+-    <aside className="w-64 bg-brand-dark text-white flex flex-col shrink-0">
++    <aside className="w-64 bg-brand-dark text-white flex flex-col shrink-0 print:hidden">
+       <div className="p-4 border-b border-white/10">
+         <div className="font-bold text-white">
+           Market <span className="text-brand-red">Quality</span> Report
+diff --git a/src/app/api/records/[jobId]/export/route.ts b/src/app/api/records/[jobId]/export/route.ts
+index aea45c6..bc0f61d 100644
+--- a/src/app/api/records/[jobId]/export/route.ts
++++ b/src/app/api/records/[jobId]/export/route.ts
+@@ -27,21 +27,33 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
+   const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
+   const safeJobId = record.job_id.replace(/[^a-zA-Z0-9_-]/g, '_');
+ 
+-  if (format === 'pdf') {
+-    const buf = await renderRecordPdf(record, origin, dealer?.full_name);
++  try {
++    if (format === 'pdf') {
++      const buf = await renderRecordPdf(record, origin, dealer?.full_name);
++      return new NextResponse(new Uint8Array(buf), {
++        headers: {
++          'Content-Type': 'application/pdf',
++          'Content-Disposition': `attachment; filename="${safeJobId}.pdf"`,
++        },
++      });
++    }
++
++    const buf = await buildSingleRecordWorkbook(record, dealer?.full_name);
+     return new NextResponse(new Uint8Array(buf), {
+       headers: {
+-        'Content-Type': 'application/pdf',
+-        'Content-Disposition': `attachment; filename="${safeJobId}.pdf"`,
++        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
++        'Content-Disposition': `attachment; filename="${safeJobId}.xlsx"`,
+       },
+     });
++  } catch (err: any) {
++    // Surface the real failure instead of a bare 500 - the previous PDF
++    // export crash (font fetch redirected to /login by the auth middleware)
++    // was only diagnosable by reading source, since Vercel's runtime logs
++    // aren't reachable from here; this makes the next failure self-evident.
++    console.error('record export error', err);
++    return NextResponse.json(
++      { ok: false, error: err?.message ?? 'เกิดข้อผิดพลาดในการสร้างไฟล์ส่งออก' },
++      { status: 500 }
++    );
+   }
+-
+-  const buf = await buildSingleRecordWorkbook(record, dealer?.full_name);
+-  return new NextResponse(new Uint8Array(buf), {
+-    headers: {
+-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+-      'Content-Disposition': `attachment; filename="${safeJobId}.xlsx"`,
+-    },
+-  });
+ }
+diff --git a/src/app/api/records/export/route.ts b/src/app/api/records/export/route.ts
+index 4291720..8f5aa52 100644
+--- a/src/app/api/records/export/route.ts
++++ b/src/app/api/records/export/route.ts
+@@ -26,21 +26,29 @@ export async function GET(req: NextRequest) {
+ 
+   const filenameBase = `qir-records-${new Date().toISOString().slice(0, 10)}`;
+ 
+-  if (format === 'pdf') {
+-    const buf = await renderRecordsListPdf(records, 'รายงานปัญหาคุณภาพทั้งหมด', origin);
++  try {
++    if (format === 'pdf') {
++      const buf = await renderRecordsListPdf(records, 'รายงานปัญหาคุณภาพทั้งหมด', origin);
++      return new NextResponse(new Uint8Array(buf), {
++        headers: {
++          'Content-Type': 'application/pdf',
++          'Content-Disposition': `attachment; filename="${filenameBase}.pdf"`,
++        },
++      });
++    }
++
++    const buf = await buildRecordsWorkbook(records);
+     return new NextResponse(new Uint8Array(buf), {
+       headers: {
+-        'Content-Type': 'application/pdf',
+-        'Content-Disposition': `attachment; filename="${filenameBase}.pdf"`,
++        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
++        'Content-Disposition': `attachment; filename="${filenameBase}.xlsx"`,
+       },
+     });
++  } catch (err: any) {
++    console.error('records list export error', err);
++    return NextResponse.json(
++      { ok: false, error: err?.message ?? 'เกิดข้อผิดพลาดในการสร้างไฟล์ส่งออก' },
++      { status: 500 }
++    );
+   }
+-
+-  const buf = await buildRecordsWorkbook(records);
+-  return new NextResponse(new Uint8Array(buf), {
+-    headers: {
+-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+-      'Content-Disposition': `attachment; filename="${filenameBase}.xlsx"`,
+-    },
+-  });
+ }
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 2c9b92e..a1d0787 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -1,15 +1,15 @@
+-@tailwind base;
+-@tailwind components;
+-@tailwind utilities;
+-
+-html, body {
+-  height: 100%;
+-}
+-
+-input, select, textarea {
+-  outline: none;
+-}
+-input:focus, select:focus, textarea:focus {
+-  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.35);
+-  border-color: #c8102e;
+-}
++@tailwind base;
++@tailwind components;
++@tailwind utilities;
++
++html, body {
++  height: 100%;
++}
++
++input, select, textarea {
++  outline: none;
++}
++input:focus, select:focus, textarea:focus {
++  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.35);
++  border-color: #c8102e;
++}
+diff --git a/src/lib/exportExcel.ts b/src/lib/exportExcel.ts
+index 2155f84..f2890fc 100644
+--- a/src/lib/exportExcel.ts
++++ b/src/lib/exportExcel.ts
+@@ -1,5 +1,6 @@
+ import ExcelJS from 'exceljs';
+ import { MqrRecord } from './types';
++import { formatThaiDateTime } from './thaiDate';
+ 
+ const LIST_COLUMNS: { header: string; key: string; width: number }[] = [
+   { header: 'เลขที่งาน', key: 'job_id', width: 22 },
+@@ -53,7 +54,7 @@ export async function buildRecordsWorkbook(records: MqrRecord[]): Promise<ExcelJ
+       cause: r.cause ?? '',
+       damaged_parts: r.damaged_parts ?? '',
+       user_name: r.user_name ?? '',
+-      created_at: r.created_at ? new Date(r.created_at).toLocaleString('th-TH') : '',
++      created_at: r.created_at ? formatThaiDateTime(r.created_at) : '',
+     });
+   }
+ 
+@@ -94,8 +95,8 @@ export async function buildSingleRecordWorkbook(
+     ['ที่มาของรถ (ถ้าไม่พบในระบบ)', record.stock_note ?? ''],
+     ['พิกัด', record.lat !== null && record.lng !== null ? `${record.lat}, ${record.lng}` : ''],
+     ['ผู้บันทึก', record.user_name ?? record.created_by ?? ''],
+-    ['วันที่บันทึก', record.created_at ? new Date(record.created_at).toLocaleString('th-TH') : ''],
+-    ['ปรับปรุงล่าสุด', record.updated_at ? new Date(record.updated_at).toLocaleString('th-TH') : ''],
++    ['วันที่บันทึก', record.created_at ? formatThaiDateTime(record.created_at) : ''],
++    ['ปรับปรุงล่าสุด', record.updated_at ? formatThaiDateTime(record.updated_at) : ''],
+   ];
+ 
+   rows.forEach(([label, value]) => {
+diff --git a/src/lib/exportPdf.tsx b/src/lib/exportPdf.tsx
+index 42666eb..8d10604 100644
+--- a/src/lib/exportPdf.tsx
++++ b/src/lib/exportPdf.tsx
+@@ -9,6 +9,7 @@ import {
+   STATUS_LABELS,
+   StatusValue,
+ } from './types';
++import { formatThaiDateTime } from './thaiDate';
+ 
+ let fontsRegisteredFor: string | null = null;
+ 
+@@ -190,7 +191,7 @@ function RecordsListDocument({ records, title }: { records: MqrRecord[]; title:
+       <Page size="A4" orientation="landscape" style={styles.page}>
+         <Text style={styles.title}>Market Quality Report</Text>
+         <Text style={styles.subtitle}>
+-          {title} — พิมพ์เมื่อ {new Date().toLocaleString('th-TH')} — จำนวน {records.length} งาน
++          {title} — พิมพ์เมื่อ {formatThaiDateTime(new Date())} — จำนวน {records.length} งาน
+         </Text>
+         <View style={styles.table}>
+           <View style={styles.rowHeader}>
+@@ -293,7 +294,7 @@ function RecordDocument({
+             <Text style={styles.subtitle}>
+               เลขที่งาน {record.job_id} — {dealerName ?? record.dealer_id}
+             </Text>
+-            <Text style={styles.subtitle}>พิมพ์เมื่อ {new Date().toLocaleString('th-TH')}</Text>
++            <Text style={styles.subtitle}>พิมพ์เมื่อ {formatThaiDateTime(new Date())}</Text>
+             <View style={styles.badgeRow}>
+               <Text style={[styles.badge, { backgroundColor: '#555' }]}>{statusLabel}</Text>
+               {record.severity && (
+@@ -404,12 +405,12 @@ function RecordDocument({
+         <View style={{ marginTop: 10 }}>
+           <Text style={styles.auditText}>
+             สร้างโดย {record.created_by ?? record.user_name ?? '-'} ·{' '}
+-            {new Date(record.created_at).toLocaleString('th-TH')}
++            {formatThaiDateTime(record.created_at)}
+             {record.updated_by
+-              ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${new Date(record.updated_at).toLocaleString('th-TH')}`
++              ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${formatThaiDateTime(record.updated_at)}`
+               : ''}
+           </Text>
+-          <Text style={styles.issuedText}>เอกสารออกเมื่อ {new Date().toLocaleString('th-TH')} โดยระบบ MQR</Text>
++          <Text style={styles.issuedText}>เอกสารออกเมื่อ {formatThaiDateTime(new Date())} โดยระบบ MQR</Text>
+         </View>
+ 
+         <Text style={styles.footer}>{recordUrl}</Text>
+diff --git a/src/lib/thaiDate.ts b/src/lib/thaiDate.ts
+index 802acc5..3cce8a1 100644
+--- a/src/lib/thaiDate.ts
++++ b/src/lib/thaiDate.ts
+@@ -2,6 +2,19 @@
+  *  We only ever convert *display* labels to พ.ศ.; all stored dates and SQL
+  *  filtering stay in Gregorian (ISO) form. */
+ 
++/** Bangkok is always UTC+7, no DST — safe to hard-code as a fixed IANA zone. */
++const BANGKOK_TZ = 'Asia/Bangkok';
++
++/** Format a timestamp as Thai date+time (พ.ศ., 24h clock) in Bangkok local
++ *  time, regardless of the server's own clock. Vercel's Node runtime clock
++ *  is UTC, so any `.toLocaleString('th-TH')` call without an explicit
++ *  timeZone silently renders 7 hours behind real Thai time — every such
++ *  call site must go through this helper instead. */
++export function formatThaiDateTime(value: string | number | Date): string {
++  const d = value instanceof Date ? value : new Date(value);
++  return d.toLocaleString('th-TH', { timeZone: BANGKOK_TZ });
++}
++
+ export const THAI_MONTHS_FULL = [
+   'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+   'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+diff --git a/src/middleware.ts b/src/middleware.ts
+index 57757b6..3666a75 100644
+--- a/src/middleware.ts
++++ b/src/middleware.ts
+@@ -41,5 +41,5 @@ export async function middleware(req: NextRequest) {
+ }
+ 
+ export const config = {
+-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
++  matcher: ['/((?!_next/static|_next/image|favicon.ico|fonts/).*)'],
+ };
+-- 
+2.34.1
+
