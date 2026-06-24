@@ -16,15 +16,32 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
   const dealer = await getDealer(record.dealer_id);
   const history = record.serial ? await getVehicleHistory(record.serial, session) : [];
   const otherHistory = history.filter((h) => h.job_id !== record.job_id);
+  const encodedJobId = encodeURIComponent(record.job_id);
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div>
-        <Link href="/records" className="text-sm text-gray-500 hover:underline">
-          ← กลับไปหน้ารายการ
-        </Link>
-        <h1 className="text-2xl font-bold text-brand-dark mt-1">{record.job_id}</h1>
-        <p className="text-sm text-gray-500">{dealer?.full_name ?? record.dealer_id}</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <Link href="/records" className="text-sm text-gray-500 hover:underline">
+            ← กลับไปหน้ารายการ
+          </Link>
+          <h1 className="text-2xl font-bold text-brand-dark mt-1">{record.job_id}</h1>
+          <p className="text-sm text-gray-500">{dealer?.full_name ?? record.dealer_id}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/records/${encodedJobId}/export?format=xlsx`}
+            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Export Excel
+          </a>
+          <a
+            href={`/api/records/${encodedJobId}/export?format=pdf`}
+            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Export PDF
+          </a>
+        </div>
       </div>
 
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">

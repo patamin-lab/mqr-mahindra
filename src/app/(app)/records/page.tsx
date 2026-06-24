@@ -30,13 +30,35 @@ export default async function RecordsPage({
 
   const dealers = seesAllDealers(session.role) ? await listDealers() : [];
 
+  const exportQuery = new URLSearchParams();
+  if (searchParams.status) exportQuery.set('status', searchParams.status);
+  if (searchParams.q) exportQuery.set('q', searchParams.q);
+  if (searchParams.dealerId) exportQuery.set('dealerId', searchParams.dealerId);
+  const exportQs = exportQuery.toString();
+  const exportHref = (format: 'xlsx' | 'pdf') =>
+    `/api/records/export?format=${format}${exportQs ? `&${exportQs}` : ''}`;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-brand-dark">ตรวจสอบสถานะงาน</h1>
-        <Link href="/report" className="text-sm px-4 py-2 rounded bg-brand-red text-white">
-          + แจ้งซ่อมใหม่
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={exportHref('xlsx')}
+            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Export Excel
+          </a>
+          <a
+            href={exportHref('pdf')}
+            className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Export PDF
+          </a>
+          <Link href="/report" className="text-sm px-4 py-2 rounded bg-brand-red text-white">
+            + แจ้งซ่อมใหม่
+          </Link>
+        </div>
       </div>
 
       <form className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 flex flex-wrap gap-3 items-end">

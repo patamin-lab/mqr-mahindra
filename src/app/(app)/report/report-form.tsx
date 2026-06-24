@@ -4,11 +4,16 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProblemCode, PHOTO_SLOTS } from '@/lib/types';
 import { calcWarranty } from '@/lib/warranty';
+import LocationPicker from './location-picker';
 
 interface VehicleInfo {
   serial: string;
   model: string | null;
   delivery_date: string | null;
+  engineSerial?: string | null;
+  productCode?: string | null;
+  pdiStatus?: string | null;
+  source?: 'supabase' | 'tractor_in_sheet' | 'both';
 }
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -32,7 +37,6 @@ export default function ReportForm({ problemCodes }: { problemCodes: ProblemCode
   const [attachment, setAttachment] = useState('');
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
-  const [locating, setLocating] = useState(false);
 
   const [photos, setPhotos] = useState<Record<string, File | null>>({});
   const [video, setVideo] = useState<File | null>(null);
@@ -79,20 +83,6 @@ export default function ReportForm({ problemCodes }: { problemCodes: ProblemCode
       setVehicleLoading(false);
       setVehicleChecked(true);
     }
-  }
-
-  function useCurrentLocation() {
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude);
-        setLng(pos.coords.longitude);
-        setLocating(false);
-      },
-      () => setLocating(false),
-      { timeout: 8000 }
-    );
   }
 
   async function uploadOne(file: File, label: string): Promise<string> {
@@ -219,7 +209,18 @@ export default function ReportForm({ problemCodes }: { problemCodes: ProblemCode
           </div>
           {vehicleChecked && !vehicleLoading && (
             <p className={`text-xs mt-1 ${vehicle ? 'text-green-600' : 'text-amber-600'}`}>
-              {vehicle ? `พบในระบบ: ${vehicle.model ?? ''}` : 'ไม่พบหมายเลขรถนี้ในระบบ — กรุณากรอกข้อมูลด้านล่างเอง'}
+              {vehicle
+                ? `พบในระบบ: ${vehicle.model ?? ''}${
+                    vehicle.source === 'tractor_in_sheet' ? ' (จากฐานข้อมูล Tractor IN — ยังไม่มีข้อมูลส่งมอบ)' : ''
+                  }`
+                : 'ไม่พบหมายเลขรถนี้ในระบบ — กรุณากรอกข้อมูลด้านล่างเอง'}
+            </p>
+          )}
+          {vehicle && (vehicle.engineSerial || vehicle.productCode) && (
+            <p className="text-xs mt-1 text-gray-500">
+              {vehicle.engineSerial ? `เลขเครื่องยนต์: ${vehicle.engineSerial}` : ''}
+              {vehicle.engineSerial && vehicle.productCode ? ' · ' : ''}
+              {vehicle.productCode ? `Product Code: ${vehicle.productCode}` : ''}
             </p>
           )}
         </div>
@@ -368,18 +369,8 @@ export default function ReportForm({ problemCodes }: { problemCodes: ProblemCode
           </div>
         </div>
         <div>
-          <button
-            type="button"
-            onClick={useCurrentLocation}
-            className="text-sm px-3 py-2 rounded border border-gray-300"
-          >
-            {locating ? 'กำลังระบุตำแหน่ง...' : 'ใช้ตำแหน่งปัจจุบัน'}
-          </button>
-          {lat !== null && lng !== null && (
-            <span className="text-xs text-gray-500 ml-2">
-              {lat.toFixed(5)}, {lng.toFixed(5)}
-            </span>
-          )}
+          <label className="block text-sm font-medium mb-1">พิกัดสถานที่ (ละติจูด, ลองจิจูด)</label>
+          <LocationPicker lat={lat} lng={lng} onChange={(la, ln) => { setLat(la); setLng(ln); }} />
         </div>
       </section>
 
