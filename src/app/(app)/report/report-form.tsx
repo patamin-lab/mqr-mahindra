@@ -64,6 +64,8 @@ export default function ReportForm({
   const [vehicle, setVehicle] = useState<VehicleInfo | null>(null);
   const [vehicleChecked, setVehicleChecked] = useState(false);
   const [vehicleLoading, setVehicleLoading] = useState(false);
+  const [allVehicles, setAllVehicles] = useState<VehicleSearchResult[]>([]);
+  const [vehicleListLoading, setVehicleListLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<VehicleSearchResult[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [model, setModel] = useState('');
@@ -183,35 +185,64 @@ export default function ReportForm({
     return calcWarranty(vehicle?.delivery_date ?? null, foundDate, problemSystem as 'powertrain' | 'other');
   }, [vehicle, foundDate, problemSystem]);
 
-  // Smart search: debounced partial-match lookup as the user types the serial.
+  // Preload the full vehicle list directly from Supabase once - the report
+  // form then renders it as a dropdown (filtered client-side as the user
+  // types) instead of debouncing a server search and requiring a manual
+  // "ตรวจสอบ" click before model/delivery date show up.
+  useEffect(() => {
+    const CACHE_KEY = 'mqr_vehicle_list_cache_v1';
+    const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min - long enough to cover one visit's worth of navigation, short enough to stay fresh within a shift
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { ts, results } = JSON.parse(cached);
+        if (Date.now() - ts < CACHE_TTL_MS && Array.isArray(results)) {
+          setAllVehicles(results);
+          setVehicleListLoading(false);
+          return; // skip the network round-trip entirely on repeat visits
+        }
+      }
+    } catch {
+      /* ignore corrupt/unavailable sessionStorage, fall through to fetch */
+    }
+    (async () => {
+      try {
+        const res = await fetch('/api/vehicles/list');
+        const json = await res.json();
+        if (json.ok) {
+          setAllVehicles(json.results);
+          try {
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), results: json.results }));
+          } catch {
+            /* sessionStorage full/unavailable - not critical */
+          }
+        }
+      } catch {
+        /* ignore - falls back to manual entry + the onBlur exact-lookup */
+      } finally {
+        setVehicleListLoading(false);
+      }
+    })();
+  }, []);
+
+  // Dropdown: show matches from the preloaded list as the user types, or the
+  // full list (capped) when the field is focused with nothing typed yet.
   useEffect(() => {
     if (vehicle) {
       setSearchResults([]);
       setSearchOpen(false);
       return;
     }
-    const term = serial.trim();
-    if (term.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/vehicles/search?q=${encodeURIComponent(term)}`);
-        const json = await res.json();
-        if (json.ok) {
-          setSearchResults(json.results);
-          setSearchOpen(json.results.length > 0);
-        }
-      } catch {
-        /* ignore */
-      }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [serial, vehicle]);
+    const term = serial.trim().toUpperCase();
+    const matches = term
+      ? allVehicles.filter((v) => v.serial.toUpperCase().includes(term)).slice(0, 30)
+      : allVehicles.slice(0, 30);
+    setSearchResults(matches);
+  }, [serial, vehicle, allVehicles]);
 
   function onSerialChange(value: string) {
     setSerial(value);
+    setSearchOpen(true);
     if (vehicle) {
       setVehicle(null);
       setVehicleChecked(false);
@@ -219,26 +250,34 @@ export default function ReportForm({
     }
   }
 
-  async function selectVehicleResult(r: VehicleSearchResult) {
-    setSearchOpen(false);
-    setSerial(r.serial);
-    setVehicleLoading(true);
-    try {
-      const res = await fetch(`/api/vehicles/${encodeURIComponent(r.serial)}`);
-      const json = await res.json();
-      if (json.ok && json.found) {
-        setVehicle(json.vehicle);
-        setModel(json.vehicle.model ?? '');
-      } else {
-        setVehicle({ serial: r.serial, model: r.model, delivery_date: r.deliveryDate, source: r.source });
-        setModel(r.model ?? '');
-      }
-    } finally {
-      setVehicleLoading(false);
-      setVehicleChecked(true);
-    }
+  function onSerialFocus() {
+    if (!vehicle) setSearchOpen(true);
   }
 
+  // Selecting from the dropdown fills model/delivery date immediately from
+  // the already-loaded Supabase data - no fetch, no "ตรวจสอบ" click.
+  function selectVehicleResult(r: VehicleSearchResult) {
+    setSearchOpen(false);
+    setSerial(r.serial);
+    setVehicle({ serial: r.serial, model: r.model, delivery_date: r.deliveryDate, source: r.source });
+    setModel(r.model ?? '');
+    setVehicleChecked(true);
+
+    // Best-effort, non-blocking enrichment (engine serial / product code /
+    // PDI status from the live Tractor IN sheet) - doesn't delay the autofill.
+    fetch(`/api/vehicles/${encodeURIComponent(r.serial)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.ok && json.found) setVehicle(json.vehicle);
+      })
+      .catch(() => {
+        /* ignore - the instant local autofill above already covers the form */
+      });
+  }
+
+  // Fallback for serials typed by hand that aren't in the preloaded dropdown
+  // list yet (e.g. a unit that just arrived, before the next sync). Runs
+  // automatically on blur - no manual "ตรวจสอบ" button needed.
   async function checkSerialExact() {
     if (!serial.trim() || vehicle) return;
     setVehicleLoading(true);
@@ -263,7 +302,9 @@ export default function ReportForm({
     const fd = new FormData();
     fd.append('file', file);
     fd.append('label', label);
+    fd.append('dealerId', effectiveDealerId);
     const res = await fetch('/api/upload', { method: 'POST', body: fd });
+    if (res.status === 401) throw new Error('SESSION_EXPIRED');
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || `อัปโหลด ${label} ไม่สำเร็จ`);
     return json.url as string;
@@ -364,6 +405,7 @@ export default function ReportForm({
           hoursInForRepair: hoursInForRepair === '' ? null : Number(hoursInForRepair),
         }),
       });
+      if (res.status === 401) throw new Error('SESSION_EXPIRED');
       const json = await res.json();
       if (!json.ok) {
         setError(json.error || 'บันทึกไม่สำเร็จ');
@@ -371,7 +413,13 @@ export default function ReportForm({
       }
       setSuccess({ jobId: json.record.job_id, warrantyStatus: json.warranty.status });
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      if (err?.message === 'SESSION_EXPIRED') {
+        setError(
+          'เซสชันของคุณหมดอายุ ข้อมูลที่กรอกจะยังอยู่ในหน้านี้ — กรุณาเปิดแท็บใหม่แล้วเข้าสู่ระบบอีกครั้ง จากนั้นกลับมาที่แท็บนี้และกด "บันทึกรายงานปัญหาคุณภาพ" อีกครั้ง'
+        );
+      } else {
+        setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -412,24 +460,24 @@ export default function ReportForm({
         <h2 className="font-semibold text-brand-dark">1. ข้อมูลรถ</h2>
         <div className="relative">
           <label className="block text-sm font-medium mb-1">หมายเลขรถ (Serial)</label>
-          <div className="flex gap-2">
-            <input
-              className="flex-1 border border-gray-300 rounded px-3 py-2"
-              value={serial}
-              onChange={(e) => onSerialChange(e.target.value)}
-              onBlur={() => setTimeout(checkSerialExact, 150)}
-              autoComplete="off"
-              placeholder="พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อค้นหา..."
-              required
-            />
-            <button
-              type="button"
-              onClick={checkSerialExact}
-              className="px-3 py-2 rounded border border-gray-300 text-sm whitespace-nowrap"
-            >
-              {vehicleLoading ? 'กำลังค้นหา...' : 'ตรวจสอบ'}
-            </button>
-          </div>
+          <input
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            value={serial}
+            onChange={(e) => onSerialChange(e.target.value)}
+            onFocus={onSerialFocus}
+            onBlur={() =>
+              setTimeout(() => {
+                setSearchOpen(false);
+                checkSerialExact();
+              }, 150)
+            }
+            autoComplete="off"
+            placeholder={vehicleListLoading ? 'กำลังโหลดรายการเลขรถ...' : 'เลือกจากรายการ หรือพิมพ์หมายเลขรถ...'}
+            required
+          />
+          {vehicleListLoading && (
+            <p className="text-xs text-gray-400 mt-1">กำลังโหลดรายการเลขรถ...</p>
+          )}
 
           {searchOpen && searchResults.length > 0 && (
             <ul className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg max-h-56 overflow-y-auto text-sm">
@@ -441,10 +489,7 @@ export default function ReportForm({
                     className="w-full text-left px-3 py-2 hover:bg-gray-50 flex justify-between items-center"
                   >
                     <span className="font-mono">{r.serial}</span>
-                    <span className="text-gray-500 text-xs">
-                      {r.model ?? ''}
-                      {r.source === 'tractor_in_sheet' ? ' · Tractor IN' : ''}
-                    </span>
+                    <span className="text-gray-500 text-xs">{r.model ?? ''}</span>
                   </button>
                 </li>
               ))}

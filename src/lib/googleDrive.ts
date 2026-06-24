@@ -83,11 +83,15 @@ async function getOrCreateFolder(
 }
 
 function fileUrlFor(fileId: string, mimeType: string): string {
-  // Images render inline (e.g. <img src>, react-pdf <Image>); everything
-  // else (video) gets Drive's normal viewer page, matching how video_link
-  // is already just an "open in new tab" link elsewhere in the app.
+  // Images render inline (e.g. <img src>, react-pdf <Image>). Drive's old
+  // `uc?export=view` link frequently serves an HTML interstitial instead of
+  // raw image bytes when hit from an <img src>, which is why thumbnails were
+  // showing as broken icons. The `thumbnail` endpoint reliably returns actual
+  // image bytes for publicly-shared files; `sz=w2000` keeps resolution high
+  // enough for the PDF export too. Non-images (video) keep the normal Drive
+  // viewer page link.
   return mimeType.startsWith('image/')
-    ? `https://drive.google.com/uc?export=view&id=${fileId}`
+    ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`
     : `https://drive.google.com/file/d/${fileId}/view`;
 }
 
