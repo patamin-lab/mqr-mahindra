@@ -51,7 +51,7 @@ async function getOrCreateFolder(
     q: `name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     fields: 'files(id,name)',
     supportsAllDrives: false,
-    includeItemsFromAllDrives: true,
+    includeItemsFromAllDrives: false,
     spaces: 'drive',
   });
   const existing = list.data.files?.[0];
