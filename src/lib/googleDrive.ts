@@ -50,7 +50,7 @@ async function getOrCreateFolder(
   const list = await drive.files.list({
     q: `name='${safeName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     fields: 'files(id,name)',
-    supportsAllDrives: true,
+    supportsAllDrives: false,
     includeItemsFromAllDrives: true,
     spaces: 'drive',
   });
@@ -64,7 +64,7 @@ async function getOrCreateFolder(
       parents: [parentId],
     },
     fields: 'id',
-    supportsAllDrives: true,
+    supportsAllDrives: false,
   });
   if (!created.data.id) throw new Error('สร้างโฟลเดอร์ใน Google Drive ไม่สำเร็จ');
   return created.data.id;
@@ -101,7 +101,7 @@ export async function uploadFileToDrive(params: DriveUploadParams): Promise<{ ur
     requestBody: { name: params.filename, parents: [targetFolderId] },
     media: { mimeType: params.mimeType, body: Readable.from(params.buffer) },
     fields: 'id',
-    supportsAllDrives: true,
+    supportsAllDrives: false,
   });
   const fileId = created.data.id;
   if (!fileId) throw new Error('อัปโหลดไฟล์ขึ้น Google Drive ไม่สำเร็จ');
@@ -109,7 +109,7 @@ export async function uploadFileToDrive(params: DriveUploadParams): Promise<{ ur
   await drive.permissions.create({
     fileId,
     requestBody: { role: 'reader', type: 'anyone' },
-    supportsAllDrives: true,
+    supportsAllDrives: false,
   });
 
   return { url: fileUrlFor(fileId, params.mimeType), fileId };
@@ -137,7 +137,7 @@ export async function relocatePendingFiles(
         fileId,
         addParents: jobFolderId,
         removeParents: pendingFolderId,
-        supportsAllDrives: true,
+        supportsAllDrives: false,
       })
     )
   );
