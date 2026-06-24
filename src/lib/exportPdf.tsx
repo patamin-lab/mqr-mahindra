@@ -307,8 +307,21 @@ function RecordDocument({
   photoDataUris: Map<string, string | null>;
 }) {
   const statusLabel = STATUS_LABELS[record.status as StatusValue] ?? record.status;
-  const hasRca =
-    record.cause || record.damaged_parts || record.technician_action || record.corrective_action || record.preventive_action;
+  // Coerced to a real boolean: with `||`, if every RCA field is null/undefined
+  // except a trailing empty string (''), `hasRca` would end up as `''` itself
+  // - a falsy value, but still a *string*, which React then tries to render
+  // as a direct child of the wrapping <View> below and react-pdf logs
+  // "Invalid '' string child outside <Text> component" for. Same issue
+  // applies to every other `someString && <Component/>` below: when the
+  // field is an empty string (not null/undefined), `&&` evaluates to that
+  // empty string and JSX renders it as-is instead of skipping it.
+  const hasRca = !!(
+    record.cause ||
+    record.damaged_parts ||
+    record.technician_action ||
+    record.corrective_action ||
+    record.preventive_action
+  );
 
   return (
     <Document>
@@ -322,11 +335,11 @@ function RecordDocument({
             <Text style={styles.subtitle}>พิมพ์เมื่อ {formatThaiDateTime(new Date())}</Text>
             <View style={styles.badgeRow}>
               <Text style={[styles.badge, { backgroundColor: '#555' }]}>{statusLabel}</Text>
-              {record.severity && (
+              {record.severity ? (
                 <Text style={[styles.badge, { backgroundColor: SEVERITY_COLORS[record.severity as Severity] }]}>
                   {SEVERITY_LABELS[record.severity as Severity]}
                 </Text>
-              )}
+              ) : null}
             </View>
           </View>
           <View>
@@ -354,9 +367,11 @@ function RecordDocument({
           <Row2 l1="สาขาที่ดำเนินการ" v1={record.branch_name} l2="ช่างผู้ดำเนินการ" v2={record.technician_name} />
           <Row2 l1="ระบบ" v1={problemSystemLabel(record.problem_system)} l2="สถานะการรับประกัน" v2={record.warranty_status} />
           <RowFull label="อาการที่พบ" value={record.problem_code} />
-          {record.peripheral_equipment && <RowFull label="อุปกรณ์ต่อพ่วงที่ใช้งาน" value={record.peripheral_equipment} />}
-          {record.stock_note && <RowFull label="ที่มาของรถ" value={record.stock_note} />}
-          {record.lat !== null && record.lng !== null && (
+          {record.peripheral_equipment ? (
+            <RowFull label="อุปกรณ์ต่อพ่วงที่ใช้งาน" value={record.peripheral_equipment} />
+          ) : null}
+          {record.stock_note ? <RowFull label="ที่มาของรถ" value={record.stock_note} /> : null}
+          {record.lat !== null && record.lng !== null ? (
             <RowFull label="พิกัดภูมิศาสตร์ (GPS)">
               <Link
                 style={styles.link}
@@ -365,14 +380,14 @@ function RecordDocument({
                 {record.lat}, {record.lng} (เปิดแผนที่ OpenStreetMap)
               </Link>
             </RowFull>
-          )}
-          {record.video_link && (
+          ) : null}
+          {record.video_link ? (
             <RowFull label="วิดีโอปัญหา">
               <Link style={styles.link} src={record.video_link}>
                 เปิดวิดีโอ
               </Link>
             </RowFull>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -385,11 +400,17 @@ function RecordDocument({
             <View style={styles.rcaHeaderRow}>
               <Text style={styles.rcaHeaderText}>สาเหตุและการแก้ไข (RCA)</Text>
             </View>
-            {record.cause && <RowFull label="สาเหตุ" value={record.cause} />}
-            {record.damaged_parts && <RowFull label="ชิ้นส่วนที่เสียหาย" value={record.damaged_parts} />}
-            {record.technician_action && <RowFull label="การดำเนินการของช่าง" value={record.technician_action} />}
-            {record.corrective_action && <RowFull label="การแก้ไข (Corrective)" value={record.corrective_action} />}
-            {record.preventive_action && <RowFull label="การป้องกัน (Preventive)" value={record.preventive_action} />}
+            {record.cause ? <RowFull label="สาเหตุ" value={record.cause} /> : null}
+            {record.damaged_parts ? <RowFull label="ชิ้นส่วนที่เสียหาย" value={record.damaged_parts} /> : null}
+            {record.technician_action ? (
+              <RowFull label="การดำเนินการของช่าง" value={record.technician_action} />
+            ) : null}
+            {record.corrective_action ? (
+              <RowFull label="การแก้ไข (Corrective)" value={record.corrective_action} />
+            ) : null}
+            {record.preventive_action ? (
+              <RowFull label="การป้องกัน (Preventive)" value={record.preventive_action} />
+            ) : null}
           </View>
         )}
 
