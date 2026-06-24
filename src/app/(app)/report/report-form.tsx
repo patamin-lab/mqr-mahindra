@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ProblemCode, PHOTO_SLOTS, Dealer, Branch, Technician } from '@/lib/types';
+import {
+  ProblemCode,
+  PHOTO_CATEGORIES,
+  PhotoLink,
+  Dealer,
+  Branch,
+  Technician,
+  Severity,
+  SEVERITY_VALUES,
+  SEVERITY_LABELS,
+} from '@/lib/types';
 import { calcWarranty } from '@/lib/warranty';
 import LocationPicker from './location-picker';
 
@@ -61,6 +71,9 @@ export default function ReportForm({
   const [hours, setHours] = useState('');
   const [foundDate, setFoundDate] = useState(todayStr());
   const [problemCodeId, setProblemCodeId] = useState('');
+  const [severity, setSeverity] = useState<Severity | ''>('');
+  const severityTouched = useRef(false);
+  const [peripheralEquipment, setPeripheralEquipment] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [reporterName, setReporterName] = useState('');
@@ -78,7 +91,8 @@ export default function ReportForm({
   const [repairDate, setRepairDate] = useState(todayStr());
   const [hoursInForRepair, setHoursInForRepair] = useState('');
 
-  const [photos, setPhotos] = useState<Record<string, File | null>>({});
+  const [evidencePhotos, setEvidencePhotos] = useState<File[]>([]);
+  const [locationPhotos, setLocationPhotos] = useState<File[]>([]);
   const [video, setVideo] = useState<File | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -140,6 +154,19 @@ export default function ReportForm({
     [problemCodes, problemCodeId]
   );
   const problemSystem = selectedCode?.system ?? 'other';
+
+  // Auto-fill severity from the failure code's default, but stop overriding
+  // once the user has manually picked a severity of their own.
+  useEffect(() => {
+    if (selectedCode?.default_severity && !severityTouched.current) {
+      setSeverity(selectedCode.default_severity);
+    }
+  }, [selectedCode]);
+
+  function onSeverityChange(value: Severity | '') {
+    severityTouched.current = true;
+    setSeverity(value);
+  }
 
   const grouped = useMemo(() => {
     const map = new Map<string, ProblemCode[]>();
@@ -249,6 +276,14 @@ export default function ReportForm({
       setError('กรุณากรอกหมายเลขรถ วันที่พบปัญหา และอาการที่พบ ให้ครบถ้วน');
       return;
     }
+    if (!severity) {
+      setError('กรุณาเลือกความรุนแรงของปัญหา');
+      return;
+    }
+    if (evidencePhotos.length === 0) {
+      setError('กรุณาแนบภาพหลักฐานปัญหาอย่างน้อย 1 รูป');
+      return;
+    }
     if (!vehicle && !stockNote) {
       setError('ไม่พบหมายเลขรถในระบบ กรุณาระบุที่มาของรถ (สต็อก/อื่นๆ)');
       return;
@@ -284,13 +319,16 @@ export default function ReportForm({
 
     setSubmitting(true);
     try {
-      const photoLinks: { label: string; url: string }[] = [];
-      for (const slot of PHOTO_SLOTS) {
-        const file = photos[slot.key];
-        if (file) {
-          const url = await uploadOne(file, slot.label);
-          photoLinks.push({ label: slot.label, url });
-        }
+      const photoLinks: PhotoLink[] = [];
+      for (let i = 0; i < evidencePhotos.length; i++) {
+        const label = `ภาพหลักฐานปัญหา ${i + 1}`;
+        const url = await uploadOne(evidencePhotos[i], label);
+        photoLinks.push({ category: 'problem_evidence', label, url });
+      }
+      for (let i = 0; i < locationPhotos.length; i++) {
+        const label = `ภาพตำแหน่งที่เกิดปัญหา ${i + 1}`;
+        const url = await uploadOne(locationPhotos[i], label);
+        photoLinks.push({ category: 'problem_location', label, url });
       }
       let videoLink: string | null = null;
       if (video) {
@@ -307,6 +345,8 @@ export default function ReportForm({
           foundDate,
           problemCode: selectedCode?.label ?? '',
           problemSystem,
+          severity,
+          peripheralEquipment,
           customerName,
           customerPhone,
           reporterName,
@@ -531,6 +571,31 @@ export default function ReportForm({
           )}
         </div>
         <div>
+          <label className="block text-sm font-medium mb-1">ความรุนแรงของปัญหา</label>
+          <select
+            className="w-full sm:w-72 border border-gray-300 rounded px-3 py-2"
+            value={severity}
+            onChange={(e) => onSeverityChange(e.target.value as Severity | '')}
+            required
+          >
+            <option value="">-- เลือกความรุนแรง --</option>
+            {SEVERITY_VALUES.map((s) => (
+              <option key={s} value={s}>
+                {SEVERITY_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">อุปกรณ์ต่อพ่วงที่ใช้งาน (ถ้ามี)</label>
+          <input
+            className="w-full border border-gray-300 rounded px-3 py-2"
+            value={peripheralEquipment}
+            onChange={(e) => setPeripheralEquipment(e.target.value)}
+            placeholder="เช่น ผาลไถ, เครื่องตัดหญ้า"
+          />
+        </div>
+        <div>
           <label className="block text-sm font-medium mb-1">รายละเอียดปัญหาที่ลูกค้าพบ</label>
           <textarea
             className="w-full border border-gray-300 rounded px-3 py-2"
@@ -668,17 +733,36 @@ export default function ReportForm({
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
         <h2 className="font-semibold text-brand-dark">4. รูปภาพ / วิดีโอ</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {PHOTO_SLOTS.map((slot) => (
-            <div key={slot.key}>
-              <label className="block text-sm font-medium mb-1">{slot.label}</label>
-              <input
-                type="file"
-                accept="image/*"
-                className="w-full text-sm"
-                onChange={(e) => setPhotos((p) => ({ ...p, [slot.key]: e.target.files?.[0] ?? null }))}
-              />
-            </div>
-          ))}
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              {PHOTO_CATEGORIES[0].label} <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="file"
+              accept="image/*,.heic,.heif"
+              multiple
+              className="w-full text-sm"
+              onChange={(e) => setEvidencePhotos(Array.from(e.target.files ?? []))}
+              required={evidencePhotos.length === 0}
+            />
+            <p className="text-xs text-gray-400 mt-1">เลือกได้หลายรูป เช่น หมายเลขรถ, เรือนไมล์, อาการที่พบ</p>
+            {evidencePhotos.length > 0 && (
+              <p className="text-xs text-green-600 mt-1">เลือกแล้ว {evidencePhotos.length} รูป</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{PHOTO_CATEGORIES[1].label}</label>
+            <input
+              type="file"
+              accept="image/*,.heic,.heif"
+              multiple
+              className="w-full text-sm"
+              onChange={(e) => setLocationPhotos(Array.from(e.target.files ?? []))}
+            />
+            {locationPhotos.length > 0 && (
+              <p className="text-xs text-green-600 mt-1">เลือกแล้ว {locationPhotos.length} รูป</p>
+            )}
+          </div>
           <div>
             <label className="block text-sm font-medium mb-1">วิดีโอปัญหา (ถ้ามี)</label>
             <input
@@ -689,6 +773,9 @@ export default function ReportForm({
             />
           </div>
         </div>
+        <p className="text-xs text-gray-400">
+          รูปหลังการแก้ไขสามารถแนบเพิ่มได้หลังปิดงาน ในหน้ารายละเอียดรายงาน
+        </p>
       </section>
 
       <button

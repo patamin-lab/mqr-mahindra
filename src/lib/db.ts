@@ -1,6 +1,19 @@
 import { getSupabase } from './supabase';
 import { seesAllDealers, seesOwnRecordsOnly, canDelete } from './scope';
-import { SessionUser, Dealer, Vehicle, ProblemCode, Technician, Branch, MqrRecord, OPEN_STATUSES, AdminUser, Role } from './types';
+import {
+  SessionUser,
+  Dealer,
+  Vehicle,
+  ProblemCode,
+  Technician,
+  Branch,
+  MqrRecord,
+  OPEN_STATUSES,
+  AdminUser,
+  Role,
+  PhotoLink,
+  Severity,
+} from './types';
 
 // ---------- Auth / users ----------
 
@@ -63,15 +76,78 @@ export async function getVehicleBySerial(serial: string, dealerId: string | null
   return data;
 }
 
+/** Active failure-taxonomy entries only - powers the report form's dropdown. */
 export async function listProblemCodes(): Promise<ProblemCode[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('problem_codes')
     .select('*')
+    .eq('active', true)
     .order('group_name')
     .order('label');
   if (error) throw error;
   return data ?? [];
+}
+
+/** Full failure-taxonomy list (including inactive) - admin management UI only. */
+export async function listAllProblemCodesAdmin(): Promise<ProblemCode[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('problem_codes').select('*').order('group_name').order('label');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createProblemCode(
+  input: {
+    code: string | null;
+    label: string;
+    groupName: string;
+    system: 'powertrain' | 'other';
+    defaultSeverity: Severity | null;
+  },
+  session: SessionUser
+): Promise<ProblemCode> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('problem_codes')
+    .insert({
+      code: input.code,
+      label: input.label,
+      group_name: input.groupName,
+      system: input.system,
+      default_severity: input.defaultSeverity,
+      created_by: session.username,
+      updated_by: session.username,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as ProblemCode;
+}
+
+export async function updateProblemCode(
+  id: string,
+  patch: Partial<{
+    code: string | null;
+    label: string;
+    groupName: string;
+    system: 'powertrain' | 'other';
+    defaultSeverity: Severity | null;
+    active: boolean;
+  }>,
+  session: SessionUser
+): Promise<ProblemCode> {
+  const supabase = getSupabase();
+  const updatePayload: Record<string, unknown> = { updated_by: session.username, updated_at: new Date().toISOString() };
+  if (patch.code !== undefined) updatePayload.code = patch.code;
+  if (patch.label !== undefined) updatePayload.label = patch.label;
+  if (patch.groupName !== undefined) updatePayload.group_name = patch.groupName;
+  if (patch.system !== undefined) updatePayload.system = patch.system;
+  if (patch.defaultSeverity !== undefined) updatePayload.default_severity = patch.defaultSeverity;
+  if (patch.active !== undefined) updatePayload.active = patch.active;
+  const { data, error } = await supabase.from('problem_codes').update(updatePayload).eq('id', id).select('*').single();
+  if (error) throw error;
+  return data as ProblemCode;
 }
 
 /** Active technicians only - used to populate the report form's cascading dropdown. */
@@ -186,6 +262,8 @@ export interface CreateRecordInput {
   problemCode: string;
   problemSystem: 'powertrain' | 'other';
   warrantyStatus: string;
+  severity: Severity;
+  peripheralEquipment: string | null;
   customerName: string;
   customerPhone: string;
   reporterName: string;
@@ -194,7 +272,7 @@ export interface CreateRecordInput {
   stockNote: string | null;
   lat: number | null;
   lng: number | null;
-  photoLinks: { label: string; url: string }[];
+  photoLinks: PhotoLink[];
   videoLink: string | null;
   /** Only honored when the session role sees all dealers; otherwise forced to session.dealerId. */
   dealerId?: string | null;
@@ -232,6 +310,13 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
     throw new Error('ชั่วโมงการใช้งานขณะนำเข้าซ่อม ต้องไม่น้อยกว่าชั่วโมงขณะพบปัญหา');
   }
 
+  // Defense in depth: the report form requires >=1 "problem evidence" photo,
+  // but re-check server-side since the client cannot be trusted.
+  const hasEvidencePhoto = input.photoLinks.some((p) => p.category === 'problem_evidence');
+  if (!hasEvidencePhoto) {
+    throw new Error('กรุณาแนบภาพหลักฐานปัญหาอย่างน้อย 1 รูป');
+  }
+
   const jobId = await nextJobId();
   const { data, error } = await supabase
     .from('records')
@@ -245,6 +330,8 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       problem_code: input.problemCode,
       problem_system: input.problemSystem,
       warranty_status: input.warrantyStatus,
+      severity: input.severity,
+      peripheral_equipment: input.peripheralEquipment,
       status: 'Open',
       customer_name: input.customerName,
       customer_phone: input.customerPhone,
@@ -327,10 +414,15 @@ export async function getRecordByJobId(jobId: string, session: SessionUser): Pro
 
 export interface UpdateRecordInput {
   status?: string;
+  severity?: Severity;
   cause?: string;
   damagedParts?: string;
-  afterPhotoLink?: string;
-  techName?: string;
+  peripheralEquipment?: string;
+  technicianAction?: string;
+  correctiveAction?: string;
+  preventiveAction?: string;
+  /** Newly-uploaded photos (e.g. after-repair) to append to the existing photo_links array. */
+  addPhotoLinks?: PhotoLink[];
 }
 
 export async function updateRecord(jobId: string, patch: UpdateRecordInput, session: SessionUser): Promise<MqrRecord> {
@@ -344,9 +436,16 @@ export async function updateRecord(jobId: string, patch: UpdateRecordInput, sess
     updated_by: session.username,
   };
   if (patch.status !== undefined) updatePayload.status = patch.status;
+  if (patch.severity !== undefined) updatePayload.severity = patch.severity;
   if (patch.cause !== undefined) updatePayload.cause = patch.cause;
   if (patch.damagedParts !== undefined) updatePayload.damaged_parts = patch.damagedParts;
-  if (patch.afterPhotoLink !== undefined) updatePayload.after_photo_link = patch.afterPhotoLink;
+  if (patch.peripheralEquipment !== undefined) updatePayload.peripheral_equipment = patch.peripheralEquipment;
+  if (patch.technicianAction !== undefined) updatePayload.technician_action = patch.technicianAction;
+  if (patch.correctiveAction !== undefined) updatePayload.corrective_action = patch.correctiveAction;
+  if (patch.preventiveAction !== undefined) updatePayload.preventive_action = patch.preventiveAction;
+  if (patch.addPhotoLinks && patch.addPhotoLinks.length > 0) {
+    updatePayload.photo_links = [...(existing.photo_links ?? []), ...patch.addPhotoLinks];
+  }
 
   const { data, error } = await supabase
     .from('records')

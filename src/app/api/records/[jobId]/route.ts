@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getRecordByJobId, updateRecord, softDeleteRecord } from '@/lib/db';
 import { canUpdateStatus, canDelete } from '@/lib/scope';
+import { PhotoLink, Severity } from '@/lib/types';
+
+const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 
 export async function GET(req: NextRequest, { params }: { params: { jobId: string } }) {
   const session = await getSession();
@@ -25,13 +28,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
   }
   try {
     const body = await req.json();
+    if (body.severity !== undefined && body.severity !== null && !SEVERITY_VALUES.includes(body.severity)) {
+      return NextResponse.json({ ok: false, error: 'ความรุนแรงไม่ถูกต้อง' }, { status: 400 });
+    }
+    const addPhotoLinks: PhotoLink[] | undefined = Array.isArray(body.addPhotoLinks)
+      ? body.addPhotoLinks
+      : undefined;
     const record = await updateRecord(
       decodeURIComponent(params.jobId),
       {
         status: body.status,
+        severity: body.severity || undefined,
         cause: body.cause,
         damagedParts: body.damagedParts,
-        afterPhotoLink: body.afterPhotoLink,
+        peripheralEquipment: body.peripheralEquipment,
+        technicianAction: body.technicianAction,
+        correctiveAction: body.correctiveAction,
+        preventiveAction: body.preventiveAction,
+        addPhotoLinks,
       },
       session
     );

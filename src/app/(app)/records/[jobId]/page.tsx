@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { getRecordByJobId, getVehicleHistory, getDealer } from '@/lib/db';
 import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
-import { STATUS_LABELS, StatusValue } from '@/lib/types';
+import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity, PHOTO_CATEGORIES, PhotoCategory } from '@/lib/types';
 import UpdateForm from './update-form';
 import DeleteButton from './delete-button';
 
@@ -34,6 +34,19 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
               {STATUS_LABELS[record.status as StatusValue] ?? record.status}
             </span>
+            {record.severity && (
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  record.severity === 'Critical'
+                    ? 'bg-red-100 text-red-700'
+                    : record.severity === 'Major'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}
+              >
+                {SEVERITY_LABELS[record.severity as Severity]}
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-500">{dealer?.full_name ?? record.dealer_id}</p>
         </div>
@@ -91,6 +104,12 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
           <div className="text-gray-400 text-xs">ผู้แจ้ง</div>
           <div>{record.reporter_name ?? '-'} {record.reporter_phone ? `(${record.reporter_phone})` : ''}</div>
         </div>
+        {record.peripheral_equipment && (
+          <div>
+            <div className="text-gray-400 text-xs">อุปกรณ์ต่อพ่วงที่ใช้งาน</div>
+            <div>{record.peripheral_equipment}</div>
+          </div>
+        )}
         <div className="sm:col-span-2">
           <div className="text-gray-400 text-xs">รายละเอียดปัญหาที่ลูกค้าพบ</div>
           <div className="whitespace-pre-wrap">{record.attachment ?? '-'}</div>
@@ -115,25 +134,64 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
         )}
       </section>
 
-      {(record.photo_links?.length || record.video_link || record.after_photo_link) && (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h2 className="font-semibold text-brand-dark mb-3">รูปภาพ / วิดีโอ</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {(record.photo_links ?? []).map((p, i) => (
-              <a key={i} href={p.url} target="_blank" className="block">
-                <img src={p.url} alt={p.label} className="rounded border border-gray-200 aspect-square object-cover" />
-                <div className="text-xs text-gray-500 mt-1 truncate">{p.label}</div>
-              </a>
-            ))}
-            {record.after_photo_link && (
-              <a href={record.after_photo_link} target="_blank" className="block">
-                <img src={record.after_photo_link} alt="หลังซ่อม" className="rounded border border-gray-200 aspect-square object-cover" />
-                <div className="text-xs text-gray-500 mt-1">รูปหลังซ่อม</div>
-              </a>
-            )}
-          </div>
+      {(record.cause || record.damaged_parts || record.technician_action || record.corrective_action || record.preventive_action) && (
+        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <h2 className="font-semibold text-brand-dark sm:col-span-2">สาเหตุและการแก้ไข (RCA)</h2>
+          {record.cause && (
+            <div>
+              <div className="text-gray-400 text-xs">สาเหตุ</div>
+              <div className="whitespace-pre-wrap">{record.cause}</div>
+            </div>
+          )}
+          {record.damaged_parts && (
+            <div>
+              <div className="text-gray-400 text-xs">ชิ้นส่วนที่เสียหาย</div>
+              <div className="whitespace-pre-wrap">{record.damaged_parts}</div>
+            </div>
+          )}
+          {record.technician_action && (
+            <div>
+              <div className="text-gray-400 text-xs">การดำเนินการของช่าง</div>
+              <div className="whitespace-pre-wrap">{record.technician_action}</div>
+            </div>
+          )}
+          {record.corrective_action && (
+            <div>
+              <div className="text-gray-400 text-xs">การแก้ไข (Corrective Action)</div>
+              <div className="whitespace-pre-wrap">{record.corrective_action}</div>
+            </div>
+          )}
+          {record.preventive_action && (
+            <div className="sm:col-span-2">
+              <div className="text-gray-400 text-xs">การป้องกัน (Preventive Action)</div>
+              <div className="whitespace-pre-wrap">{record.preventive_action}</div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {(record.photo_links?.length || record.video_link) && (
+        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+          <h2 className="font-semibold text-brand-dark">รูปภาพ / วิดีโอ</h2>
+          {PHOTO_CATEGORIES.map((cat) => {
+            const photos = (record.photo_links ?? []).filter((p) => p.category === cat.key);
+            if (photos.length === 0) return null;
+            return (
+              <div key={cat.key}>
+                <div className="text-xs text-gray-400 mb-2">{cat.label}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {photos.map((p, i) => (
+                    <a key={i} href={p.url} target="_blank" className="block">
+                      <img src={p.url} alt={p.label} className="rounded border border-gray-200 aspect-square object-cover" />
+                      <div className="text-xs text-gray-500 mt-1 truncate">{p.label}</div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
           {record.video_link && (
-            <a href={record.video_link} target="_blank" className="inline-block mt-3 text-sm text-brand-red hover:underline">
+            <a href={record.video_link} target="_blank" className="inline-block text-sm text-brand-red hover:underline">
               ▶ ดูวิดีโอปัญหา
             </a>
           )}

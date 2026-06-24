@@ -26,11 +26,22 @@ export interface Vehicle {
   dealer_id: string | null;
 }
 
+export type Severity = 'Critical' | 'Major' | 'Minor';
+export const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
+export const SEVERITY_LABELS: Record<Severity, string> = {
+  Critical: 'วิกฤต (รถใช้งานไม่ได้ / ความปลอดภัย)',
+  Major: 'สำคัญ (กระทบการใช้งาน)',
+  Minor: 'เล็กน้อย (ไม่กระทบการใช้งานหลัก)',
+};
+
 export interface ProblemCode {
   id: string;
+  code?: string | null;
   label: string;
   system: 'powertrain' | 'other';
   group_name: string | null;
+  default_severity?: Severity | null;
+  active?: boolean;
 }
 
 export interface Technician {
@@ -65,7 +76,18 @@ export interface AdminUser {
   created_at: string;
 }
 
+export type PhotoCategory = 'problem_evidence' | 'problem_location' | 'after_repair';
+
+/** 3-category restructure (Phase 4): each uploaded photo is tagged with which
+ *  category it belongs to, replacing the old fixed 9-slot layout. */
+export const PHOTO_CATEGORIES: { key: PhotoCategory; label: string; required: boolean }[] = [
+  { key: 'problem_evidence', label: 'ภาพหลักฐานปัญหา (หมายเลขรถ/เรือนไมล์/อาการที่พบ)', required: true },
+  { key: 'problem_location', label: 'ภาพตำแหน่ง/จุดที่เกิดปัญหา', required: false },
+  { key: 'after_repair', label: 'ภาพหลังการแก้ไข', required: false },
+];
+
 export interface PhotoLink {
+  category: PhotoCategory;
   label: string;
   url: string;
 }
@@ -93,8 +115,13 @@ export interface MqrRecord {
   technician_name: string | null;
   repair_date: string | null;
   hours_in_for_repair: number | null;
+  severity: Severity | null;
   cause: string | null;
   damaged_parts: string | null;
+  peripheral_equipment: string | null;
+  technician_action: string | null;
+  corrective_action: string | null;
+  preventive_action: string | null;
   attachment: string | null;
   stock_note: string | null;
   lat: number | null;
@@ -102,7 +129,6 @@ export interface MqrRecord {
   pdf_link: string | null;
   photo_links: PhotoLink[] | null;
   video_link: string | null;
-  after_photo_link: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -135,13 +161,3 @@ export const STATUS_LABELS: Record<StatusValue, string> = {
 };
 
 export const OPEN_STATUSES = STATUS_VALUES.filter((s) => s !== 'Closed');
-
-export const PHOTO_SLOTS: { key: string; label: string }[] = [
-  { key: 'vehicle_number', label: 'รูปหมายเลขรถ' },
-  { key: 'hour_meter', label: 'รูปเรือนไมล์' },
-  { key: 'far_angle', label: 'รูปมุมไกล' },
-  { key: 'near_1', label: 'รูปมุมใกล้ (1)' },
-  { key: 'near_2', label: 'รูปมุมใกล้ (2)' },
-  { key: 'near_3', label: 'รูปมุมใกล้ (3)' },
-  { key: 'near_4', label: 'รูปมุมใกล้ (4)' },
-];

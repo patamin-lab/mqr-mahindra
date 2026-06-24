@@ -28,6 +28,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
     ...(showDealers ? [{ href: '/admin/dealers', label: 'ดีลเลอร์' }] : []),
     { href: '/admin/branches', label: 'สาขา' },
     { href: '/admin/technicians', label: 'ช่างซ่อม' },
+    ...(showDealers ? [{ href: '/admin/problem-codes', label: 'หมวดปัญหา/อาการเสีย' }] : []),
     { href: '/admin/users', label: 'ผู้ใช้งาน' },
   ];
 

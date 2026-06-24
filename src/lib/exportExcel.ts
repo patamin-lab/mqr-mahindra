@@ -116,9 +116,6 @@ export async function buildSingleRecordWorkbook(
   if (record.video_link) {
     sheet.addRow(['วิดีโอ', record.video_link]);
   }
-  if (record.after_photo_link) {
-    sheet.addRow(['รูปหลังซ่อม', record.after_photo_link]);
-  }
 
   return wb.xlsx.writeBuffer();
 }

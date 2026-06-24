@@ -107,10 +107,7 @@ function FieldRow({ label, value }: { label: string; value?: string | number | n
 }
 
 function RecordDocument({ record, dealerName }: { record: MqrRecord; dealerName?: string }) {
-  const allPhotos = [
-    ...(record.photo_links ?? []),
-    ...(record.after_photo_link ? [{ label: 'หลังซ่อม', url: record.after_photo_link }] : []),
-  ];
+  const allPhotos = record.photo_links ?? [];
   return (
     <Document>
       <Page size="A4" style={styles.page}>

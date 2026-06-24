@@ -3,6 +3,9 @@ import { getSession } from '@/lib/auth';
 import { createRecord, getVehicleBySerial } from '@/lib/db';
 import { calcWarranty } from '@/lib/warranty';
 import { seesAllDealers } from '@/lib/scope';
+import { PhotoLink, Severity } from '@/lib/types';
+
+const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 
 const THAI_MOBILE_RE = /^0[0-9]{9}$/;
 
@@ -36,6 +39,14 @@ export async function POST(req: NextRequest) {
     }
     if (!customerName) {
       return NextResponse.json({ ok: false, error: 'กรุณากรอกชื่อลูกค้า' }, { status: 400 });
+    }
+    const severity = body.severity as Severity;
+    if (!SEVERITY_VALUES.includes(severity)) {
+      return NextResponse.json({ ok: false, error: 'กรุณาเลือกความรุนแรงของปัญหา' }, { status: 400 });
+    }
+    const photoLinks: PhotoLink[] = Array.isArray(body.photoLinks) ? body.photoLinks : [];
+    if (!photoLinks.some((p) => p?.category === 'problem_evidence')) {
+      return NextResponse.json({ ok: false, error: 'กรุณาแนบภาพหลักฐานปัญหาอย่างน้อย 1 รูป' }, { status: 400 });
     }
     if (customerPhone && !THAI_MOBILE_RE.test(customerPhone)) {
       return NextResponse.json({ ok: false, error: 'เบอร์โทรลูกค้าไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)' }, { status: 400 });
@@ -76,6 +87,8 @@ export async function POST(req: NextRequest) {
         problemCode,
         problemSystem,
         warrantyStatus: warranty.status,
+        severity,
+        peripheralEquipment: body.peripheralEquipment ? String(body.peripheralEquipment) : null,
         customerName,
         customerPhone,
         reporterName: String(body.reporterName ?? ''),
@@ -84,7 +97,7 @@ export async function POST(req: NextRequest) {
         stockNote: vehicle ? null : String(body.stockNote ?? ''),
         lat: body.lat === undefined || body.lat === null || body.lat === '' ? null : Number(body.lat),
         lng: body.lng === undefined || body.lng === null || body.lng === '' ? null : Number(body.lng),
-        photoLinks: Array.isArray(body.photoLinks) ? body.photoLinks : [],
+        photoLinks,
         videoLink: body.videoLink ? String(body.videoLink) : null,
         dealerId: dealerIdForLookup,
         branchId: body.branchId ? String(body.branchId) : null,
