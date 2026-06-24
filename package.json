@@ -17,15 +17,18 @@
     "leaflet": "^1.9.4",
     "next": "14.2.35",
     "papaparse": "^5.5.4",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-leaflet": "^4.2.1",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "resend": "^6.14.0"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20.14.0",
     "@types/papaparse": "^5.5.2",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",

@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getRecordByJobId, updateRecord, softDeleteRecord } from '@/lib/db';
+import { getRecordByJobId, updateRecord, softDeleteRecord, getDealer } from '@/lib/db';
 import { canUpdateStatus, canDelete } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
+import { sendRecordNotification } from '@/lib/email';
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
+// Per spec section 8: the second notification email fires when a job is
+// closed out ("ปิดงาน" / ซ่อมสำเร็จ). Only fire once, on the transition into
+// this set — not on every subsequent edit while already closed.
+const CLOSING_STATUSES = new Set(['Repaired', 'Closed']);
 
 export async function GET(req: NextRequest, { params }: { params: { jobId: string } }) {
   const session = await getSession();
@@ -34,8 +39,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
     const addPhotoLinks: PhotoLink[] | undefined = Array.isArray(body.addPhotoLinks)
       ? body.addPhotoLinks
       : undefined;
+
+    const jobId = decodeURIComponent(params.jobId);
+    const before = await getRecordByJobId(jobId, session);
+    const wasAlreadyClosed = before ? CLOSING_STATUSES.has(before.status) : false;
+
     const record = await updateRecord(
-      decodeURIComponent(params.jobId),
+      jobId,
       {
         status: body.status,
         severity: body.severity || undefined,
@@ -49,6 +59,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
       },
       session
     );
+
+    const justClosed = !wasAlreadyClosed && CLOSING_STATUSES.has(record.status);
+    if (justClosed) {
+      try {
+        const dealer = await getDealer(record.dealer_id);
+        await sendRecordNotification(record, dealer?.full_name, new URL(req.url).origin, 'closed');
+      } catch (err) {
+        console.error('notification email error (closed)', err);
+      }
+    }
+
     return NextResponse.json({ ok: true, record });
   } catch (err: any) {
     console.error('update record error', err);

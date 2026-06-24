@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { createRecord, getVehicleBySerial } from '@/lib/db';
+import { createRecord, getVehicleBySerial, getDealer } from '@/lib/db';
 import { calcWarranty } from '@/lib/warranty';
 import { seesAllDealers } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
+import { sendRecordNotification } from '@/lib/email';
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 
@@ -107,6 +108,15 @@ export async function POST(req: NextRequest) {
       },
       session
     );
+
+    // Per spec section 8: send the PDF report email as soon as the job is
+    // reported. A failed/unconfigured email must never fail the create.
+    try {
+      const dealer = await getDealer(record.dealer_id);
+      await sendRecordNotification(record, dealer?.full_name, new URL(req.url).origin, 'created');
+    } catch (err) {
+      console.error('notification email error (create)', err);
+    }
 
     return NextResponse.json({ ok: true, record, warranty });
   } catch (err: any) {
