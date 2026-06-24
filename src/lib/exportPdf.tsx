@@ -32,8 +32,8 @@ function ensureFontsRegistered(baseUrl: string) {
   Font.register({
     family: 'Sarabun',
     fonts: [
-      { src: `${baseUrl}/fonts/Sarabun-Regular.woff`, fontWeight: 'normal' },
-      { src: `${baseUrl}/fonts/Sarabun-Bold.woff`, fontWeight: 'bold' },
+      { src: `${baseUrl}/fonts/Sarabun-Regular.ttf`, fontWeight: 'normal' },
+      { src: `${baseUrl}/fonts/Sarabun-Bold.ttf`, fontWeight: 'bold' },
     ],
   });
   fontsRegisteredFor = baseUrl;
