@@ -33,7 +33,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
   ];
 
   return (
-    <aside className="w-64 bg-brand-dark text-white flex flex-col shrink-0">
+    <aside className="w-64 bg-brand-dark text-white flex flex-col shrink-0 print:hidden">
       <div className="p-4 border-b border-white/10">
         <div className="font-bold text-white">
           Market <span className="text-brand-red">Quality</span> Report
