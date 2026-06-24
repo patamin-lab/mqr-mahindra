@@ -1,12 +1,16 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
+import QRCode from 'qrcode';
 import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { getRecordByJobId, getVehicleHistory, getDealer } from '@/lib/db';
 import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
 import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity, PHOTO_CATEGORIES, PhotoCategory } from '@/lib/types';
+import { formatThaiDateTime } from '@/lib/thaiDate';
 import UpdateForm from './update-form';
 import DeleteButton from './delete-button';
 import PrintButton from './print-button';
+import RecordPrintView from './print-view';
 
 export default async function RecordDetailPage({ params }: { params: { jobId: string } }) {
   const session = await getSession();
@@ -23,8 +27,17 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
   const allowExport = canExport(session.role);
   const allowDelete = canDelete(session.role);
 
+  const h = headers();
+  const proto = h.get('x-forwarded-proto') ?? 'http';
+  const host = h.get('host');
+  const baseUrl = `${proto}://${host}`;
+  const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
+  const qrDataUrl = await QRCode.toDataURL(recordUrl, { margin: 0, width: 160 });
+
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-4xl">
+      <RecordPrintView record={record} dealerName={dealer?.full_name} qrDataUrl={qrDataUrl} recordUrl={recordUrl} />
+      <div className="print:hidden space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <Link href="/records" className="text-sm text-gray-500 hover:underline print:hidden">
@@ -242,11 +255,12 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
 
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-xs text-gray-500 space-y-1">
         <h2 className="font-semibold text-brand-dark text-sm mb-2">ข้อมูลการบันทึก (Audit Trail)</h2>
-        <div>สร้างโดย: {record.created_by ?? record.user_name ?? '-'} · {new Date(record.created_at).toLocaleString('th-TH')}</div>
+        <div>สร้างโดย: {record.created_by ?? record.user_name ?? '-'} · {formatThaiDateTime(record.created_at)}</div>
         {record.updated_by && (
-          <div>แก้ไขล่าสุดโดย: {record.updated_by} · {new Date(record.updated_at).toLocaleString('th-TH')}</div>
+          <div>แก้ไขล่าสุดโดย: {record.updated_by} · {formatThaiDateTime(record.updated_at)}</div>
         )}
       </section>
+      </div>
     </div>
   );
 }
