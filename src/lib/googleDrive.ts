@@ -9,28 +9,40 @@ import { Readable } from 'stream';
  * per-dealer "_pending" folder first and get re-parented into the real
  * job folder by `relocatePendingFiles` once the record is created.
  *
+ * Auth: OAuth2 as a real Google account, NOT a service account. Service
+ * accounts have zero Drive storage quota of their own - on a personal
+ * Gmail (non-Workspace) account there's no Shared Drive and no domain-wide
+ * delegation to fall back on, so every upload attempt fails with "Service
+ * Accounts do not have storage quota". Authenticating as the real account
+ * that owns the destination folder sidesteps this entirely.
+ *
+ * One-time setup: run `node scripts/get-google-refresh-token.mjs` locally
+ * (see that file for instructions) to mint GOOGLE_OAUTH_REFRESH_TOKEN.
+ *
  * Required env vars (set in Vercel + .env.local — never hard-code these):
- *   GOOGLE_SERVICE_ACCOUNT_EMAIL  - the service account's client_email
- *   GOOGLE_PRIVATE_KEY            - the service account's private_key
- *   GOOGLE_DRIVE_ROOT_FOLDER_ID   - ID of a Drive folder that a real Google
- *                                   account has already shared with the
- *                                   service account email as Editor
+ *   GOOGLE_OAUTH_CLIENT_ID       - OAuth client ID (type "Desktop app")
+ *   GOOGLE_OAUTH_CLIENT_SECRET   - OAuth client secret
+ *   GOOGLE_OAUTH_REFRESH_TOKEN   - minted once via the script above, while
+ *                                  logged in as the Gmail account that owns
+ *                                  the destination folder
+ *   GOOGLE_DRIVE_ROOT_FOLDER_ID  - ID of a folder in that same account's
+ *                                  My Drive (no sharing step needed - we
+ *                                  authenticate as the owner directly)
  */
 
 const PENDING_FOLDER_NAME = '_pending';
 
 function driveClient() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const rawKey = process.env.GOOGLE_PRIVATE_KEY;
-  if (!email || !rawKey) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_PRIVATE_KEY env var is not set');
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      'GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REFRESH_TOKEN env var is not set'
+    );
   }
-  const key = rawKey.replace(/\\n/g, '\n');
-  const auth = new google.auth.JWT({
-    email,
-    key,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
+  const auth = new google.auth.OAuth2(clientId, clientSecret);
+  auth.setCredentials({ refresh_token: refreshToken });
   return google.drive({ version: 'v3', auth });
 }
 
@@ -71,11 +83,15 @@ async function getOrCreateFolder(
 }
 
 function fileUrlFor(fileId: string, mimeType: string): string {
+  // Images render inline (e.g. <img src>, react-pdf <Image>); everything
+  // else (video) gets Drive's normal viewer page, matching how video_link
+  // is already just an "open in new tab" link elsewhere in the app.
   return mimeType.startsWith('image/')
     ? `https://drive.google.com/uc?export=view&id=${fileId}`
     : `https://drive.google.com/file/d/${fileId}/view`;
 }
 
+/** Extracts the Drive file ID back out of either URL shape `fileUrlFor` produces. */
 export function driveFileIdFromUrl(url: string): string | null {
   const uc = url.match(/[?&]id=([^&]+)/);
   if (uc) return uc[1];
@@ -89,9 +105,12 @@ export interface DriveUploadParams {
   filename: string;
   mimeType: string;
   dealerFolderName: string;
+  /** Pass the human job_id (e.g. "QIR-2606-0001") once known; omit for
+   *  new-report uploads where the record doesn't exist yet. */
   jobId?: string | null;
 }
 
+/** Uploads one file to Drive, sharing it as "anyone with the link can view". */
 export async function uploadFileToDrive(params: DriveUploadParams): Promise<{ url: string; fileId: string }> {
   const drive = driveClient();
   const dealerFolderId = await getOrCreateFolder(drive, params.dealerFolderName, rootFolderId());
@@ -115,6 +134,12 @@ export async function uploadFileToDrive(params: DriveUploadParams): Promise<{ ur
   return { url: fileUrlFor(fileId, params.mimeType), fileId };
 }
 
+/**
+ * After a new record is saved and its job_id is known, moves every file
+ * that was uploaded into the dealer's "_pending" folder into the real
+ * {dealer}/{jobId} folder. File IDs (and therefore the URLs already saved
+ * on the record) never change - only the parent folder does.
+ */
 export async function relocatePendingFiles(
   dealerFolderName: string,
   jobId: string,
