@@ -16,31 +16,39 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์ส่งออกข้อมูล' }, { status: 403 });
   }
 
-  const { searchParams, origin } = new URL(req.url);
-  const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
-  const records = await listRecords(session, {
-    status: searchParams.get('status') ?? undefined,
-    q: searchParams.get('q') ?? undefined,
-    dealerId: searchParams.get('dealerId') ?? undefined,
-  });
+  try {
+    const { searchParams, origin } = new URL(req.url);
+    const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
+    const records = await listRecords(session, {
+      status: searchParams.get('status') ?? undefined,
+      q: searchParams.get('q') ?? undefined,
+      dealerId: searchParams.get('dealerId') ?? undefined,
+    });
 
-  const filenameBase = `qir-records-${new Date().toISOString().slice(0, 10)}`;
+    const filenameBase = `qir-records-${new Date().toISOString().slice(0, 10)}`;
 
-  if (format === 'pdf') {
-    const buf = await renderRecordsListPdf(records, 'รายงานปัญหาคุณภาพทั้งหมด', origin);
+    if (format === 'pdf') {
+      const buf = await renderRecordsListPdf(records, 'รายงานปัญหาคุณภาพทั้งหมด', origin);
+      return new NextResponse(new Uint8Array(buf), {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${filenameBase}.pdf"`,
+        },
+      });
+    }
+
+    const buf = await buildRecordsWorkbook(records);
     return new NextResponse(new Uint8Array(buf), {
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filenameBase}.pdf"`,
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${filenameBase}.xlsx"`,
       },
     });
+  } catch (err: any) {
+    console.error('records export error', err);
+    return NextResponse.json(
+      { ok: false, error: err?.message ?? 'ส่งออกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง' },
+      { status: 500 }
+    );
   }
-
-  const buf = await buildRecordsWorkbook(records);
-  return new NextResponse(new Uint8Array(buf), {
-    headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${filenameBase}.xlsx"`,
-    },
-  });
 }
