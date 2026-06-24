@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { MqrRecord } from './types';
+import { formatThaiDateTime } from './thaiDate';
 
 const LIST_COLUMNS: { header: string; key: string; width: number }[] = [
   { header: 'เลขที่งาน', key: 'job_id', width: 22 },
@@ -53,7 +54,7 @@ export async function buildRecordsWorkbook(records: MqrRecord[]): Promise<ExcelJ
       cause: r.cause ?? '',
       damaged_parts: r.damaged_parts ?? '',
       user_name: r.user_name ?? '',
-      created_at: r.created_at ? new Date(r.created_at).toLocaleString('th-TH') : '',
+      created_at: r.created_at ? formatThaiDateTime(r.created_at) : '',
     });
   }
 
@@ -94,8 +95,8 @@ export async function buildSingleRecordWorkbook(
     ['ที่มาของรถ (ถ้าไม่พบในระบบ)', record.stock_note ?? ''],
     ['พิกัด', record.lat !== null && record.lng !== null ? `${record.lat}, ${record.lng}` : ''],
     ['ผู้บันทึก', record.user_name ?? record.created_by ?? ''],
-    ['วันที่บันทึก', record.created_at ? new Date(record.created_at).toLocaleString('th-TH') : ''],
-    ['ปรับปรุงล่าสุด', record.updated_at ? new Date(record.updated_at).toLocaleString('th-TH') : ''],
+    ['วันที่บันทึก', record.created_at ? formatThaiDateTime(record.created_at) : ''],
+    ['ปรับปรุงล่าสุด', record.updated_at ? formatThaiDateTime(record.updated_at) : ''],
   ];
 
   rows.forEach(([label, value]) => {

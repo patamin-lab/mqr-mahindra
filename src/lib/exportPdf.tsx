@@ -9,6 +9,7 @@ import {
   STATUS_LABELS,
   StatusValue,
 } from './types';
+import { formatThaiDateTime } from './thaiDate';
 
 let fontsRegisteredFor: string | null = null;
 
@@ -190,7 +191,7 @@ function RecordsListDocument({ records, title }: { records: MqrRecord[]; title: 
       <Page size="A4" orientation="landscape" style={styles.page}>
         <Text style={styles.title}>Market Quality Report</Text>
         <Text style={styles.subtitle}>
-          {title} — พิมพ์เมื่อ {new Date().toLocaleString('th-TH')} — จำนวน {records.length} งาน
+          {title} — พิมพ์เมื่อ {formatThaiDateTime(new Date())} — จำนวน {records.length} งาน
         </Text>
         <View style={styles.table}>
           <View style={styles.rowHeader}>
@@ -293,7 +294,7 @@ function RecordDocument({
             <Text style={styles.subtitle}>
               เลขที่งาน {record.job_id} — {dealerName ?? record.dealer_id}
             </Text>
-            <Text style={styles.subtitle}>พิมพ์เมื่อ {new Date().toLocaleString('th-TH')}</Text>
+            <Text style={styles.subtitle}>พิมพ์เมื่อ {formatThaiDateTime(new Date())}</Text>
             <View style={styles.badgeRow}>
               <Text style={[styles.badge, { backgroundColor: '#555' }]}>{statusLabel}</Text>
               {record.severity && (
@@ -404,12 +405,12 @@ function RecordDocument({
         <View style={{ marginTop: 10 }}>
           <Text style={styles.auditText}>
             สร้างโดย {record.created_by ?? record.user_name ?? '-'} ·{' '}
-            {new Date(record.created_at).toLocaleString('th-TH')}
+            {formatThaiDateTime(record.created_at)}
             {record.updated_by
-              ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${new Date(record.updated_at).toLocaleString('th-TH')}`
+              ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${formatThaiDateTime(record.updated_at)}`
               : ''}
           </Text>
-          <Text style={styles.issuedText}>เอกสารออกเมื่อ {new Date().toLocaleString('th-TH')} โดยระบบ MQR</Text>
+          <Text style={styles.issuedText}>เอกสารออกเมื่อ {formatThaiDateTime(new Date())} โดยระบบ MQR</Text>
         </View>
 
         <Text style={styles.footer}>{recordUrl}</Text>
