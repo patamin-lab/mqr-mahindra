@@ -39,6 +39,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
     const addPhotoLinks: PhotoLink[] | undefined = Array.isArray(body.addPhotoLinks)
       ? body.addPhotoLinks
       : undefined;
+    const removePhotoUrls: string[] | undefined = Array.isArray(body.removePhotoUrls)
+      ? body.removePhotoUrls.filter((u: unknown) => typeof u === 'string')
+      : undefined;
 
     const jobId = decodeURIComponent(params.jobId);
     const before = await getRecordByJobId(jobId, session);
@@ -56,6 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
         correctiveAction: body.correctiveAction,
         preventiveAction: body.preventiveAction,
         addPhotoLinks,
+        removePhotoUrls,
       },
       session
     );

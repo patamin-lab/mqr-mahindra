@@ -6,6 +6,7 @@ import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
 import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity, PHOTO_CATEGORIES, PhotoCategory } from '@/lib/types';
 import UpdateForm from './update-form';
 import DeleteButton from './delete-button';
+import PrintButton from './print-button';
 
 export default async function RecordDetailPage({ params }: { params: { jobId: string } }) {
   const session = await getSession();
@@ -26,7 +27,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
     <div className="max-w-4xl space-y-6">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <Link href="/records" className="text-sm text-gray-500 hover:underline">
+          <Link href="/records" className="text-sm text-gray-500 hover:underline print:hidden">
             ← กลับไปหน้ารายการ
           </Link>
           <div className="flex items-center gap-3 mt-1">
@@ -50,7 +51,8 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
           </div>
           <p className="text-sm text-gray-500">{dealer?.full_name ?? record.dealer_id}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 print:hidden">
+          <PrintButton />
           {allowExport && (
             <>
               <a
@@ -191,15 +193,28 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             );
           })}
           {record.video_link && (
-            <a href={record.video_link} target="_blank" className="inline-block text-sm text-brand-red hover:underline">
-              ▶ ดูวิดีโอปัญหา
-            </a>
+            <div className="print:hidden">
+              <div className="text-xs text-gray-400 mb-2">วิดีโอปัญหา</div>
+              <iframe
+                src={record.video_link.replace('/view', '/preview')}
+                className="w-full aspect-video rounded border border-gray-200"
+                allow="autoplay; fullscreen"
+                allowFullScreen
+              />
+              <a
+                href={record.video_link}
+                target="_blank"
+                className="inline-block text-xs text-brand-red hover:underline mt-1"
+              >
+                เปิดวิดีโอในแท็บใหม่
+              </a>
+            </div>
           )}
         </section>
       )}
 
       {otherHistory.length > 0 && (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 print:hidden">
           <h2 className="font-semibold text-brand-dark mb-3">ประวัติการซ่อมของรถคันนี้ ({otherHistory.length})</h2>
           <ul className="text-sm divide-y divide-gray-100">
             {otherHistory.map((h) => (
@@ -216,7 +231,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
         </section>
       )}
 
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 print:hidden">
         <h2 className="font-semibold text-brand-dark mb-3">อัปเดตสถานะ</h2>
         {canUpdateStatus(session.role) ? (
           <UpdateForm record={record} />

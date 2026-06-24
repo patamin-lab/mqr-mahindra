@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   MqrRecord,
@@ -23,9 +23,14 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
   const [correctiveAction, setCorrectiveAction] = useState(record.corrective_action ?? '');
   const [preventiveAction, setPreventiveAction] = useState(record.preventive_action ?? '');
   const [afterPhotos, setAfterPhotos] = useState<File[]>([]);
+  const [photos, setPhotos] = useState<PhotoLink[]>(record.photo_links ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    setPhotos(record.photo_links ?? []);
+  }, [record.photo_links]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,11 +43,18 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
         const fd = new FormData();
         fd.append('file', afterPhotos[i]);
         fd.append('label', label);
+        fd.append('dealerId', record.dealer_id);
+        fd.append('jobId', record.job_id);
         const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
         const upJson = await upRes.json();
         if (!upJson.ok) throw new Error(upJson.error || 'อัปโหลดรูปไม่สำเร็จ');
         addPhotoLinks.push({ category: 'after_repair', label, url: upJson.url });
       }
+
+      const keptUrls = new Set(photos.map((p) => p.url));
+      const removePhotoUrls = (record.photo_links ?? [])
+        .filter((p) => !keptUrls.has(p.url))
+        .map((p) => p.url);
 
       const res = await fetch(`/api/records/${encodeURIComponent(record.job_id)}`, {
         method: 'PATCH',
@@ -56,6 +68,7 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
           correctiveAction,
           preventiveAction,
           addPhotoLinks,
+          removePhotoUrls,
         }),
       });
       const json = await res.json();
@@ -158,6 +171,35 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
           />
         </div>
       </div>
+      {photos.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium mb-2">รูปภาพที่แนบไว้ ({photos.length})</label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {photos.map((p, i) => (
+              <div key={`${p.url}-${i}`} className="relative">
+                <img
+                  src={p.url}
+                  alt={p.label}
+                  className="rounded border border-gray-200 aspect-square object-cover"
+                />
+                <button
+                  type="button"
+                  title="ลบรูปนี้"
+                  onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600 text-white text-xs leading-6 text-center shadow hover:bg-red-700"
+                >
+                  ×
+                </button>
+                <div className="text-xs text-gray-500 mt-1 truncate">{p.label}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            กด × เพื่อลบรูป (จะลบจริงเมื่อกด "บันทึกการอัปเดต" ด้านล่าง) — หากต้องการเปลี่ยนรูป ให้ลบรูปเดิมแล้วแนบรูปใหม่ในช่อง
+            "เพิ่มภาพหลังการแก้ไข"
+          </p>
+        </div>
+      )}
       <div>
         <label className="block text-sm font-medium mb-1">เพิ่มภาพหลังการแก้ไข</label>
         <input

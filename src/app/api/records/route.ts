@@ -5,6 +5,7 @@ import { calcWarranty } from '@/lib/warranty';
 import { seesAllDealers } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
 import { sendRecordNotification } from '@/lib/email';
+import { relocatePendingFiles } from '@/lib/googleDrive';
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 
@@ -46,8 +47,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'กรุณาเลือกความรุนแรงของปัญหา' }, { status: 400 });
     }
     const photoLinks: PhotoLink[] = Array.isArray(body.photoLinks) ? body.photoLinks : [];
-    if (!photoLinks.some((p) => p?.category === 'problem_evidence')) {
-      return NextResponse.json({ ok: false, error: 'กรุณาแนบภาพหลักฐานปัญหาอย่างน้อย 1 รูป' }, { status: 400 });
+    const REQUIRED_PHOTO_CATEGORIES = ['odometer', 'vehicle_serial', 'damage_point_1'];
+    const presentCategories = new Set(photoLinks.map((p) => p?.category));
+    if (REQUIRED_PHOTO_CATEGORIES.some((c) => !presentCategories.has(c as any))) {
+      return NextResponse.json(
+        { ok: false, error: 'กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ' },
+        { status: 400 }
+      );
     }
     if (customerPhone && !THAI_MOBILE_RE.test(customerPhone)) {
       return NextResponse.json({ ok: false, error: 'เบอร์โทรลูกค้าไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)' }, { status: 400 });
@@ -111,11 +117,26 @@ export async function POST(req: NextRequest) {
 
     // Per spec section 8: send the PDF report email as soon as the job is
     // reported. A failed/unconfigured email must never fail the create.
+    let dealer = null;
     try {
-      const dealer = await getDealer(record.dealer_id);
+      dealer = await getDealer(record.dealer_id);
       await sendRecordNotification(record, dealer?.full_name, new URL(req.url).origin, 'created');
     } catch (err) {
       console.error('notification email error (create)', err);
+    }
+
+    // Photos/video were uploaded into the dealer's "_pending" Drive folder
+    // before this record (and its job_id) existed - move them into the
+    // proper {dealer}/{jobId} folder now. File IDs/URLs never change, so
+    // this never needs to touch the DB row. Never fails the create.
+    try {
+      const dealerFolderName = (dealer?.short_name || record.dealer_id).replace(/[^a-zA-Z0-9ก-๙_-]/g, '');
+      await relocatePendingFiles(dealerFolderName, record.job_id, [
+        ...(record.photo_links ?? []).map((p) => p.url),
+        record.video_link,
+      ]);
+    } catch (err) {
+      console.error('drive relocate pending files error', err);
     }
 
     return NextResponse.json({ ok: true, record, warranty });

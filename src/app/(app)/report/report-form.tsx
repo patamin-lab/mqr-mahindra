@@ -93,8 +93,11 @@ export default function ReportForm({
   const [repairDate, setRepairDate] = useState(todayStr());
   const [hoursInForRepair, setHoursInForRepair] = useState('');
 
-  const [evidencePhotos, setEvidencePhotos] = useState<File[]>([]);
-  const [locationPhotos, setLocationPhotos] = useState<File[]>([]);
+  const [odometerPhoto, setOdometerPhoto] = useState<File | null>(null);
+  const [serialPhoto, setSerialPhoto] = useState<File | null>(null);
+  const [damagePhoto1, setDamagePhoto1] = useState<File | null>(null);
+  const [damagePhoto2, setDamagePhoto2] = useState<File | null>(null);
+  const [damagePhoto3, setDamagePhoto3] = useState<File | null>(null);
   const [video, setVideo] = useState<File | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -321,8 +324,8 @@ export default function ReportForm({
       setError('กรุณาเลือกความรุนแรงของปัญหา');
       return;
     }
-    if (evidencePhotos.length === 0) {
-      setError('กรุณาแนบภาพหลักฐานปัญหาอย่างน้อย 1 รูป');
+    if (!odometerPhoto || !serialPhoto || !damagePhoto1) {
+      setError('กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ');
       return;
     }
     if (!vehicle && !stockNote) {
@@ -361,15 +364,17 @@ export default function ReportForm({
     setSubmitting(true);
     try {
       const photoLinks: PhotoLink[] = [];
-      for (let i = 0; i < evidencePhotos.length; i++) {
-        const label = `ภาพหลักฐานปัญหา ${i + 1}`;
-        const url = await uploadOne(evidencePhotos[i], label);
-        photoLinks.push({ category: 'problem_evidence', label, url });
-      }
-      for (let i = 0; i < locationPhotos.length; i++) {
-        const label = `ภาพตำแหน่งที่เกิดปัญหา ${i + 1}`;
-        const url = await uploadOne(locationPhotos[i], label);
-        photoLinks.push({ category: 'problem_location', label, url });
+      const namedPhotoSlots: { file: File | null; category: PhotoLink['category']; label: string }[] = [
+        { file: odometerPhoto, category: 'odometer', label: 'รูปเรือนไมล์' },
+        { file: serialPhoto, category: 'vehicle_serial', label: 'รูปเลขรถ' },
+        { file: damagePhoto1, category: 'damage_point_1', label: 'รูปจุดที่เสียหาย 1' },
+        { file: damagePhoto2, category: 'damage_point_2', label: 'รูปจุดที่เสียหาย 2' },
+        { file: damagePhoto3, category: 'damage_point_3', label: 'รูปจุดที่เสียหาย 3' },
+      ];
+      for (const slot of namedPhotoSlots) {
+        if (!slot.file) continue;
+        const url = await uploadOne(slot.file, slot.label);
+        photoLinks.push({ category: slot.category, label: slot.label, url });
       }
       let videoLink: string | null = null;
       if (video) {
@@ -778,36 +783,31 @@ export default function ReportForm({
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
         <h2 className="font-semibold text-brand-dark">4. รูปภาพ / วิดีโอ</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              {PHOTO_CATEGORIES[0].label} <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="file"
-              accept="image/*,.heic,.heif"
-              multiple
-              className="w-full text-sm"
-              onChange={(e) => setEvidencePhotos(Array.from(e.target.files ?? []))}
-              required={evidencePhotos.length === 0}
-            />
-            <p className="text-xs text-gray-400 mt-1">เลือกได้หลายรูป เช่น หมายเลขรถ, เรือนไมล์, อาการที่พบ</p>
-            {evidencePhotos.length > 0 && (
-              <p className="text-xs text-green-600 mt-1">เลือกแล้ว {evidencePhotos.length} รูป</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{PHOTO_CATEGORIES[1].label}</label>
-            <input
-              type="file"
-              accept="image/*,.heic,.heif"
-              multiple
-              className="w-full text-sm"
-              onChange={(e) => setLocationPhotos(Array.from(e.target.files ?? []))}
-            />
-            {locationPhotos.length > 0 && (
-              <p className="text-xs text-green-600 mt-1">เลือกแล้ว {locationPhotos.length} รูป</p>
-            )}
-          </div>
+          {([
+            { label: 'รูปเรือนไมล์', file: odometerPhoto, set: setOdometerPhoto, required: true },
+            { label: 'รูปเลขรถ', file: serialPhoto, set: setSerialPhoto, required: true },
+            { label: 'รูปจุดที่เสียหาย 1', file: damagePhoto1, set: setDamagePhoto1, required: true },
+            { label: 'รูปจุดที่เสียหาย 2', file: damagePhoto2, set: setDamagePhoto2, required: false },
+            { label: 'รูปจุดที่เสียหาย 3', file: damagePhoto3, set: setDamagePhoto3, required: false },
+          ] as const).map((slot) => (
+            <div key={slot.label}>
+              <label className="block text-sm font-medium mb-1">
+                {slot.label} {slot.required && <span className="text-red-500">*</span>}
+              </label>
+              <input
+                type="file"
+                accept="image/*,.heic,.heif"
+                className="w-full text-sm"
+                onChange={(e) => slot.set(e.target.files?.[0] ?? null)}
+                required={slot.required && !slot.file}
+              />
+              {slot.file ? (
+                <p className="text-xs text-green-600 mt-1">เลือกแล้ว: {slot.file.name}</p>
+              ) : (
+                !slot.required && <p className="text-xs text-gray-400 mt-1">ไม่บังคับ</p>
+              )}
+            </div>
+          ))}
           <div>
             <label className="block text-sm font-medium mb-1">วิดีโอปัญหา (ถ้ามี)</label>
             <input

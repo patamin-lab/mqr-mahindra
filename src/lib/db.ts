@@ -17,12 +17,17 @@ import {
 
 // ---------- Auth / users ----------
 
+/** Escapes ILIKE wildcard/escape characters so a username pattern only ever matches itself. */
+function escapeIlike(value: string): string {
+  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
+}
+
 export async function findUserByUsername(username: string) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('users')
     .select('*')
-    .ilike('username', username.trim())
+    .ilike('username', escapeIlike(username.trim()))
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -43,6 +48,30 @@ export async function insertLoginLog(entry: {
     device: entry.device ?? '',
     result: entry.result,
   });
+}
+
+/** Count of failed login attempts for a username within the trailing window — backs the login lockout. */
+export async function recentFailedLogins(username: string, sinceMinutesAgo: number): Promise<number> {
+  const supabase = getSupabase();
+  const since = new Date(Date.now() - sinceMinutesAgo * 60 * 1000).toISOString();
+  const { count, error } = await supabase
+    .from('login_log')
+    .select('id', { count: 'exact', head: true })
+    .ilike('username', escapeIlike(username.trim()))
+    .eq('result', 'fail')
+    .gte('ts', since);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** System-initiated, silent upgrade of a legacy SHA-256 hash to salted scrypt after a successful login. */
+export async function upgradePasswordHash(id: string, passwordHash: string, passwordSalt: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('users')
+    .update({ password_hash: passwordHash, password_salt: passwordSalt, password_algo: 'scrypt' })
+    .eq('id', id);
+  if (error) console.error('password upgrade error', error);
 }
 
 // ---------- Lookups ----------
@@ -184,6 +213,30 @@ export interface VehicleSearchResult {
 }
 
 /**
+ * Full list of known vehicle serials straight from the Supabase `vehicles`
+ * table (populated by the Tractor IN -> Supabase sync). Powers the report
+ * form's serial dropdown so dealer staff pick a unit directly instead of
+ * typing + manually checking - model/delivery date come along for free.
+ */
+export async function listVehicles(dealerId: string | null): Promise<VehicleSearchResult[]> {
+  const supabase = getSupabase();
+  let query = supabase
+    .from('vehicles')
+    .select('serial, model, delivery_date')
+    .order('serial')
+    .limit(5000);
+  if (dealerId) query = query.eq('dealer_id', dealerId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((v) => ({
+    serial: v.serial,
+    model: v.model,
+    deliveryDate: v.delivery_date,
+    source: 'supabase' as const,
+  }));
+}
+
+/**
  * Partial-match "smart search" across both the Supabase `vehicles` table and the
  * live Tractor IN sheet, merged and de-duplicated by serial. Powers the report
  * form's typeahead so dealer staff no longer need to type the exact serial.
@@ -310,11 +363,14 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
     throw new Error('ชั่วโมงการใช้งานขณะนำเข้าซ่อม ต้องไม่น้อยกว่าชั่วโมงขณะพบปัญหา');
   }
 
-  // Defense in depth: the report form requires >=1 "problem evidence" photo,
-  // but re-check server-side since the client cannot be trusted.
-  const hasEvidencePhoto = input.photoLinks.some((p) => p.category === 'problem_evidence');
-  if (!hasEvidencePhoto) {
-    throw new Error('กรุณาแนบภาพหลักฐานปัญหาอย่างน้อย 1 รูป');
+  // Defense in depth: the report form requires the 3 mandatory named photo
+  // slots (odometer, vehicle serial, damage point 1), but re-check
+  // server-side since the client cannot be trusted.
+  const REQUIRED_PHOTO_CATEGORIES = ['odometer', 'vehicle_serial', 'damage_point_1'];
+  const presentCategories = new Set(input.photoLinks.map((p) => p.category));
+  const missingRequired = REQUIRED_PHOTO_CATEGORIES.filter((c) => !presentCategories.has(c as any));
+  if (missingRequired.length > 0) {
+    throw new Error('กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ');
   }
 
   const jobId = await nextJobId();
@@ -423,6 +479,8 @@ export interface UpdateRecordInput {
   preventiveAction?: string;
   /** Newly-uploaded photos (e.g. after-repair) to append to the existing photo_links array. */
   addPhotoLinks?: PhotoLink[];
+  /** URLs to drop from the existing photo_links array (per-photo delete from the record detail/edit page). */
+  removePhotoUrls?: string[];
 }
 
 export async function updateRecord(jobId: string, patch: UpdateRecordInput, session: SessionUser): Promise<MqrRecord> {
@@ -443,8 +501,10 @@ export async function updateRecord(jobId: string, patch: UpdateRecordInput, sess
   if (patch.technicianAction !== undefined) updatePayload.technician_action = patch.technicianAction;
   if (patch.correctiveAction !== undefined) updatePayload.corrective_action = patch.correctiveAction;
   if (patch.preventiveAction !== undefined) updatePayload.preventive_action = patch.preventiveAction;
-  if (patch.addPhotoLinks && patch.addPhotoLinks.length > 0) {
-    updatePayload.photo_links = [...(existing.photo_links ?? []), ...patch.addPhotoLinks];
+  if ((patch.addPhotoLinks && patch.addPhotoLinks.length > 0) || (patch.removePhotoUrls && patch.removePhotoUrls.length > 0)) {
+    const removeSet = new Set(patch.removePhotoUrls ?? []);
+    const remaining = (existing.photo_links ?? []).filter((p) => !removeSet.has(p.url));
+    updatePayload.photo_links = [...remaining, ...(patch.addPhotoLinks ?? [])];
   }
 
   const { data, error } = await supabase
@@ -953,6 +1013,7 @@ export async function createUserAdmin(
   input: {
     username: string;
     passwordHash: string;
+    passwordSalt: string;
     fullName: string;
     email: string | null;
     mobile: string | null;
@@ -968,6 +1029,8 @@ export async function createUserAdmin(
     .insert({
       username: input.username,
       password_hash: input.passwordHash,
+      password_salt: input.passwordSalt,
+      password_algo: 'scrypt',
       full_name: input.fullName,
       email: input.email,
       mobile: input.mobile,
@@ -1017,11 +1080,22 @@ export async function updateUserAdmin(
   return data as AdminUser;
 }
 
-export async function resetUserPassword(id: string, passwordHash: string, session: SessionUser): Promise<void> {
+export async function resetUserPassword(
+  id: string,
+  passwordHash: string,
+  passwordSalt: string,
+  session: SessionUser
+): Promise<void> {
   const supabase = getSupabase();
   const { error } = await supabase
     .from('users')
-    .update({ password_hash: passwordHash, updated_by: session.username, updated_at: new Date().toISOString() })
+    .update({
+      password_hash: passwordHash,
+      password_salt: passwordSalt,
+      password_algo: 'scrypt',
+      updated_by: session.username,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id);
   if (error) throw error;
 }
