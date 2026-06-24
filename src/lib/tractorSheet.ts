@@ -78,3 +78,11 @@ export async function lookupTractorBySerial(serial: string): Promise<TractorInRo
   const rows = await getTractorInRows();
   return rows.find((r) => normalizeSerial(r.productSerial) === target) ?? null;
 }
+
+/** Substring match across cached Tractor IN rows - powers the report form's smart search. */
+export async function lookupTractorBySerialPartial(term: string, limit = 20): Promise<TractorInRow[]> {
+  const target = normalizeSerial(term);
+  if (!target) return [];
+  const rows = await getTractorInRows();
+  return rows.filter((r) => normalizeSerial(r.productSerial).includes(target)).slice(0, limit);
+}

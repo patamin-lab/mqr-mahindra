@@ -87,6 +87,12 @@ export interface MqrRecord {
   reporter_name: string | null;
   reporter_phone: string | null;
   user_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  technician_id: string | null;
+  technician_name: string | null;
+  repair_date: string | null;
+  hours_in_for_repair: number | null;
   cause: string | null;
   damaged_parts: string | null;
   attachment: string | null;

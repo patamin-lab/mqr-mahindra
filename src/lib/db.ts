@@ -74,22 +74,83 @@ export async function listProblemCodes(): Promise<ProblemCode[]> {
   return data ?? [];
 }
 
-export async function listTechnicians(dealerId: string | null): Promise<Technician[]> {
+/** Active technicians only - used to populate the report form's cascading dropdown. */
+export async function listTechnicians(dealerId: string | null, branchName?: string | null): Promise<Technician[]> {
   const supabase = getSupabase();
-  let q = supabase.from('technicians').select('*').order('name');
+  let q = supabase.from('technicians').select('*').eq('active', true).order('name');
+  if (dealerId) q = q.eq('dealer_id', dealerId);
+  const { data, error } = await q;
+  if (error) throw error;
+  const all = data ?? [];
+  if (!branchName) return all;
+  // Soft cascade: narrow to the selected branch if any technician actually matches it,
+  // otherwise fall back to the full dealer list (branch text is free-form master data,
+  // entered independently on Technician records, so it may not always line up exactly).
+  const narrowed = all.filter((t) => t.branch === branchName);
+  return narrowed.length > 0 ? narrowed : all;
+}
+
+/** Active branches only - used to populate the report form's cascading dropdown. */
+export async function listBranches(dealerId: string | null): Promise<Branch[]> {
+  const supabase = getSupabase();
+  let q = supabase.from('branches').select('*').eq('active', true).order('name');
   if (dealerId) q = q.eq('dealer_id', dealerId);
   const { data, error } = await q;
   if (error) throw error;
   return data ?? [];
 }
 
-export async function listBranches(dealerId: string | null): Promise<Branch[]> {
+export interface VehicleSearchResult {
+  serial: string;
+  model: string | null;
+  deliveryDate: string | null;
+  source: 'supabase' | 'tractor_in_sheet';
+}
+
+/**
+ * Partial-match "smart search" across both the Supabase `vehicles` table and the
+ * live Tractor IN sheet, merged and de-duplicated by serial. Powers the report
+ * form's typeahead so dealer staff no longer need to type the exact serial.
+ */
+export async function searchVehicles(q: string, dealerId: string | null): Promise<VehicleSearchResult[]> {
+  const term = q.trim();
+  if (term.length < 2) return [];
+
   const supabase = getSupabase();
-  let q = supabase.from('branches').select('*').order('name');
-  if (dealerId) q = q.eq('dealer_id', dealerId);
-  const { data, error } = await q;
+  let query = supabase.from('vehicles').select('*').ilike('serial', `%${term}%`).limit(20);
+  if (dealerId) query = query.eq('dealer_id', dealerId);
+  const { data: vehicleRows, error } = await query;
   if (error) throw error;
-  return data ?? [];
+
+  const results = new Map<string, VehicleSearchResult>();
+  for (const v of vehicleRows ?? []) {
+    results.set(v.serial.toUpperCase(), {
+      serial: v.serial,
+      model: v.model,
+      deliveryDate: v.delivery_date,
+      source: 'supabase',
+    });
+  }
+
+  try {
+    const { lookupTractorBySerialPartial } = await import('./tractorSheet');
+    const tractorRows = await lookupTractorBySerialPartial(term, 20);
+    for (const r of tractorRows) {
+      const key = r.productSerial.toUpperCase();
+      if (!results.has(key)) {
+        results.set(key, {
+          serial: r.productSerial,
+          model: r.productModel || null,
+          deliveryDate: null,
+          source: 'tractor_in_sheet',
+        });
+      }
+    }
+  } catch (err) {
+    console.error('tractor sheet search error', err);
+  }
+
+  return Array.from(results.values()).slice(0, 20);
 }
 
 // ---------- Report number generation ----------
@@ -135,17 +196,43 @@ export interface CreateRecordInput {
   lng: number | null;
   photoLinks: { label: string; url: string }[];
   videoLink: string | null;
+  /** Only honored when the session role sees all dealers; otherwise forced to session.dealerId. */
+  dealerId?: string | null;
+  branchId: string | null;
+  technicianId: string | null;
+  repairDate: string;
+  hoursInForRepair: number | null;
 }
 
 export async function createRecord(input: CreateRecordInput, session: SessionUser): Promise<MqrRecord> {
-  if (!session.dealerId) {
-    throw new Error('ผู้ใช้นี้ไม่ได้ผูกกับดีลเลอร์ ไม่สามารถสร้างรายงานได้');
+  const effectiveDealerId = seesAllDealers(session.role) ? input.dealerId ?? null : session.dealerId;
+  if (!effectiveDealerId) {
+    throw new Error('กรุณาเลือกดีลเลอร์ ไม่สามารถสร้างรายงานได้');
   }
-  const dealer = await getDealer(session.dealerId);
+  const dealer = await getDealer(effectiveDealerId);
   if (!dealer) throw new Error('ไม่พบข้อมูลดีลเลอร์');
 
-  const jobId = await nextJobId();
+  // Resolve branch/technician name snapshots server-side (never trust client-sent text),
+  // re-checking that each belongs to the effective dealer to prevent cross-dealer spoofing.
   const supabase = getSupabase();
+  let branchName: string | null = null;
+  if (input.branchId) {
+    const { data: branch } = await supabase.from('branches').select('id, name, dealer_id').eq('id', input.branchId).maybeSingle();
+    if (!branch || branch.dealer_id !== dealer.id) throw new Error('สาขาที่เลือกไม่ถูกต้อง');
+    branchName = branch.name;
+  }
+  let technicianName: string | null = null;
+  if (input.technicianId) {
+    const { data: tech } = await supabase.from('technicians').select('id, name, dealer_id').eq('id', input.technicianId).maybeSingle();
+    if (!tech || tech.dealer_id !== dealer.id) throw new Error('ช่างที่เลือกไม่ถูกต้อง');
+    technicianName = tech.name;
+  }
+
+  if (input.hoursInForRepair !== null && input.hours !== null && input.hoursInForRepair < input.hours) {
+    throw new Error('ชั่วโมงการใช้งานขณะนำเข้าซ่อม ต้องไม่น้อยกว่าชั่วโมงขณะพบปัญหา');
+  }
+
+  const jobId = await nextJobId();
   const { data, error } = await supabase
     .from('records')
     .insert({
@@ -170,6 +257,12 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       lng: input.lng,
       photo_links: input.photoLinks,
       video_link: input.videoLink,
+      branch_id: input.branchId,
+      branch_name: branchName,
+      technician_id: input.technicianId,
+      technician_name: technicianName,
+      repair_date: input.repairDate,
+      hours_in_for_repair: input.hoursInForRepair,
       created_by: session.username,
       record_status: 'Active',
     })
