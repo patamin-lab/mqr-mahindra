@@ -21,27 +21,36 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
   if (!record) {
     return NextResponse.json({ ok: false, error: 'ไม่พบรายงานนี้' }, { status: 404 });
   }
-  const dealer = await getDealer(record.dealer_id);
 
-  const { searchParams, origin } = new URL(req.url);
-  const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
-  const safeJobId = record.job_id.replace(/[^a-zA-Z0-9_-]/g, '_');
+  try {
+    const dealer = await getDealer(record.dealer_id);
 
-  if (format === 'pdf') {
-    const buf = await renderRecordPdf(record, origin, dealer?.full_name);
+    const { searchParams, origin } = new URL(req.url);
+    const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
+    const safeJobId = record.job_id.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    if (format === 'pdf') {
+      const buf = await renderRecordPdf(record, origin, dealer?.full_name);
+      return new NextResponse(new Uint8Array(buf), {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${safeJobId}.pdf"`,
+        },
+      });
+    }
+
+    const buf = await buildSingleRecordWorkbook(record, dealer?.full_name);
     return new NextResponse(new Uint8Array(buf), {
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${safeJobId}.pdf"`,
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': `attachment; filename="${safeJobId}.xlsx"`,
       },
     });
+  } catch (err: any) {
+    console.error('record export error', err);
+    return NextResponse.json(
+      { ok: false, error: err?.message ?? 'ส่งออกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง' },
+      { status: 500 }
+    );
   }
-
-  const buf = await buildSingleRecordWorkbook(record, dealer?.full_name);
-  return new NextResponse(new Uint8Array(buf), {
-    headers: {
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="${safeJobId}.xlsx"`,
-    },
-  });
 }
