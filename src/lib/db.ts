@@ -487,69 +487,327 @@ export async function getVehicleHistory(serial: string, session: SessionUser): P
   return (data ?? []) as MqrRecord[];
 }
 
-// ---------- Dashboard ----------
+// ---------- Dashboard (Phase 6: full KPI suite) ----------
 
-export interface DashboardStats {
-  totalOpen: number;
-  totalThisMonth: number;
-  totalAll: number;
-  repeatRepairCount: number;
-  monthly: { month: string; count: number }[];
-  pareto: { label: string; count: number; cumulativePct: number }[];
+/** SLA target (days from found_date to resolution) by severity. Records
+ *  without a recognised severity fall back to the Major threshold. */
+const SLA_THRESHOLD_DAYS: Record<string, number> = { Critical: 3, Major: 7, Minor: 14 };
+const DEFAULT_SLA_THRESHOLD_DAYS = 7;
+
+function slaThresholdFor(severity: string | null): number {
+  if (severity && SLA_THRESHOLD_DAYS[severity] != null) return SLA_THRESHOLD_DAYS[severity];
+  return DEFAULT_SLA_THRESHOLD_DAYS;
 }
 
-export async function dashboardStats(session: SessionUser, dealerId?: string): Promise<DashboardStats> {
-  const records = await listRecords(session, { dealerId });
+function daysBetween(fromIso: string, toIso: string): number {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  return Math.max(0, Math.round(ms / 86400000));
+}
+
+export interface DashboardFilters {
+  dealerId?: string;
+  year?: number;
+  month?: number; // 1-12
+  model?: string;
+}
+
+export interface LeaderboardEntry {
+  key: string;
+  label: string;
+  count: number;
+  mttrDays: number | null;
+}
+
+export interface AgingJobEntry {
+  jobId: string;
+  model: string | null;
+  serial: string | null;
+  severity: string | null;
+  status: string;
+  daysOpen: number;
+  slaBreached: boolean;
+  dealerId: string;
+}
+
+export interface DashboardStats {
+  // "Right now" backlog — never affected by the year/month filter, so it
+  // always reflects today's real outstanding workload.
+  totalOpen: number;
+  statusBacklog: { status: string; count: number }[];
+  agingBuckets: { bucket: string; count: number }[];
+  slaBreachCount: number;
+  topAgingJobs: AgingJobEntry[];
+
+  // Period-filtered analytics (respects year/month/model/dealer filters).
+  totalAll: number;
+  totalThisMonth: number;
+  totalRepaired: number;
+  totalWaitingParts: number;
+  repeatRepairCount: number;
+  mttrDays: number | null;
+  statusBreakdown: { status: string; count: number }[];
+  severityBreakdown: { severity: string; count: number }[];
+  monthly: { month: string; count: number }[];
+  pareto: { label: string; count: number; cumulativePct: number }[];
+  topParts: { label: string; count: number }[];
+  byModel: { model: string; count: number }[];
+  dealerLeaderboard: LeaderboardEntry[];
+  branchLeaderboard: LeaderboardEntry[];
+  technicianLeaderboard: LeaderboardEntry[];
+
+  filterOptions: { years: number[]; models: string[] };
+}
+
+function applyDealerModelScope(query: any, session: SessionUser, filters: DashboardFilters) {
+  query = applyScope(query, session);
+  if (filters.dealerId && seesAllDealers(session.role)) {
+    query = query.eq('dealer_id', filters.dealerId);
+  }
+  if (filters.model) {
+    query = query.eq('model', filters.model);
+  }
+  return query;
+}
+
+function dateRangeForFilter(year?: number, month?: number): { from: string; to: string } | null {
+  if (!year) return null;
+  if (month) {
+    const from = `${year}-${String(month).padStart(2, '0')}-01`;
+    const toYear = month === 12 ? year + 1 : year;
+    const toMonth = month === 12 ? 1 : month + 1;
+    return { from, to: `${toYear}-${String(toMonth).padStart(2, '0')}-01` };
+  }
+  return { from: `${year}-01-01`, to: `${year + 1}-01-01` };
+}
+
+export async function dashboardStats(session: SessionUser, filters: DashboardFilters = {}): Promise<DashboardStats> {
+  const supabase = getSupabase();
+
+  // 1. Lightweight query to populate the year/model filter dropdowns —
+  //    independent of which filters are currently applied.
+  let optionsQuery = supabase.from('records').select('found_date, model');
+  optionsQuery = applyScope(optionsQuery, session);
+  if (filters.dealerId && seesAllDealers(session.role)) {
+    optionsQuery = optionsQuery.eq('dealer_id', filters.dealerId);
+  }
+  const { data: optionsRows, error: optionsErr } = await optionsQuery.limit(5000);
+  if (optionsErr) throw optionsErr;
+  const years = Array.from(
+    new Set(
+      (optionsRows ?? [])
+        .map((r: any) => (r.found_date ? Number(String(r.found_date).slice(0, 4)) : null))
+        .filter((y: number | null): y is number => !!y)
+    )
+  ).sort((a, b) => b - a);
+  const models = Array.from(
+    new Set((optionsRows ?? []).map((r: any) => r.model).filter((m: any): m is string => !!m))
+  ).sort();
+
+  // 2. Current backlog — open jobs right now, never date-filtered.
+  let backlogQuery = supabase.from('records').select('*').in('status', OPEN_STATUSES);
+  backlogQuery = applyDealerModelScope(backlogQuery, session, filters);
+  const { data: backlogRows, error: backlogErr } = await backlogQuery.limit(5000);
+  if (backlogErr) throw backlogErr;
+  const backlog = (backlogRows ?? []) as MqrRecord[];
 
   const now = new Date();
-  const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const nowIso = now.toISOString().slice(0, 10);
 
-  const openStatuses = new Set<string>(OPEN_STATUSES);
-  const totalOpen = records.filter((r) => openStatuses.has(r.status)).length;
-  const totalThisMonth = records.filter((r) => (r.found_date ?? '').slice(0, 7) === thisMonthKey).length;
+  const statusBacklogMap = new Map<string, number>();
+  for (const s of OPEN_STATUSES) statusBacklogMap.set(s, 0);
+  for (const r of backlog) statusBacklogMap.set(r.status, (statusBacklogMap.get(r.status) ?? 0) + 1);
+  const statusBacklog = Array.from(statusBacklogMap.entries()).map(([status, count]) => ({ status, count }));
 
-  // Monthly trend, last 12 months.
-  const monthlyMap = new Map<string, number>();
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    monthlyMap.set(key, 0);
+  const agingBucketDefs = [
+    { bucket: '0-3 วัน', min: 0, max: 3 },
+    { bucket: '4-7 วัน', min: 4, max: 7 },
+    { bucket: '8-15 วัน', min: 8, max: 15 },
+    { bucket: '16-30 วัน', min: 16, max: 30 },
+    { bucket: '31+ วัน', min: 31, max: Infinity },
+  ];
+  const agingCounts = agingBucketDefs.map((b) => ({ bucket: b.bucket, count: 0 }));
+  let slaBreachCount = 0;
+  const agingJobs: AgingJobEntry[] = [];
+  for (const r of backlog) {
+    const fromDate = r.found_date ?? r.created_at;
+    if (!fromDate) continue;
+    const daysOpen = daysBetween(fromDate, nowIso);
+    const bucketIdx = agingBucketDefs.findIndex((b) => daysOpen >= b.min && daysOpen <= b.max);
+    if (bucketIdx >= 0) agingCounts[bucketIdx].count += 1;
+    const breached = daysOpen > slaThresholdFor(r.severity);
+    if (breached) slaBreachCount += 1;
+    agingJobs.push({
+      jobId: r.job_id,
+      model: r.model,
+      serial: r.serial,
+      severity: r.severity,
+      status: r.status,
+      daysOpen,
+      slaBreached: breached,
+      dealerId: r.dealer_id,
+    });
   }
-  for (const r of records) {
+  agingJobs.sort((a, b) => b.daysOpen - a.daysOpen);
+
+  // 3. Period-filtered set — respects year/month/model/dealer.
+  let periodQuery = supabase.from('records').select('*');
+  periodQuery = applyDealerModelScope(periodQuery, session, filters);
+  const range = dateRangeForFilter(filters.year, filters.month);
+  if (range) periodQuery = periodQuery.gte('found_date', range.from).lt('found_date', range.to);
+  const { data: periodRows, error: periodErr } = await periodQuery.limit(5000);
+  if (periodErr) throw periodErr;
+  const period = (periodRows ?? []) as MqrRecord[];
+
+  const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const totalThisMonth = period.filter((r) => (r.found_date ?? '').slice(0, 7) === thisMonthKey).length;
+  const totalRepaired = period.filter((r) => r.status === 'Repaired' || r.status === 'Closed').length;
+  const totalWaitingParts = period.filter((r) => r.status === 'WaitingParts').length;
+
+  const statusBreakdownMap = new Map<string, number>();
+  const severityBreakdownMap = new Map<string, number>();
+  for (const r of period) {
+    statusBreakdownMap.set(r.status, (statusBreakdownMap.get(r.status) ?? 0) + 1);
+    const sev = r.severity ?? 'ไม่ระบุ';
+    severityBreakdownMap.set(sev, (severityBreakdownMap.get(sev) ?? 0) + 1);
+  }
+  const statusBreakdown = Array.from(statusBreakdownMap.entries()).map(([status, count]) => ({ status, count }));
+  const severityBreakdown = Array.from(severityBreakdownMap.entries()).map(([severity, count]) => ({ severity, count }));
+
+  // Monthly trend: selected year's Jan-Dec, or the trailing 12 months when no year is chosen.
+  const monthlyMap = new Map<string, number>();
+  if (filters.year) {
+    for (let m = 1; m <= 12; m++) monthlyMap.set(`${filters.year}-${String(m).padStart(2, '0')}`, 0);
+  } else {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthlyMap.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, 0);
+    }
+  }
+  for (const r of period) {
     const key = (r.found_date ?? r.created_at ?? '').slice(0, 7);
     if (monthlyMap.has(key)) monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + 1);
   }
   const monthly = Array.from(monthlyMap.entries()).map(([month, count]) => ({ month, count }));
 
-  // Pareto: frequency by problem_code (label), descending, with cumulative %.
+  // Pareto: frequency by problem_code, descending, with cumulative %.
   const freq = new Map<string, number>();
-  for (const r of records) {
+  for (const r of period) {
     const key = r.problem_code ?? 'ไม่ระบุ';
     freq.set(key, (freq.get(key) ?? 0) + 1);
   }
-  const sorted = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]);
-  const total = sorted.reduce((sum, [, c]) => sum + c, 0) || 1;
+  const sortedFreq = Array.from(freq.entries()).sort((a, b) => b[1] - a[1]);
+  const totalFreq = sortedFreq.reduce((sum, [, c]) => sum + c, 0) || 1;
   let cumulative = 0;
-  const pareto = sorted.map(([label, count]) => {
+  const pareto = sortedFreq.map(([label, count]) => {
     cumulative += count;
-    return { label, count, cumulativePct: Math.round((cumulative / total) * 1000) / 10 };
+    return { label, count, cumulativePct: Math.round((cumulative / totalFreq) * 1000) / 10 };
   });
 
-  // Repeat-repair rate: vehicles (by serial) with more than one job.
+  // Top 10 frequently-replaced parts. damaged_parts is free text, so tokens
+  // are split on common delimiters and counted individually.
+  const partsFreq = new Map<string, number>();
+  for (const r of period) {
+    if (!r.damaged_parts) continue;
+    const tokens = r.damaged_parts.split(/[,;\/\n]+/).map((t) => t.trim()).filter(Boolean);
+    for (const t of tokens) partsFreq.set(t, (partsFreq.get(t) ?? 0) + 1);
+  }
+  const topParts = Array.from(partsFreq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([label, count]) => ({ label, count }));
+
+  // By vehicle model.
+  const modelFreq = new Map<string, number>();
+  for (const r of period) {
+    const key = r.model ?? 'ไม่ระบุ';
+    modelFreq.set(key, (modelFreq.get(key) ?? 0) + 1);
+  }
+  const byModel = Array.from(modelFreq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([model, count]) => ({ model, count }));
+
+  // Repeat-repair rate: vehicles (by serial) with more than one job in period.
   const bySerial = new Map<string, number>();
-  for (const r of records) {
+  for (const r of period) {
     if (!r.serial) continue;
     bySerial.set(r.serial, (bySerial.get(r.serial) ?? 0) + 1);
   }
   const repeatRepairCount = Array.from(bySerial.values()).filter((c) => c > 1).length;
 
+  // MTTR — mean days from found_date to repair_date, among resolved jobs with both dates.
+  const resolved = period.filter(
+    (r) => (r.status === 'Repaired' || r.status === 'Closed') && r.found_date && r.repair_date
+  );
+  const mttrDays = resolved.length
+    ? Math.round(
+        (resolved.reduce((sum, r) => sum + daysBetween(r.found_date as string, r.repair_date as string), 0) /
+          resolved.length) *
+          10
+      ) / 10
+    : null;
+
+  // Leaderboards — grouped count + average MTTR, by dealer (admins only), branch, technician.
+  function buildLeaderboard(
+    keyFn: (r: MqrRecord) => string | null,
+    labelFn?: (key: string) => string
+  ): LeaderboardEntry[] {
+    const groups = new Map<string, { count: number; mttrTotal: number; mttrCount: number }>();
+    for (const r of period) {
+      const key = keyFn(r);
+      if (!key) continue;
+      const g = groups.get(key) ?? { count: 0, mttrTotal: 0, mttrCount: 0 };
+      g.count += 1;
+      if ((r.status === 'Repaired' || r.status === 'Closed') && r.found_date && r.repair_date) {
+        g.mttrTotal += daysBetween(r.found_date, r.repair_date);
+        g.mttrCount += 1;
+      }
+      groups.set(key, g);
+    }
+    return Array.from(groups.entries())
+      .map(([key, g]) => ({
+        key,
+        label: labelFn ? labelFn(key) : key,
+        count: g.count,
+        mttrDays: g.mttrCount ? Math.round((g.mttrTotal / g.mttrCount) * 10) / 10 : null,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }
+
+  let dealerLeaderboard: LeaderboardEntry[] = [];
+  if (seesAllDealers(session.role)) {
+    const allDealers = await listDealers();
+    const dealerNameMap = new Map(allDealers.map((d) => [d.id, d.short_name]));
+    dealerLeaderboard = buildLeaderboard((r) => r.dealer_id ?? null, (key) => dealerNameMap.get(key) ?? key);
+  }
+  const branchLeaderboard = buildLeaderboard((r) => r.branch_name ?? null);
+  const technicianLeaderboard = buildLeaderboard((r) => r.technician_name ?? null);
+
   return {
-    totalOpen,
+    totalOpen: backlog.length,
+    statusBacklog,
+    agingBuckets: agingCounts,
+    slaBreachCount,
+    topAgingJobs: agingJobs.slice(0, 10),
+
+    totalAll: period.length,
     totalThisMonth,
-    totalAll: records.length,
+    totalRepaired,
+    totalWaitingParts,
     repeatRepairCount,
+    mttrDays,
+    statusBreakdown,
+    severityBreakdown,
     monthly,
     pareto: pareto.slice(0, 12),
+    topParts,
+    byModel,
+    dealerLeaderboard,
+    branchLeaderboard,
+    technicianLeaderboard,
+
+    filterOptions: { years, models },
   };
 }
 
