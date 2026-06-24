@@ -44,8 +44,18 @@ function ensureFontsRegistered() {
   Font.register({
     family: 'Sarabun',
     fonts: [
-      { src: fs.readFileSync(path.join(fontsDir, 'Sarabun-Regular.ttf')), fontWeight: 'normal' },
-      { src: fs.readFileSync(path.join(fontsDir, 'Sarabun-Bold.ttf')), fontWeight: 'bold' },
+      {
+        // @react-pdf/renderer's TS typings declare `src` as `string`, but at
+        // runtime it accepts a Buffer directly (used here to avoid HTTP
+        // fetches - see comment above). Cast through `unknown` to satisfy
+        // the type checker without lying about the Buffer's shape.
+        src: fs.readFileSync(path.join(fontsDir, 'Sarabun-Regular.ttf')) as unknown as string,
+        fontWeight: 'normal',
+      },
+      {
+        src: fs.readFileSync(path.join(fontsDir, 'Sarabun-Bold.ttf')) as unknown as string,
+        fontWeight: 'bold',
+      },
     ],
   });
   fontsRegistered = true;
