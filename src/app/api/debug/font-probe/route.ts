@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
+// @ts-ignore - fontkit ships no TypeScript declarations for this entry point
 import * as fontkit from 'fontkit';
 
 export const runtime = 'nodejs';
