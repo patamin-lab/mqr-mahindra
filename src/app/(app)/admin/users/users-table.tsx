@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { AdminUser, Dealer, Role } from '@/lib/types';
 import { assignableRoles, canDeleteUsers, canManageRoleTarget, roleLabelTh } from '@/lib/scope';
+import { swalConfirm, swalError, swalSuccess, swalPrompt } from '@/lib/swal';
 
 export default function UsersTable({
   initialUsers,
@@ -85,7 +86,11 @@ export default function UsersTable({
   }
 
   async function resetPassword(u: AdminUser) {
-    const pw = window.prompt(`รหัสผ่านใหม่สำหรับ ${u.username} (อย่างน้อย 6 ตัวอักษร)`);
+    const pw = await swalPrompt(`รหัสผ่านใหม่สำหรับ ${u.username} (อย่างน้อย 6 ตัวอักษร)`, {
+      title: 'รีเซ็ตรหัสผ่าน',
+      inputType: 'password',
+      placeholder: 'รหัสผ่านใหม่',
+    });
     if (!pw) return;
     setBusy(true);
     setError('');
@@ -93,16 +98,20 @@ export default function UsersTable({
       const res = await fetch(`/api/admin/users/${u.id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: pw }) });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error);
-      alert('รีเซ็ตรหัสผ่านสำเร็จ');
+      await swalSuccess('รีเซ็ตรหัสผ่านสำเร็จ');
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
     } finally {
       setBusy(false);
     }
   }
 
   async function removeUser(u: AdminUser) {
-    if (!confirm(`ยืนยันการลบผู้ใช้ ${u.username}? การลบนี้ไม่สามารถย้อนกลับได้`)) return;
+    const confirmed = await swalConfirm(`ยืนยันการลบผู้ใช้ ${u.username}? การลบนี้ไม่สามารถย้อนกลับได้`, {
+      title: 'ลบผู้ใช้',
+      confirmText: 'ลบผู้ใช้',
+    });
+    if (!confirmed) return;
     setBusy(true);
     setError('');
     try {
@@ -111,7 +120,7 @@ export default function UsersTable({
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
     } finally {
       setBusy(false);
     }
@@ -121,7 +130,7 @@ export default function UsersTable({
     <div className="space-y-4">
       {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="card p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อผู้ใช้ (username)" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value.trim() })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อ-สกุล" value={newUser.full_name} onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="รหัสผ่านเริ่มต้น" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
@@ -147,12 +156,12 @@ export default function UsersTable({
         ) : (
           <div className="text-xs text-gray-400 flex items-center px-2">ดีลเลอร์: {lockedDealerId}</div>
         )}
-        <button disabled={busy} onClick={createUser} className="bg-brand-red text-white rounded px-3 py-1.5 text-sm disabled:opacity-50 col-span-2 md:col-span-1">
+        <button disabled={busy} onClick={createUser} className="btn-primary col-span-2 md:col-span-1">
           + เพิ่มผู้ใช้
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-left">
             <tr>
