@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ProblemCode, Severity, SEVERITY_VALUES, SEVERITY_LABELS } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalError } from '@/lib/swal';
+import { swalError, swalLoading, swalClose } from '@/lib/swal';
 
 const SYSTEM_LABEL: Record<'powertrain' | 'other', string> = {
   powertrain: 'Powertrain (48 เดือน)',
@@ -41,6 +41,7 @@ export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] 
 
   async function create() {
     setBusy(true);
+    swalLoading('กำลังเพิ่ม...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; problemCode: ProblemCode }>('/api/admin/problem-codes', {
         method: 'POST',
@@ -49,7 +50,9 @@ export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] 
       if (!json.ok) throw new Error(json.error);
       setRows((prev) => [...prev, json.problemCode]);
       setNewRow({ code: '', label: '', groupName: '', system: 'other', defaultSeverity: '' });
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -58,6 +61,7 @@ export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] 
 
   async function patch(id: string, body: Draft & { active?: boolean }) {
     setBusy(true);
+    swalLoading('กำลังบันทึก...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; problemCode: ProblemCode }>(`/api/admin/problem-codes/${id}`, {
         method: 'PATCH',
@@ -67,7 +71,9 @@ export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] 
       setRows((prev) => prev.map((r) => (r.id === id ? json.problemCode : r)));
       setEditingId(null);
       setDraft({});
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
