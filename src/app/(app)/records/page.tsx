@@ -40,32 +40,26 @@ export default async function RecordsPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <h1 className="text-2xl font-bold text-brand-dark">ติดตามรายงานปัญหาคุณภาพ</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {allowExport && (
             <>
-              <a
-                href={exportHref('xlsx')}
-                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
+              <a href={exportHref('xlsx')} className="btn-secondary">
                 Export Excel
               </a>
-              <a
-                href={exportHref('pdf')}
-                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
+              <a href={exportHref('pdf')} className="btn-secondary">
                 Export PDF
               </a>
             </>
           )}
-          <Link href="/report" className="text-sm px-4 py-2 rounded bg-brand-red text-white">
+          <Link href="/report" className="btn-primary">
             + รายงานปัญหาใหม่
           </Link>
         </div>
       </div>
 
-      <form className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 flex flex-wrap gap-3 items-end">
+      <form className="card p-4 mb-4 flex flex-wrap gap-3 items-end">
         <div>
           <label className="block text-xs font-medium mb-1">ค้นหา</label>
           <input
@@ -107,7 +101,7 @@ export default async function RecordsPage({
             </select>
           </div>
         )}
-        <button className="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50">กรอง</button>
+        <button className="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50 hover:bg-gray-100 transition">กรอง</button>
         {(searchParams.q || searchParams.status || searchParams.dealerId) && (
           <Link href="/records" className="text-sm text-gray-500 underline">
             ล้างตัวกรอง
@@ -115,7 +109,7 @@ export default async function RecordsPage({
         )}
       </form>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
