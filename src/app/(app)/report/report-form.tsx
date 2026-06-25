@@ -14,6 +14,8 @@ import {
   SEVERITY_LABELS,
 } from '@/lib/types';
 import { calcWarranty } from '@/lib/warranty';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { swalError, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
 import LocationPicker from './location-picker';
 
 interface VehicleInfo {
@@ -43,6 +45,44 @@ function formatPhoneDisplay(digits: string) {
 }
 
 const PHONE_RE = /^0[0-9]{9}$/;
+
+// Vercel hard-caps a serverless function's request body at 4.5MB
+// (platform-level, can't be raised). Any photo/video at or above this stays
+// safely under that cap when proxied through /api/upload; anything bigger
+// (most videos, occasionally a very high-res photo) instead goes through
+// the direct-to-Google-Drive resumable path so it never touches our
+// function's body limit at all. See uploadOne() below.
+const PROXY_SAFE_BYTES = 4 * 1024 * 1024;
+
+/** PUTs a file directly to a Google Drive resumable upload session URL,
+ *  reporting progress via `onProgress`. Returns the new file's Drive ID. */
+function putFileDirect(sessionUrl: string, file: File, onProgress?: (pct: number) => void): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', sessionUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.upload.onprogress = (e) => {
+      if (onProgress && e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const json = JSON.parse(xhr.responseText);
+          if (json?.id) resolve(json.id as string);
+          else reject(new Error('ไม่ได้รับ file ID จาก Google Drive'));
+        } catch {
+          reject(new Error('Google Drive ตอบกลับข้อมูลไม่ถูกต้อง'));
+        }
+      } else {
+        reject(new Error(`อัปโหลดไปยัง Google Drive ไม่สำเร็จ (${xhr.status})`));
+      }
+    };
+    xhr.onerror = () => reject(new Error('การเชื่อมต่อกับ Google Drive ขัดข้อง กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'));
+    xhr.send(file);
+  });
+}
 
 export default function ReportForm({
   problemCodes,
@@ -101,7 +141,6 @@ export default function ReportForm({
   const [video, setVideo] = useState<File | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ jobId: string; warrantyStatus: string } | null>(null);
 
   const effectiveDealerId = lockedDealerId ?? dealerId;
@@ -301,67 +340,93 @@ export default function ReportForm({
     }
   }
 
-  async function uploadOne(file: File, label: string): Promise<string> {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('label', label);
-    fd.append('dealerId', effectiveDealerId);
-    const res = await fetch('/api/upload', { method: 'POST', body: fd });
-    if (res.status === 401) throw new Error('SESSION_EXPIRED');
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error || `อัปโหลด ${label} ไม่สำเร็จ`);
-    return json.url as string;
+  /** Small files (most photos): proxy through our own /api/upload, which
+   *  also handles HEIC->JPEG conversion server-side. Large files (videos,
+   *  occasionally an oversized photo): upload straight to Google Drive so
+   *  the bytes never pass through - and never get capped by - our own
+   *  Vercel function. Either path resolves to the same Drive URL string. */
+  async function uploadOne(file: File, label: string, onProgress?: (pct: number) => void): Promise<string> {
+    try {
+      if (file.size > PROXY_SAFE_BYTES) {
+        const init = await fetchJson<{ sessionUrl: string }>('/api/upload/init', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            dealerId: effectiveDealerId,
+          }),
+        });
+        const fileId = await putFileDirect(init.sessionUrl, file, onProgress);
+        const final = await fetchJson<{ url: string }>('/api/upload/finalize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId, mimeType: file.type || 'application/octet-stream' }),
+        });
+        return final.url;
+      }
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('label', label);
+      fd.append('dealerId', effectiveDealerId);
+      const json = await fetchJson<{ url: string }>('/api/upload', { method: 'POST', body: fd });
+      return json.url;
+    } catch (err: any) {
+      if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') throw err;
+      throw new Error(`อัปโหลด${label}ไม่สำเร็จ: ${err?.message ?? 'เกิดข้อผิดพลาด'}`);
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
     if (!serial.trim() || !foundDate || !problemCodeId) {
-      setError('กรุณากรอกหมายเลขรถ วันที่พบปัญหา และอาการที่พบ ให้ครบถ้วน');
+      swalError('กรุณากรอกหมายเลขรถ วันที่พบปัญหา และอาการที่พบ ให้ครบถ้วน');
       return;
     }
     if (!severity) {
-      setError('กรุณาเลือกความรุนแรงของปัญหา');
+      swalError('กรุณาเลือกความรุนแรงของปัญหา');
       return;
     }
     if (!odometerPhoto || !serialPhoto || !damagePhoto1) {
-      setError('กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ');
+      swalError('กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ');
       return;
     }
     if (!vehicle && !stockNote) {
-      setError('ไม่พบหมายเลขรถในระบบ กรุณาระบุที่มาของรถ (สต็อก/อื่นๆ)');
+      swalError('ไม่พบหมายเลขรถในระบบ กรุณาระบุที่มาของรถ (สต็อก/อื่นๆ)');
       return;
     }
     if (!lockedDealerId && !dealerId) {
-      setError('กรุณาเลือกดีลเลอร์');
+      swalError('กรุณาเลือกดีลเลอร์');
       return;
     }
     if (!customerName.trim()) {
-      setError('กรุณากรอกชื่อลูกค้า');
+      swalError('กรุณากรอกชื่อลูกค้า');
       return;
     }
     if (customerPhone && !PHONE_RE.test(customerPhone)) {
-      setError('เบอร์โทรลูกค้าไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)');
+      swalError('เบอร์โทรลูกค้าไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)');
       return;
     }
     if (reporterPhone && !PHONE_RE.test(reporterPhone)) {
-      setError('เบอร์โทรผู้แจ้งไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)');
+      swalError('เบอร์โทรผู้แจ้งไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)');
       return;
     }
     if (!repairDate) {
-      setError('กรุณากรอกวันที่นำรถเข้าซ่อม');
+      swalError('กรุณากรอกวันที่นำรถเข้าซ่อม');
       return;
     }
     if (repairDate < foundDate) {
-      setError('วันที่นำรถเข้าซ่อม ต้องไม่ก่อนวันที่พบปัญหา');
+      swalError('วันที่นำรถเข้าซ่อม ต้องไม่ก่อนวันที่พบปัญหา');
       return;
     }
     if (hours !== '' && hoursInForRepair !== '' && Number(hoursInForRepair) < Number(hours)) {
-      setError('ชั่วโมงการใช้งานขณะนำเข้าซ่อม ต้องไม่น้อยกว่าชั่วโมงขณะพบปัญหา');
+      swalError('ชั่วโมงการใช้งานขณะนำเข้าซ่อม ต้องไม่น้อยกว่าชั่วโมงขณะพบปัญหา');
       return;
     }
 
     setSubmitting(true);
+    swalLoading('กำลังบันทึก...');
     try {
       const photoLinks: PhotoLink[] = [];
       const namedPhotoSlots: { file: File | null; category: PhotoLink['category']; label: string }[] = [
@@ -371,59 +436,70 @@ export default function ReportForm({
         { file: damagePhoto2, category: 'damage_point_2', label: 'รูปจุดที่เสียหาย 2' },
         { file: damagePhoto3, category: 'damage_point_3', label: 'รูปจุดที่เสียหาย 3' },
       ];
+      const totalFiles = namedPhotoSlots.filter((s) => s.file).length + (video ? 1 : 0);
+      let doneFiles = 0;
       for (const slot of namedPhotoSlots) {
         if (!slot.file) continue;
-        const url = await uploadOne(slot.file, slot.label);
+        doneFiles += 1;
+        swalUpdateLoading(`กำลังอัปโหลด${slot.label} (${doneFiles}/${totalFiles})...`);
+        const url = await uploadOne(slot.file, slot.label, (pct) =>
+          swalUpdateLoading(`กำลังอัปโหลด${slot.label} (${doneFiles}/${totalFiles}) ${pct}%`)
+        );
         photoLinks.push({ category: slot.category, label: slot.label, url });
       }
       let videoLink: string | null = null;
       if (video) {
-        videoLink = await uploadOne(video, 'วิดีโอปัญหา');
+        doneFiles += 1;
+        swalUpdateLoading(`กำลังอัปโหลดวิดีโอปัญหา (${doneFiles}/${totalFiles})...`);
+        videoLink = await uploadOne(video, 'วิดีโอปัญหา', (pct) =>
+          swalUpdateLoading(`กำลังอัปโหลดวิดีโอปัญหา (${doneFiles}/${totalFiles}) ${pct}%`)
+        );
       }
 
-      const res = await fetch('/api/records', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          serial: serial.trim(),
-          model: model || vehicle?.model || '',
-          hours: hours === '' ? null : Number(hours),
-          foundDate,
-          problemCode: selectedCode?.label ?? '',
-          problemSystem,
-          severity,
-          peripheralEquipment,
-          customerName,
-          customerPhone,
-          reporterName,
-          reporterPhone,
-          attachment,
-          stockNote: vehicle ? null : stockNote,
-          lat,
-          lng,
-          photoLinks,
-          videoLink,
-          dealerId: lockedDealerId ?? dealerId,
-          branchId: branchId || null,
-          technicianId: technicianId || null,
-          repairDate,
-          hoursInForRepair: hoursInForRepair === '' ? null : Number(hoursInForRepair),
-        }),
-      });
-      if (res.status === 401) throw new Error('SESSION_EXPIRED');
-      const json = await res.json();
-      if (!json.ok) {
-        setError(json.error || 'บันทึกไม่สำเร็จ');
-        return;
-      }
+      swalUpdateLoading('กำลังบันทึกข้อมูลรายงาน...');
+      const json = await fetchJson<{ record: { job_id: string }; warranty: { status: string } }>(
+        '/api/records',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serial: serial.trim(),
+            model: model || vehicle?.model || '',
+            hours: hours === '' ? null : Number(hours),
+            foundDate,
+            problemCode: selectedCode?.label ?? '',
+            problemSystem,
+            severity,
+            peripheralEquipment,
+            customerName,
+            customerPhone,
+            reporterName,
+            reporterPhone,
+            attachment,
+            stockNote: vehicle ? null : stockNote,
+            lat,
+            lng,
+            photoLinks,
+            videoLink,
+            dealerId: lockedDealerId ?? dealerId,
+            branchId: branchId || null,
+            technicianId: technicianId || null,
+            repairDate,
+            hoursInForRepair: hoursInForRepair === '' ? null : Number(hoursInForRepair),
+          }),
+        }
+      );
+
+      swalClose();
       setSuccess({ jobId: json.record.job_id, warrantyStatus: json.warranty.status });
     } catch (err: any) {
-      if (err?.message === 'SESSION_EXPIRED') {
-        setError(
+      swalClose();
+      if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+        swalError(
           'เซสชันของคุณหมดอายุ ข้อมูลที่กรอกจะยังอยู่ในหน้านี้ — กรุณาเปิดแท็บใหม่แล้วเข้าสู่ระบบอีกครั้ง จากนั้นกลับมาที่แท็บนี้และกด "บันทึกรายงานปัญหาคุณภาพ" อีกครั้ง'
         );
       } else {
-        setError(err?.message ?? 'เกิดข้อผิดพลาด');
+        swalError(err?.message ?? 'เกิดข้อผิดพลาด');
       }
     } finally {
       setSubmitting(false);
@@ -456,10 +532,6 @@ export default function ReportForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
-      {error && (
-        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</div>
-      )}
-
       {/* ข้อมูลรถ */}
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
         <h2 className="font-semibold text-brand-dark">1. ข้อมูลรถ</h2>
@@ -816,6 +888,7 @@ export default function ReportForm({
               className="w-full text-sm"
               onChange={(e) => setVideo(e.target.files?.[0] ?? null)}
             />
+            {video && <p className="text-xs text-green-600 mt-1">เลือกแล้ว: {video.name}</p>}
           </div>
         </div>
         <p className="text-xs text-gray-400">
