@@ -12,6 +12,8 @@ import {
   SEVERITY_LABELS,
   PhotoLink,
 } from '@/lib/types';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { swalError, swalSuccess } from '@/lib/swal';
 
 export default function UpdateForm({ record }: { record: MqrRecord }) {
   const router = useRouter();
@@ -25,8 +27,6 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
   const [afterPhotos, setAfterPhotos] = useState<File[]>([]);
   const [photos, setPhotos] = useState<PhotoLink[]>(record.photo_links ?? []);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     setPhotos(record.photo_links ?? []);
@@ -34,7 +34,6 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
     setSaving(true);
     try {
       const addPhotoLinks: PhotoLink[] = [];
@@ -45,8 +44,10 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
         fd.append('label', label);
         fd.append('dealerId', record.dealer_id);
         fd.append('jobId', record.job_id);
-        const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
-        const upJson = await upRes.json();
+        const upJson = await fetchJson<{ ok: boolean; error?: string; url: string }>('/api/upload', {
+          method: 'POST',
+          body: fd,
+        });
         if (!upJson.ok) throw new Error(upJson.error || 'อัปโหลดรูปไม่สำเร็จ');
         addPhotoLinks.push({ category: 'after_repair', label, url: upJson.url });
       }
@@ -56,7 +57,7 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
         .filter((p) => !keptUrls.has(p.url))
         .map((p) => p.url);
 
-      const res = await fetch(`/api/records/${encodeURIComponent(record.job_id)}`, {
+      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/records/${encodeURIComponent(record.job_id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,13 +72,16 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
           removePhotoUrls,
         }),
       });
-      const json = await res.json();
       if (!json.ok) throw new Error(json.error || 'อัปเดตไม่สำเร็จ');
-      setSavedAt(Date.now());
       setAfterPhotos([]);
+      await swalSuccess('บันทึกเรียบร้อย');
       router.refresh();
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+        await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      } else {
+        await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+      }
     } finally {
       setSaving(false);
     }
@@ -85,12 +89,6 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      {error && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</div>}
-      {savedAt && !error && (
-        <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
-          บันทึกเรียบร้อย
-        </div>
-      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1">สถานะ</label>
