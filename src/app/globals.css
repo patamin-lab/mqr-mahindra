@@ -13,3 +13,70 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.35);
   border-color: #c8102e;
 }
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl shadow-card border border-gray-100 transition-shadow duration-200;
+  }
+  .card-interactive {
+    @apply hover:shadow-card-hover;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-primary text-white shadow-glow hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-brand-dark border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-outline-danger {
+    @apply btn bg-white border border-red-300 text-red-600 hover:bg-red-50 hover:-translate-y-0.5 active:translate-y-0;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-500 hover:bg-gray-100;
+  }
+}
+
+/* SweetAlert2 brand theming */
+.swal2-popup.mqr-swal {
+  border-radius: 1rem !important;
+  font-family: inherit !important;
+}
+.swal2-popup.mqr-swal .swal2-title {
+  color: #1a1d23;
+  font-size: 1.15rem;
+}
+.swal2-popup.mqr-swal .swal2-html-container {
+  color: #5b6168;
+}
+.swal2-popup.mqr-swal .swal2-confirm {
+  background: linear-gradient(135deg, #e0153a 0%, #9c0c24 100%) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 14px rgba(200, 16, 46, 0.28) !important;
+  padding: 0.55rem 1.4rem !important;
+}
+.swal2-popup.mqr-swal .swal2-cancel {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  border-radius: 0.5rem !important;
+  box-shadow: none !important;
+  padding: 0.55rem 1.4rem !important;
+}
+.swal2-popup.mqr-swal .swal2-deny {
+  background: #ef4444 !important;
+  border-radius: 0.5rem !important;
+  box-shadow: none !important;
+}
+.swal2-popup.mqr-swal .swal2-icon.swal2-warning {
+  border-color: #d68910;
+  color: #d68910;
+}
+.swal2-popup.mqr-swal .swal2-icon.swal2-success {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+.swal2-popup.mqr-swal .swal2-icon.swal2-error {
+  border-color: #c8102e;
+  color: #c8102e;
+}
