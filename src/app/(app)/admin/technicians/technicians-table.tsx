@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Technician, Dealer } from '@/lib/types';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { swalError } from '@/lib/swal';
 
 export default function TechniciansTable({
   initialTechnicians,
@@ -13,23 +15,31 @@ export default function TechniciansTable({
   lockedDealerId: string | null;
 }) {
   const [technicians, setTechnicians] = useState(initialTechnicians);
-  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<Technician>>({});
   const [newTech, setNewTech] = useState({ code: '', name: '', mobile: '', branch: '', dealer_id: lockedDealerId ?? '' });
 
+  async function showError(err: any) {
+    if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+      await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+    } else {
+      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+    }
+  }
+
   async function createTech() {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch('/api/admin/technicians', { method: 'POST', body: JSON.stringify(newTech) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; technician: Technician }>('/api/admin/technicians', {
+        method: 'POST',
+        body: JSON.stringify(newTech),
+      });
       if (!json.ok) throw new Error(json.error);
       setTechnicians((prev) => [...prev, json.technician].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTech({ code: '', name: '', mobile: '', branch: '', dealer_id: lockedDealerId ?? '' });
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -37,15 +47,16 @@ export default function TechniciansTable({
 
   async function saveEdit(id: string) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/technicians/${id}`, { method: 'PATCH', body: JSON.stringify(editDraft) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; technician: Technician }>(`/api/admin/technicians/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editDraft),
+      });
       if (!json.ok) throw new Error(json.error);
       setTechnicians((prev) => prev.map((t) => (t.id === id ? json.technician : t)));
       setEditingId(null);
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -53,14 +64,15 @@ export default function TechniciansTable({
 
   async function toggleActive(t: Technician) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/technicians/${t.id}`, { method: 'PATCH', body: JSON.stringify({ active: !t.active }) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; technician: Technician }>(`/api/admin/technicians/${t.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !t.active }),
+      });
       if (!json.ok) throw new Error(json.error);
       setTechnicians((prev) => prev.map((x) => (x.id === t.id ? json.technician : x)));
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -68,8 +80,6 @@ export default function TechniciansTable({
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
         <div>
           <label className="block text-xs text-gray-500 mb-1">รหัสช่าง</label>
