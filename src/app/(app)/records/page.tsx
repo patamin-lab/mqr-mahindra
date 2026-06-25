@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { listRecords, listDealers } from '@/lib/db';
+import { listRecords, listDealers, listBranches } from '@/lib/db';
 import { seesAllDealers, canExport } from '@/lib/scope';
 import { STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
 
@@ -16,7 +16,7 @@ const statusColor: Record<string, string> = {
 export default async function RecordsPage({
   searchParams,
 }: {
-  searchParams: { status?: string; q?: string; dealerId?: string };
+  searchParams: { status?: string; q?: string; dealerId?: string; branchId?: string };
 }) {
   const session = await getSession();
   if (!session) return null;
@@ -25,15 +25,22 @@ export default async function RecordsPage({
     status: searchParams.status,
     q: searchParams.q,
     dealerId: searchParams.dealerId,
+    branchId: searchParams.branchId,
   });
 
   const dealers = seesAllDealers(session.role) ? await listDealers() : [];
+  // Central roles see branches scoped to whichever dealer is currently selected
+  // (or all branches across all dealers if none is selected yet); dealer-scoped
+  // roles always see only their own dealer's branches.
+  const branchScopeDealerId = seesAllDealers(session.role) ? searchParams.dealerId ?? null : session.dealerId;
+  const branches = await listBranches(branchScopeDealerId ?? null);
   const allowExport = canExport(session.role);
 
   const exportQuery = new URLSearchParams();
   if (searchParams.status) exportQuery.set('status', searchParams.status);
   if (searchParams.q) exportQuery.set('q', searchParams.q);
   if (searchParams.dealerId) exportQuery.set('dealerId', searchParams.dealerId);
+  if (searchParams.branchId) exportQuery.set('branchId', searchParams.branchId);
   const exportQs = exportQuery.toString();
   const exportHref = (format: 'xlsx' | 'pdf') =>
     `/api/records/export?format=${format}${exportQs ? `&${exportQs}` : ''}`;
@@ -101,8 +108,25 @@ export default async function RecordsPage({
             </select>
           </div>
         )}
+        {branches.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium mb-1">สาขา</label>
+            <select
+              name="branchId"
+              defaultValue={searchParams.branchId ?? ''}
+              className="border border-gray-300 rounded px-3 py-2 text-sm"
+            >
+              <option value="">ทั้งหมด</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <button className="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50 hover:bg-gray-100 transition">กรอง</button>
-        {(searchParams.q || searchParams.status || searchParams.dealerId) && (
+        {(searchParams.q || searchParams.status || searchParams.dealerId || searchParams.branchId) && (
           <Link href="/records" className="text-sm text-gray-500 underline">
             ล้างตัวกรอง
           </Link>
