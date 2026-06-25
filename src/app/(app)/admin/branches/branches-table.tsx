@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Branch, Dealer } from '@/lib/types';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { swalError } from '@/lib/swal';
 
 export default function BranchesTable({
   initialBranches,
@@ -13,23 +15,31 @@ export default function BranchesTable({
   lockedDealerId: string | null;
 }) {
   const [branches, setBranches] = useState(initialBranches);
-  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<Branch>>({});
   const [newBranch, setNewBranch] = useState({ code: '', name: '', dealer_id: lockedDealerId ?? '' });
 
+  async function showError(err: any) {
+    if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+      await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+    } else {
+      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+    }
+  }
+
   async function createBranch() {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch('/api/admin/branches', { method: 'POST', body: JSON.stringify(newBranch) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; branch: Branch }>('/api/admin/branches', {
+        method: 'POST',
+        body: JSON.stringify(newBranch),
+      });
       if (!json.ok) throw new Error(json.error);
       setBranches((prev) => [...prev, json.branch].sort((a, b) => a.name.localeCompare(b.name)));
       setNewBranch({ code: '', name: '', dealer_id: lockedDealerId ?? '' });
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -37,15 +47,16 @@ export default function BranchesTable({
 
   async function saveEdit(id: string) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/branches/${id}`, { method: 'PATCH', body: JSON.stringify(editDraft) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; branch: Branch }>(`/api/admin/branches/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editDraft),
+      });
       if (!json.ok) throw new Error(json.error);
       setBranches((prev) => prev.map((b) => (b.id === id ? json.branch : b)));
       setEditingId(null);
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -53,14 +64,15 @@ export default function BranchesTable({
 
   async function toggleActive(b: Branch) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/branches/${b.id}`, { method: 'PATCH', body: JSON.stringify({ active: !b.active }) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; branch: Branch }>(`/api/admin/branches/${b.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !b.active }),
+      });
       if (!json.ok) throw new Error(json.error);
       setBranches((prev) => prev.map((x) => (x.id === b.id ? json.branch : x)));
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -68,8 +80,6 @@ export default function BranchesTable({
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
         <div>
           <label className="block text-xs text-gray-500 mb-1">รหัสสาขา</label>
