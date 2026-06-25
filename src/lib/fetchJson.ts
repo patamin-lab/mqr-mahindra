@@ -30,9 +30,6 @@ export async function fetchJson<T = any>(url: string, init?: RequestInit): Promi
     throw new FetchJsonError('เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
   }
 
-  if (res.status === 401) {
-    throw new FetchJsonError('SESSION_EXPIRED', 401);
-  }
   if (res.status === 413) {
     throw new FetchJsonError('ไฟล์มีขนาดใหญ่เกินไปสำหรับระบบ กรุณาลองไฟล์ที่เล็กลง', 413);
   }
@@ -46,6 +43,17 @@ export async function fetchJson<T = any>(url: string, init?: RequestInit): Promi
       `เซิร์ฟเวอร์ตอบกลับข้อมูลไม่ถูกต้อง (${res.status}) กรุณาลองใหม่อีกครั้ง`,
       res.status
     );
+  }
+
+  // Every session-gated API route in this app answers a missing/expired
+  // login cookie with the generic shape `{ ok:false, error:'unauthorized' }`
+  // and status 401 - that case gets the friendly "please log in again"
+  // popup. But /api/auth/login itself also responds with its own 401 for
+  // an everyday wrong username/password, carrying a specific, already
+  // user-facing Thai message in `json.error`. That message must reach the
+  // caller as-is instead of being overwritten with "session expired".
+  if (res.status === 401 && (!json?.error || json.error === 'unauthorized')) {
+    throw new FetchJsonError('SESSION_EXPIRED', 401);
   }
 
   if (!res.ok && json?.ok !== true) {
