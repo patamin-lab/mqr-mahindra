@@ -2,26 +2,36 @@
 
 import { useState } from 'react';
 import { Dealer } from '@/lib/types';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { swalError } from '@/lib/swal';
 
 export default function DealersTable({ initialDealers }: { initialDealers: Dealer[] }) {
   const [dealers, setDealers] = useState(initialDealers);
-  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<Dealer>>({});
   const [newDealer, setNewDealer] = useState({ id: '', short_name: '', full_name: '', address: '' });
 
+  async function showError(err: any) {
+    if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+      await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+    } else {
+      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+    }
+  }
+
   async function createDealer() {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch('/api/admin/dealers', { method: 'POST', body: JSON.stringify(newDealer) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; dealer: Dealer }>('/api/admin/dealers', {
+        method: 'POST',
+        body: JSON.stringify(newDealer),
+      });
       if (!json.ok) throw new Error(json.error);
       setDealers((prev) => [...prev, json.dealer].sort((a, b) => a.short_name.localeCompare(b.short_name)));
       setNewDealer({ id: '', short_name: '', full_name: '', address: '' });
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -29,15 +39,16 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
 
   async function saveEdit(id: string) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/dealers/${id}`, { method: 'PATCH', body: JSON.stringify(editDraft) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; dealer: Dealer }>(`/api/admin/dealers/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editDraft),
+      });
       if (!json.ok) throw new Error(json.error);
       setDealers((prev) => prev.map((d) => (d.id === id ? json.dealer : d)));
       setEditingId(null);
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -45,17 +56,15 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
 
   async function toggleActive(d: Dealer) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/dealers/${d.id}`, {
+      const json = await fetchJson<{ ok: boolean; error?: string; dealer: Dealer }>(`/api/admin/dealers/${d.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ active: !d.active }),
       });
-      const json = await res.json();
       if (!json.ok) throw new Error(json.error);
       setDealers((prev) => prev.map((x) => (x.id === d.id ? json.dealer : x)));
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -63,8 +72,6 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
         <div>
           <label className="block text-xs text-gray-500 mb-1">รหัสดีลเลอร์</label>
