@@ -35,8 +35,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-dark px-4">
-      <form onSubmit={onSubmit} className="bg-white rounded-xl shadow-lg w-full max-w-sm p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-dark px-4">
+      <form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-card-hover w-full max-w-sm p-8">
         <h1 className="text-xl font-bold text-brand-red mb-1">Market Quality Report</h1>
         <p className="text-sm text-gray-500 mb-6">เข้าสู่ระบบเพื่อใช้งาน</p>
 
@@ -65,10 +65,7 @@ export default function LoginPage() {
           required
         />
 
-        <button
-          disabled={loading}
-          className="w-full bg-brand-red hover:bg-brand-redDark text-white rounded py-2 font-medium disabled:opacity-50 transition"
-        >
+        <button disabled={loading} className="btn-primary w-full">
           {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
         </button>
       </form>
