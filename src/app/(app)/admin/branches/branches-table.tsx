@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Branch, Dealer } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalError } from '@/lib/swal';
+import { swalError, swalLoading, swalClose } from '@/lib/swal';
 
 export default function BranchesTable({
   initialBranches,
@@ -30,6 +30,7 @@ export default function BranchesTable({
 
   async function createBranch() {
     setBusy(true);
+    swalLoading('กำลังเพิ่มสาขา...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; branch: Branch }>('/api/admin/branches', {
         method: 'POST',
@@ -38,7 +39,9 @@ export default function BranchesTable({
       if (!json.ok) throw new Error(json.error);
       setBranches((prev) => [...prev, json.branch].sort((a, b) => a.name.localeCompare(b.name)));
       setNewBranch({ code: '', name: '', dealer_id: lockedDealerId ?? '' });
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -47,6 +50,7 @@ export default function BranchesTable({
 
   async function saveEdit(id: string) {
     setBusy(true);
+    swalLoading('กำลังบันทึก...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; branch: Branch }>(`/api/admin/branches/${id}`, {
         method: 'PATCH',
@@ -55,7 +59,9 @@ export default function BranchesTable({
       if (!json.ok) throw new Error(json.error);
       setBranches((prev) => prev.map((b) => (b.id === id ? json.branch : b)));
       setEditingId(null);
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -64,6 +70,7 @@ export default function BranchesTable({
 
   async function toggleActive(b: Branch) {
     setBusy(true);
+    swalLoading();
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; branch: Branch }>(`/api/admin/branches/${b.id}`, {
         method: 'PATCH',
@@ -71,7 +78,9 @@ export default function BranchesTable({
       });
       if (!json.ok) throw new Error(json.error);
       setBranches((prev) => prev.map((x) => (x.id === b.id ? json.branch : x)));
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
