@@ -431,6 +431,7 @@ export interface ListRecordsFilters {
   status?: string;
   q?: string;
   dealerId?: string;
+  branchId?: string;
 }
 
 export async function listRecords(session: SessionUser, filters: ListRecordsFilters = {}): Promise<MqrRecord[]> {
@@ -441,6 +442,11 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
   // SuperAdmin / CentralAdmin may further narrow to one dealer via the UI.
   if (filters.dealerId && seesAllDealers(session.role)) {
     query = query.eq('dealer_id', filters.dealerId);
+  }
+  // Branch filter is independent of role scope — any caller (dealer staff included)
+  // may narrow their own already-scoped record set down to a single branch.
+  if (filters.branchId) {
+    query = query.eq('branch_id', filters.branchId);
   }
   if (filters.status) {
     query = query.eq('status', filters.status);
@@ -550,7 +556,7 @@ export async function getVehicleHistory(serial: string, session: SessionUser): P
 // ---------- Dashboard (Phase 6: full KPI suite) ----------
 
 /** SLA target (days from found_date to resolution) by severity. Records
- *  without a recognised severity fall back to the Major threshold. */
+ * without a recognised severity fall back to the Major threshold. */
 const SLA_THRESHOLD_DAYS: Record<string, number> = { Critical: 3, Major: 7, Minor: 14 };
 const DEFAULT_SLA_THRESHOLD_DAYS = 7;
 
@@ -566,6 +572,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 
 export interface DashboardFilters {
   dealerId?: string;
+  branchId?: string;
   year?: number;
   month?: number; // 1-12
   model?: string;
@@ -598,7 +605,7 @@ export interface DashboardStats {
   slaBreachCount: number;
   topAgingJobs: AgingJobEntry[];
 
-  // Period-filtered analytics (respects year/month/model/dealer filters).
+  // Period-filtered analytics (respects year/month/model/dealer/branch filters).
   totalAll: number;
   totalThisMonth: number;
   totalRepaired: number;
@@ -623,6 +630,11 @@ function applyDealerModelScope(query: any, session: SessionUser, filters: Dashbo
   if (filters.dealerId && seesAllDealers(session.role)) {
     query = query.eq('dealer_id', filters.dealerId);
   }
+  // Branch filter is independent of role scope — dealer-scoped users may also
+  // narrow their own already-scoped record set down to a single branch.
+  if (filters.branchId) {
+    query = query.eq('branch_id', filters.branchId);
+  }
   if (filters.model) {
     query = query.eq('model', filters.model);
   }
@@ -644,11 +656,14 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
   const supabase = getSupabase();
 
   // 1. Lightweight query to populate the year/model filter dropdowns —
-  //    independent of which filters are currently applied.
+  // independent of which filters are currently applied.
   let optionsQuery = supabase.from('records').select('found_date, model');
   optionsQuery = applyScope(optionsQuery, session);
   if (filters.dealerId && seesAllDealers(session.role)) {
     optionsQuery = optionsQuery.eq('dealer_id', filters.dealerId);
+  }
+  if (filters.branchId) {
+    optionsQuery = optionsQuery.eq('branch_id', filters.branchId);
   }
   const { data: optionsRows, error: optionsErr } = await optionsQuery.limit(5000);
   if (optionsErr) throw optionsErr;
@@ -709,7 +724,7 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
   }
   agingJobs.sort((a, b) => b.daysOpen - a.daysOpen);
 
-  // 3. Period-filtered set — respects year/month/model/dealer.
+  // 3. Period-filtered set — respects year/month/model/dealer/branch.
   let periodQuery = supabase.from('records').select('*');
   periodQuery = applyDealerModelScope(periodQuery, session, filters);
   const range = dateRangeForFilter(filters.year, filters.month);
