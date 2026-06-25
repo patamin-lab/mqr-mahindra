@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Dealer } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalError } from '@/lib/swal';
+import { swalError, swalLoading, swalClose } from '@/lib/swal';
 
 export default function DealersTable({ initialDealers }: { initialDealers: Dealer[] }) {
   const [dealers, setDealers] = useState(initialDealers);
@@ -22,6 +22,7 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
 
   async function createDealer() {
     setBusy(true);
+    swalLoading('กำลังเพิ่มดีลเลอร์...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; dealer: Dealer }>('/api/admin/dealers', {
         method: 'POST',
@@ -30,7 +31,9 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
       if (!json.ok) throw new Error(json.error);
       setDealers((prev) => [...prev, json.dealer].sort((a, b) => a.short_name.localeCompare(b.short_name)));
       setNewDealer({ id: '', short_name: '', full_name: '', address: '' });
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -39,6 +42,7 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
 
   async function saveEdit(id: string) {
     setBusy(true);
+    swalLoading('กำลังบันทึก...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; dealer: Dealer }>(`/api/admin/dealers/${id}`, {
         method: 'PATCH',
@@ -47,7 +51,9 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
       if (!json.ok) throw new Error(json.error);
       setDealers((prev) => prev.map((d) => (d.id === id ? json.dealer : d)));
       setEditingId(null);
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -56,6 +62,7 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
 
   async function toggleActive(d: Dealer) {
     setBusy(true);
+    swalLoading();
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; dealer: Dealer }>(`/api/admin/dealers/${d.id}`, {
         method: 'PATCH',
@@ -63,7 +70,9 @@ export default function DealersTable({ initialDealers }: { initialDealers: Deale
       });
       if (!json.ok) throw new Error(json.error);
       setDealers((prev) => prev.map((x) => (x.id === d.id ? json.dealer : x)));
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
