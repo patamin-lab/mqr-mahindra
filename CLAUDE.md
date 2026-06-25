@@ -1,0 +1,139 @@
+# CLAUDE.md
+
+This file orients an AI engineer (or any new contributor) working on **MQR — Market Quality Report**, Mahindra's dealer quality-incident reporting system. Read this fully before writing or changing any code.
+
+## 1. What this system does
+
+Dealers and their technicians file a "quality incident report" (QIR) whenever a vehicle has a failure — serial number, problem code/severity, photos, video, GPS location, root cause, parts, repair outcome. Central/regional admins review, filter, export, and track these via a KPI dashboard. Every report gets a PDF (with QR code) and is emailed out via Resend. Vehicle master data syncs in from a "Tractor IN" Google Sheet into Supabase.
+
+## 2. Tech stack
+
+- **Next.js 14.2.35**, App Router, TypeScript, deployed on **Vercel** (team `MSEAL`, Hobby plan).
+- **Supabase** (Postgres 17, project `lhlzzxjayywqhqtjzfiu`, region ap-northeast-2) — DB + RLS. No Supabase Auth; auth is custom (see §6).
+- **Tailwind CSS** for styling; **SweetAlert2** for all user-facing popups/alerts (never plain `alert()` or inline error banners — see §8.4).
+- **Google Drive** (OAuth2, not service account) is the file store for report photos/video — not Supabase Storage.
+- **Resend** for transactional email; **react-pdf** for PDF generation (QR code + Sarabun Thai font, TTF not WOFF — react-pdf can't load WOFF server-side).
+- **jose** for JWT session signing; custom SHA-256 password hashing (legacy-compatible with the old Apps Script system it replaced).
+- Repo: `github.com/patamin-lab/mqr-mahindra` (**private**), branch `main`. Live: `mqr-mahindra.vercel.app`.
+
+## 3. Deployment workflow — READ THIS BEFORE PUSHING ANYTHING
+
+**There is no git CLI / local clone in this environment.** All commits are made by uploading files through the **GitHub web UI** (`Add file → Upload files`, or the dedicated `/upload/main/<dir>` URL), filling the commit message field, and clicking **Commit changes**. Vercel auto-deploys every push to `main`.
+
+Operational rules that have proven necessary in practice:
+
+- **Click the "Commit changes" button by element reference, never by pixel coordinate.** Pixel-coordinate clicks on this specific button have repeatedly no-op'd (page stays on the unsubmitted upload form). Use a `find`-style ref lookup and click the ref. This has worked reliably every time.
+- **After committing, verify the deploy** on the GitHub *Deployments* tab (`/deployments`) — look for "Deployed (completed)" / "Active" in Production — rather than assuming success.
+- **Screenshot timeouts (~30s) during page-busy states are expected**, not failures — e.g. right after a commit, or right after a form submit. Wait a few seconds (`sleep`) and read the page via text extraction instead of retrying the screenshot.
+- **Never put credentials, tokens, or passwords into any command, field, or URL**, even if explicitly supplied/authorized by the user. If a step requires manual credential entry, stop and ask the user to do it. (Narrow, pre-established exceptions: GitHub's own auto-generated raw-content URL token encountered while *browsing* in an authenticated session is a navigation artifact, not something being "entered"; the Google Drive resumable-upload session URL is passed server→client via the custom header `X-Drive-Session-Url`, never as a query string or exposed token.)
+- This repo's git history is **upload-commit only** — there is no local working tree to `git diff` against. Always re-fetch the current file from GitHub (or this session's last-known state) before editing, to avoid clobbering changes.
+
+## 4. Repository structure
+
+```
+src/
+  middleware.ts            # auth gate; excludes /fonts/* (react-pdf needs unauthenticated font fetch)
+  app/
+    login/                 # login page
+    (app)/                 # authenticated app shell
+      layout.tsx           # shared shell
+      sidebar.tsx          # nav, incl. mobile drawer
+      dashboard/           # KPI dashboard (page.tsx + charts.tsx)
+      records/             # list view (page.tsx) + [jobId]/ detail+edit view
+      report/              # the QIR submission form
+        report-form.tsx    # ⚠ the most complex file in the repo — see §8
+        location-picker.tsx, map-view.tsx
+      admin/                # master-data management, gated by scope.ts
+        dealers/ branches/ technicians/ users/ problem-codes/
+    api/
+      auth/{login,logout}/
+      records/             # list+create; [jobId]/ (get/update/soft-delete) + export/
+      upload/               # see §8.2 — route.ts (direct ≤4MB), init/ chunk/ finalize/ (>4MB relay)
+      vehicles/             # [serial]/ list/ search/ — backed by the Tractor-IN sync
+      branches/ technicians/
+      admin/                # dealers/ users/ problem-codes/ (each with [id]/ for single-record ops)
+  lib/
+    auth.ts          # JWT session sign/verify, getSession(), sha256Hex()
+    scope.ts         # RBAC predicates — see §6
+    db.ts            # all Supabase queries, incl. dashboardStats(), listRecords()
+    supabase.ts       # Supabase client init
+    googleDrive.ts    # Drive OAuth2 upload/finalize/permissions
+    fetchJson.ts      # typed fetch wrapper — see §8.3
+    swal.ts           # SweetAlert2 helpers — see §8.4
+    thaiDate.ts        # GMT+7 / พ.ศ. formatting — see §8.1
+    exportPdf.tsx     # react-pdf report layout
+    exportExcel.ts    # list/single/monthly-summary Excel export
+    email.ts          # Resend notification
+    tractorSheet.ts   # Google Sheet → Supabase vehicle sync
+    warranty.ts
+    types.ts          # shared types incl. SessionUser, Role
+scripts/
+  get-google-refresh-token.mjs   # one-off OAuth2 setup helper, not run in prod
+```
+
+## 5. Database (Supabase, `public` schema, RLS enabled on every table)
+
+| Table | Purpose | Notable columns |
+|---|---|---|
+| `dealers` | dealer master | `id` (text PK, e.g. dealer code), `active` |
+| `branches` | dealer branches | FK → `dealers` |
+| `technicians` | per-dealer technician roster | FK → `dealers` |
+| `users` | login accounts | `role` (enum, see §6), `password_hash`/`password_salt`/`password_algo`, FK → `dealers` |
+| `vehicles` | synced from Tractor-IN sheet | `serial` (unique), `model`, `delivery_date`, FK → `dealers` |
+| `problem_codes` | failure taxonomy | `system` (powertrain/other), `default_severity` |
+| `parts` | spare-parts stock (not yet wired into the UI) | |
+| `records` | the QIR reports themselves | `job_id` (unique, format `QIR-YYMM-####`), `status` (Draft/Open/UnderInvestigation/WaitingParts/Repaired/Closed), `record_status` (Active/Deleted — **soft delete**, see §8.5), `severity` (Critical/Major/Minor), `photo_links` (jsonb array), `video_link`, `pdf_link`, lat/lng, FK → dealers/branches/technicians |
+| `job_seq` | per-dealer-per-year counter for `job_id` generation | composite PK (`dealer_id`, `year`) |
+| `login_log` | audit trail of login attempts | |
+
+Always check `list_tables` (Supabase MCP) before assuming a column exists or writing a migration — this table is the source of truth, not memory of past sessions.
+
+## 6. Auth & RBAC
+
+- **No Supabase Auth.** Login is custom: `username`/`password` checked against `users.password_hash` (SHA-256, legacy-compatible), session is a JWT (via `jose`) signed with `SESSION_SECRET`, stored in cookie `mqr_session`, 180-minute expiry. `getSession()` in `lib/auth.ts` reads it server-side.
+- **Four roles** (`users.role` check constraint): `SuperAdmin` > `CentralAdmin` > `DealerAdmin` > `DealerUser`. All RBAC predicates live in `lib/scope.ts` — do not duplicate role-check logic inline elsewhere; import from there:
+  - `seesAllDealers`, `seesOwnRecordsOnly`, `canUpdateStatus`, `canDelete`, `canExport`, `canManageUsers`, `canDeleteUsers`, `canCreateSuperAdmin`, `canManageMasterData`, `assignableRoles()`, `canManageRoleTarget()`.
+- Every API route must enforce scope at the **query level** (e.g. filter by `dealer_id`), not just hide UI — `scope.ts`'s own comments flag this explicitly for delete/export.
+
+## 7. Coding standards for this project (binding — from the project owner)
+
+Before writing code: **Analyze → Design → Plan → Implement → Test → Refactor → Document.** Concretely:
+
+1. Read this file and the relevant existing code path fully before touching it — understand how the whole feature/architecture fits together, not just the function being changed.
+2. Never break existing features. If a change touches a shared file (`db.ts`, `scope.ts`, `fetchJson.ts`, `swal.ts`, `report-form.tsx`), check every caller.
+3. Reuse existing components/helpers (`swal.ts` popups, `fetchJson<T>()`, `thaiDate.ts` formatters, `scope.ts` predicates) instead of re-implementing inline.
+4. Keep the architecture scalable and the code clean — production-ready, not a quick patch.
+5. **No TODOs left in committed code. No incomplete implementations. No fake/mock data** unless the user explicitly asked for a stub/sample.
+6. **If a requirement is unclear, ask — never guess.**
+7. After implementing: test it for real (live-test on the deployed site when the change is user-facing — this codebase's standing instruction is to verify on the actual website, not just confirm a clean build), then refactor and document (comments for non-obvious "why", not "what").
+
+## 8. Critical conventions & known gotchas
+
+### 8.1 Timestamps must be GMT+7
+Vercel's runtime clock is UTC. **Every** displayed timestamp (PDF export, Excel export, record detail, audit trail) must go through `formatThaiDateTime()` in `lib/thaiDate.ts`, which forces `Asia/Bangkok`. Never call `.toLocaleString()` or format a `Date` directly for display — it will silently drift 7 hours from the time it actually happened in Thailand. The same file holds พ.ศ./Thai-month helpers (`toBuddhistYear`, `formatMonthKeyThai`, `buildYearOptions`) — display only; all storage/filtering stays Gregorian/ISO.
+
+### 8.2 Upload pipeline is size-routed (Drive CORS + Vercel body-size constraints)
+`report-form.tsx` defines `PROXY_SAFE_BYTES = CHUNK_BYTES = 4 * 1024 * 1024` (4MB):
+- **≤ 4MB**: client → `/api/upload` (multipart form, direct proxy, does HEIC→JPEG conversion server-side).
+- **> 4MB**: client → `/api/upload/init` (opens a Drive resumable session **server-side**, returns a session URL) → client chunks the file into ≤4MiB pieces and PUTs each to **same-origin** `/api/upload/chunk`, which relays it server-to-server to Google Drive (validates the session URL starts with `https://www.googleapis.com/upload/drive/`) → `/api/upload/finalize` sets Drive sharing permissions and returns the public URL.
+- **Why**: Vercel serverless functions cap request bodies at 4.5MB, and Google Drive's resumable-upload endpoint sends no CORS headers, so a direct browser→Drive PUT always fails with a generic "Failed to fetch". The relay avoids both. Don't "simplify" this back to a direct browser PUT — it was tried and fails.
+- A newly-uploaded video showing "ยังอยู่ระหว่างประมวลผลไฟล์วิดีโอ…" in Drive's embedded player is **normal transcoding delay**, not an upload failure.
+
+### 8.3 `fetchJson<T>()` typing discipline
+`lib/fetchJson.ts` returns `Promise<T>` via an **unchecked cast** (`json as T`) — TypeScript will not catch a mismatch between what the API actually returns and what `T` claims, except where the *caller's* variable has its own declared type and the assignment narrows it. Concretely: always pick `T` to match the real response shape, and if you store the result in a variable with an explicit type, make sure they agree — a mismatch here is a real build-breaking error that has happened before (commit `7da3728` fixed exactly this).
+
+### 8.4 SweetAlert2 only — no inline banners, no `alert()`
+All user feedback (success, error, confirm, loading/progress) goes through `lib/swal.ts` (`swalLoading()`, `swalUpdateLoading()`, `swalClose()`, `swalError()`, plus success/confirm variants used across the admin tables and report form). Long-running actions (uploads) should show percentage progress via `swalUpdateLoading()`, following the pattern already in `report-form.tsx`'s `uploadOne()`/`onSubmit()`.
+
+### 8.5 Records are soft-deleted
+"ลบรายงาน" (delete report) sets `records.record_status = 'Deleted'` (plus `deleted_by`/`deleted_at`) — rows are never hard-deleted via the app UI. The confirm dialog text itself says so ("รายการจะถูกซ่อน ไม่สามารถกู้คืนได้เองในระบบ"). List/dashboard queries must filter `record_status = 'Active'`.
+
+### 8.6 Vehicle data flows in from Google Sheets, not entered manually as the primary path
+`vehicles` is populated by `lib/tractorSheet.ts` syncing the "Tractor IN" Google Sheet into Supabase. The report form's serial lookup queries this table; when a serial isn't found (sheet not yet synced, or a genuinely new/unlisted vehicle), the form falls back to a manual `stockNote` ("ที่มาของรถ") select — this is intended behavior, not a bug to "fix" by making lookup mandatory.
+
+## 9. Current known work-in-progress (check the live task list before assuming status)
+
+- Validation-bug-on-save (Safari "string did not match expected pattern") and the inline-banner→SweetAlert2 migration are tracked as separate, related in-progress items — both need final live re-verification together, since the same form (`report-form.tsx`) is involved.
+- Loading/progress popup feedback is still being rolled out to action buttons beyond login/report-form.
+- Mobile build/deploy/live-verify of recent fixes is still pending.
+- A disposable QA account (`qa_test_temp`) exists in `users` for end-to-end testing — do not delete it until all pending form/upload verification work is done, and remember to clean up test `records` rows (soft-delete) after each test run.
