@@ -224,7 +224,7 @@ index 0000000..d1c5f2e
 +            l2="ชั่วโมงที่นำรถเข้าซ่อม"
 +            v2={record.hours_in_for_repair}
 +          />
-+          <Row2 l1="สาขาที่ดำเนินการ" v1={record.branch_name} l2="ช่างผู้ดำเนินการ" v2={record.technician_name} />
++          <Row2 l1="สาขาที่ดำเนินการ" v1={record.branch_name} l2="ช่างผู้ดำเนินการ " v2={record.technician_name} />
 +          <Row2
 +            l1="ระบบ"
 +            v1={problemSystemLabel(record.problem_system)}
