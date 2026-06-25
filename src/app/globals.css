@@ -80,3 +80,27 @@ input:focus, select:focus, textarea:focus {
   border-color: #c8102e;
   color: #c8102e;
 }
+
+/* Google Translate widget (TH/EN toggle) — keep Google's own banner/tooltip
+   UI fully hidden since we drive translation ourselves via the googtrans
+   cookie and a custom pill toggle (see language-toggle.tsx). */
+#google_translate_element {
+  display: none !important;
+}
+.goog-te-banner-frame.skiptranslate,
+.goog-te-balloon-frame,
+#goog-gt-tt,
+.goog-tooltip,
+.goog-tooltip:hover,
+.goog-text-highlight {
+  display: none !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+body {
+  top: 0 !important;
+  position: static !important;
+}
+.skiptranslate iframe {
+  display: none !important;
+}
