@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { dashboardStats, listDealers } from '@/lib/db';
+import { dashboardStats, listDealers, listBranches } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
 import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity } from '@/lib/types';
 import { THAI_MONTHS_FULL, formatMonthKeyThai, buildYearOptions, toBuddhistYear } from '@/lib/thaiDate';
@@ -44,7 +44,7 @@ const severityBadgeClass = (severity: string): string =>
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { year?: string; month?: string; model?: string; dealerId?: string };
+  searchParams: { year?: string; month?: string; model?: string; dealerId?: string; branchId?: string };
 }) {
   const session = await getSession();
   if (!session) return null;
@@ -53,9 +53,15 @@ export default async function DashboardPage({
   const month = searchParams.month ? Number(searchParams.month) : undefined;
   const model = searchParams.model || undefined;
   const dealerId = searchParams.dealerId || undefined;
+  const branchId = searchParams.branchId || undefined;
 
-  const stats = await dashboardStats(session, { year, month, model, dealerId });
+  const stats = await dashboardStats(session, { year, month, model, dealerId, branchId });
   const dealers = seesAllDealers(session.role) ? await listDealers() : [];
+  // Central roles (SuperAdmin/CentralAdmin) see branches scoped to whichever dealer is
+  // currently selected (or all branches across all dealers if none is selected yet);
+  // dealer-scoped roles always see only their own dealer's branches.
+  const branchScopeDealerId = seesAllDealers(session.role) ? dealerId ?? null : session.dealerId;
+  const branches = await listBranches(branchScopeDealerId ?? null);
   const yearOptions = buildYearOptions(stats.filterOptions.years);
 
   const filterQuery = new URLSearchParams();
@@ -63,6 +69,7 @@ export default async function DashboardPage({
   if (searchParams.month) filterQuery.set('month', searchParams.month);
   if (searchParams.model) filterQuery.set('model', searchParams.model);
   if (searchParams.dealerId) filterQuery.set('dealerId', searchParams.dealerId);
+  if (searchParams.branchId) filterQuery.set('branchId', searchParams.branchId);
   const hasFilters = filterQuery.toString().length > 0;
 
   const monthlyData = stats.monthly.map((m) => ({ ...m, label: formatMonthKeyThai(m.month) }));
@@ -135,6 +142,19 @@ export default async function DashboardPage({
             </select>
           </div>
         )}
+        {branches.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium mb-1">สาขา</label>
+            <select name="branchId" defaultValue={searchParams.branchId ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
+              <option value="">ทั้งหมด</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <button className="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50">กรอง</button>
         {hasFilters && (
           <Link href="/dashboard" className="text-sm text-gray-500 underline">
@@ -147,7 +167,7 @@ export default async function DashboardPage({
       <div>
         <h2 className="text-lg font-semibold text-brand-dark mb-1">ภาพรวมงานค้างปัจจุบัน</h2>
         <p className="text-xs text-gray-400 mb-3">
-          อัปเดตตามสถานะปัจจุบัน ไม่ขึ้นกับตัวกรองปี/เดือนด้านบน (กรองได้เฉพาะรุ่นรถ/ดีลเลอร์)
+          อัปเดตตามสถานะปัจจุบัน ไม่ขึ้นกับตัวกรองปี/เดือนด้านบน (กรองได้เฉพาะรุ่นรถ/ดีลเลอร์/สาขา)
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
           <KpiCard label="งานค้างทั้งหมด" value={stats.totalOpen} accent="text-brand-red" />
