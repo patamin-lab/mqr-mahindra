@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 declare global {
   interface Window {
@@ -11,32 +11,54 @@ declare global {
 
 const COOKIE_NAME = 'googtrans';
 
+function setLangCookie(lang: 'th' | 'en') {
+  document.cookie = `${COOKIE_NAME}=/th/${lang}; path=/; max-age=${60 * 60 * 24 * 30}`;
+}
+
+function clearLangCookie() {
+  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`;
+}
+
 function readLangFromCookie(): 'th' | 'en' {
   if (typeof document === 'undefined') return 'th';
   const match = document.cookie.match(/googtrans=\/[^/]+\/([a-zA-Z-]+)/);
   return match && match[1] === 'en' ? 'en' : 'th';
 }
 
-function setLangCookie(lang: 'th' | 'en') {
-  if (lang === 'th') {
-    // Clearing the cookie restores the original Thai content.
-    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`;
-  } else {
-    document.cookie = `${COOKIE_NAME}=/th/en; path=/; max-age=86400`;
+// Drives Google's own (hidden) language <select> directly — this is the
+// documented, reliable way to trigger the Website Translator widget
+// programmatically, since the cookie alone only auto-applies when
+// autoDisplay is enabled (which would also force-show Google's banner UI).
+function applyTranslation(target: 'en', attempt = 0) {
+  const combo = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+  if (combo) {
+    combo.value = target;
+    combo.dispatchEvent(new Event('change'));
+    return;
+  }
+  if (attempt < 40) {
+    setTimeout(() => applyTranslation(target, attempt + 1), 250);
   }
 }
 
 // Lightweight TH/EN switch built on the free, unofficial Google Translate
-// Element widget. We keep Google's own dropdown UI hidden (see globals.css)
-// and drive it ourselves via the documented `googtrans` cookie convention,
-// then reload so the widget translates the freshly-rendered page.
+// Element widget. Google's own dropdown UI stays hidden (see globals.css);
+// we drive it ourselves by selecting its underlying <select> element.
 export default function LanguageToggle() {
   const [lang, setLang] = useState<'th' | 'en'>('th');
+  const initialized = useRef(false);
 
   useEffect(() => {
-    setLang(readLangFromCookie());
+    const cookieLang = readLangFromCookie();
+    setLang(cookieLang);
 
-    if (document.getElementById('google-translate-script')) return;
+    if (initialized.current) return;
+    initialized.current = true;
+
+    if (document.getElementById('google-translate-script')) {
+      if (cookieLang === 'en') applyTranslation('en');
+      return;
+    }
 
     window.googleTranslateElementInit = function () {
       if (window.google?.translate?.TranslateElement) {
@@ -45,6 +67,7 @@ export default function LanguageToggle() {
           'google_translate_element'
         );
       }
+      if (cookieLang === 'en') applyTranslation('en');
     };
 
     const script = document.createElement('script');
@@ -56,8 +79,18 @@ export default function LanguageToggle() {
 
   function handleSelect(target: 'th' | 'en') {
     if (target === lang) return;
-    setLangCookie(target);
-    window.location.reload();
+    setLang(target);
+
+    if (target === 'th') {
+      // Selecting the original language back via the combo is not always
+      // clean, so just clear the cookie and reload to restore pristine Thai.
+      clearLangCookie();
+      window.location.reload();
+      return;
+    }
+
+    setLangCookie('en');
+    applyTranslation('en');
   }
 
   return (
