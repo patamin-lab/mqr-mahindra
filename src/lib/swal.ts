@@ -57,3 +57,37 @@ export async function swalPrompt(
   });
   return result.isConfirmed ? (result.value as string) : null;
 }
+
+/**
+ * Non-dismissable "working..." popup with a spinner, used for any
+ * save/upload/login action so the user always sees that a button press did
+ * something - per the standing request that *every* button press should
+ * give visible feedback. Call `swalUpdateLoading` to change the message as
+ * a multi-step operation (e.g. uploading several files) progresses, and
+ * `swalClose` when it's done (success or failure - the caller is
+ * responsible for then showing `swalSuccess`/`swalError`).
+ */
+export function swalLoading(message = 'กำลังดำเนินการ...') {
+  Swal.fire({
+    ...baseConfig,
+    title: message,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    didOpen: () => {
+      Swal.showLoading();
+    },
+  });
+}
+
+export function swalUpdateLoading(message: string) {
+  if (Swal.isVisible()) {
+    Swal.update({ title: message });
+  } else {
+    swalLoading(message);
+  }
+}
+
+export function swalClose() {
+  Swal.close();
+}

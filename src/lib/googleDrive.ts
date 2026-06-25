@@ -19,20 +19,24 @@ import { Readable } from 'stream';
  * One-time setup: run `node scripts/get-google-refresh-token.mjs` locally
  * (see that file for instructions) to mint GOOGLE_OAUTH_REFRESH_TOKEN.
  *
- * Required env vars (set in Vercel + .env.local — never hard-code these):
- *   GOOGLE_OAUTH_CLIENT_ID       - OAuth client ID (type "Desktop app")
- *   GOOGLE_OAUTH_CLIENT_SECRET   - OAuth client secret
- *   GOOGLE_OAUTH_REFRESH_TOKEN   - minted once via the script above, while
- *                                  logged in as the Gmail account that owns
- *                                  the destination folder
- *   GOOGLE_DRIVE_ROOT_FOLDER_ID  - ID of a folder in that same account's
- *                                  My Drive (no sharing step needed - we
- *                                  authenticate as the owner directly)
+ * Required env vars (set in Vercel + .env.local - never hard-code these):
+ *   GOOGLE_OAUTH_CLIENT_ID      - OAuth client ID (type "Desktop app")
+ *   GOOGLE_OAUTH_CLIENT_SECRET  - OAuth client secret
+ *   GOOGLE_OAUTH_REFRESH_TOKEN  - minted once via the script above, while
+ *                                 logged in as the Gmail account that owns
+ *                                 the destination folder
+ *   GOOGLE_DRIVE_ROOT_FOLDER_ID - ID of a folder in that same account's
+ *                                 My Drive (no sharing step needed - we
+ *                                 authenticate as the owner directly)
  */
 
 const PENDING_FOLDER_NAME = '_pending';
 
-function driveClient() {
+/** The bare OAuth2 client, exposed separately so callers that need a raw
+ *  access token (e.g. to hit a Drive REST endpoint directly via `fetch`
+ *  instead of through the `googleapis` SDK) don't have to reach into the
+ *  `drive` SDK instance's internals. */
+function oauthClient() {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
@@ -43,7 +47,11 @@ function driveClient() {
   }
   const auth = new google.auth.OAuth2(clientId, clientSecret);
   auth.setCredentials({ refresh_token: refreshToken });
-  return google.drive({ version: 'v3', auth });
+  return auth;
+}
+
+function driveClient() {
+  return google.drive({ version: 'v3', auth: oauthClient() });
 }
 
 function rootFolderId(): string {
@@ -82,6 +90,16 @@ async function getOrCreateFolder(
   return created.data.id;
 }
 
+/** Resolves {dealerFolderName}/{jobId-or-_pending}, creating either as needed. */
+async function resolveTargetFolderId(
+  drive: ReturnType<typeof driveClient>,
+  dealerFolderName: string,
+  jobId?: string | null
+): Promise<string> {
+  const dealerFolderId = await getOrCreateFolder(drive, dealerFolderName, rootFolderId());
+  return getOrCreateFolder(drive, jobId || PENDING_FOLDER_NAME, dealerFolderId);
+}
+
 function fileUrlFor(fileId: string, mimeType: string): string {
   // Images render inline (e.g. <img src>, react-pdf <Image>). Drive's old
   // `uc?export=view` link frequently serves an HTML interstitial instead of
@@ -117,8 +135,7 @@ export interface DriveUploadParams {
 /** Uploads one file to Drive, sharing it as "anyone with the link can view". */
 export async function uploadFileToDrive(params: DriveUploadParams): Promise<{ url: string; fileId: string }> {
   const drive = driveClient();
-  const dealerFolderId = await getOrCreateFolder(drive, params.dealerFolderName, rootFolderId());
-  const targetFolderId = await getOrCreateFolder(drive, params.jobId || PENDING_FOLDER_NAME, dealerFolderId);
+  const targetFolderId = await resolveTargetFolderId(drive, params.dealerFolderName, params.jobId);
 
   const created = await drive.files.create({
     requestBody: { name: params.filename, parents: [targetFolderId] },
@@ -136,6 +153,72 @@ export async function uploadFileToDrive(params: DriveUploadParams): Promise<{ ur
   });
 
   return { url: fileUrlFor(fileId, params.mimeType), fileId };
+}
+
+export interface ResumableInitParams {
+  filename: string;
+  mimeType: string;
+  dealerFolderName: string;
+  jobId?: string | null;
+}
+
+/**
+ * Starts a Google Drive "resumable" upload session and hands back the bare
+ * session URL. The browser then PUTs the raw file bytes straight to Google
+ * - never through our own Vercel function - which is what lets large
+ * photos/videos (anything over Vercel's hard 4.5MB request-body cap) get
+ * uploaded at all. The session URL is single-use and already scoped to
+ * this one upload, so no Google credential is ever exposed to the client;
+ * only our server (via `driveClient()`'s OAuth2 token) talks to Google
+ * directly here.
+ */
+export async function initResumableUpload(
+  params: ResumableInitParams
+): Promise<{ sessionUrl: string }> {
+  const auth = oauthClient();
+  const drive = google.drive({ version: 'v3', auth });
+  const targetFolderId = await resolveTargetFolderId(drive, params.dealerFolderName, params.jobId);
+  const { token } = await auth.getAccessToken();
+  if (!token) throw new Error('ไม่สามารถขอ access token จาก Google ได้');
+
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': params.mimeType,
+      },
+      body: JSON.stringify({ name: params.filename, parents: [targetFolderId] }),
+    }
+  );
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(`เริ่มอัปโหลดขึ้น Google Drive ไม่สำเร็จ (${res.status}) ${detail}`.trim());
+  }
+
+  const sessionUrl = res.headers.get('Location') || res.headers.get('location');
+  if (!sessionUrl) throw new Error('ไม่ได้รับ session URL จาก Google Drive');
+  return { sessionUrl };
+}
+
+/**
+ * After the browser has PUT the file bytes directly to the resumable
+ * session URL and gotten back a Drive file ID, this sets the "anyone with
+ * the link can view" permission (which must happen server-side, with our
+ * Google credentials) and returns the same URL shape `uploadFileToDrive`
+ * produces, so callers can treat both upload paths identically.
+ */
+export async function finalizeResumableUpload(fileId: string, mimeType: string): Promise<{ url: string }> {
+  const drive = driveClient();
+  await drive.permissions.create({
+    fileId,
+    requestBody: { role: 'reader', type: 'anyone' },
+    supportsAllDrives: true,
+  });
+  return { url: fileUrlFor(fileId, mimeType) };
 }
 
 /**
