@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Technician, Dealer } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalError } from '@/lib/swal';
+import { swalError, swalLoading, swalClose } from '@/lib/swal';
 
 export default function TechniciansTable({
   initialTechnicians,
@@ -30,6 +30,7 @@ export default function TechniciansTable({
 
   async function createTech() {
     setBusy(true);
+    swalLoading('กำลังเพิ่มช่าง...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; technician: Technician }>('/api/admin/technicians', {
         method: 'POST',
@@ -38,7 +39,9 @@ export default function TechniciansTable({
       if (!json.ok) throw new Error(json.error);
       setTechnicians((prev) => [...prev, json.technician].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTech({ code: '', name: '', mobile: '', branch: '', dealer_id: lockedDealerId ?? '' });
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -47,6 +50,7 @@ export default function TechniciansTable({
 
   async function saveEdit(id: string) {
     setBusy(true);
+    swalLoading('กำลังบันทึก...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; technician: Technician }>(`/api/admin/technicians/${id}`, {
         method: 'PATCH',
@@ -55,7 +59,9 @@ export default function TechniciansTable({
       if (!json.ok) throw new Error(json.error);
       setTechnicians((prev) => prev.map((t) => (t.id === id ? json.technician : t)));
       setEditingId(null);
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -64,6 +70,7 @@ export default function TechniciansTable({
 
   async function toggleActive(t: Technician) {
     setBusy(true);
+    swalLoading();
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; technician: Technician }>(`/api/admin/technicians/${t.id}`, {
         method: 'PATCH',
@@ -71,7 +78,9 @@ export default function TechniciansTable({
       });
       if (!json.ok) throw new Error(json.error);
       setTechnicians((prev) => prev.map((x) => (x.id === t.id ? json.technician : x)));
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
