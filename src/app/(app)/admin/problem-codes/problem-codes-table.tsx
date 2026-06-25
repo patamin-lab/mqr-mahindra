@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { ProblemCode, Severity, SEVERITY_VALUES, SEVERITY_LABELS } from '@/lib/types';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { swalError } from '@/lib/swal';
 
 const SYSTEM_LABEL: Record<'powertrain' | 'other', string> = {
   powertrain: 'Powertrain (48 เดือน)',
@@ -18,7 +20,6 @@ type Draft = Partial<{
 
 export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] }) {
   const [rows, setRows] = useState(initial);
-  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>({});
@@ -30,20 +31,26 @@ export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] 
     defaultSeverity: '' as '' | Severity,
   });
 
+  async function showError(err: any) {
+    if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+      await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+    } else {
+      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+    }
+  }
+
   async function create() {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch('/api/admin/problem-codes', {
+      const json = await fetchJson<{ ok: boolean; error?: string; problemCode: ProblemCode }>('/api/admin/problem-codes', {
         method: 'POST',
         body: JSON.stringify({ ...newRow, defaultSeverity: newRow.defaultSeverity || null }),
       });
-      const json = await res.json();
       if (!json.ok) throw new Error(json.error);
       setRows((prev) => [...prev, json.problemCode]);
       setNewRow({ code: '', label: '', groupName: '', system: 'other', defaultSeverity: '' });
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -51,16 +58,17 @@ export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] 
 
   async function patch(id: string, body: Draft & { active?: boolean }) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/problem-codes/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; problemCode: ProblemCode }>(`/api/admin/problem-codes/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
       if (!json.ok) throw new Error(json.error);
       setRows((prev) => prev.map((r) => (r.id === id ? json.problemCode : r)));
       setEditingId(null);
       setDraft({});
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -68,8 +76,6 @@ export default function ProblemCodesTable({ initial }: { initial: ProblemCode[] 
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
         <div>
           <label className="block text-xs text-gray-500 mb-1">รหัส</label>
