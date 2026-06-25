@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { Map as LeafletMap } from 'leaflet';
 
@@ -36,8 +36,14 @@ export default function LocationPicker({
   const [searchError, setSearchError] = useState('');
   const mapRef = useRef<LeafletMap | null>(null);
 
-  async function runSearch(e: React.FormEvent) {
-    e.preventDefault();
+  // Intentionally a plain function triggered by a type="button" click / Enter
+  // keydown, NOT a nested <form onSubmit>. This component is rendered inside
+  // the page's main report <form>, and nested <form> elements are invalid
+  // HTML - the browser's parser drops the inner <form> tag from server-
+  // rendered markup, which silently reassigns this button's form ownership
+  // to the OUTER report form. The result: clicking "ค้นหา" here submitted/
+  // reloaded the whole report page instead of running the place search.
+  async function runSearch() {
     if (!query.trim()) return;
     setSearching(true);
     setSearchError('');
@@ -86,26 +92,29 @@ export default function LocationPicker({
   return (
     <div className="space-y-2">
       <div className="flex gap-2">
-        <form onSubmit={runSearch} className="flex-1 flex gap-2">
+        <div className="flex-1 flex gap-2">
           <input
             className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
             placeholder="ค้นหาชื่อสถานที่ / อำเภอ / จังหวัด"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                runSearch();
+              }
+            }}
           />
           <button
-            type="submit"
-            className="px-3 py-2 rounded border border-gray-300 text-sm whitespace-nowrap"
+            type="button"
+            onClick={runSearch}
+            className="btn-secondary whitespace-nowrap"
             disabled={searching}
           >
             {searching ? 'ค้นหา...' : 'ค้นหา'}
           </button>
-        </form>
-        <button
-          type="button"
-          onClick={useCurrentLocation}
-          className="px-3 py-2 rounded border border-gray-300 text-sm whitespace-nowrap"
-        >
+        </div>
+        <button type="button" onClick={useCurrentLocation} className="btn-secondary whitespace-nowrap">
           ใช้ตำแหน่งปัจจุบัน
         </button>
       </div>
@@ -113,11 +122,7 @@ export default function LocationPicker({
       {results.length > 0 && (
         <ul className="border border-gray-200 rounded divide-y divide-gray-100 text-sm max-h-40 overflow-y-auto">
           {results.map((r, i) => (
-            <li
-              key={i}
-              className="px-3 py-2 hover:bg-gray-50 cursor-pointer"
-              onClick={() => selectResult(r)}
-            >
+            <li key={i} className="px-3 py-2 hover:bg-gray-50 cursor-pointer" onClick={() => selectResult(r)}>
               {r.display_name}
             </li>
           ))}
@@ -125,12 +130,7 @@ export default function LocationPicker({
       )}
       {searchError && <p className="text-xs text-amber-600">{searchError}</p>}
 
-      <MapView
-        lat={lat}
-        lng={lng}
-        onPick={(la, ln) => onChange(la, ln)}
-        mapRef={mapRef}
-      />
+      <MapView lat={lat} lng={lng} onPick={(la, ln) => onChange(la, ln)} mapRef={mapRef} />
 
       <p className="text-xs text-gray-500">
         {lat !== null && lng !== null
