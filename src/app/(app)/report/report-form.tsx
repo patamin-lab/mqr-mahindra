@@ -90,7 +90,12 @@ async function putFileViaServerRelay(
     while (attempt < 3) {
       attempt += 1;
       try {
-        result = await fetchJson<{ done: boolean; fileId?: string }>('/api/upload/chunk', {
+        result = await fetchJson<{
+          ok: boolean;
+          done?: boolean;
+          fileId?: string;
+          error?: string;
+        }>('/api/upload/chunk', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/octet-stream',
