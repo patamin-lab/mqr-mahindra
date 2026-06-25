@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { swalConfirm, swalError } from '@/lib/swal';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { swalConfirm, swalError, swalLoading, swalClose } from '@/lib/swal';
 
 export default function DeleteButton({ jobId }: { jobId: string }) {
   const router = useRouter();
@@ -15,14 +16,22 @@ export default function DeleteButton({ jobId }: { jobId: string }) {
     );
     if (!confirmed) return;
     setBusy(true);
+    swalLoading('กำลังลบรายงาน...');
     try {
-      const res = await fetch(`/api/records/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/records/${encodeURIComponent(jobId)}`, {
+        method: 'DELETE',
+      });
       if (!json.ok) throw new Error(json.error || 'ลบไม่สำเร็จ');
+      swalClose();
       router.push('/records');
       router.refresh();
     } catch (err: any) {
-      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+      swalClose();
+      if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+        await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      } else {
+        await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+      }
       setBusy(false);
     }
   }

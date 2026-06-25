@@ -13,7 +13,7 @@ import {
   PhotoLink,
 } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalError, swalSuccess } from '@/lib/swal';
+import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
 
 export default function UpdateForm({ record }: { record: MqrRecord }) {
   const router = useRouter();
@@ -35,10 +35,12 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    swalLoading('กำลังบันทึก...');
     try {
       const addPhotoLinks: PhotoLink[] = [];
       for (let i = 0; i < afterPhotos.length; i++) {
         const label = `ภาพหลังการแก้ไข ${i + 1}`;
+        swalUpdateLoading(`กำลังอัปโหลด${label} (${i + 1}/${afterPhotos.length})...`);
         const fd = new FormData();
         fd.append('file', afterPhotos[i]);
         fd.append('label', label);
@@ -57,6 +59,7 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
         .filter((p) => !keptUrls.has(p.url))
         .map((p) => p.url);
 
+      swalUpdateLoading('กำลังบันทึกข้อมูล...');
       const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/records/${encodeURIComponent(record.job_id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -74,9 +77,11 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
       });
       if (!json.ok) throw new Error(json.error || 'อัปเดตไม่สำเร็จ');
       setAfterPhotos([]);
+      swalClose();
       await swalSuccess('บันทึกเรียบร้อย');
       router.refresh();
     } catch (err: any) {
+      swalClose();
       if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
         await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
       } else {
