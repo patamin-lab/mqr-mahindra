@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AdminUser, Dealer, Role } from '@/lib/types';
 import { assignableRoles, canDeleteUsers, canManageRoleTarget, roleLabelTh } from '@/lib/scope';
 import { swalConfirm, swalError, swalSuccess, swalPrompt } from '@/lib/swal';
+import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 
 export default function UsersTable({
   initialUsers,
@@ -19,7 +20,6 @@ export default function UsersTable({
   currentUsername: string;
 }) {
   const [users, setUsers] = useState(initialUsers);
-  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<AdminUser>>({});
@@ -38,17 +38,26 @@ export default function UsersTable({
     branch: '',
   });
 
+  async function showError(err: any) {
+    if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
+      await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+    } else {
+      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+    }
+  }
+
   async function createUser() {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch('/api/admin/users', { method: 'POST', body: JSON.stringify(newUser) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; user: AdminUser }>('/api/admin/users', {
+        method: 'POST',
+        body: JSON.stringify(newUser),
+      });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => [...prev, json.user].sort((a, b) => a.username.localeCompare(b.username)));
       setNewUser({ ...newUser, username: '', full_name: '', password: '', email: '', mobile: '', branch: '' });
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -56,15 +65,16 @@ export default function UsersTable({
 
   async function saveEdit(id: string) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(editDraft) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; user: AdminUser }>(`/api/admin/users/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(editDraft),
+      });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => prev.map((u) => (u.id === id ? json.user : u)));
       setEditingId(null);
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -72,14 +82,15 @@ export default function UsersTable({
 
   async function toggleActive(u: AdminUser) {
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ active: !u.active }) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string; user: AdminUser }>(`/api/admin/users/${u.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active: !u.active }),
+      });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => prev.map((x) => (x.id === u.id ? json.user : x)));
     } catch (err: any) {
-      setError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -93,14 +104,15 @@ export default function UsersTable({
     });
     if (!pw) return;
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/users/${u.id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword: pw }) });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/users/${u.id}/reset-password`, {
+        method: 'POST',
+        body: JSON.stringify({ newPassword: pw }),
+      });
       if (!json.ok) throw new Error(json.error);
       await swalSuccess('รีเซ็ตรหัสผ่านสำเร็จ');
     } catch (err: any) {
-      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -113,14 +125,12 @@ export default function UsersTable({
     });
     if (!confirmed) return;
     setBusy(true);
-    setError('');
     try {
-      const res = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' });
-      const json = await res.json();
+      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/users/${u.id}`, { method: 'DELETE' });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
     } catch (err: any) {
-      await swalError(err?.message ?? 'เกิดข้อผิดพลาด');
+      await showError(err);
     } finally {
       setBusy(false);
     }
@@ -128,8 +138,6 @@ export default function UsersTable({
 
   return (
     <div className="space-y-4">
-      {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">{error}</div>}
-
       <div className="card p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อผู้ใช้ (username)" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value.trim() })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อ-สกุล" value={newUser.full_name} onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })} />
