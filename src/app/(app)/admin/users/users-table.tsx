@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AdminUser, Dealer, Role } from '@/lib/types';
 import { assignableRoles, canDeleteUsers, canManageRoleTarget, roleLabelTh } from '@/lib/scope';
-import { swalConfirm, swalError, swalSuccess, swalPrompt } from '@/lib/swal';
+import { swalConfirm, swalError, swalSuccess, swalPrompt, swalLoading, swalClose } from '@/lib/swal';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 
 export default function UsersTable({
@@ -48,6 +48,7 @@ export default function UsersTable({
 
   async function createUser() {
     setBusy(true);
+    swalLoading('กำลังเพิ่มผู้ใช้...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; user: AdminUser }>('/api/admin/users', {
         method: 'POST',
@@ -56,7 +57,9 @@ export default function UsersTable({
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => [...prev, json.user].sort((a, b) => a.username.localeCompare(b.username)));
       setNewUser({ ...newUser, username: '', full_name: '', password: '', email: '', mobile: '', branch: '' });
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -65,6 +68,7 @@ export default function UsersTable({
 
   async function saveEdit(id: string) {
     setBusy(true);
+    swalLoading('กำลังบันทึก...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; user: AdminUser }>(`/api/admin/users/${id}`, {
         method: 'PATCH',
@@ -73,7 +77,9 @@ export default function UsersTable({
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => prev.map((u) => (u.id === id ? json.user : u)));
       setEditingId(null);
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -82,6 +88,7 @@ export default function UsersTable({
 
   async function toggleActive(u: AdminUser) {
     setBusy(true);
+    swalLoading();
     try {
       const json = await fetchJson<{ ok: boolean; error?: string; user: AdminUser }>(`/api/admin/users/${u.id}`, {
         method: 'PATCH',
@@ -89,7 +96,9 @@ export default function UsersTable({
       });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => prev.map((x) => (x.id === u.id ? json.user : x)));
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -104,14 +113,17 @@ export default function UsersTable({
     });
     if (!pw) return;
     setBusy(true);
+    swalLoading('กำลังรีเซ็ตรหัสผ่าน...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/users/${u.id}/reset-password`, {
         method: 'POST',
         body: JSON.stringify({ newPassword: pw }),
       });
       if (!json.ok) throw new Error(json.error);
+      swalClose();
       await swalSuccess('รีเซ็ตรหัสผ่านสำเร็จ');
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
@@ -125,11 +137,14 @@ export default function UsersTable({
     });
     if (!confirmed) return;
     setBusy(true);
+    swalLoading('กำลังลบผู้ใช้...');
     try {
       const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/users/${u.id}`, { method: 'DELETE' });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      swalClose();
     } catch (err: any) {
+      swalClose();
       await showError(err);
     } finally {
       setBusy(false);
