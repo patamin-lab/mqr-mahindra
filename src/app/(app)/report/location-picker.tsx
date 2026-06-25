@@ -48,7 +48,10 @@ export default function LocationPicker({
     setSearching(true);
     setSearchError('');
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=th&q=${encodeURIComponent(
+      // accept-language=th asks Nominatim to return place names in Thai
+      // (matching the language the user is typing the query in) instead of
+      // always falling back to English/local-Latin transliteration.
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=th&accept-language=th&q=${encodeURIComponent(
         query.trim()
       )}`;
       const res = await fetch(url);
@@ -98,6 +101,16 @@ export default function LocationPicker({
             placeholder="ค้นหาชื่อสถานที่ / อำเภอ / จังหวัด"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => {
+              // Clicking back into the field after a search/selection clears
+              // the old text immediately so the user can type a fresh query
+              // without having to manually select-all + delete first.
+              if (query) {
+                setQuery('');
+                setResults([]);
+                setSearchError('');
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
