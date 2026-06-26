@@ -8,7 +8,7 @@
 ## What this is
 
 The planned future home for UI components that are used (or clearly
-reusable) across more than one module of the Mahindra Service Platform —
+reusable) across more than one module of the MSEAL SERVICE SYSTEM —
 buttons, cards, charts, badges, form fields, tables, and similar. It exists
 now purely so the inventory work in Sprint 3 has a named destination to
 recommend components *toward*, without actually touching any existing code.
