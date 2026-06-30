@@ -1,6 +1,6 @@
 # PM Record (Preventive Maintenance) — Foundation
 
-Status: **Sprint 10.1 — foundation only.** No CRUD, no UI, no PDF, no uploads.
+Status: **Sprint 10.1 complete.** No CRUD, no UI, no PDF, no uploads.
 This module exists so later sprints have a layered structure to build into,
 instead of adding a sixth flat-file admin pattern to `src/lib/`.
 
@@ -15,11 +15,17 @@ treated the "Customer" gap: flagged, not guessed at length.
 ## Layout
 
 - `types.ts` — shared TypeScript types for a PM Record.
-- `schemas.ts` — Zod schemas validating the shapes in `types.ts`.
-- `validation.ts` — small validation helpers shared across schemas/routes.
+- `schemas.ts` — Zod runtime schemas that validate the shapes in `types.ts`.
+  Field-level rules are intentionally loose (e.g. `status` is any non-empty
+  string) matching the generic scope of `types.ts`. Wired into routes in
+  Sprint 10.2 once CRUD is implemented.
+- `validation.ts` — Zod-backed helpers (`parseWithSchema`, `parseJsonBody`,
+  `isNonEmptyString`) shared across schemas and route handlers. Foundation
+  only: no route currently calls these — they exist so Sprint 10.2 has a
+  consistent validation layer to plug into.
 - `repository.ts` — `PmRecordRepository` interface (data-access contract only — no implementation).
 - `supabaseRepository.ts` — Supabase-backed implementation of the repository. Every method is a stub
-  (`throw new Error('not implemented — Sprint 10.2')`) until CRUD is built.
+  (`throw new Error('not implemented — Sprint 10.2')`) until CRUD is built and a `pm_records` table exists.
 - `service.ts` — service layer that depends on a `PmRecordRepository`. Method bodies are stubs for the
   same reason.
 
