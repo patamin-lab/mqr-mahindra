@@ -2,8 +2,8 @@
 # MSEAL SERVICE SYSTEM
 ## AI Engineering Context
 
-**Version:** 1.0  
-**Status:** Active  
+**Version:** 1.1
+**Status:** Active
 **Last Updated:** 2026-06-30
 
 ---
@@ -53,7 +53,7 @@ Approved
 
 Development Status
 
-Implementation Started
+Sprint 10.1 Foundation Complete
 
 ---
 
@@ -61,48 +61,57 @@ Implementation Started
 
 Every AI assistant must read documentation in the following order.
 
+Note: docs/ is a flat directory. All files below live directly under docs/ or docs/adr/.
+
 1.
 
-docs/00_PROJECT/
+Vision and Product
 
-- DEVELOPER_PORTAL.md
-- KNOWLEDGE_INDEX.md
+- docs/VISION.md
+- docs/PRODUCT_PHILOSOPHY.md
+- docs/ROADMAP.md
 
 2.
 
-docs/01_ARCHITECTURE/
+Architecture
 
-- ARCHITECTURE_OVERVIEW.md
-- ARCHITECTURE_PRINCIPLES.md
-- ADR/*
+- docs/ARCHITECTURE.md
+- docs/ARCHITECTURE_PRINCIPLES.md
+- docs/MODULE_ARCHITECTURE.md
+- docs/adr/ADR-001-Supabase.md through ADR-007-Scheduler.md
 
 3.
 
-docs/03_PLATFORM/
+Platform and Data
 
-- DATABASE_CATALOG.md
-- API_CATALOG.md
-- SHARED_COMPONENTS.md
-- SHARED_SERVICES.md
-- MASTER_DATA_CATALOG.md
+- docs/CORE_DOMAIN_MODEL.md
+- docs/ENTITY_MODEL.md
+- docs/ENTITY_RELATIONSHIP.md
+- docs/MASTER_DATA.md
+- docs/PLATFORM_SERVICES.md
+- docs/DATA_SYNCHRONIZATION.md
 
 4.
 
-docs/05_ENGINEERING/
+Engineering Standards
 
-- ENGINEERING_HANDBOOK.md
-- CODING_STANDARD.md
-- CONTRIBUTING.md
-- REVIEW_CHECKLIST.md
+- docs/DESIGN_SYSTEM.md
+- docs/NAMING_STANDARD.md
+- docs/BUSINESS_MODULE_STANDARD.md
+- docs/MODULE_LIFECYCLE.md
+- docs/MODULE_CHECKLIST.md
+- docs/PERMISSION_MODEL.md
+- docs/ADMIN_FRAMEWORK.md
+- docs/DEVELOPMENT_GUIDE.md
 
 5.
 
-Root
+AI Context
 
-- DESIGN_SYSTEM.md
-- COOKBOOK.md
-- README.md
-- REPORTS.md
+- AI_CONTEXT.md (this file)
+- .claude/rules/
+- .claude/playbooks/
+- .claude/prompts/
 
 ---
 
@@ -175,7 +184,7 @@ Implement the PM Record reference module.
 
 Implementation Order
 
-1. Foundation
+1. Foundation (Sprint 10.1 — Complete)
 2. Master Data Integration
 3. CRUD
 4. Media Upload
@@ -293,21 +302,17 @@ Report the conflicting documents.
 
 Priority 1
 
-Sprint 10 Foundation
+Sprint 10.2 — Master Data Integration
 
 Priority 2
 
-Master Data Integration
+PM CRUD
 
 Priority 3
 
-PM CRUD
-
-Priority 4
-
 Dashboard
 
-Priority 5
+Priority 4
 
 PDF
 
@@ -329,6 +334,19 @@ Do NOT
 - Introduce Event Sourcing.
 
 Unless explicitly approved by a future ADR.
+
+---
+
+# Legacy Naming (Tracked — Do Not Rename Without ADR)
+
+The following identifiers carry the legacy "MQR" brand name. They are documented here so future
+contributors know they exist and must be migrated as a coordinated, ADR-driven effort — not renamed
+opportunistically. Do NOT rename these without an approved ADR and a migration plan.
+
+- SESSION_COOKIE = 'mqr_session' (src/lib/auth.ts) — live cookie; rename logs all users out
+- STORAGE_BUCKET = 'mqr-files' (src/lib/supabase.ts) — live Supabase bucket; rename breaks all media
+- MqrRecord interface (src/lib/types.ts) — imported in ~15 files; mass rename
+- Sidebar display name 'Market Quality Report' (src/app/(app)/sidebar.tsx) — user-visible brand label
 
 ---
 
@@ -380,8 +398,10 @@ Documentation
 
 Frozen
 
-Ready for Sprint 10
+Sprint 10.1 Foundation
+
+Complete
 
 Status
 
-READY FOR IMPLEMENTATION
+READY FOR SPRINT 10.2
