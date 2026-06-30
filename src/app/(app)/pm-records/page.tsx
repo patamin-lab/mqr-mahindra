@@ -1,22 +1,25 @@
+import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
+import PmRecordForm from './pm-record-form';
 
 /**
- * PM Record — placeholder route (Sprint 10.1: route structure only).
+ * PM Records page — Sprint 11.1: Vehicle Lookup.
  *
- * Only checks that a session exists, matching every other (app) page's
- * convention. No RBAC gate beyond that yet - which roles should see PM
- * Records is a permission decision this sprint has no requirements to
- * make. No UI is implemented; this exists so the route resolves and the
- * folder structure matches src/app/(app)/admin/* conventions.
+ * Vehicle autocomplete is live, backed by /api/vehicles/list and
+ * /api/vehicles/[serial]. Selecting a vehicle populates Serial, Model,
+ * and Delivery Date snapshot fields instantly.
+ *
+ * CRUD (save / submit) is pending the pm_records database migration
+ * (Sprint 11.2). The submit button is disabled until then.
  */
 export default async function PmRecordsPage() {
   const session = await getSession();
-  if (!session) return null;
+  if (!session) redirect('/login');
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold text-brand-dark">PM Record</h1>
-      <p className="text-sm text-gray-500">Foundation only - not yet implemented.</p>
+    <div className="space-y-4 max-w-3xl">
+      <h1 className="text-xl font-bold text-brand-dark">บำรุงรักษาเชิงป้องกัน</h1>
+      <PmRecordForm lockedDealerId={session.dealerId} />
     </div>
   );
 }
