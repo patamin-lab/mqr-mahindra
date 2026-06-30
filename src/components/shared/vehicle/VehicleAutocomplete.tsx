@@ -25,23 +25,30 @@ interface Props {
   disabled?: boolean;
 }
 
-const CACHE_KEY = 'mqr_vehicle_list_cache_v1';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+// Sprint 11.2: bumped to v2 + extended TTL to 10 minutes.
+// Changing the key name automatically invalidates any v1 cache entries.
+const CACHE_KEY = 'mqr_vehicle_list_cache_v2';
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
 
 /**
  * Shared vehicle serial autocomplete.
  *
  * Phase 1 — preload: fetches the full vehicle list from /api/vehicles/list on
- * mount (sessionStorage cache makes repeat visits free within a shift).
- * Filters client-side as the user types.
+ * mount (sessionStorage cache — v2 key, 10-min TTL — makes repeat visits
+ * within a shift essentially free). Filters client-side as the user types.
  *
  * Phase 2 — fallback: if the user blurs on a serial not in the preloaded
  * list, an exact lookup via /api/vehicles/{serial} runs automatically
  * (covers units not yet synced to the preloaded list).
  *
- * Used by: PM Record form (Sprint 11.1).
+ * Used by: PM Record form, Report form (Sprint 11.1+).
  */
-export default function VehicleAutocomplete({ value, onChange, onSelect, disabled }: Props) {
+export default function VehicleAutocomplete({
+  value,
+  onChange,
+  onSelect,
+  disabled,
+}: Props) {
   const [allVehicles, setAllVehicles] = useState<VehicleListItem[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<VehicleListItem[]>([]);
@@ -50,19 +57,24 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
   const [checking, setChecking] = useState(false);
   const [selected, setSelected] = useState<VehicleSnapshot | null>(null);
 
-  // Preload the full vehicle list once per session (shared cache with report form).
+  // Preload the full vehicle list once per session.
   useEffect(() => {
     try {
       const cached = sessionStorage.getItem(CACHE_KEY);
       if (cached) {
-        const { ts, results } = JSON.parse(cached);
+        const { ts, results } = JSON.parse(cached) as {
+          ts: number;
+          results: VehicleListItem[];
+        };
         if (Date.now() - ts < CACHE_TTL_MS && Array.isArray(results)) {
           setAllVehicles(results);
           setListLoading(false);
           return;
         }
       }
-    } catch { /* corrupt / unavailable — fall through to fetch */ }
+    } catch {
+      /* corrupt / unavailable — fall through to fetch */
+    }
 
     (async () => {
       try {
@@ -71,10 +83,17 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
         if (json.ok) {
           setAllVehicles(json.results);
           try {
-            sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), results: json.results }));
-          } catch { /* sessionStorage full / unavailable */ }
+            sessionStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ ts: Date.now(), results: json.results }),
+            );
+          } catch {
+            /* sessionStorage full / unavailable */
+          }
         }
-      } catch { /* falls back to manual entry + blur exact-lookup */ } finally {
+      } catch {
+        /* falls back to manual entry + blur exact-lookup */
+      } finally {
         setListLoading(false);
       }
     })();
@@ -89,7 +108,9 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
     }
     const term = value.trim().toUpperCase();
     const matches = term
-      ? allVehicles.filter((v) => v.serial.toUpperCase().includes(term)).slice(0, 30)
+      ? allVehicles
+          .filter((v) => v.serial.toUpperCase().includes(term))
+          .slice(0, 30)
       : allVehicles.slice(0, 30);
     setSearchResults(matches);
   }, [value, selected, allVehicles]);
@@ -137,7 +158,9 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
           onSelect(enriched);
         }
       })
-      .catch(() => { /* ignore — initial autofill is sufficient */ });
+      .catch(() => {
+        /* ignore — initial autofill is sufficient */
+      });
   }
 
   // Fallback exact-match for serials typed by hand (not in preloaded list).
@@ -146,7 +169,9 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
     setChecking(true);
     setChecked(false);
     try {
-      const res = await fetch(`/api/vehicles/${encodeURIComponent(value.trim())}`);
+      const res = await fetch(
+        `/api/vehicles/${encodeURIComponent(value.trim())}`,
+      );
       const json = await res.json();
       if (json.ok && json.found) {
         const snapshot: VehicleSnapshot = {
@@ -175,10 +200,19 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
         value={value}
         onChange={(e) => handleChange(e.target.value)}
         onFocus={handleFocus}
-        onBlur={() => setTimeout(() => { setSearchOpen(false); checkExact(); }, 150)}
+        onBlur={() =>
+          setTimeout(() => {
+            setSearchOpen(false);
+            checkExact();
+          }, 150)
+        }
         autoComplete="off"
         disabled={disabled}
-        placeholder={listLoading ? 'กำลังโหลดรายการเลขรถ...' : 'เลือกจากรายการ หรือพิมพ์หมายเลขรถ...'}
+        placeholder={
+          listLoading
+            ? 'กำลังโหลดรายการเลขรถ...'
+            : 'เลือกจากรายการ หรือพิมพ์หมายเลขรถ...'
+        }
         required
       />
 
@@ -200,7 +234,9 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
       )}
 
       {checked && !checking && !searchOpen && (
-        <p className={`text-xs mt-1 ${selected ? 'text-green-600' : 'text-amber-600'}`}>
+        <p
+          className={`text-xs mt-1 ${selected ? 'text-green-600' : 'text-amber-600'}`}
+        >
           {selected
             ? `พบในระบบ: ${selected.model ?? ''}${
                 selected.source === 'tractor_in_sheet'
@@ -210,7 +246,9 @@ export default function VehicleAutocomplete({ value, onChange, onSelect, disable
             : 'ไม่พบหมายเลขรถนี้ในระบบ — กรุณาตรวจสอบหมายเลขรถอีกครั้ง'}
         </p>
       )}
-      {checking && <p className="text-xs mt-1 text-gray-400">กำลังตรวจสอบ...</p>}
+      {checking && (
+        <p className="text-xs mt-1 text-gray-400">กำลังตรวจสอบ...</p>
+      )}
     </div>
   );
 }
