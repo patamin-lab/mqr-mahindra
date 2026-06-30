@@ -1,19 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { listVehicles } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
 
-export async function GET(req: NextRequest) {
+/**
+ * GET /api/vehicles/list
+ *
+ * Returns the full vehicle list scoped to the authenticated user's dealer.
+ * SuperAdmin / CentralAdmin (dealerId = null) see all vehicles.
+ * DealerAdmin / DealerUser see only their own dealer's vehicles.
+ *
+ * The report form and PM record form preload this on mount and filter
+ * client-side, so one network round-trip covers the whole page visit.
+ * Responses are cached in sessionStorage (5 min TTL) on the client.
+ */
+export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
-  const dealerId = seesAllDealers(session.role) ? null : session.dealerId;
-
-  try {
-    const results = await listVehicles(dealerId);
-    return NextResponse.json({ ok: true, results });
-  } catch (err: any) {
-    console.error('vehicle list error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'โหลดรายการรถไม่สำเร็จ' }, { status: 500 });
-  }
+  const results = await listVehicles(session.dealerId);
+  return NextResponse.json({ ok: true, results });
 }
