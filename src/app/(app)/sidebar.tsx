@@ -10,6 +10,7 @@ const NAV = [
   { href: '/dashboard', label: 'หน้าหลัก' },
   { href: '/report', label: 'รายงานปัญหาคุณภาพ' },
   { href: '/records', label: 'ติดตามรายงานปัญหาคุณภาพ' },
+  { href: '/pm-records', label: 'บำรุงรักษาเชิงป้องกัน' },
 ];
 
 export default function Sidebar({ session }: { session: SessionUser }) {
