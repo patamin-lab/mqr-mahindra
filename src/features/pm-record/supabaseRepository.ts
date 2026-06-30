@@ -1,44 +1,92 @@
 /**
  * PM Record — Supabase-backed repository implementation.
  *
- * Reuses the existing server-only client from `@/lib/supabase` (same
- * pattern every other table in `src/lib/db.ts` uses) rather than creating
- * a second Supabase client/connection. Every method is a stub: no
- * `pm_records` table exists yet, and per this repo's existing convention
- * (see Sprint 8/9 history), a table is never created without its own
- * proposal + explicit approval step. Implementing real queries against a
- * table that doesn't exist would not build.
+ * Sprint 11.2: Implements create() and getById() against the pm_records table
+ * created in this sprint. All other stubs remain for future sprints.
+ *
+ * Uses the shared server-only client from @/lib/supabase (same pattern as
+ * every other table in src/lib/db.ts). No business logic here — that lives
+ * in the service layer (PmRecordService).
  */
 import { getSupabase } from '@/lib/supabase';
 import { PmRecordRepository, PmRecordFilter } from './repository';
 import { PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
 
-const NOT_IMPLEMENTED = 'PM Record Supabase repository is not implemented yet (no pm_records table exists).';
-
 export class SupabasePmRecordRepository implements PmRecordRepository {
-  /** Kept private and unused beyond construction until real queries are
-   *  implemented - confirms this class is wired to the same client
-   *  abstraction as the rest of the app, not a placeholder disconnected
-   *  from it. */
+  /** Shared server-only Supabase client. */
   private readonly client = getSupabase();
 
-  async list(_filter?: PmRecordFilter): Promise<PmRecord[]> {
-    throw new Error(NOT_IMPLEMENTED);
+  async list(filter?: PmRecordFilter): Promise<PmRecord[]> {
+    let q = this.client
+      .from('pm_records')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (filter?.dealerId) q = q.eq('dealer_id', filter.dealerId);
+    if (filter?.branchId) q = q.eq('branch_id', filter.branchId);
+    if (filter?.status) q = q.eq('status', filter.status);
+
+    const { data, error } = await q;
+    if (error) throw error;
+    return (data ?? []) as PmRecord[];
   }
 
-  async getById(_id: string): Promise<PmRecord | null> {
-    throw new Error(NOT_IMPLEMENTED);
+  async getById(id: string): Promise<PmRecord | null> {
+    const { data, error } = await this.client
+      .from('pm_records')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as PmRecord | null;
   }
 
-  async create(_input: PmRecordCreateInput, _actor: { username: string }): Promise<PmRecord> {
-    throw new Error(NOT_IMPLEMENTED);
+  async create(
+    input: PmRecordCreateInput,
+    actor: { username: string },
+  ): Promise<PmRecord> {
+    const { data, error } = await this.client
+      .from('pm_records')
+      .insert({
+        dealer_id: input.dealer_id,
+        branch_id: input.branch_id ?? null,
+        serial: input.serial ?? null,
+        model: input.model ?? null,
+        delivery_date: input.delivery_date ?? null,
+        customer_name: input.customer_name ?? null,
+        customer_phone: input.customer_phone ?? null,
+        scheduled_date: input.scheduled_date,
+        status: input.status,
+        notes: input.notes ?? null,
+        created_by: actor.username,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as PmRecord;
   }
 
-  async update(_id: string, _input: PmRecordUpdateInput, _actor: { username: string }): Promise<PmRecord> {
-    throw new Error(NOT_IMPLEMENTED);
+  async update(
+    id: string,
+    input: PmRecordUpdateInput,
+    actor: { username: string },
+  ): Promise<PmRecord> {
+    const { data, error } = await this.client
+      .from('pm_records')
+      .update({
+        ...input,
+        updated_by: actor.username,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as PmRecord;
   }
 
-  async delete(_id: string, _actor: { username: string }): Promise<void> {
-    throw new Error(NOT_IMPLEMENTED);
+  async delete(id: string, _actor: { username: string }): Promise<void> {
+    const { error } = await this.client.from('pm_records').delete().eq('id', id);
+    if (error) throw error;
   }
 }
