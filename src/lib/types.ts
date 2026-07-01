@@ -58,6 +58,18 @@ export interface PmInterval {
   active?: boolean;
 }
 
+/** PM Program - maps a Tractor Model (free-text, sourced from the existing
+ *  Vehicle Master `vehicles.model` values, not a separate Models table -
+ *  none exists today, and this avoids duplicating master data) to a PM
+ *  Interval. A pure junction table: no soft-delete/audit value of its own,
+ *  unlike PM Record/PM Interval - unchecking a model in the admin UI just
+ *  removes the row. */
+export interface PmProgram {
+  id: string;
+  model: string;
+  pm_interval_id: string;
+}
+
 export interface Technician {
   id: string;
   code?: string | null;

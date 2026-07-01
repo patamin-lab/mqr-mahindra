@@ -1,8 +1,9 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-workflow-redesign (branched from main after M1-M6.5 merged)
 Current Module: PM Record
-Current Milestone: Workflow Redesign Phase 4a Complete — History Center (Sub-phase 1 of 3)
-Current Status: In Progress (Phase 4 of a multi-phase production UX redesign, split into 4a/4b/4c; Phase 5 not started)
+Current Milestone: PM Program (model-aware PM Interval mapping) Complete
+Current Status: In Progress (ad hoc feature between Phase 4a and 4b; Phase
+4b/4c and Phase 5 of the production UX redesign not started)
 
 M1-M6.5 (CRUD module, tests, CI, dependency audit, release review) are
 merged into `main` (PR #2, merge commit `32c4e29`). Everything below this
@@ -256,6 +257,37 @@ before starting given the phase's overall size)
   selection state, but disabled with a "coming in 4b/4c" tooltip - there's
   nothing to attach them to yet since those endpoints don't exist.
 - 54/54 tests passing (was 47).
+
+PM Program (complete, this commit): model-aware PM Interval mapping,
+requested as a standalone ad hoc feature between Phase 4a and 4b
+- New `pm_programs` table (live migration applied): maps a Tractor Model
+  (free text) to a PM Interval, many-to-many, unique per pair. Deliberately
+  NOT soft-deleted like other master data - it's a pure junction table
+  with no standalone business/audit value, so unchecking a model in the
+  admin UI does a real delete.
+- "Tractor Model" reuses the existing `vehicles.model` distinct values
+  (confirmed real, populated data live) rather than inventing a new Models
+  Master table - none exists today, and creating one would duplicate
+  master data unnecessarily. New models synced in via the existing
+  Tractor IN sheet flow appear automatically in the admin checklist, no
+  code change needed, per spec.
+- New admin page `/admin/pm-programs` ("PM Program" in the sidebar, under
+  Master Data, central-role-gated like PM Interval/problem codes): one
+  row per PM Interval with a checkbox grid of every known model, saved
+  per-interval via `PUT /api/admin/pm-programs/:pmIntervalId` (replaces
+  the full mapped-model set for that interval).
+- `GET /api/pm-intervals` (used by the PM Record create form) now accepts
+  an optional `?model=` filter; the create form passes the selected
+  vehicle's model automatically, so the PM Interval dropdown only shows
+  intervals mapped to that tractor's model. A model with no configured
+  mapping yet correctly shows zero options (with an inline hint pointing
+  to the admin page), matching the spec's literal "only intervals mapped
+  to that tractor model shall be displayed" - not a bug, but worth
+  knowing operationally: every model needs at least one PM Program
+  mapping configured before technicians can record a PM for it.
+- 54/54 tests unaffected (no PM Record Repository/Service contract change
+  - this feature lives entirely in `lib/db.ts`'s existing plain-function
+  master-data pattern, matching problem_codes/pm_intervals).
 
 Not started (Phase 4b/4c, Phase 5):
 - Phase 4b: CSV export (column selection) + Summary PDF + Individual PDF

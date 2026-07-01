@@ -302,8 +302,13 @@ function PmRecordCreateForm({
   useEffect(() => {
     (async () => {
       try {
+        // PM Program: only intervals mapped to this tractor's model are
+        // offered - never the full list - so a model with no configured
+        // mapping yet correctly shows zero options rather than everything.
+        const intervalParams = new URLSearchParams();
+        if (vehicle.model) intervalParams.set('model', vehicle.model);
         const [intervalJson, technicianJson] = await Promise.all([
-          fetchJson<{ ok: boolean; pmIntervals: PmInterval[] }>('/api/pm-intervals'),
+          fetchJson<{ ok: boolean; pmIntervals: PmInterval[] }>(`/api/pm-intervals?${intervalParams.toString()}`),
           fetchJson<{ ok: boolean; technicians: Technician[] }>(
             `/api/technicians?dealerId=${encodeURIComponent(vehicle.dealer_id ?? '')}${
               vehicle.branch_name ? `&branch=${encodeURIComponent(vehicle.branch_name)}` : ''
@@ -316,7 +321,7 @@ function PmRecordCreateForm({
         await swalErrorToast('โหลดข้อมูลรอบ PM/ช่างซ่อมไม่สำเร็จ');
       }
     })();
-  }, [vehicle.dealer_id, vehicle.branch_name]);
+  }, [vehicle.dealer_id, vehicle.branch_name, vehicle.model]);
 
   async function uploadPhoto(slot: PhotoSlot, file: File) {
     setUploadingSlot(slot);
@@ -499,6 +504,11 @@ function PmRecordCreateForm({
           <SelectField label="รอบ PM *" value={pmIntervalId} onChange={setPmIntervalId} options={pmIntervalOptions} />
           <SelectField label="ช่างซ่อม *" value={technicianId} onChange={setTechnicianId} options={technicianOptions} />
         </div>
+        {pmIntervals.length === 0 && (
+          <p className="text-xs text-amber-600">
+            ยังไม่มีการกำหนดรอบ PM สำหรับรุ่นรถนี้ ({vehicle.model ?? '-'}) กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดที่หน้า PM Program
+          </p>
+        )}
 
         <h2 className="text-sm font-semibold text-gray-600">พิกัดตำแหน่ง (ไม่บังคับ)</h2>
         <GpsLocationPicker value={gps} onChange={setGps} />

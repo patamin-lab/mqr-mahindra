@@ -6,6 +6,7 @@ import {
   Vehicle,
   ProblemCode,
   PmInterval,
+  PmProgram,
   Technician,
   Branch,
   MqrRecord,
@@ -180,14 +181,32 @@ export async function updateProblemCode(
   return data as ProblemCode;
 }
 
-/** Active PM Interval Master entries only - powers the PM Record form's dropdown. */
-export async function listActivePmIntervals(): Promise<PmInterval[]> {
+/**
+ * Active PM Interval Master entries - powers the PM Record form's dropdown.
+ * When `model` is given, narrows to only the intervals mapped to that
+ * Tractor Model via PM Program (never hardcoded - see `pm_programs`); a
+ * model with no configured mapping yet correctly returns an empty list,
+ * per spec ("PM Interval options MUST depend on the selected Tractor
+ * Model... only intervals mapped to that tractor model shall be
+ * displayed").
+ */
+export async function listActivePmIntervals(model?: string | null): Promise<PmInterval[]> {
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('pm_intervals')
-    .select('*')
-    .eq('active', true)
-    .order('interval_hours', { ascending: true, nullsFirst: true });
+
+  let allowedIds: string[] | null = null;
+  if (model) {
+    const { data: programRows, error: programError } = await supabase
+      .from('pm_programs')
+      .select('pm_interval_id')
+      .eq('model', model);
+    if (programError) throw programError;
+    allowedIds = Array.from(new Set((programRows ?? []).map((r) => r.pm_interval_id as string)));
+    if (allowedIds.length === 0) return [];
+  }
+
+  let query = supabase.from('pm_intervals').select('*').eq('active', true);
+  if (allowedIds) query = query.in('id', allowedIds);
+  const { data, error } = await query.order('interval_hours', { ascending: true, nullsFirst: true });
   if (error) throw error;
   return data ?? [];
 }
@@ -237,6 +256,72 @@ export async function updatePmInterval(
   const { data, error } = await supabase.from('pm_intervals').update(updatePayload).eq('id', id).select('*').single();
   if (error) throw error;
   return data as PmInterval;
+}
+
+/** Full PM Program mapping list (model -> pm_interval_id pairs) - admin
+ *  management UI only. */
+export async function listAllPmProgramsAdmin(): Promise<PmProgram[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('pm_programs').select('id, model, pm_interval_id');
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Distinct tractor models already known to Vehicle Master - powers the PM
+ *  Program admin page's per-interval model checklist. A newly-synced model
+ *  from the Tractor IN sheet appears here automatically - no code change
+ *  needed to add a new tractor model, per spec. */
+export async function listDistinctVehicleModels(): Promise<string[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('vehicles').select('model').not('model', 'is', null);
+  if (error) throw error;
+  const models = Array.from(new Set((data ?? []).map((v) => v.model as string)));
+  return models.sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Replaces the full set of models mapped to one PM Interval, matching the
+ * admin UI's per-interval checkbox multi-select (checked = mapped,
+ * unchecked = not mapped): deletes removed pairs, inserts newly-checked
+ * ones. `pm_programs` is a pure junction table with no standalone
+ * business/audit value of its own (unlike PM Record/PM Interval
+ * themselves), so a real delete here - rather than a soft-delete flag -
+ * is the correct, simplest model.
+ */
+export async function setPmProgramModels(
+  pmIntervalId: string,
+  models: string[],
+  session: SessionUser
+): Promise<void> {
+  const supabase = getSupabase();
+  const { data: existingRows, error: existingError } = await supabase
+    .from('pm_programs')
+    .select('id, model')
+    .eq('pm_interval_id', pmIntervalId);
+  if (existingError) throw existingError;
+
+  const existing = existingRows ?? [];
+  const wantedModels = new Set(models);
+  const existingModels = new Set(existing.map((r) => r.model as string));
+
+  const idsToDelete = existing.filter((r) => !wantedModels.has(r.model as string)).map((r) => r.id);
+  const modelsToInsert = models.filter((m) => !existingModels.has(m));
+
+  if (idsToDelete.length > 0) {
+    const { error } = await supabase.from('pm_programs').delete().in('id', idsToDelete);
+    if (error) throw error;
+  }
+  if (modelsToInsert.length > 0) {
+    const { error } = await supabase.from('pm_programs').insert(
+      modelsToInsert.map((model) => ({
+        model,
+        pm_interval_id: pmIntervalId,
+        created_by: session.username,
+        updated_by: session.username,
+      }))
+    );
+    if (error) throw error;
+  }
 }
 
 /** Active technicians only - used to populate the report form's cascading dropdown. */
