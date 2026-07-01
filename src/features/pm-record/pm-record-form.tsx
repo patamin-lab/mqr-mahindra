@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalLoading, swalClose, swalSuccessToast, swalErrorToast } from '@/lib/swal';
 import { isNonEmptyString } from './validation';
@@ -50,6 +51,7 @@ export default function PmRecordForm(props: PmRecordFormProps) {
   const [submitting, setSubmitting] = useState(false);
 
   const showDealerInput = mode === 'create' && showDealerField;
+  const cancelHref = props.mode === 'create' ? '/pm-records' : `/pm-records/${encodeURIComponent(props.recordId)}`;
 
   async function onSubmit() {
     if (showDealerInput && !isNonEmptyString(dealerId)) {
@@ -92,7 +94,11 @@ export default function PmRecordForm(props: PmRecordFormProps) {
 
       swalClose();
       swalSuccessToast('บันทึกข้อมูลสำเร็จ');
-      router.push(`/pm-records/${encodeURIComponent(result.data.id)}`);
+      if (mode === 'create') {
+        router.push('/pm-records');
+      } else {
+        router.push(`/pm-records/${encodeURIComponent(result.data.id)}`);
+      }
     } catch (err) {
       swalClose();
       if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
@@ -109,21 +115,41 @@ export default function PmRecordForm(props: PmRecordFormProps) {
     <div className="space-y-4 rounded border border-gray-200 bg-white p-6 shadow-sm">
       <div className="grid gap-4 sm:grid-cols-2">
         {showDealerInput && (
-          <TextField label="Dealer ID" value={dealerId} onChange={setDealerId} placeholder="Dealer ID" />
+          <TextField
+            label="Dealer ID"
+            value={dealerId}
+            onChange={setDealerId}
+            placeholder="Dealer ID"
+            disabled={submitting}
+          />
         )}
-        <TextField label="Branch ID" value={branchId} onChange={setBranchId} placeholder="Branch ID (optional)" />
-        <TextField label="Serial" value={serial} onChange={setSerial} placeholder="Vehicle serial (optional)" />
+        <TextField
+          label="Branch ID"
+          value={branchId}
+          onChange={setBranchId}
+          placeholder="Branch ID (optional)"
+          disabled={submitting}
+        />
+        <TextField
+          label="Serial"
+          value={serial}
+          onChange={setSerial}
+          placeholder="Vehicle serial (optional)"
+          disabled={submitting}
+        />
         <TextField
           label="Technician ID"
           value={technicianId}
           onChange={setTechnicianId}
           placeholder="Technician ID (optional)"
+          disabled={submitting}
         />
         <TextField
           label="Scheduled Date"
           value={scheduledDate}
           onChange={setScheduledDate}
           placeholder="YYYY-MM-DD (optional)"
+          disabled={submitting}
         />
         {mode === 'edit' && (
           <TextField
@@ -131,23 +157,40 @@ export default function PmRecordForm(props: PmRecordFormProps) {
             value={performedDate}
             onChange={setPerformedDate}
             placeholder="YYYY-MM-DD (optional)"
+            disabled={submitting}
           />
         )}
-        <TextField label="Status" value={status} onChange={setStatus} placeholder="Status" />
+        <TextField
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          placeholder="Status"
+          disabled={submitting}
+        />
       </div>
 
       <div>
         <label className="block text-xs text-gray-500 mb-1">Notes</label>
         <textarea
-          className="w-full rounded border px-2 py-1.5 text-sm"
+          className="w-full rounded border px-2 py-1.5 text-sm disabled:opacity-50"
           rows={4}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Notes (optional)"
+          disabled={submitting}
         />
       </div>
 
       <div className="flex justify-end gap-2">
+        <Link
+          href={submitting ? '#' : cancelHref}
+          aria-disabled={submitting}
+          className={`rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 ${
+            submitting ? 'pointer-events-none opacity-50' : ''
+          }`}
+        >
+          Cancel
+        </Link>
         <button
           type="button"
           onClick={onSubmit}
