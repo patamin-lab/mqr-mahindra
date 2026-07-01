@@ -8,7 +8,7 @@
  * through plain functions. That pattern is left untouched; this interface
  * is new structure for the new module only, not a retrofit of legacy code.
  */
-import { PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import { PmDuplicateCheckParams, PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
 
 export interface PmRecordFilter {
   dealerId?: string | null;
@@ -22,4 +22,7 @@ export interface PmRecordRepository {
   create(input: PmRecordCreateInput, actor: { username: string }): Promise<PmRecord>;
   update(id: string, input: PmRecordUpdateInput, actor: { username: string }): Promise<PmRecord>;
   delete(id: string, actor: { username: string }): Promise<void>;
+  /** Active PM record already on file for the same tractor + PM interval +
+   *  performed date, if any - powers the pre-save duplicate warning. */
+  findDuplicate(params: PmDuplicateCheckParams): Promise<PmRecord | null>;
 }

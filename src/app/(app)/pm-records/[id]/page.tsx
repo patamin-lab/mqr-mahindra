@@ -80,7 +80,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-brand-dark">PM Record Detail</h1>
-          <p className="text-sm text-gray-500">Record ID: {params.id}</p>
+          <p className="text-sm text-gray-500">{record.pm_number ?? record.serial ?? 'PM Record'}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -98,10 +98,16 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
 
       <div className="space-y-4 rounded border border-gray-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 sm:grid-cols-2">
-          <DetailRow label="ID" value={record.id} />
+          <DetailRow label="เลขที่ PM" value={record.pm_number ?? 'N/A'} />
           <DetailRow label="Dealer ID" value={record.dealer_id} />
           <DetailRow label="Branch ID" value={record.branch_id ?? 'N/A'} />
           <DetailRow label="Serial" value={record.serial ?? 'N/A'} />
+          <DetailRow label="รุ่น" value={record.model ?? 'N/A'} />
+          <DetailRow label="หมายเลขเครื่อง" value={record.engine_number ?? 'N/A'} />
+          <DetailRow label="วันที่ส่งมอบ" value={record.delivery_date ?? 'N/A'} />
+          <DetailRow label="ชื่อลูกค้า" value={record.customer_name ?? 'N/A'} />
+          <DetailRow label="เบอร์โทรศัพท์" value={record.customer_phone ?? 'N/A'} />
+          <DetailRow label="ชั่วโมงเครื่องยนต์" value={record.hour_meter != null ? String(record.hour_meter) : 'N/A'} />
           <DetailRow label="Technician ID" value={record.technician_id ?? 'N/A'} />
           <DetailRow label="Status" value={record.status} />
           <DetailRow label="Scheduled Date" value={record.scheduled_date ?? 'N/A'} />
@@ -111,6 +117,26 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <DetailRow label="Updated By" value={record.updated_by ?? 'N/A'} />
           <DetailRow label="Updated At" value={record.updated_at} />
         </div>
+
+        {(record.meter_photo_url || record.nameplate_photo_url || record.report_photo_url) && (
+          <div>
+            <h2 className="text-sm font-semibold text-brand-dark">รูปถ่าย</h2>
+            <div className="mt-2 grid gap-3 sm:grid-cols-3">
+              {record.meter_photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={record.meter_photo_url} alt="รูปมิเตอร์ชั่วโมง" className="h-32 w-full rounded border object-cover" />
+              )}
+              {record.nameplate_photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={record.nameplate_photo_url} alt="รูป Nameplate" className="h-32 w-full rounded border object-cover" />
+              )}
+              {record.report_photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={record.report_photo_url} alt="รูปใบรายงาน PM" className="h-32 w-full rounded border object-cover" />
+              )}
+            </div>
+          </div>
+        )}
 
         <div>
           <h2 className="text-sm font-semibold text-brand-dark">Notes</h2>

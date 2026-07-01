@@ -296,6 +296,140 @@ export async function listVehicles(dealerId: string | null): Promise<VehicleSear
   }));
 }
 
+export interface PmVehicleSearchFilters {
+  dealerId?: string | null;
+  branchId?: string | null;
+  serial?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  limit?: number;
+}
+
+export interface PmVehicleSearchResult {
+  id: string;
+  serial: string;
+  model: string | null;
+  delivery_date: string | null;
+  engine_number: string | null;
+  dealer_id: string | null;
+  dealer_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  last_pm_number: string | null;
+  last_pm_date: string | null;
+  last_hour_meter: number | null;
+  last_customer_name: string | null;
+  next_pm_due: string | null;
+}
+
+/**
+ * Server-side search over Vehicle Master (`vehicles`) ONLY - never the live
+ * Tractor IN sheet (unlike `searchVehicles` above, which QIR's report form
+ * uses) - enriched with each match's most recent active PM history (last PM
+ * number/date/hour meter, a rough next-due date estimate from the interval's
+ * month value, and last customer name, since `vehicles` itself carries no
+ * customer field - customer info only ever exists per PM visit). Always
+ * capped (default 20, max 50) so this never returns the full table, per the
+ * "must scale to 100,000+ vehicles" requirement. Two queries total (vehicles,
+ * then one bulk pm_records lookup for the matched serials) - not N+1.
+ */
+export async function searchVehiclesForPm(filters: PmVehicleSearchFilters): Promise<PmVehicleSearchResult[]> {
+  const supabase = getSupabase();
+  const limit = Math.min(filters.limit ?? 20, 50);
+
+  // "Customer Name"/"Phone Number" aren't vehicle attributes - narrow to
+  // serials that have a matching PM-visit history first, then filter the
+  // vehicle query itself by that serial set (AND semantics with the other
+  // filters, not OR).
+  let historySerials: string[] | null = null;
+  if (filters.customerName?.trim() || filters.customerPhone?.trim()) {
+    let historyQuery = supabase
+      .from('pm_records')
+      .select('serial')
+      .eq('record_status', 'Active')
+      .not('serial', 'is', null)
+      .limit(500);
+    if (filters.customerName?.trim()) historyQuery = historyQuery.ilike('customer_name', `%${filters.customerName.trim()}%`);
+    if (filters.customerPhone?.trim()) historyQuery = historyQuery.ilike('customer_phone', `%${filters.customerPhone.trim()}%`);
+    const { data: historyRows, error: historyError } = await historyQuery;
+    if (historyError) throw historyError;
+    historySerials = Array.from(new Set((historyRows ?? []).map((r: any) => r.serial as string).filter(Boolean)));
+    if (historySerials.length === 0) return [];
+  }
+
+  let query = supabase
+    .from('vehicles')
+    .select('id, serial, model, delivery_date, engine_number, dealer_id, branch_id, dealers(short_name, full_name), branches(name)')
+    .order('serial')
+    .limit(limit);
+
+  if (filters.dealerId) query = query.eq('dealer_id', filters.dealerId);
+  if (filters.branchId) query = query.eq('branch_id', filters.branchId);
+  if (filters.serial?.trim()) query = query.ilike('serial', `%${filters.serial.trim()}%`);
+  if (historySerials) query = query.in('serial', historySerials);
+
+  const { data: vehicleRows, error } = await query;
+  if (error) throw error;
+  const vehicles = (vehicleRows ?? []) as any[];
+  if (vehicles.length === 0) return [];
+
+  const serials = vehicles.map((v) => v.serial);
+  const { data: pmRows, error: pmError } = await supabase
+    .from('pm_records')
+    .select('serial, pm_number, performed_date, hour_meter, customer_name, pm_interval_id')
+    .eq('record_status', 'Active')
+    .in('serial', serials)
+    .order('performed_date', { ascending: false });
+  if (pmError) throw pmError;
+
+  const latestBySerial = new Map<string, any>();
+  for (const row of (pmRows ?? []) as any[]) {
+    if (row.serial && !latestBySerial.has(row.serial)) latestBySerial.set(row.serial, row);
+  }
+
+  const intervalIds = Array.from(
+    new Set(Array.from(latestBySerial.values()).map((r) => r.pm_interval_id).filter(Boolean))
+  );
+  const intervalsById = new Map<string, { interval_months: number | null }>();
+  if (intervalIds.length > 0) {
+    const { data: intervalRows, error: intervalError } = await supabase
+      .from('pm_intervals')
+      .select('id, interval_months')
+      .in('id', intervalIds);
+    if (intervalError) throw intervalError;
+    for (const iv of (intervalRows ?? []) as any[]) intervalsById.set(iv.id, iv);
+  }
+
+  return vehicles.map((v): PmVehicleSearchResult => {
+    const last = latestBySerial.get(v.serial);
+    let nextPmDue: string | null = null;
+    if (last?.performed_date && last?.pm_interval_id) {
+      const interval = intervalsById.get(last.pm_interval_id);
+      if (interval?.interval_months) {
+        const d = new Date(last.performed_date);
+        d.setMonth(d.getMonth() + interval.interval_months);
+        nextPmDue = d.toISOString().slice(0, 10);
+      }
+    }
+    return {
+      id: v.id,
+      serial: v.serial,
+      model: v.model,
+      delivery_date: v.delivery_date,
+      engine_number: v.engine_number,
+      dealer_id: v.dealer_id,
+      dealer_name: v.dealers?.short_name ?? v.dealers?.full_name ?? null,
+      branch_id: v.branch_id,
+      branch_name: v.branches?.name ?? null,
+      last_pm_number: last?.pm_number ?? null,
+      last_pm_date: last?.performed_date ?? null,
+      last_hour_meter: last?.hour_meter ?? null,
+      last_customer_name: last?.customer_name ?? null,
+      next_pm_due: nextPmDue,
+    };
+  });
+}
+
 /**
  * Partial-match "smart search" across both the Supabase `vehicles` table and the
  * live Tractor IN sheet, merged and de-duplicated by serial. Powers the report

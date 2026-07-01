@@ -87,15 +87,17 @@ export default function PmRecordsPage() {
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold text-brand-dark">{record.serial ?? record.id}</p>
-                  <p className="text-sm text-gray-500">Dealer: {record.dealer_id}</p>
+                  <p className="text-sm font-semibold text-brand-dark">{record.pm_number ?? record.serial ?? record.id}</p>
+                  <p className="text-sm text-gray-500">
+                    {record.serial ?? 'N/A'} · Dealer: {record.dealer_id}
+                  </p>
                 </div>
                 <span className="rounded bg-gray-100 px-2 py-1 text-xs uppercase text-gray-600">{record.status}</span>
               </div>
               <div className="mt-2 grid gap-2 text-sm text-gray-600 sm:grid-cols-2">
-                <p>Branch: {record.branch_id ?? 'N/A'}</p>
+                <p>ลูกค้า: {record.customer_name ?? 'N/A'}</p>
+                <p>ชั่วโมงเครื่องยนต์: {record.hour_meter ?? 'N/A'}</p>
                 <p>Technician: {record.technician_id ?? 'N/A'}</p>
-                <p>Scheduled: {record.scheduled_date ?? 'N/A'}</p>
                 <p>Performed: {record.performed_date ?? 'N/A'}</p>
               </div>
             </Link>

@@ -3,23 +3,13 @@
  *
  * Reuses the existing server-only client from `@/lib/supabase` (same
  * pattern every other table in `src/lib/db.ts` uses) rather than creating
- * a second Supabase client/connection. Every method is a stub: no
- * `pm_records` table exists yet, and per this repo's existing convention
- * (see Sprint 8/9 history), a table is never created without its own
- * proposal + explicit approval step. Implementing real queries against a
- * table that doesn't exist would not build.
+ * a second Supabase client/connection.
  */
 import { getSupabase } from '@/lib/supabase';
 import { PmRecordRepository, PmRecordFilter } from './repository';
-import { PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
-
-const NOT_IMPLEMENTED = 'PM Record Supabase repository is not implemented yet (no pm_records table exists).';
+import { PmDuplicateCheckParams, PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
 
 export class SupabasePmRecordRepository implements PmRecordRepository {
-  /** Kept private and unused beyond construction until real queries are
-   *  implemented - confirms this class is wired to the same client
-   *  abstraction as the rest of the app, not a placeholder disconnected
-   *  from it. */
   private readonly client = getSupabase();
 
   private readonly table = 'pm_records';
@@ -54,17 +44,45 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
     return data as PmRecord;
   }
 
+  /** Generates the business-facing PM number PM-[DealerCode]-[Year]-[Running],
+   *  reusing the existing job_seq table / next_job_seq() RPC that QIR's job_id
+   *  already uses - it's already a generic (dealer_id, year) -> atomic
+   *  increment counter; QIR just calls it with a global sentinel dealer_id,
+   *  while PM Record calls it with the real dealer code so each dealer gets
+   *  its own running sequence that resets every year, per spec. */
+  private async nextPmNumber(dealerId: string): Promise<string> {
+    const year = String(new Date().getFullYear());
+    const { data, error } = await this.client.rpc('next_job_seq', {
+      p_dealer_id: dealerId,
+      p_year: year,
+    });
+    if (error) throw error;
+    const seq = Number(data);
+    return `PM-${dealerId}-${year}-${String(seq).padStart(6, '0')}`;
+  }
+
   async create(input: PmRecordCreateInput, actor: { username: string }): Promise<PmRecord> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
+    const pmNumber = await this.nextPmNumber(input.dealer_id);
     const payload = {
       id,
       dealer_id: input.dealer_id,
       branch_id: input.branch_id,
       serial: input.serial,
+      model: input.model,
+      delivery_date: input.delivery_date,
+      engine_number: input.engine_number,
+      customer_name: input.customer_name,
+      customer_phone: input.customer_phone,
       technician_id: input.technician_id,
-      scheduled_date: input.scheduled_date,
-      status: input.status,
+      performed_date: input.performed_date,
+      hour_meter: input.hour_meter,
+      pm_interval_id: input.pm_interval_id,
+      pm_number: pmNumber,
+      meter_photo_url: input.meter_photo_url,
+      nameplate_photo_url: input.nameplate_photo_url,
+      report_photo_url: input.report_photo_url,
       notes: input.notes,
       created_by: actor.username,
       created_at: now,
@@ -95,6 +113,13 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
     if (input.performed_date !== undefined) updatePayload.performed_date = input.performed_date;
     if (input.status !== undefined) updatePayload.status = input.status;
     if (input.notes !== undefined) updatePayload.notes = input.notes;
+    if (input.customer_name !== undefined) updatePayload.customer_name = input.customer_name;
+    if (input.customer_phone !== undefined) updatePayload.customer_phone = input.customer_phone;
+    if (input.hour_meter !== undefined) updatePayload.hour_meter = input.hour_meter;
+    if (input.pm_interval_id !== undefined) updatePayload.pm_interval_id = input.pm_interval_id;
+    if (input.meter_photo_url !== undefined) updatePayload.meter_photo_url = input.meter_photo_url;
+    if (input.nameplate_photo_url !== undefined) updatePayload.nameplate_photo_url = input.nameplate_photo_url;
+    if (input.report_photo_url !== undefined) updatePayload.report_photo_url = input.report_photo_url;
 
     const { data, error } = await this.client
       .from(this.table)
@@ -119,5 +144,17 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       .eq('record_status', 'Active');
     if (error) throw error;
   }
-}
 
+  async findDuplicate(params: PmDuplicateCheckParams): Promise<PmRecord | null> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .select('*')
+      .eq('record_status', 'Active')
+      .eq('serial', params.serial)
+      .eq('pm_interval_id', params.pmIntervalId)
+      .eq('performed_date', params.performedDate)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PmRecord) ?? null;
+  }
+}

@@ -11,6 +11,7 @@ const mockRepository = {
   create: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
+  findDuplicate: vi.fn(),
 };
 
 vi.mock('@/features/pm-record/supabaseRepository', () => ({

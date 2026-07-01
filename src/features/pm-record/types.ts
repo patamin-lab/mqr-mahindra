@@ -1,14 +1,14 @@
 /**
  * PM Record (Preventive Maintenance) — shared types.
  *
- * Foundation only (Sprint 10.1). No `pm_records` table exists yet, and no
- * requirements document defines this entity's real field set — see the
- * feature README. Fields below are the minimal, generic set any
- * maintenance-style record would need (mirrors the audit-field and FK
- * conventions already used by `MqrRecord` in `@/lib/types`), not a
- * finalized business schema. Do not extend this speculatively; wait for a
- * requirements-bearing sprint, the same way the original "Customer" gap
- * was handled rather than guessed at.
+ * Phase 2 (search-first production workflow). Fields below reflect the
+ * actual live schema: dealer/branch/serial/model/delivery_date/engine_number
+ * are a point-in-time snapshot of the selected vehicle (Tractor Master),
+ * captured at auto-fill time - never a live join back to `vehicles` - so a
+ * PM Record stays accurate even if the vehicle's master data changes later.
+ * customer_name/customer_phone are entered fresh every PM (never auto-filled
+ * - see pm-record-form.tsx), consistent with "Customer remains Snapshot
+ * Data" in AI_CONTEXT.md's locked architecture decisions.
  */
 
 /**
@@ -24,9 +24,20 @@ export interface PmRecord {
   dealer_id: string;
   branch_id: string | null;
   serial: string | null;
+  model: string | null;
+  delivery_date: string | null;
+  engine_number: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
   technician_id: string | null;
   scheduled_date: string | null;
   performed_date: string | null;
+  hour_meter: number | null;
+  pm_interval_id: string | null;
+  pm_number: string | null;
+  meter_photo_url: string | null;
+  nameplate_photo_url: string | null;
+  report_photo_url: string | null;
   status: PmRecordStatus;
   notes: string | null;
   created_by: string | null;
@@ -35,16 +46,60 @@ export interface PmRecord {
   updated_at: string;
 }
 
-/** Shape accepted when creating a PM Record. Server assigns id/audit fields. */
+/**
+ * Shape accepted when creating a PM Record via the search-first workflow.
+ * Server assigns id/audit fields and generates pm_number (never client-set,
+ * mirrors how QIR's job_id is server-generated in SupabasePmRecordRepository,
+ * not accepted from the request body).
+ */
 export type PmRecordCreateInput = Pick<
   PmRecord,
-  'dealer_id' | 'branch_id' | 'serial' | 'technician_id' | 'scheduled_date' | 'status' | 'notes'
->;
+  | 'dealer_id'
+  | 'branch_id'
+  | 'serial'
+  | 'model'
+  | 'delivery_date'
+  | 'engine_number'
+  | 'customer_name'
+  | 'customer_phone'
+  | 'technician_id'
+  | 'hour_meter'
+  | 'pm_interval_id'
+  | 'meter_photo_url'
+  | 'nameplate_photo_url'
+  | 'report_photo_url'
+  | 'notes'
+> & {
+  /** The date the PM was actually performed (today, by default - this
+   *  workflow records a visit happening now, not a future appointment). */
+  performed_date: string;
+};
 
 /** Shape accepted when updating a PM Record. All fields optional (partial patch). */
 export type PmRecordUpdateInput = Partial<
   Pick<
     PmRecord,
-    'branch_id' | 'serial' | 'technician_id' | 'scheduled_date' | 'performed_date' | 'status' | 'notes'
+    | 'branch_id'
+    | 'serial'
+    | 'technician_id'
+    | 'scheduled_date'
+    | 'performed_date'
+    | 'status'
+    | 'notes'
+    | 'customer_name'
+    | 'customer_phone'
+    | 'hour_meter'
+    | 'pm_interval_id'
+    | 'meter_photo_url'
+    | 'nameplate_photo_url'
+    | 'report_photo_url'
   >
 >;
+
+/** Params for the pre-save duplicate check: same tractor + same PM interval
+ *  + same performed date already recorded (Active rows only). */
+export interface PmDuplicateCheckParams {
+  serial: string;
+  pmIntervalId: string;
+  performedDate: string;
+}

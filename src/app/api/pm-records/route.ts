@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
+import { getDealer } from '@/lib/db';
+import { relocatePendingFiles } from '@/lib/googleDrive';
 import { SupabasePmRecordRepository } from '@/features/pm-record/supabaseRepository';
 import { PmRecordService } from '@/features/pm-record/service';
 import { isNonEmptyString, parseWithSchema, ValidationError } from '@/features/pm-record/validation';
@@ -86,6 +88,27 @@ export async function POST(req: NextRequest) {
 
   try {
     const record = await service.create(input, { username: session.username });
+
+    // Photos were uploaded into the dealer's "_pending" Drive folder before
+    // this record (and its pm_number) existed - move them into the proper
+    // {dealer}/{pmNumber} folder now, mirroring src/app/api/records/route.ts's
+    // identical pattern for QIR photos. File URLs never change, so this
+    // never needs to touch the DB row, and a relocate failure must never
+    // fail the create (the photos still work from _pending either way).
+    try {
+      const dealer = await getDealer(record.dealer_id);
+      const dealerFolderName = (dealer?.short_name || record.dealer_id).replace(/[^a-zA-Z0-9ก-๙_-]/g, '');
+      if (record.pm_number) {
+        await relocatePendingFiles(dealerFolderName, record.pm_number, [
+          record.meter_photo_url,
+          record.nameplate_photo_url,
+          record.report_photo_url,
+        ]);
+      }
+    } catch (err) {
+      console.error('drive relocate pending files error (pm-record)', err);
+    }
+
     return NextResponse.json({ ok: true, data: record }, { status: 201 });
   } catch (error) {
     console.error('PM Record create API error', error);

@@ -1,14 +1,12 @@
 /**
  * PM Record — service layer.
  *
- * Sits between routes and the repository. This is where request-scoping
- * (e.g. the existing `seesAllDealers`/`seesOwnRecordsOnly` style checks
- * from `@/lib/scope`) and input validation (via `schemas.ts`) will be
- * applied once CRUD is actually implemented. Every method is currently a
- * stub - no business logic exists yet, per Sprint 10.1's scope.
+ * Sits between routes and the repository. Rejects any actor with an empty
+ * username before any mutation; all other request-scoping (dealer/branch
+ * resolution) happens in the route handler before this layer is called.
  */
 import { PmRecordRepository, PmRecordFilter } from './repository';
-import { PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import { PmDuplicateCheckParams, PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
 
 export interface PmRecordActor {
   username: string;
@@ -44,5 +42,9 @@ export class PmRecordService {
       throw new Error('Actor username is required');
     }
     return this.repository.delete(id, actor);
+  }
+
+  async findDuplicate(params: PmDuplicateCheckParams): Promise<PmRecord | null> {
+    return this.repository.findDuplicate(params);
   }
 }

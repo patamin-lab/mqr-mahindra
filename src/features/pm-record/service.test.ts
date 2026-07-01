@@ -9,9 +9,20 @@ function makeRecord(overrides: Partial<PmRecord> = {}): PmRecord {
     dealer_id: 'D1',
     branch_id: null,
     serial: null,
+    model: null,
+    delivery_date: null,
+    engine_number: null,
+    customer_name: null,
+    customer_phone: null,
     technician_id: null,
     scheduled_date: null,
     performed_date: null,
+    hour_meter: null,
+    pm_interval_id: null,
+    pm_number: null,
+    meter_photo_url: null,
+    nameplate_photo_url: null,
+    report_photo_url: null,
     status: 'Scheduled',
     notes: null,
     created_by: 'alice',
@@ -29,6 +40,7 @@ function makeMockRepository(): PmRecordRepository {
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    findDuplicate: vi.fn(),
   };
 }
 
@@ -87,10 +99,19 @@ describe('PmRecordService', () => {
     const input: PmRecordCreateInput = {
       dealer_id: 'D1',
       branch_id: null,
-      serial: null,
-      technician_id: null,
-      scheduled_date: null,
-      status: 'Scheduled',
+      serial: 'SN-1',
+      model: null,
+      delivery_date: null,
+      engine_number: null,
+      customer_name: 'Somchai',
+      customer_phone: '081-2345678',
+      technician_id: 'tech-1',
+      performed_date: '2026-01-01',
+      hour_meter: 100,
+      pm_interval_id: 'interval-1',
+      meter_photo_url: 'https://drive.google.com/meter.jpg',
+      nameplate_photo_url: 'https://drive.google.com/nameplate.jpg',
+      report_photo_url: 'https://drive.google.com/report.jpg',
       notes: null,
     };
 
@@ -147,6 +168,27 @@ describe('PmRecordService', () => {
         'Actor username is required'
       );
       expect(repository.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findDuplicate', () => {
+    it('delegates to repository.findDuplicate and returns its result', async () => {
+      const existing = makeRecord();
+      (repository.findDuplicate as ReturnType<typeof vi.fn>).mockResolvedValue(existing);
+
+      const params = { serial: 'SN-1', pmIntervalId: 'interval-1', performedDate: '2026-01-01' };
+      const result = await service.findDuplicate(params);
+
+      expect(repository.findDuplicate).toHaveBeenCalledWith(params);
+      expect(result).toBe(existing);
+    });
+
+    it('returns null when no duplicate exists', async () => {
+      (repository.findDuplicate as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+      const result = await service.findDuplicate({ serial: 'SN-1', pmIntervalId: 'interval-1', performedDate: '2026-01-01' });
+
+      expect(result).toBeNull();
     });
   });
 });

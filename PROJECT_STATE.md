@@ -1,8 +1,13 @@
 Current Sprint: Sprint 10
-Current Branch: feature/pm-record-types
+Current Branch: feature/pm-record-workflow-redesign (branched from main after M1-M6.5 merged)
 Current Module: PM Record
-Current Milestone: M6.5 Complete — Final Release Candidate Review (READY FOR MERGE)
-Current Status: Complete
+Current Milestone: Workflow Redesign Phase 2 Complete — Search-First Workflow
+Current Status: In Progress (Phase 2 of a multi-phase production UX redesign; Phases 3-5 not started)
+
+M1-M6.5 (CRUD module, tests, CI, dependency audit, release review) are
+merged into `main` (PR #2, merge commit `32c4e29`). Everything below this
+line describes the NEW production UX redesign, built on top of that
+merged foundation, not yet merged.
 
 Architecture: Frozen
 Documentation: Frozen
@@ -145,22 +150,71 @@ response contracts, domain model, validation, authorization, persistence,
 soft delete, audit fields, testing, documentation, CI, RLS, migration
 alignment, security, or performance.
 
-Next Milestone: not yet scheduled
+========================================================
+Workflow Redesign — Production UX (KTV reference)
+========================================================
+
+Phase 1 (complete, commit `2e3f1cc`): Master Data Foundation
+- New `pm_intervals` master table + `/admin/pm-intervals` CRUD page
+  (mirrors the existing `problem_codes` admin pattern exactly)
+- `vehicles.engine_number`, `vehicles.branch_id` (FK to `branches`) added
+  (Tractor Master gets a real home-branch attribute + engine number)
+
+Phase 2 (complete, this commit): Search-First Workflow
+- Replaced `/pm-records/new` (was a generic create form) with a search-first
+  flow: search Tractor Master (Dealer→Branch cascade, Serial autocomplete
+  3+ chars, Customer Name/Phone via PM history join) → Recent Vehicles
+  (last 5, localStorage, no new table) → select → auto-fill (dealer/branch/
+  serial/engine number/model/retail date; customer name/phone always
+  entered fresh, never auto-filled) → enter hour meter/PM interval/
+  technician/notes → upload 3 required photos (reuses the existing
+  `/api/upload` + Google Drive `_pending`→relocate pattern from QIR,
+  unmodified) → pre-save duplicate check (same tractor+interval+date,
+  warn-and-continue, never a hard block) → save.
+- Business number `PM-[DealerCode]-[Year]-[Running]` generated server-side
+  in `SupabasePmRecordRepository.create()`, reusing the existing `job_seq`
+  table / `next_job_seq()` RPC that QIR's `job_id` already uses (QIR calls
+  it with a global sentinel dealer_id; PM Record calls it with the real
+  dealer code, so each dealer gets its own per-year sequence for free —
+  zero new migration needed for this part).
+- New `pm_records` columns (live migration applied): `engine_number`,
+  `hour_meter`, `pm_interval_id` (FK), `pm_number` (unique),
+  `meter_photo_url`/`nameplate_photo_url`/`report_photo_url`.
+  `customer_name`/`customer_phone`/`model`/`delivery_date` already existed
+  on the live table since Sprint 10.1 but were never wired into the
+  `PmRecord` TypeScript type until now — no migration needed for those four.
+- Detail/list pages updated to show PM number (not the raw UUID — "Do NOT
+  expose UUID" per spec) plus the new fields/photos.
+- 45/45 tests passing (was 39 - added `findDuplicate` coverage plus fixed
+  fixtures for the expanded `PmRecord` shape).
+
+Not started (Phases 3-5, per the agreed phasing):
+- Phase 3: photo upload polish (compression, drag & drop, progress bar,
+  the elaborate `PM/YYYY/MM/PM-number/` Drive folder nesting) + GPS
+  (satellite map, address/lat-lng search, draggable marker, current
+  location, accuracy warning)
+- Phase 4: History page (filters) + CSV/Individual PDF/Summary PDF/Bulk
+  PDF export + image ZIP download
+- Phase 5: Dashboard (PM Today/This Month/Upcoming/Overdue, by Dealer/
+  Branch, trend, recent PM)
+
+Next Milestone: Phase 3 (Photos polish + GPS), pending explicit direction
 Candidate next tasks (unscheduled, pending explicit direction):
+- Phase 3/4/5 above
 - A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
-  7 audit findings require it — the single biggest remaining risk item
+  7 M6.4 audit findings require it — the single biggest remaining risk item
 - A future ADR decision on Supabase Auth (or per-request session
   variables) if real RLS-enforced dealer/branch isolation is ever required
-- Drop the four unused legacy columns on `pm_records` (cleanup only)
+- Drop the four now-genuinely-unused legacy columns on `pm_records`
+  (`model`/`delivery_date` are now used as snapshot fields, so only
+  cleanup candidates remain if any are found to still be truly dead)
 - Extend automated test coverage to other modules (only PM Record has
   tests today)
-- PDI/media upload, dashboard/KPI integration, PDF export — none started
 
 Current Blockers:
-None — the M6.5 review found and fixed the one genuine release blocker
-(above). The live-schema defects noted for M6.1 are already resolved;
-the two remaining items above (dead columns, RLS dealer isolation) are
-flagged debt, not blockers.
+None. This redesign branch has not been merged to `main` yet — pending
+explicit direction on when/whether to open that PR (deliberately separate
+from the M1-M6.5 merge, since this is new, unreviewed, unreleased work).
 
 Legacy Naming (tracked, not yet renamed — pending ADR):
 - SESSION_COOKIE = 'mqr_session' (lib/auth.ts)

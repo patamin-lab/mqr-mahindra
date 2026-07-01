@@ -35,13 +35,16 @@ function createQueryBuilder(result: QueryResult) {
   return { builder, calls };
 }
 
-function mockGetSupabase(result: QueryResult) {
+/** next_job_seq() is called directly on the client (not part of the
+ *  chainable query builder), used by create() to generate pm_number. */
+function mockGetSupabase(result: QueryResult, rpcResult: QueryResult = { data: 1, error: null }) {
   const { builder, calls } = createQueryBuilder(result);
   const from = vi.fn(() => builder);
-  return { client: { from }, builder, calls };
+  const rpc = vi.fn().mockResolvedValue(rpcResult);
+  return { client: { from, rpc }, builder, calls, rpc };
 }
 
-const state: { client: { from: ReturnType<typeof vi.fn> } | null } = { client: null };
+const state: { client: { from: ReturnType<typeof vi.fn>; rpc: ReturnType<typeof vi.fn> } | null } = { client: null };
 
 vi.mock('@/lib/supabase', () => ({
   getSupabase: () => state.client,
@@ -50,9 +53,9 @@ vi.mock('@/lib/supabase', () => ({
 // Imported after the mock is registered so the repository picks it up.
 const { SupabasePmRecordRepository } = await import('./supabaseRepository');
 
-function setupClient(result: QueryResult) {
-  const mocked = mockGetSupabase(result);
-  state.client = mocked.client as unknown as { from: ReturnType<typeof vi.fn> };
+function setupClient(result: QueryResult, rpcResult?: QueryResult) {
+  const mocked = mockGetSupabase(result, rpcResult);
+  state.client = mocked.client as unknown as { from: ReturnType<typeof vi.fn>; rpc: ReturnType<typeof vi.fn> };
   return mocked;
 }
 
@@ -60,10 +63,21 @@ const activeRecord = {
   id: 'rec-1',
   dealer_id: 'D1',
   branch_id: null,
-  serial: null,
+  serial: 'SN-1',
+  model: null,
+  delivery_date: null,
+  engine_number: null,
+  customer_name: 'Somchai',
+  customer_phone: '081-2345678',
   technician_id: null,
   scheduled_date: null,
-  performed_date: null,
+  performed_date: '2026-01-01',
+  hour_meter: 100,
+  pm_interval_id: 'interval-1',
+  pm_number: 'PM-D1-2026-000001',
+  meter_photo_url: 'https://drive.google.com/meter.jpg',
+  nameplate_photo_url: 'https://drive.google.com/nameplate.jpg',
+  report_photo_url: 'https://drive.google.com/report.jpg',
   status: 'Scheduled',
   notes: null,
   created_by: 'alice',
@@ -153,26 +167,41 @@ describe('SupabasePmRecordRepository', () => {
     const input = {
       dealer_id: 'D1',
       branch_id: null,
-      serial: null,
-      technician_id: null,
-      scheduled_date: null,
-      status: 'Scheduled',
+      serial: 'SN-1',
+      model: null,
+      delivery_date: null,
+      engine_number: null,
+      customer_name: 'Somchai',
+      customer_phone: '081-2345678',
+      technician_id: 'tech-1',
+      performed_date: '2026-01-01',
+      hour_meter: 100,
+      pm_interval_id: 'interval-1',
+      meter_photo_url: 'https://drive.google.com/meter.jpg',
+      nameplate_photo_url: 'https://drive.google.com/nameplate.jpg',
+      report_photo_url: 'https://drive.google.com/report.jpg',
       notes: null,
     };
     const actor = { username: 'alice' };
 
-    it('inserts a payload with a generated id and record_status=Active', async () => {
-      const { calls } = setupClient({ data: activeRecord, error: null });
+    it('inserts a payload with a generated id, a generated pm_number, and record_status=Active', async () => {
+      const { calls, rpc } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null });
       const repository = new SupabasePmRecordRepository();
 
       const result = await repository.create(input, actor);
 
+      expect(rpc).toHaveBeenCalledWith('next_job_seq', { p_dealer_id: 'D1', p_year: expect.any(String) });
+
       const insertCall = calls.find((c) => c.method === 'insert');
       const payload = insertCall?.args[0] as Record<string, unknown>;
       expect(typeof payload.id).toBe('string');
+      expect(payload.pm_number).toMatch(/^PM-D1-\d{4}-\d{6}$/);
       expect(payload).toMatchObject({
         dealer_id: 'D1',
-        status: 'Scheduled',
+        serial: 'SN-1',
+        customer_name: 'Somchai',
+        hour_meter: 100,
+        pm_interval_id: 'interval-1',
         created_by: 'alice',
         updated_by: 'alice',
         record_status: 'Active',
@@ -254,6 +283,50 @@ describe('SupabasePmRecordRepository', () => {
       const repository = new SupabasePmRecordRepository();
 
       await expect(repository.delete('rec-1', actor)).rejects.toThrow('delete failed');
+    });
+  });
+
+  describe('findDuplicate', () => {
+    it('scopes by serial, pm_interval_id, performed_date, and record_status=Active', async () => {
+      const { calls } = setupClient({ data: activeRecord, error: null });
+      const repository = new SupabasePmRecordRepository();
+
+      const result = await repository.findDuplicate({
+        serial: 'SN-1',
+        pmIntervalId: 'interval-1',
+        performedDate: '2026-01-01',
+      });
+
+      const eqCalls = calls.filter((c) => c.method === 'eq').map((c) => c.args);
+      expect(eqCalls).toEqual([
+        ['record_status', 'Active'],
+        ['serial', 'SN-1'],
+        ['pm_interval_id', 'interval-1'],
+        ['performed_date', '2026-01-01'],
+      ]);
+      expect(result).toEqual(activeRecord);
+    });
+
+    it('returns null when no duplicate exists', async () => {
+      setupClient({ data: null, error: null });
+      const repository = new SupabasePmRecordRepository();
+
+      const result = await repository.findDuplicate({
+        serial: 'SN-1',
+        pmIntervalId: 'interval-1',
+        performedDate: '2026-01-01',
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('throws when Supabase returns an error', async () => {
+      setupClient({ data: null, error: new Error('db down') });
+      const repository = new SupabasePmRecordRepository();
+
+      await expect(
+        repository.findDuplicate({ serial: 'SN-1', pmIntervalId: 'interval-1', performedDate: '2026-01-01' })
+      ).rejects.toThrow('db down');
     });
   });
 });
