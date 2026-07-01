@@ -3,7 +3,8 @@ import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
 import { SupabasePmRecordRepository } from '@/features/pm-record/supabaseRepository';
 import { PmRecordService } from '@/features/pm-record/service';
-import { isNonEmptyString } from '@/features/pm-record/validation';
+import { isNonEmptyString, parseWithSchema, ValidationError } from '@/features/pm-record/validation';
+import { PmRecordCreateBodySchema, PmRecordCreateBody } from '@/features/pm-record/schemas';
 import { PmRecordCreateInput } from '@/features/pm-record/types';
 
 export async function GET() {
@@ -46,6 +47,8 @@ export async function POST(req: NextRequest) {
   // Zero-leakage: only a privileged role may set an arbitrary dealer_id from
   // the request body — everyone else is pinned to their own session dealer,
   // mirroring the same rule already enforced in src/app/api/records/route.ts.
+  // dealer_id is resolved here, not via the schema below, because schema
+  // validation can only check shape - not who is allowed to set what.
   const dealerId = seesAllDealers(session.role) ? String(body.dealer_id ?? '').trim() : session.dealerId;
   if (!isNonEmptyString(dealerId)) {
     return NextResponse.json(
@@ -53,21 +56,23 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (!isNonEmptyString(body.status)) {
-    return NextResponse.json(
-      { ok: false, error: { code: 'VALIDATION_ERROR', message: 'status is required' } },
-      { status: 400 }
-    );
+
+  let parsedBody: PmRecordCreateBody;
+  try {
+    parsedBody = parseWithSchema<PmRecordCreateBody>(PmRecordCreateBodySchema, body);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        { ok: false, error: { code: 'VALIDATION_ERROR', message: error.message } },
+        { status: 400 }
+      );
+    }
+    throw error;
   }
 
   const input: PmRecordCreateInput = {
     dealer_id: dealerId,
-    branch_id: isNonEmptyString(body.branch_id) ? body.branch_id : null,
-    serial: isNonEmptyString(body.serial) ? body.serial : null,
-    technician_id: isNonEmptyString(body.technician_id) ? body.technician_id : null,
-    scheduled_date: isNonEmptyString(body.scheduled_date) ? body.scheduled_date : null,
-    status: body.status,
-    notes: isNonEmptyString(body.notes) ? body.notes : null,
+    ...parsedBody,
   };
 
   const repository = new SupabasePmRecordRepository();
