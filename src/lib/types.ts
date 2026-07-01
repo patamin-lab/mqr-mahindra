@@ -24,6 +24,7 @@ export interface Vehicle {
   model: string | null;
   delivery_date: string | null;
   dealer_id: string | null;
+  engine_number?: string | null;
 }
 
 export type Severity = 'Critical' | 'Major' | 'Minor';
@@ -41,6 +42,19 @@ export interface ProblemCode {
   system: 'powertrain' | 'other';
   group_name: string | null;
   default_severity?: Severity | null;
+  active?: boolean;
+}
+
+/** PM Interval Master - shared maintenance-interval schedule, reused (never
+ *  hardcoded) by the PM Record module. At least one of interval_hours /
+ *  interval_months is expected to be set (an interval can be hour-based,
+ *  month-based, or both), but neither is DB-enforced as required since a
+ *  future interval type not yet known might need neither. */
+export interface PmInterval {
+  id: string;
+  label: string;
+  interval_hours: number | null;
+  interval_months: number | null;
   active?: boolean;
 }
 

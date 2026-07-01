@@ -5,6 +5,7 @@ import {
   Dealer,
   Vehicle,
   ProblemCode,
+  PmInterval,
   Technician,
   Branch,
   MqrRecord,
@@ -177,6 +178,65 @@ export async function updateProblemCode(
   const { data, error } = await supabase.from('problem_codes').update(updatePayload).eq('id', id).select('*').single();
   if (error) throw error;
   return data as ProblemCode;
+}
+
+/** Active PM Interval Master entries only - powers the PM Record form's dropdown. */
+export async function listActivePmIntervals(): Promise<PmInterval[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('pm_intervals')
+    .select('*')
+    .eq('active', true)
+    .order('interval_hours', { ascending: true, nullsFirst: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Full PM Interval Master list (including inactive) - admin management UI only. */
+export async function listAllPmIntervalsAdmin(): Promise<PmInterval[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('pm_intervals')
+    .select('*')
+    .order('interval_hours', { ascending: true, nullsFirst: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createPmInterval(
+  input: { label: string; intervalHours: number | null; intervalMonths: number | null },
+  session: SessionUser
+): Promise<PmInterval> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('pm_intervals')
+    .insert({
+      label: input.label,
+      interval_hours: input.intervalHours,
+      interval_months: input.intervalMonths,
+      created_by: session.username,
+      updated_by: session.username,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as PmInterval;
+}
+
+export async function updatePmInterval(
+  id: string,
+  patch: Partial<{ label: string; intervalHours: number | null; intervalMonths: number | null; active: boolean }>,
+  session: SessionUser
+): Promise<PmInterval> {
+  const supabase = getSupabase();
+  const updatePayload: Record<string, unknown> = { updated_by: session.username, updated_at: new Date().toISOString() };
+  if (patch.label !== undefined) updatePayload.label = patch.label;
+  if (patch.intervalHours !== undefined) updatePayload.interval_hours = patch.intervalHours;
+  if (patch.intervalMonths !== undefined) updatePayload.interval_months = patch.intervalMonths;
+  if (patch.active !== undefined) updatePayload.active = patch.active;
+  const { data, error } = await supabase.from('pm_intervals').update(updatePayload).eq('id', id).select('*').single();
+  if (error) throw error;
+  return data as PmInterval;
 }
 
 /** Active technicians only - used to populate the report form's cascading dropdown. */

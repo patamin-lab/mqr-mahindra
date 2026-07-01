@@ -1,0 +1,42 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
+import { updatePmInterval } from '@/lib/db';
+import { seesAllDealers } from '@/lib/scope';
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!seesAllDealers(session.role)) {
+    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+  }
+  try {
+    const body = await req.json();
+    const intervalHours =
+      body.intervalHours === undefined
+        ? undefined
+        : body.intervalHours === '' || body.intervalHours == null
+          ? null
+          : Number(body.intervalHours);
+    const intervalMonths =
+      body.intervalMonths === undefined
+        ? undefined
+        : body.intervalMonths === '' || body.intervalMonths == null
+          ? null
+          : Number(body.intervalMonths);
+    if (intervalHours != null && !Number.isFinite(intervalHours)) {
+      return NextResponse.json({ ok: false, error: 'ชั่วโมงต้องเป็นตัวเลข' }, { status: 400 });
+    }
+    if (intervalMonths != null && !Number.isFinite(intervalMonths)) {
+      return NextResponse.json({ ok: false, error: 'เดือนต้องเป็นตัวเลข' }, { status: 400 });
+    }
+    const pmInterval = await updatePmInterval(
+      params.id,
+      { label: body.label, intervalHours, intervalMonths, active: body.active },
+      session
+    );
+    return NextResponse.json({ ok: true, pmInterval });
+  } catch (err: any) {
+    console.error('update pm interval error', err);
+    return NextResponse.json({ ok: false, error: err?.message ?? 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
+  }
+}

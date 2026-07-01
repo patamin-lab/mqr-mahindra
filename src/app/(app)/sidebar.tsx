@@ -32,6 +32,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
     { href: '/admin/branches', label: 'สาขา' },
     { href: '/admin/technicians', label: 'ช่างซ่อม' },
     ...(showDealers ? [{ href: '/admin/problem-codes', label: 'หมวดปัญหา/อาการเสีย' }] : []),
+    ...(showDealers ? [{ href: '/admin/pm-intervals', label: 'รอบ PM' }] : []),
     { href: '/admin/users', label: 'ผู้ใช้งาน' },
   ];
 
