@@ -29,7 +29,9 @@ export async function fetchPmRecord(id: string): Promise<FetchPmRecordResult> {
 
   const payload = await response.json();
   if (!response.ok) {
-    return { error: payload?.error || 'Unable to load record' };
+    const message =
+      (typeof payload?.error === 'string' ? payload.error : payload?.error?.message) || 'Unable to load record';
+    return { error: message };
   }
 
   return { record: payload.data as PmRecord };

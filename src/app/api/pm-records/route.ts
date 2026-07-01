@@ -10,7 +10,10 @@ import { PmRecordCreateInput } from '@/features/pm-record/types';
 export async function GET() {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'UNAUTHORIZED' }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } },
+      { status: 401 }
+    );
   }
 
   const repository = new SupabasePmRecordRepository();
@@ -21,7 +24,10 @@ export async function GET() {
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
     console.error('PM Record list API error', error);
-    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'INTERNAL_ERROR', message: 'internal error' } },
+      { status: 500 }
+    );
   }
 }
 

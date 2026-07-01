@@ -5,12 +5,13 @@ import { PmRecordService } from '@/features/pm-record/service';
 import { parseWithSchema, ValidationError } from '@/features/pm-record/validation';
 import { PmRecordUpdateBodySchema, PmRecordUpdateBody } from '@/features/pm-record/schemas';
 
-/** PM Record single-item route — structure only (Sprint 10.1). See
- *  ../route.ts for the same scope note. */
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'UNAUTHORIZED' }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } },
+      { status: 401 }
+    );
   }
 
   const repository = new SupabasePmRecordRepository();
@@ -19,19 +20,35 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   try {
     const record = await service.getById(params.id);
     if (!record) {
-      return NextResponse.json({ ok: false, error: 'NOT_FOUND' }, { status: 404 });
+      return NextResponse.json(
+        { ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } },
+        { status: 404 }
+      );
     }
     return NextResponse.json({ ok: true, data: record }, { status: 200 });
   } catch (error) {
     console.error('PM Record detail API error', error);
-    return NextResponse.json({ ok: false, error: 'INTERNAL_ERROR' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'INTERNAL_ERROR', message: 'internal error' } },
+      { status: 500 }
+    );
   }
 }
 
+/** Not implemented - PmRecordService.update is exposed via PUT, not PATCH. */
 export async function PATCH(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-  return NextResponse.json({ ok: false, error: 'not implemented', id: params.id }, { status: 501 });
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } },
+      { status: 401 }
+    );
+  }
+  void params;
+  return NextResponse.json(
+    { ok: false, error: { code: 'NOT_IMPLEMENTED', message: 'not implemented' } },
+    { status: 501 }
+  );
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {

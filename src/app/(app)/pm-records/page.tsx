@@ -17,7 +17,10 @@ export default function PmRecordsPage() {
       const response = await fetch('/api/pm-records', { credentials: 'same-origin' });
       if (!response.ok) {
         const payload = await response.json();
-        setError(payload?.error || 'Failed to load PM records');
+        const message =
+          (typeof payload?.error === 'string' ? payload.error : payload?.error?.message) ||
+          'Failed to load PM records';
+        setError(message);
         setRecords([]);
       } else {
         const payload = await response.json();
