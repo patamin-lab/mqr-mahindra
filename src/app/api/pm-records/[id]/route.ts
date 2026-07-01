@@ -35,22 +35,6 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-/** Not implemented - PmRecordService.update is exposed via PUT, not PATCH. */
-export async function PATCH(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } },
-      { status: 401 }
-    );
-  }
-  void params;
-  return NextResponse.json(
-    { ok: false, error: { code: 'NOT_IMPLEMENTED', message: 'not implemented' } },
-    { status: 501 }
-  );
-}
-
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
