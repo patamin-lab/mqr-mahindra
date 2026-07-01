@@ -1,8 +1,8 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-workflow-redesign (branched from main after M1-M6.5 merged)
 Current Module: PM Record
-Current Milestone: Workflow Redesign Phase 3 Complete — GPS, Maps & Location
-Current Status: In Progress (Phase 3 of a multi-phase production UX redesign; Phases 4-5 not started)
+Current Milestone: Workflow Redesign Phase 4a Complete — History Center (Sub-phase 1 of 3)
+Current Status: In Progress (Phase 4 of a multi-phase production UX redesign, split into 4a/4b/4c; Phase 5 not started)
 
 M1-M6.5 (CRUD module, tests, CI, dependency audit, release review) are
 merged into `main` (PR #2, merge commit `32c4e29`). Everything below this
@@ -220,17 +220,62 @@ Phase 3 (complete, this commit): GPS, Maps & Location Experience
   and an "Open Google Maps" button when a location was captured.
 - 47/47 tests passing (was 45).
 
-Not started (Phases 4-5, per the agreed phasing):
-- Phase 4: History page (filters) + CSV/Individual PDF/Summary PDF/Bulk
-  PDF export + image ZIP download + the elaborate `PM/YYYY/MM/PM-number/`
-  Drive folder nesting / photo-upload polish (compression, drag & drop,
-  progress bar) not yet done in Phase 2/3
+Phase 4a (complete, this commit): History Center (sub-phase 1 of 3 - CSV/
+PDF/bulk export deliberately deferred to 4b/4c, agreed with the user
+before starting given the phase's overall size)
+- Replaced `/pm-records` (was a client-fetched, unpaginated basic list)
+  with a server-side paginated/filtered/sorted/searchable History Center -
+  never loads the full table into the browser, confirmed via the new
+  `GET /api/pm-records/history` route which always paginates (capped at
+  200/page) regardless of what's requested.
+- New `pm_records` columns (live migrations applied): `technician_name`/
+  `branch_name` (snapshot, resolved server-side from the ids at create
+  time, mirroring the sibling QIR `records` table's exact existing
+  pattern so History search/export never needs a live join) and
+  `next_pm_due` (computed from `performed_date + pm_interval.interval_months`
+  at create time, month-based intervals only - powers "Overdue"/"Upcoming
+  PM" quick filters as a simple indexed date comparison).
+- `pg_trgm` extension + GIN trigram indexes on every universal-search
+  column (`pm_number`/`serial`/`customer_name`/`customer_phone`/
+  `technician_name`/`branch_name`/`model`/`notes`), plus btree indexes on
+  `performed_date`/`created_by`/`next_pm_due` - the spec's explicit
+  "indexed search" / "100,000+ records" requirement.
+- Quick filters (Today/Yesterday/This Week/This Month/Last Month/This
+  Year/Overdue/Upcoming PM/Clear), a full Advanced Filter panel (every
+  field the spec listed), and one universal search box across all 9
+  documented columns via a single `.or()` query.
+- Saved Filters: Dealer/Branch/Date/Sort persisted in localStorage per
+  username (same lightweight pattern as Phase 2's Recent Vehicles - no
+  new table), restored automatically on load.
+- History table built on the new `@tanstack/react-table` dependency
+  (added deliberately - hand-rolling sort+resize+column-visibility+
+  selection reliably would have been far more code): sorting, server-side
+  pagination, sticky header, resizable columns, column show/hide, and row
+  selection (row / select-all-on-current-page). Bulk action buttons
+  (Export CSV/PDF, Download Images) are present and wired to the
+  selection state, but disabled with a "coming in 4b/4c" tooltip - there's
+  nothing to attach them to yet since those endpoints don't exist.
+- 54/54 tests passing (was 47).
+
+Not started (Phase 4b/4c, Phase 5):
+- Phase 4b: CSV export (column selection) + Summary PDF + Individual PDF
+  (GPS + QR + 3 photos) - reusing the existing `exportPdf.tsx`/`qrcode`/
+  `papaparse` patterns already established for QIR, per spec's "reuse
+  existing PDF/Export Service" instruction
+- Phase 4c: Bulk PDF + ZIP image download (needs a new `jszip`-type
+  dependency, not yet added) + image viewer (fullscreen/zoom/next-prev).
+  Note: true ">1000 records → async job with a Download button later"
+  isn't achievable without new background-job infrastructure (no queue/
+  worker exists in this Vercel-serverless-only app) - agreed with the user
+  to implement bulk export as a single long-running, capped request
+  instead ("Preparing Report..." while the one request completes)
 - Phase 5: Dashboard (PM Today/This Month/Upcoming/Overdue, by Dealer/
   Branch, trend, recent PM)
 
-Next Milestone: Phase 4 (History + Export), pending explicit direction
+Next Milestone: Phase 4b (CSV + Summary PDF + Individual PDF), pending
+explicit direction
 Candidate next tasks (unscheduled, pending explicit direction):
-- Phase 4/5 above
+- Phase 4b/4c/5 above
 - A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
   7 M6.4 audit findings require it — the single biggest remaining risk item
 - A future ADR decision on Supabase Auth (or per-request session

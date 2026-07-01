@@ -8,7 +8,14 @@
  * through plain functions. That pattern is left untouched; this interface
  * is new structure for the new module only, not a retrofit of legacy code.
  */
-import { PmDuplicateCheckParams, PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import {
+  PmDuplicateCheckParams,
+  PmHistoryFilter,
+  PmHistoryResult,
+  PmRecord,
+  PmRecordCreateInput,
+  PmRecordUpdateInput,
+} from './types';
 
 export interface PmRecordFilter {
   dealerId?: string | null;
@@ -25,4 +32,7 @@ export interface PmRecordRepository {
   /** Active PM record already on file for the same tractor + PM interval +
    *  performed date, if any - powers the pre-save duplicate warning. */
   findDuplicate(params: PmDuplicateCheckParams): Promise<PmRecord | null>;
+  /** Server-side paginated/filtered/sorted/searchable query for the
+   *  History Center (Phase 4a) - never returns the full table. */
+  listHistory(filter: PmHistoryFilter): Promise<PmHistoryResult>;
 }

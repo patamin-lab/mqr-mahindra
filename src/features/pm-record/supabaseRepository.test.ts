@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 interface QueryResult {
   data: unknown;
   error: unknown;
+  count?: number;
 }
 
 /**
@@ -19,7 +20,7 @@ interface QueryResult {
  */
 function createQueryBuilder(result: QueryResult) {
   const calls: { method: string; args: unknown[] }[] = [];
-  const chainMethods = ['select', 'eq', 'order', 'insert', 'update'] as const;
+  const chainMethods = ['select', 'eq', 'order', 'insert', 'update', 'range', 'or', 'gte', 'lte', 'lt'] as const;
 
   const builder: Record<string, unknown> = {};
   for (const method of chainMethods) {
@@ -35,13 +36,31 @@ function createQueryBuilder(result: QueryResult) {
   return { builder, calls };
 }
 
-/** next_job_seq() is called directly on the client (not part of the
- *  chainable query builder), used by create() to generate pm_number. */
-function mockGetSupabase(result: QueryResult, rpcResult: QueryResult = { data: 1, error: null }) {
+/**
+ * next_job_seq() is called directly on the client (not part of the
+ * chainable query builder), used by create() to generate pm_number.
+ * create() also looks up technicians/branches/pm_intervals by id to
+ * resolve the technician_name/branch_name snapshot and next_pm_due - each
+ * of those needs its own table-scoped builder/result, distinct from the
+ * main pm_records query, so `from` dispatches by table name instead of
+ * always returning the same shared builder.
+ */
+function mockGetSupabase(
+  result: QueryResult,
+  rpcResult: QueryResult = { data: 1, error: null },
+  lookups: Record<string, QueryResult> = {}
+) {
   const { builder, calls } = createQueryBuilder(result);
-  const from = vi.fn(() => builder);
+  const lookupBuilders: Record<string, ReturnType<typeof createQueryBuilder>> = {};
+  const from = vi.fn((table: string) => {
+    if (table === 'pm_records') return builder;
+    if (!lookupBuilders[table]) {
+      lookupBuilders[table] = createQueryBuilder(lookups[table] ?? { data: null, error: null });
+    }
+    return lookupBuilders[table].builder;
+  });
   const rpc = vi.fn().mockResolvedValue(rpcResult);
-  return { client: { from, rpc }, builder, calls, rpc };
+  return { client: { from, rpc }, builder, calls, rpc, lookupBuilders };
 }
 
 const state: { client: { from: ReturnType<typeof vi.fn>; rpc: ReturnType<typeof vi.fn> } | null } = { client: null };
@@ -53,8 +72,8 @@ vi.mock('@/lib/supabase', () => ({
 // Imported after the mock is registered so the repository picks it up.
 const { SupabasePmRecordRepository } = await import('./supabaseRepository');
 
-function setupClient(result: QueryResult, rpcResult?: QueryResult) {
-  const mocked = mockGetSupabase(result, rpcResult);
+function setupClient(result: QueryResult, rpcResult?: QueryResult, lookups?: Record<string, QueryResult>) {
+  const mocked = mockGetSupabase(result, rpcResult, lookups);
   state.client = mocked.client as unknown as { from: ReturnType<typeof vi.fn>; rpc: ReturnType<typeof vi.fn> };
   return mocked;
 }
@@ -70,11 +89,14 @@ const activeRecord = {
   customer_name: 'Somchai',
   customer_phone: '081-2345678',
   technician_id: null,
+  technician_name: 'ช่างสมชาย',
+  branch_name: 'สาขา A',
   scheduled_date: null,
   performed_date: '2026-01-01',
   hour_meter: 100,
   pm_interval_id: 'interval-1',
   pm_number: 'PM-D1-2026-000001',
+  next_pm_due: '2026-07-01',
   meter_photo_url: 'https://drive.google.com/meter.jpg',
   nameplate_photo_url: 'https://drive.google.com/nameplate.jpg',
   report_photo_url: 'https://drive.google.com/report.jpg',
@@ -170,7 +192,7 @@ describe('SupabasePmRecordRepository', () => {
   describe('create', () => {
     const input = {
       dealer_id: 'D1',
-      branch_id: null,
+      branch_id: 'branch-1',
       serial: 'SN-1',
       model: null,
       delivery_date: null,
@@ -192,8 +214,14 @@ describe('SupabasePmRecordRepository', () => {
     };
     const actor = { username: 'alice' };
 
+    const lookups = {
+      technicians: { data: { name: 'ช่างสมชาย' }, error: null },
+      branches: { data: { name: 'สาขา A' }, error: null },
+      pm_intervals: { data: { interval_months: 6 }, error: null },
+    };
+
     it('inserts a payload with a generated id, a generated pm_number, and record_status=Active', async () => {
-      const { calls, rpc } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null });
+      const { calls, rpc } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null }, lookups);
       const repository = new SupabasePmRecordRepository();
 
       const result = await repository.create(input, actor);
@@ -221,8 +249,39 @@ describe('SupabasePmRecordRepository', () => {
       expect(result).toEqual(activeRecord);
     });
 
+    it('resolves technician_name/branch_name snapshots and computes next_pm_due from the interval', async () => {
+      const { calls } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null }, lookups);
+      const repository = new SupabasePmRecordRepository();
+
+      await repository.create(input, actor);
+
+      const insertCall = calls.find((c) => c.method === 'insert');
+      const payload = insertCall?.args[0] as Record<string, unknown>;
+      expect(payload.technician_name).toBe('ช่างสมชาย');
+      expect(payload.branch_name).toBe('สาขา A');
+      // performed_date 2026-01-01 + 6 months = 2026-07-01
+      expect(payload.next_pm_due).toBe('2026-07-01');
+    });
+
+    it('leaves technician_name/branch_name/next_pm_due null when their ids are absent or the interval is hour-based only', async () => {
+      const { calls } = setupClient(
+        { data: activeRecord, error: null },
+        { data: 1, error: null },
+        { pm_intervals: { data: { interval_months: null }, error: null } }
+      );
+      const repository = new SupabasePmRecordRepository();
+
+      await repository.create({ ...input, technician_id: null, branch_id: null }, actor);
+
+      const insertCall = calls.find((c) => c.method === 'insert');
+      const payload = insertCall?.args[0] as Record<string, unknown>;
+      expect(payload.technician_name).toBeNull();
+      expect(payload.branch_name).toBeNull();
+      expect(payload.next_pm_due).toBeNull();
+    });
+
     it('inserts null GPS fields when the technician did not capture a location', async () => {
-      const { calls } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null });
+      const { calls } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null }, lookups);
       const repository = new SupabasePmRecordRepository();
 
       await repository.create({ ...input, latitude: null, longitude: null, gps_accuracy: null, google_maps_url: null }, actor);
@@ -234,7 +293,7 @@ describe('SupabasePmRecordRepository', () => {
     });
 
     it('throws when Supabase returns an error', async () => {
-      setupClient({ data: null, error: new Error('insert failed') });
+      setupClient({ data: null, error: new Error('insert failed') }, undefined, lookups);
       const repository = new SupabasePmRecordRepository();
 
       await expect(repository.create(input, actor)).rejects.toThrow('insert failed');
@@ -368,6 +427,73 @@ describe('SupabasePmRecordRepository', () => {
       await expect(
         repository.findDuplicate({ serial: 'SN-1', pmIntervalId: 'interval-1', performedDate: '2026-01-01' })
       ).rejects.toThrow('db down');
+    });
+  });
+
+  describe('listHistory', () => {
+    it('always filters record_status=Active and paginates via range', async () => {
+      const { calls } = setupClient({ data: [activeRecord], error: null, count: 1 });
+      const repository = new SupabasePmRecordRepository();
+
+      const result = await repository.listHistory({ page: 2, pageSize: 25 });
+
+      const eqCalls = calls.filter((c) => c.method === 'eq').map((c) => c.args);
+      expect(eqCalls).toEqual([['record_status', 'Active']]);
+      const rangeCall = calls.find((c) => c.method === 'range');
+      expect(rangeCall?.args).toEqual([25, 49]);
+      expect(result).toEqual({ data: [activeRecord], total: 1 });
+    });
+
+    it('applies advanced filters and the universal search across the documented columns', async () => {
+      const { calls } = setupClient({ data: [], error: null, count: 0 });
+      const repository = new SupabasePmRecordRepository();
+
+      await repository.listHistory({
+        page: 1,
+        pageSize: 25,
+        dealerId: 'D1',
+        branchId: 'B1',
+        technicianId: 'tech-1',
+        pmIntervalId: 'interval-1',
+        createdBy: 'alice',
+        status: 'Completed',
+        hourMeterMin: 10,
+        hourMeterMax: 500,
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        search: 'somchai',
+      });
+
+      const eqCalls = calls.filter((c) => c.method === 'eq').map((c) => c.args);
+      expect(eqCalls).toEqual([
+        ['record_status', 'Active'],
+        ['dealer_id', 'D1'],
+        ['branch_id', 'B1'],
+        ['technician_id', 'tech-1'],
+        ['pm_interval_id', 'interval-1'],
+        ['created_by', 'alice'],
+        ['status', 'Completed'],
+      ]);
+      const orCall = calls.find((c) => c.method === 'or');
+      expect(orCall?.args[0]).toContain('pm_number.ilike.%somchai%');
+      expect(orCall?.args[0]).toContain('technician_name.ilike.%somchai%');
+    });
+
+    it('caps pageSize at 200 and floors page at 1', async () => {
+      const { calls } = setupClient({ data: [], error: null, count: 0 });
+      const repository = new SupabasePmRecordRepository();
+
+      await repository.listHistory({ page: 0, pageSize: 10000 });
+
+      const rangeCall = calls.find((c) => c.method === 'range');
+      expect(rangeCall?.args).toEqual([0, 199]);
+    });
+
+    it('throws when Supabase returns an error', async () => {
+      setupClient({ data: null, error: new Error('db down'), count: 0 });
+      const repository = new SupabasePmRecordRepository();
+
+      await expect(repository.listHistory({ page: 1, pageSize: 25 })).rejects.toThrow('db down');
     });
   });
 });

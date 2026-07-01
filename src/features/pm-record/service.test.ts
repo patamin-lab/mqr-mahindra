@@ -15,11 +15,14 @@ function makeRecord(overrides: Partial<PmRecord> = {}): PmRecord {
     customer_name: null,
     customer_phone: null,
     technician_id: null,
+    technician_name: null,
+    branch_name: null,
     scheduled_date: null,
     performed_date: null,
     hour_meter: null,
     pm_interval_id: null,
     pm_number: null,
+    next_pm_due: null,
     meter_photo_url: null,
     nameplate_photo_url: null,
     report_photo_url: null,
@@ -45,6 +48,7 @@ function makeMockRepository(): PmRecordRepository {
     update: vi.fn(),
     delete: vi.fn(),
     findDuplicate: vi.fn(),
+    listHistory: vi.fn(),
   };
 }
 
@@ -193,6 +197,19 @@ describe('PmRecordService', () => {
       const result = await service.findDuplicate({ serial: 'SN-1', pmIntervalId: 'interval-1', performedDate: '2026-01-01' });
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('listHistory', () => {
+    it('delegates to repository.listHistory with the given filter and returns its result', async () => {
+      const result = { data: [makeRecord()], total: 1 };
+      (repository.listHistory as ReturnType<typeof vi.fn>).mockResolvedValue(result);
+
+      const filter = { page: 1, pageSize: 25, search: 'SN-1' };
+      const returned = await service.listHistory(filter);
+
+      expect(repository.listHistory).toHaveBeenCalledWith(filter);
+      expect(returned).toBe(result);
     });
   });
 });

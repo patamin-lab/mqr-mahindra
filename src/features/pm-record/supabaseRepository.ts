@@ -7,7 +7,28 @@
  */
 import { getSupabase } from '@/lib/supabase';
 import { PmRecordRepository, PmRecordFilter } from './repository';
-import { PmDuplicateCheckParams, PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import {
+  PmDuplicateCheckParams,
+  PmHistoryFilter,
+  PmHistoryResult,
+  PmRecord,
+  PmRecordCreateInput,
+  PmRecordUpdateInput,
+} from './types';
+
+/** Universal-search columns (Phase 4a) - all GIN-trigram-indexed, see the
+ *  align_pm_records_history_search_support migration. */
+const HISTORY_SEARCH_COLUMNS = [
+  'pm_number',
+  'serial',
+  'dealer_id',
+  'customer_name',
+  'customer_phone',
+  'technician_name',
+  'branch_name',
+  'model',
+  'notes',
+] as const;
 
 export class SupabasePmRecordRepository implements PmRecordRepository {
   private readonly client = getSupabase();
@@ -61,14 +82,57 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
     return `PM-${dealerId}-${year}-${String(seq).padStart(6, '0')}`;
   }
 
+  /** Resolves the technician/branch name snapshot and the projected
+   *  next_pm_due date server-side (never trusts client-supplied names -
+   *  same "zero-leakage" principle already applied to dealer_id). Runs in
+   *  parallel with pm_number generation since none depend on each other. */
+  private async resolveSnapshotFields(input: PmRecordCreateInput): Promise<{
+    technicianName: string | null;
+    branchName: string | null;
+    nextPmDue: string | null;
+  }> {
+    const [technicianRow, branchRow, intervalRow] = await Promise.all([
+      input.technician_id
+        ? this.client.from('technicians').select('name').eq('id', input.technician_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      input.branch_id
+        ? this.client.from('branches').select('name').eq('id', input.branch_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      input.pm_interval_id
+        ? this.client.from('pm_intervals').select('interval_months').eq('id', input.pm_interval_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (technicianRow.error) throw technicianRow.error;
+    if (branchRow.error) throw branchRow.error;
+    if (intervalRow.error) throw intervalRow.error;
+
+    let nextPmDue: string | null = null;
+    const intervalMonths = (intervalRow.data as { interval_months: number | null } | null)?.interval_months;
+    if (intervalMonths) {
+      const due = new Date(input.performed_date);
+      due.setMonth(due.getMonth() + intervalMonths);
+      nextPmDue = due.toISOString().slice(0, 10);
+    }
+
+    return {
+      technicianName: (technicianRow.data as { name: string } | null)?.name ?? null,
+      branchName: (branchRow.data as { name: string } | null)?.name ?? null,
+      nextPmDue,
+    };
+  }
+
   async create(input: PmRecordCreateInput, actor: { username: string }): Promise<PmRecord> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    const pmNumber = await this.nextPmNumber(input.dealer_id);
+    const [pmNumber, snapshot] = await Promise.all([
+      this.nextPmNumber(input.dealer_id),
+      this.resolveSnapshotFields(input),
+    ]);
     const payload = {
       id,
       dealer_id: input.dealer_id,
       branch_id: input.branch_id,
+      branch_name: snapshot.branchName,
       serial: input.serial,
       model: input.model,
       delivery_date: input.delivery_date,
@@ -76,9 +140,11 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       customer_name: input.customer_name,
       customer_phone: input.customer_phone,
       technician_id: input.technician_id,
+      technician_name: snapshot.technicianName,
       performed_date: input.performed_date,
       hour_meter: input.hour_meter,
       pm_interval_id: input.pm_interval_id,
+      next_pm_due: snapshot.nextPmDue,
       pm_number: pmNumber,
       meter_photo_url: input.meter_photo_url,
       nameplate_photo_url: input.nameplate_photo_url,
@@ -164,5 +230,57 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       .maybeSingle();
     if (error) throw error;
     return (data as PmRecord) ?? null;
+  }
+
+  async listHistory(filter: PmHistoryFilter): Promise<PmHistoryResult> {
+    const page = Math.max(filter.page, 1);
+    const pageSize = Math.min(Math.max(filter.pageSize, 1), 200);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = this.client
+      .from(this.table)
+      .select('*', { count: 'exact' })
+      .eq('record_status', 'Active');
+
+    if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
+    if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    if (filter.branchName) query = query.eq('branch_name', filter.branchName);
+    if (filter.technicianId) query = query.eq('technician_id', filter.technicianId);
+    if (filter.pmIntervalId) query = query.eq('pm_interval_id', filter.pmIntervalId);
+    if (filter.pmNumber?.trim()) query = query.ilike('pm_number', `%${filter.pmNumber.trim()}%`);
+    if (filter.serial?.trim()) query = query.ilike('serial', `%${filter.serial.trim()}%`);
+    if (filter.customerName?.trim()) query = query.ilike('customer_name', `%${filter.customerName.trim()}%`);
+    if (filter.customerPhone?.trim()) query = query.ilike('customer_phone', `%${filter.customerPhone.trim()}%`);
+    if (filter.model?.trim()) query = query.ilike('model', `%${filter.model.trim()}%`);
+    if (filter.createdBy?.trim()) query = query.eq('created_by', filter.createdBy.trim());
+    if (filter.status?.trim()) query = query.eq('status', filter.status.trim());
+    if (filter.hourMeterMin != null) query = query.gte('hour_meter', filter.hourMeterMin);
+    if (filter.hourMeterMax != null) query = query.lte('hour_meter', filter.hourMeterMax);
+    if (filter.dateFrom) query = query.gte('performed_date', filter.dateFrom);
+    if (filter.dateTo) query = query.lte('performed_date', filter.dateTo);
+    if (filter.overdue) {
+      query = query.lt('next_pm_due', new Date().toISOString().slice(0, 10));
+    }
+    if (filter.upcoming) {
+      const today = new Date();
+      const in30Days = new Date(today);
+      in30Days.setDate(in30Days.getDate() + 30);
+      query = query
+        .gte('next_pm_due', today.toISOString().slice(0, 10))
+        .lte('next_pm_due', in30Days.toISOString().slice(0, 10));
+    }
+    if (filter.search?.trim()) {
+      const term = filter.search.trim();
+      query = query.or(HISTORY_SEARCH_COLUMNS.map((col) => `${col}.ilike.%${term}%`).join(','));
+    }
+
+    const sortField = filter.sortField ?? 'performed_date';
+    const sortDir = filter.sortDir ?? 'desc';
+    query = query.order(sortField, { ascending: sortDir === 'asc' }).range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { data: (data ?? []) as PmRecord[], total: count ?? 0 };
   }
 }

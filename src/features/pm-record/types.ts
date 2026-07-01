@@ -30,11 +30,23 @@ export interface PmRecord {
   customer_name: string | null;
   customer_phone: string | null;
   technician_id: string | null;
+  /** Snapshot of the technician/branch name at PM time (resolved
+   *  server-side, never client-supplied) - mirrors the existing
+   *  `records.technician_name`/`branch_name` pattern in `lib/db.ts`, so
+   *  History search/export never needs a live join. */
+  technician_name: string | null;
+  branch_name: string | null;
   scheduled_date: string | null;
   performed_date: string | null;
   hour_meter: number | null;
   pm_interval_id: string | null;
   pm_number: string | null;
+  /** Computed at create time from performed_date + the interval's
+   *  interval_months (month-based intervals only - an hour-based interval
+   *  can't be projected without live hour-meter tracking). Powers the
+   *  History "Overdue"/"Upcoming PM" quick filters as a simple indexed
+   *  date comparison instead of a runtime join. */
+  next_pm_due: string | null;
   meter_photo_url: string | null;
   nameplate_photo_url: string | null;
   report_photo_url: string | null;
@@ -116,4 +128,45 @@ export interface PmDuplicateCheckParams {
   serial: string;
   pmIntervalId: string;
   performedDate: string;
+}
+
+export type PmHistorySortField = 'performed_date' | 'pm_number' | 'hour_meter' | 'created_at';
+export type PmHistorySortDir = 'asc' | 'desc';
+
+/** Server-side, paginated, filtered, searchable History query (Phase 4a).
+ *  `search` is the universal search box (matches across PM number/serial/
+ *  customer name/phone/technician/branch/model/notes); every other field
+ *  is an Advanced Filter narrowing the same result set (AND semantics). */
+export interface PmHistoryFilter {
+  dealerId?: string | null;
+  branchId?: string | null;
+  /** Exact branch-name match, used for session-based branch scoping (a
+   *  restricted user's own session.branch) - distinct from branchId, which
+   *  is an explicit Advanced Filter selection by the branches table's id. */
+  branchName?: string | null;
+  technicianId?: string | null;
+  pmIntervalId?: string | null;
+  pmNumber?: string | null;
+  serial?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  model?: string | null;
+  hourMeterMin?: number | null;
+  hourMeterMax?: number | null;
+  createdBy?: string | null;
+  status?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  overdue?: boolean;
+  upcoming?: boolean;
+  search?: string | null;
+  page: number;
+  pageSize: number;
+  sortField?: PmHistorySortField;
+  sortDir?: PmHistorySortDir;
+}
+
+export interface PmHistoryResult {
+  data: PmRecord[];
+  total: number;
 }

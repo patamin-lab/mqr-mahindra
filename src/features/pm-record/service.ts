@@ -6,7 +6,14 @@
  * resolution) happens in the route handler before this layer is called.
  */
 import { PmRecordRepository, PmRecordFilter } from './repository';
-import { PmDuplicateCheckParams, PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import {
+  PmDuplicateCheckParams,
+  PmHistoryFilter,
+  PmHistoryResult,
+  PmRecord,
+  PmRecordCreateInput,
+  PmRecordUpdateInput,
+} from './types';
 
 export interface PmRecordActor {
   username: string;
@@ -46,5 +53,9 @@ export class PmRecordService {
 
   async findDuplicate(params: PmDuplicateCheckParams): Promise<PmRecord | null> {
     return this.repository.findDuplicate(params);
+  }
+
+  async listHistory(filter: PmHistoryFilter): Promise<PmHistoryResult> {
+    return this.repository.listHistory(filter);
   }
 }
