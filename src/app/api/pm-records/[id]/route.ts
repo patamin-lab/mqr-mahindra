@@ -99,6 +99,32 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
-  return NextResponse.json({ ok: false, error: 'not implemented', id: params.id }, { status: 501 });
+  if (!session) {
+    return NextResponse.json(
+      { ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } },
+      { status: 401 }
+    );
+  }
+
+  const repository = new SupabasePmRecordRepository();
+  const service = new PmRecordService(repository);
+
+  try {
+    const existing = await service.getById(params.id);
+    if (!existing) {
+      return NextResponse.json(
+        { ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } },
+        { status: 404 }
+      );
+    }
+
+    await service.delete(params.id, { username: session.username });
+    return NextResponse.json({ ok: true, data: null }, { status: 200 });
+  } catch (error) {
+    console.error('PM Record delete API error', error);
+    return NextResponse.json(
+      { ok: false, error: { code: 'INTERNAL_ERROR', message: 'internal error' } },
+      { status: 500 }
+    );
+  }
 }
