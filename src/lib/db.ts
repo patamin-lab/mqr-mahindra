@@ -92,6 +92,13 @@ export async function getDealer(dealerId: string): Promise<Dealer | null> {
   return data;
 }
 
+export async function getBranchById(branchId: string): Promise<Branch | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('branches').select('*').eq('id', branchId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Looks up a vehicle by serial, enforcing dealer-scoped "zero leakage". */
 export async function getVehicleBySerial(serial: string, dealerId: string | null): Promise<Vehicle | null> {
   const supabase = getSupabase();

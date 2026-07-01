@@ -11,6 +11,7 @@ const NAV = [
   { href: '/report', label: 'รายงานปัญหาคุณภาพ' },
   { href: '/records', label: 'ติดตามรายงานปัญหาคุณภาพ' },
   { href: '/pm-records', label: 'บำรุงรักษาเชิงป้องกัน' },
+  { href: '/vehicles', label: 'Vehicle 360' },
 ];
 
 export default function Sidebar({ session }: { session: SessionUser }) {

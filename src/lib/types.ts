@@ -25,6 +25,7 @@ export interface Vehicle {
   delivery_date: string | null;
   dealer_id: string | null;
   engine_number?: string | null;
+  branch_id?: string | null;
 }
 
 export type Severity = 'Critical' | 'Major' | 'Minor';

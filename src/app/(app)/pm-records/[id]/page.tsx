@@ -102,7 +102,20 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <DetailRow label="เลขที่ PM" value={record.pm_number ?? 'N/A'} />
           <DetailRow label="Dealer ID" value={record.dealer_id} />
           <DetailRow label="Branch ID" value={record.branch_id ?? 'N/A'} />
-          <DetailRow label="Serial" value={record.serial ?? 'N/A'} />
+          <div className="rounded border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Serial</p>
+            <p className="mt-1 text-sm text-gray-900">
+              {record.serial ?? 'N/A'}
+              {record.serial && (
+                <Link
+                  href={`/vehicles/${encodeURIComponent(record.serial)}`}
+                  className="ml-2 text-xs text-brand-red hover:underline"
+                >
+                  ดู Vehicle 360
+                </Link>
+              )}
+            </p>
+          </div>
           <DetailRow label="รุ่น" value={record.model ?? 'N/A'} />
           <DetailRow label="หมายเลขเครื่อง" value={record.engine_number ?? 'N/A'} />
           <DetailRow label="วันที่ส่งมอบ" value={record.delivery_date ?? 'N/A'} />

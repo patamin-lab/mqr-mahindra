@@ -289,7 +289,75 @@ requested as a standalone ad hoc feature between Phase 4a and 4b
   - this feature lives entirely in `lib/db.ts`'s existing plain-function
   master-data pattern, matching problem_codes/pm_intervals).
 
-Not started (Phase 4b/4c, Phase 5):
+Phase 5a — Vehicle 360 + Vehicle Life Cycle timeline (complete, this commit)
+
+Business context: the app is evolving from a single MQR module into the
+"Mahindra After Sales Platform," with Vehicle 360 as the intended single
+source of truth for a tractor across its whole lifecycle (Factory → Dealer
+Receive → PDI → NTR → Maintenance → MQR → Campaign → Parts Request). Note:
+this platform-wide direction is a *separate, still-documentation-only*
+initiative already tracked in `docs/ROADMAP.md` (Sprints 1-5, "modules/" and
+"shared/" scaffolding) - this feature does not move any code into that
+structure; it's new business logic added directly under `src/`, matching
+how PM Record itself was built.
+
+Two scope decisions made with the user before implementing (see chat):
+- The full spec's timeline sources PDI/NTR/Campaign/Parts Request events -
+  none of those modules exist in this codebase, and `docs/ROADMAP.md`
+  explicitly flags NTR's scope as "Unanswered - do not design against a
+  guess." Built the generic event contract/architecture now, but wired in
+  real events from only the two modules that actually exist today
+  (Maintenance/PM Record, MQR). Future modules register by adding one
+  function to `registry.ts` - no other file changes.
+- The spec's Maintenance Program (hour/month due engine keyed off Product
+  Family) is deferred to Phase 5b - Product Family doesn't exist as a
+  concept anywhere in the schema yet, and reworking PM Program (just
+  shipped) into it is real, separate schema/migration work. Phase 5a's
+  "Current Maintenance Status"/"Next Maintenance" fields reuse the
+  existing simple `next_pm_due` date comparison from Phase 4a's quick
+  filters (month-based intervals only) as a placeholder, explicitly noted
+  as superseded once the real Due Engine lands.
+
+What was built:
+- New `src/features/vehicle-360/` module: `types.ts` (`VehicleEvent`,
+  `VehicleEventSource` contract, `Vehicle360Header`), `registry.ts` (the
+  one file future modules touch), `eventSources/maintenanceEvents.ts` and
+  `eventSources/mqrEvents.ts` (each module's own scoped read, reusing
+  `PmRecordService.listHistory()` and the existing `getVehicleHistory()`
+  rather than any new direct Supabase query), `service.ts`
+  (`getVehicle360Header()` + `getVehicleTimeline()` - aggregation only,
+  never persists anything of its own).
+- New page `/vehicles/[serial]` (Vehicle 360): vehicle info, owner info
+  (newest customer name/phone snapshot across Maintenance/MQR), dealer,
+  branch, retail date, engine number, current hour meter, maintenance
+  status badge (Normal/Due Soon/Overdue/None), next maintenance date,
+  vehicle status (Normal / มีงานค้าง from any open MQR job) - plus the
+  Vehicle Life Cycle timeline itself, sorted newest-first, each row
+  linking back to its originating PM Record or MQR detail page.
+- New page `/vehicles` (serial search entry point) + sidebar nav entry
+  "Vehicle 360" - satisfies the spec's "Accessible from Serial Number"
+  bullet independent of drilling in through another module first.
+- Entry-point links added from the other required surfaces: PM Record
+  detail page, PM Record History table's Serial column, MQR records list,
+  MQR record detail page, and the Dashboard's Top Aging Jobs table.
+- Added `getBranchById()` to `lib/db.ts` (mirrors the existing
+  `getDealer()` pattern) and `branch_id` to the `Vehicle` type - both were
+  missing even though the column has existed since Phase 1.
+- Added a `typecheck` script to `package.json` (`tsc --noEmit`) - root
+  `CLAUDE.md` already documents `npm run typecheck` as a required pre-PR
+  step, but the script itself didn't exist yet.
+- 54/54 existing tests unaffected (no PM Record Repository/Service
+  contract change - Vehicle 360 only reads through existing service
+  methods).
+
+Not started (Phase 5b/5c, Phase 4b/4c):
+- Phase 5b: Maintenance Due Engine (hour-based + month-based, Remaining
+  Hours/Remaining Days, Normal/Due Soon/Overdue with color), plus the
+  Product Family master data + migrating PM Program from model-based to
+  Product-Family-based mapping.
+- Phase 5c: Service Intelligence Dashboard (Executive/Dealer/Technician/
+  MQR/Campaign KPI sections) + Global Search (serial/engine/PM number/MQR
+  number/customer/phone/dealer/branch, one box).
 - Phase 4b: CSV export (column selection) + Summary PDF + Individual PDF
   (GPS + QR + 3 photos) - reusing the existing `exportPdf.tsx`/`qrcode`/
   `papaparse` patterns already established for QIR, per spec's "reuse
@@ -301,13 +369,12 @@ Not started (Phase 4b/4c, Phase 5):
   worker exists in this Vercel-serverless-only app) - agreed with the user
   to implement bulk export as a single long-running, capped request
   instead ("Preparing Report..." while the one request completes)
-- Phase 5: Dashboard (PM Today/This Month/Upcoming/Overdue, by Dealer/
-  Branch, trend, recent PM)
 
-Next Milestone: Phase 4b (CSV + Summary PDF + Individual PDF), pending
-explicit direction
+Next Milestone: Phase 5b (Maintenance Due Engine + Product Family) or
+Phase 5c (Dashboard + Global Search) or Phase 4b/4c - pending explicit
+direction
 Candidate next tasks (unscheduled, pending explicit direction):
-- Phase 4b/4c/5 above
+- Phase 5b/5c/4b/4c above
 - A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
   7 M6.4 audit findings require it — the single biggest remaining risk item
 - A future ADR decision on Supabase Auth (or per-request session

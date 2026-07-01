@@ -210,7 +210,12 @@ export default async function DashboardPage({
                         </Link>
                       </td>
                       <td className="py-1.5 pr-3 text-gray-600">
-                        {j.model ?? '-'} {j.serial ? `(${j.serial})` : ''}
+                        {j.model ?? '-'}{' '}
+                        {j.serial && (
+                          <Link href={`/vehicles/${encodeURIComponent(j.serial)}`} className="hover:text-brand-red hover:underline">
+                            ({j.serial})
+                          </Link>
+                        )}
                       </td>
                       <td className="py-1.5 pr-3 text-gray-600">{STATUS_LABELS[j.status as StatusValue] ?? j.status}</td>
                       <td className="py-1.5 pr-3">

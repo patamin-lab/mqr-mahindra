@@ -156,7 +156,14 @@ export default async function RecordsPage({
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">{r.found_date ?? '-'}</td>
                 <td className="px-4 py-3">
-                  {r.model ?? '-'} <span className="text-gray-400">({r.serial ?? '-'})</span>
+                  {r.model ?? '-'}{' '}
+                  {r.serial ? (
+                    <Link href={`/vehicles/${encodeURIComponent(r.serial)}`} className="text-gray-400 hover:text-brand-red hover:underline">
+                      ({r.serial})
+                    </Link>
+                  ) : (
+                    <span className="text-gray-400">(-)</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">{r.customer_name ?? '-'}</td>
                 <td className="px-4 py-3">{r.problem_code ?? '-'}</td>

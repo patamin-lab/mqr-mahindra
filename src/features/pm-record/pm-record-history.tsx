@@ -346,7 +346,18 @@ export default function PmRecordHistory({ dealers, showDealerField, defaultDeale
       columnHelper.accessor('performed_date', { header: 'วันที่', size: 110 }),
       columnHelper.accessor('dealer_id', { header: 'ดีลเลอร์', size: 90 }),
       columnHelper.accessor('branch_name', { header: 'สาขา', size: 110, cell: (c) => c.getValue() ?? '-' }),
-      columnHelper.accessor('serial', { header: 'Serial', size: 130, cell: (c) => c.getValue() ?? '-' }),
+      columnHelper.accessor('serial', {
+        header: 'Serial',
+        size: 130,
+        cell: (c) =>
+          c.getValue() ? (
+            <Link href={`/vehicles/${encodeURIComponent(c.getValue() as string)}`} className="text-brand-red hover:underline">
+              {c.getValue()}
+            </Link>
+          ) : (
+            '-'
+          ),
+      }),
       columnHelper.accessor('customer_name', { header: 'ลูกค้า', size: 140, cell: (c) => c.getValue() ?? '-' }),
       columnHelper.accessor('customer_phone', { header: 'เบอร์โทร', size: 110, cell: (c) => c.getValue() ?? '-' }),
       columnHelper.accessor('model', { header: 'รุ่น', size: 110, cell: (c) => c.getValue() ?? '-' }),

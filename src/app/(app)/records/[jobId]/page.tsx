@@ -89,7 +89,17 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
           <div className="text-gray-400 text-xs">รถ / Serial</div>
-          <div>{record.model ?? '-'} ({record.serial ?? '-'})</div>
+          <div>
+            {record.model ?? '-'} ({record.serial ?? '-'})
+            {record.serial && (
+              <Link
+                href={`/vehicles/${encodeURIComponent(record.serial)}`}
+                className="ml-2 text-xs text-brand-red hover:underline print:hidden"
+              >
+                ดู Vehicle 360
+              </Link>
+            )}
+          </div>
         </div>
         <div>
           <div className="text-gray-400 text-xs">ชั่วโมงการใช้งาน</div>
