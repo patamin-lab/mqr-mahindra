@@ -2,17 +2,16 @@
  * PM Record — service layer.
  *
  * Sprint 11.2: Implements create() with validation, dealer isolation, snapshot
- * assembly, status initialisation, and audit field assignment. No SQL here —
- * all persistence is delegated to the repository.
+ * assembly, status initialisation, and audit field assignment.
  *
- * Scope rules mirror src/lib/db.ts conventions:
- *   dealerId === null  → SuperAdmin / CentralAdmin (sees all)
- *   dealerId !== null  → DealerAdmin / DealerUser (scoped to their dealer)
- * Creating a PM record requires a dealerId; SuperAdmin/CentralAdmin would
- * need a dealer picker UI (not in Sprint 11.2 scope).
+ * Sprint 11.3: Implements getById() with record existence check and dealer
+ * isolation. SuperAdmin / CentralAdmin (dealerId === null) can see all records;
+ * dealer-scoped users can only see records belonging to their own dealer.
+ *
+ * No SQL here — all persistence is delegated to the repository.
  */
 import { PmRecordRepository, PmRecordFilter } from './repository';
-import { PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import { PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
 
 export interface PmRecordActor {
   username: string;
@@ -36,8 +35,34 @@ export class PmRecordService {
     return this.repository.list(filter);
   }
 
-  async getById(id: string) {
-    return this.repository.getById(id);
+  /**
+   * Fetch a single PM Record by ID, enforcing dealer isolation.
+   *
+   * - Returns the record if the caller owns it or is SuperAdmin/CentralAdmin.
+   * - Throws NOT_FOUND if the record does not exist (no ID enumeration —
+   *   FORBIDDEN is reserved for when the record exists but is out of scope).
+   * - Throws FORBIDDEN if the record exists but belongs to a different dealer.
+   */
+  async getById(id: string, actor: PmRecordActor): Promise<PmRecord> {
+    const record = await this.repository.getById(id);
+
+    if (!record) {
+      throw Object.assign(
+        new Error('ไม่พบ PM Record ที่ระบุ'),
+        { code: 'NOT_FOUND' },
+      );
+    }
+
+    // Dealer isolation: null dealerId = SuperAdmin / CentralAdmin, sees all.
+    // Non-null dealerId = DealerAdmin / DealerUser, scoped to own dealer only.
+    if (actor.dealerId !== null && record.dealer_id !== actor.dealerId) {
+      throw Object.assign(
+        new Error('คุณไม่มีสิทธิ์เข้าถึง PM Record นี้'),
+        { code: 'FORBIDDEN' },
+      );
+    }
+
+    return record;
   }
 
   async create(raw: PmRecordServiceCreateInput, actor: PmRecordActor) {
