@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import VehicleAutocomplete, {
   VehicleSnapshot,
 } from '@/components/shared/vehicle/VehicleAutocomplete';
@@ -14,18 +15,14 @@ interface Props {
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 /**
- * PM Record create form — Sprint 11.2: fully wired to POST /api/pm-records.
+ * PM Record create form — Sprint 11.3: redirects to detail page on success.
  *
- * Vehicle autocomplete preloads from /api/vehicles/list and filters
- * client-side. Selecting a vehicle populates Serial, Model, and Delivery Date
- * snapshot fields. Customer Name and Phone are manual snapshot inputs (no
- * Customer Master — consistent with MqrRecord convention and ADR constraints).
- *
- * On success, shows a confirmation banner with the new record ID and a reset
- * button to create another record. A detail page (/pm-records/{id}) is out of
- * scope for Sprint 11.2.
+ * On successful create the user is navigated to /pm-records/{id}.
+ * The submit button stays disabled until navigation completes.
  */
 export default function PmRecordForm({ lockedDealerId: _ }: Props) {
+  const router = useRouter();
+
   // Vehicle snapshot
   const [serial, setSerial] = useState('');
   const [model, setModel] = useState('');
@@ -43,7 +40,6 @@ export default function PmRecordForm({ lockedDealerId: _ }: Props) {
   // Submit state
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [createdId, setCreatedId] = useState<string | null>(null);
 
   function handleVehicleSelect(v: VehicleSnapshot | null) {
     setVehicle(v);
@@ -53,19 +49,6 @@ export default function PmRecordForm({ lockedDealerId: _ }: Props) {
       setModel('');
       setDeliveryDate('');
     }
-  }
-
-  function resetForm() {
-    setSerial('');
-    setModel('');
-    setDeliveryDate('');
-    setVehicle(null);
-    setCustomerName('');
-    setCustomerPhone('');
-    setScheduledDate(todayStr());
-    setNotes('');
-    setCreatedId(null);
-    setSubmitError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -94,42 +77,17 @@ export default function PmRecordForm({ lockedDealerId: _ }: Props) {
 
       const json = await res.json();
       if (json.success) {
-        setCreatedId(json.data.id as string);
-      } else {
-        setSubmitError(json.error?.message ?? 'เกิดข้อผิดพลาดในระบบ');
+        // Navigate to the new record's detail page.
+        // submitting stays true — component unmounts on navigation.
+        router.push('/pm-records/' + (json.data.id as string));
+        return;
       }
+      setSubmitError(json.error?.message ?? 'เกิดข้อผิดพลาดในระบบ');
+      setSubmitting(false);
     } catch {
       setSubmitError('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่');
-    } finally {
       setSubmitting(false);
     }
-  }
-
-  // ── Success banner ──────────────────────────────────────────────────────────
-  if (createdId) {
-    return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-6 space-y-4">
-        <div className="flex items-start gap-3">
-          <span className="text-green-600 text-2xl leading-none">✓</span>
-          <div>
-            <p className="font-semibold text-green-800">บันทึก PM Record สำเร็จ</p>
-            <p className="text-sm text-green-700 mt-1">
-              หมายเลขอ้างอิง:{' '}
-              <span className="font-mono text-xs bg-green-100 px-2 py-0.5 rounded">
-                {createdId}
-              </span>
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={resetForm}
-          className="px-4 py-2 rounded bg-brand-dark text-white text-sm font-medium"
-        >
-          บันทึก PM Record ใหม่
-        </button>
-      </div>
-    );
   }
 
   // ── Form ────────────────────────────────────────────────────────────────────
