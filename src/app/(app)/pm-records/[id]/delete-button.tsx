@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalConfirm, swalError, swalLoading, swalClose } from '@/lib/swal';
+import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/swal';
 
 export default function PmRecordDeleteButton({ id }: { id: string }) {
   const router = useRouter();
@@ -24,14 +24,15 @@ export default function PmRecordDeleteButton({ id }: { id: string }) {
         credentials: 'same-origin',
       });
       swalClose();
+      swalSuccessToast('ลบข้อมูลสำเร็จ');
       router.push('/pm-records');
       router.refresh();
     } catch (err) {
       swalClose();
       if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
-        await swalError('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+        swalErrorToast('เซสชันของคุณหมดอายุ กรุณาเข้าสู่ระบบใหม่');
       } else {
-        await swalError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+        swalErrorToast(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
       }
       setBusy(false);
     }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalError, swalLoading, swalClose, swalSuccess } from '@/lib/swal';
+import { swalLoading, swalClose, swalSuccessToast, swalErrorToast } from '@/lib/swal';
 import { isNonEmptyString } from './validation';
 import type { PmRecord } from './types';
 import TextField from '@/components/shared/forms/TextField';
@@ -53,11 +53,11 @@ export default function PmRecordForm(props: PmRecordFormProps) {
 
   async function onSubmit() {
     if (showDealerInput && !isNonEmptyString(dealerId)) {
-      swalError('กรุณากรอกรหัสดีลเลอร์');
+      swalErrorToast('กรุณากรอกรหัสดีลเลอร์');
       return;
     }
     if (!isNonEmptyString(status)) {
-      swalError('กรุณากรอกสถานะ');
+      swalErrorToast('กรุณากรอกสถานะ');
       return;
     }
 
@@ -91,14 +91,14 @@ export default function PmRecordForm(props: PmRecordFormProps) {
       });
 
       swalClose();
-      await swalSuccess('บันทึกข้อมูลสำเร็จ');
+      swalSuccessToast('บันทึกข้อมูลสำเร็จ');
       router.push(`/pm-records/${encodeURIComponent(result.data.id)}`);
     } catch (err) {
       swalClose();
       if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
-        swalError('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
+        swalErrorToast('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง');
       } else {
-        swalError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
+        swalErrorToast(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
       }
     } finally {
       setSubmitting(false);
@@ -154,7 +154,7 @@ export default function PmRecordForm(props: PmRecordFormProps) {
           disabled={submitting}
           className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark disabled:opacity-50"
         >
-          Save
+          {submitting ? 'Saving...' : 'Save'}
         </button>
       </div>
     </div>
