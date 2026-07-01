@@ -1,7 +1,7 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-types
 Current Module: PM Record
-Current Milestone: M6.3 Complete — Continuous Integration
+Current Milestone: M6.4 Complete — Dependency & Security Audit
 Current Status: Complete
 
 Architecture: Frozen
@@ -86,8 +86,48 @@ Resolved in M6.3 (repo-wide, not PM-Record-specific):
   request time) or has a hardcoded fallback, not evaluated at build/import
   time — confirmed by grep, not assumed.
 
+Resolved in M6.4 (repo-wide, not PM-Record-specific — package-lock.json
+only, no package.json range changes, since all 3 were already permitted
+by the existing caret ranges):
+- `@supabase/supabase-js` 2.108.2 → 2.110.0 (safe minor update)
+- `autoprefixer` 10.5.0 → 10.5.2 (safe patch update)
+- `resend` 6.14.0 → 6.16.0 (safe minor update)
+
+Documented only, NOT applied (all require a breaking major-version bump —
+out of this milestone's scope per its own "document only" instruction):
+- **7 npm audit findings (4 High, 3 Medium), all fixable only via
+  `npm audit fix --force`:**
+  - High: `next` (installed 14.2.35) — multiple CVEs (DoS via Image
+    Optimizer/Server Components, HTTP request smuggling in rewrites,
+    middleware cache poisoning/bypass, XSS via CSP nonces/beforeInteractive
+    scripts) — fix requires `next@16.2.9` (two major versions up)
+  - High: `glob` (transitive, via `@next/eslint-plugin-next` →
+    `eslint-config-next`) — CLI command injection — devDependency-only
+    (lint tooling, never shipped to the running app); fix tied to the same
+    `next`/`eslint-config-next` v16 upgrade
+  - Medium: `postcss` (bundled inside `next`'s own `node_modules`) — XSS
+    via unescaped `</style>` — same v16 upgrade chain
+  - Medium: `uuid` (transitive, via `exceljs`) — missing buffer bounds
+    check — fix tied to an `exceljs` major-version change
+  - **Major-version upgrades available, not applied** (would require
+    dedicated migration/testing effort, all high-blast-radius since they
+    touch the framework, UI runtime, or auth): `next` 14→16, `react`/
+    `react-dom` 18→19, `eslint` 8→10, `eslint-config-next` 14→16,
+    `jose` 5→6 (session signing — auth-critical), `typescript` 5→6,
+    `tailwindcss` 3→4 (config-format breaking), `zod` 3→4 (used directly
+    in PM Record's `schemas.ts`), `@types/node` 20→26, `@types/react`
+    18→19, `@types/react-dom` 18→19, `react-leaflet` 4→5, `recharts` 2→3
+  - **Informational**: `npm install` flags `unrs-resolver@1.12.2` (a
+    transitive devDependency of `eslint-config-next`, lint-tooling only,
+    never shipped) as having an unreviewed install script under npm's
+    `allow-scripts` feature. Not a known vulnerability (no CVE) — noted
+    for manual review (`npm approve-scripts`), not auto-approved here.
+  - No deprecated-package warnings surfaced from a fresh `npm install`.
+
 Next Milestone: not yet scheduled
 Candidate next tasks (unscheduled, pending explicit direction):
+- A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
+  7 audit findings require it — the single biggest remaining risk item
 - A future ADR decision on Supabase Auth (or per-request session
   variables) if real RLS-enforced dealer/branch isolation is ever required
 - Drop the four unused legacy columns on `pm_records` (cleanup only)
