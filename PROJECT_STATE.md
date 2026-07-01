@@ -1,7 +1,7 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-types
 Current Module: PM Record
-Current Milestone: M6.2 Complete — Row Level Security Hardening
+Current Milestone: M6.3 Complete — Continuous Integration
 Current Status: Complete
 
 Architecture: Frozen
@@ -75,11 +75,24 @@ change explicitly out of a migration-only milestone's scope):
   `customer_phone`) remain on `pm_records`, harmless but not part of
   `PmRecord`'s type — schema-cleanliness cleanup, not a defect
 
+Resolved in M6.3 (repo-wide, not PM-Record-specific):
+- Added `.github/workflows/ci.yml` — runs on every `push`/`pull_request`:
+  `npm ci` → `tsc --noEmit` → `npm run lint` → `npm run build` →
+  `npm test`, Node 20, npm dependency caching via `actions/setup-node`.
+  This repository previously had no CI at all (`docs/DEVELOPMENT_GUIDE.md`
+  §5/§6 said so explicitly; now corrected).
+- Verified `next build` needs no environment variables in CI: every
+  `process.env.*` read in `src/` is inside a function body (evaluated at
+  request time) or has a hardcoded fallback, not evaluated at build/import
+  time — confirmed by grep, not assumed.
+
 Next Milestone: not yet scheduled
 Candidate next tasks (unscheduled, pending explicit direction):
 - A future ADR decision on Supabase Auth (or per-request session
   variables) if real RLS-enforced dealer/branch isolation is ever required
 - Drop the four unused legacy columns on `pm_records` (cleanup only)
+- Extend automated test coverage to other modules (only PM Record has
+  tests today)
 - PDI/media upload, dashboard/KPI integration, PDF export — none started
 
 Current Blockers:
