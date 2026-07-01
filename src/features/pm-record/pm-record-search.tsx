@@ -6,9 +6,14 @@ import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalUpdateLoading, swalSuccessToast } from '@/lib/swal';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
+import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
+import { readGpsFromImageFile } from '@/components/shared/gps/exif';
+import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
 import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
 import type { PmVehicleSearchResult } from '@/lib/db';
 import type { PmRecord } from './types';
+
+const EMPTY_GPS: GpsLocation = { latitude: null, longitude: null, accuracy: null, googleMapsUrl: null };
 
 const RECENT_VEHICLES_KEY = 'pm_record_recent_vehicles';
 const RECENT_VEHICLES_MAX = 5;
@@ -292,6 +297,7 @@ function PmRecordCreateForm({
   });
   const [uploadingSlot, setUploadingSlot] = useState<PhotoSlot | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [gps, setGps] = useState<GpsLocation>(EMPTY_GPS);
 
   useEffect(() => {
     (async () => {
@@ -315,14 +321,37 @@ function PmRecordCreateForm({
   async function uploadPhoto(slot: PhotoSlot, file: File) {
     setUploadingSlot(slot);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('label', slot);
-      form.append('dealerId', vehicle.dealer_id ?? '');
-      const res = await fetch('/api/upload', { method: 'POST', credentials: 'same-origin', body: form });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error ?? 'อัปโหลดรูปไม่สำเร็จ');
-      setPhotos((prev) => ({ ...prev, [slot]: json.url as string }));
+      const [uploadJson, photoGps] = await Promise.all([
+        (async () => {
+          const form = new FormData();
+          form.append('file', file);
+          form.append('label', slot);
+          form.append('dealerId', vehicle.dealer_id ?? '');
+          const res = await fetch('/api/upload', { method: 'POST', credentials: 'same-origin', body: form });
+          return res.json();
+        })(),
+        readGpsFromImageFile(file),
+      ]);
+      if (!uploadJson.ok) throw new Error(uploadJson.error ?? 'อัปโหลดรูปไม่สำเร็จ');
+      setPhotos((prev) => ({ ...prev, [slot]: uploadJson.url as string }));
+
+      // EXIF Photo GPS (Phase 3): if this photo has embedded GPS, offer it
+      // as an alternative to whatever location is already captured -
+      // technician chooses, never applied silently.
+      if (photoGps) {
+        const usePhotoGps = await swalConfirm(
+          `รูปนี้มีพิกัด GPS ฝังอยู่ (${photoGps.latitude.toFixed(6)}, ${photoGps.longitude.toFixed(6)}) ต้องการใช้ตำแหน่งจากรูปภาพแทนหรือไม่?`,
+          { title: 'พบตำแหน่ง GPS ในรูปภาพ', confirmText: 'ใช้ตำแหน่งจากรูปภาพ', cancelText: 'ใช้ตำแหน่งปัจจุบัน' }
+        );
+        if (usePhotoGps) {
+          setGps({
+            latitude: photoGps.latitude,
+            longitude: photoGps.longitude,
+            accuracy: null,
+            googleMapsUrl: googleMapsUrlFor(photoGps.latitude, photoGps.longitude),
+          });
+        }
+      }
     } catch (err) {
       await swalErrorToast(err instanceof Error ? err.message : 'อัปโหลดรูปไม่สำเร็จ');
     } finally {
@@ -388,6 +417,10 @@ function PmRecordCreateForm({
           meter_photo_url: photos.meter,
           nameplate_photo_url: photos.nameplate,
           report_photo_url: photos.report,
+          latitude: gps.latitude,
+          longitude: gps.longitude,
+          gps_accuracy: gps.accuracy,
+          google_maps_url: gps.googleMapsUrl,
           notes: notes.trim() || null,
         }),
       });
@@ -466,6 +499,9 @@ function PmRecordCreateForm({
           <SelectField label="รอบ PM *" value={pmIntervalId} onChange={setPmIntervalId} options={pmIntervalOptions} />
           <SelectField label="ช่างซ่อม *" value={technicianId} onChange={setTechnicianId} options={technicianOptions} />
         </div>
+
+        <h2 className="text-sm font-semibold text-gray-600">พิกัดตำแหน่ง (ไม่บังคับ)</h2>
+        <GpsLocationPicker value={gps} onChange={setGps} />
 
         <h2 className="text-sm font-semibold text-gray-600">รูปถ่าย (บังคับ 3 รูป)</h2>
         <div className="grid gap-3 sm:grid-cols-3">

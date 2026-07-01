@@ -38,6 +38,10 @@ export interface PmRecord {
   meter_photo_url: string | null;
   nameplate_photo_url: string | null;
   report_photo_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  gps_accuracy: number | null;
+  google_maps_url: string | null;
   status: PmRecordStatus;
   notes: string | null;
   created_by: string | null;
@@ -73,6 +77,12 @@ export type PmRecordCreateInput = Pick<
   /** The date the PM was actually performed (today, by default - this
    *  workflow records a visit happening now, not a future appointment). */
   performed_date: string;
+  /** GPS is optional (Phase 3) - omit entirely, or send null, if the
+   *  technician didn't capture a location. */
+  latitude?: number | null;
+  longitude?: number | null;
+  gps_accuracy?: number | null;
+  google_maps_url?: string | null;
 };
 
 /** Shape accepted when updating a PM Record. All fields optional (partial patch). */
@@ -93,6 +103,10 @@ export type PmRecordUpdateInput = Partial<
     | 'meter_photo_url'
     | 'nameplate_photo_url'
     | 'report_photo_url'
+    | 'latitude'
+    | 'longitude'
+    | 'gps_accuracy'
+    | 'google_maps_url'
   >
 >;
 

@@ -83,6 +83,10 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       meter_photo_url: input.meter_photo_url,
       nameplate_photo_url: input.nameplate_photo_url,
       report_photo_url: input.report_photo_url,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      gps_accuracy: input.gps_accuracy,
+      google_maps_url: input.google_maps_url,
       notes: input.notes,
       created_by: actor.username,
       created_at: now,
@@ -120,6 +124,10 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
     if (input.meter_photo_url !== undefined) updatePayload.meter_photo_url = input.meter_photo_url;
     if (input.nameplate_photo_url !== undefined) updatePayload.nameplate_photo_url = input.nameplate_photo_url;
     if (input.report_photo_url !== undefined) updatePayload.report_photo_url = input.report_photo_url;
+    if (input.latitude !== undefined) updatePayload.latitude = input.latitude;
+    if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
+    if (input.gps_accuracy !== undefined) updatePayload.gps_accuracy = input.gps_accuracy;
+    if (input.google_maps_url !== undefined) updatePayload.google_maps_url = input.google_maps_url;
 
     const { data, error } = await this.client
       .from(this.table)

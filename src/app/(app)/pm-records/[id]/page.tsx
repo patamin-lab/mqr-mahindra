@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fetchPmRecord } from '@/features/pm-record/fetchPmRecord';
 import PmRecordDeleteButton from './delete-button';
+import PmRecordGpsDetail from '@/features/pm-record/pm-record-gps-detail';
 
 interface RouteParams {
   params: {
@@ -117,6 +118,15 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <DetailRow label="Updated By" value={record.updated_by ?? 'N/A'} />
           <DetailRow label="Updated At" value={record.updated_at} />
         </div>
+
+        {record.latitude !== null && record.longitude !== null && (
+          <PmRecordGpsDetail
+            latitude={record.latitude}
+            longitude={record.longitude}
+            accuracy={record.gps_accuracy}
+            googleMapsUrl={record.google_maps_url}
+          />
+        )}
 
         {(record.meter_photo_url || record.nameplate_photo_url || record.report_photo_url) && (
           <div>

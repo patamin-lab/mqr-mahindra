@@ -1,8 +1,8 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-workflow-redesign (branched from main after M1-M6.5 merged)
 Current Module: PM Record
-Current Milestone: Workflow Redesign Phase 2 Complete — Search-First Workflow
-Current Status: In Progress (Phase 2 of a multi-phase production UX redesign; Phases 3-5 not started)
+Current Milestone: Workflow Redesign Phase 3 Complete — GPS, Maps & Location
+Current Status: In Progress (Phase 3 of a multi-phase production UX redesign; Phases 4-5 not started)
 
 M1-M6.5 (CRUD module, tests, CI, dependency audit, release review) are
 merged into `main` (PR #2, merge commit `32c4e29`). Everything below this
@@ -188,19 +188,49 @@ Phase 2 (complete, this commit): Search-First Workflow
 - 45/45 tests passing (was 39 - added `findDuplicate` coverage plus fixed
   fixtures for the expanded `PmRecord` shape).
 
-Not started (Phases 3-5, per the agreed phasing):
-- Phase 3: photo upload polish (compression, drag & drop, progress bar,
-  the elaborate `PM/YYYY/MM/PM-number/` Drive folder nesting) + GPS
-  (satellite map, address/lat-lng search, draggable marker, current
-  location, accuracy warning)
+Phase 3 (complete, this commit): GPS, Maps & Location Experience
+- Reused the existing Leaflet + Esri World Imagery (satellite) + Nominatim
+  stack already used by the QIR report form's location picker, rather than
+  introducing real Google Maps JS API (would have required a brand-new
+  paid dependency, a new Google Cloud API key, and billing enabled on
+  Google's side, none of which exists today) - confirmed with the user
+  before proceeding. Esri World Imagery is already satellite tiles, so
+  "default satellite layer, not road map" was already true beforehand.
+- New reusable components under `src/components/shared/gps/` (PM-Record-
+  agnostic, ready for any future module): `GpsMapView` (draggable-marker
+  map, or read-only for a detail page), `GpsLocationPicker` (search +
+  current-location + map + reverse-geocode display), `reverseGeocode.ts`
+  (Nominatim reverse/forward geocoding), `exif.ts` (EXIF GPS reading via
+  the new `exifr` dependency - a small, justified, client-only addition;
+  hand-rolling binary EXIF/TIFF parsing would have been far more
+  error-prone for this one feature).
+- Location search accepts a place name, a pasted "lat,lng" pair, or a
+  Google Maps URL (parsed directly, no geocoding round-trip) - all three
+  forms the spec asked for.
+- GPS accuracy displayed (±N m); a warning shows above 30m but never
+  blocks Save, since GPS remains fully optional throughout.
+- EXIF photo-GPS: uploading any of the 3 required photos checks for
+  embedded GPS and offers "use photo location" vs. "keep current" -
+  technician chooses, never applied silently.
+- New `pm_records` columns (live migration applied): `latitude`,
+  `longitude`, `gps_accuracy`, `google_maps_url` - all nullable, no
+  address components stored (reverse-geocoded village/subdistrict/
+  district/province are display-only, per spec, never persisted).
+- Detail page now shows a read-only satellite map, coordinates, accuracy,
+  and an "Open Google Maps" button when a location was captured.
+- 47/47 tests passing (was 45).
+
+Not started (Phases 4-5, per the agreed phasing):
 - Phase 4: History page (filters) + CSV/Individual PDF/Summary PDF/Bulk
-  PDF export + image ZIP download
+  PDF export + image ZIP download + the elaborate `PM/YYYY/MM/PM-number/`
+  Drive folder nesting / photo-upload polish (compression, drag & drop,
+  progress bar) not yet done in Phase 2/3
 - Phase 5: Dashboard (PM Today/This Month/Upcoming/Overdue, by Dealer/
   Branch, trend, recent PM)
 
-Next Milestone: Phase 3 (Photos polish + GPS), pending explicit direction
+Next Milestone: Phase 4 (History + Export), pending explicit direction
 Candidate next tasks (unscheduled, pending explicit direction):
-- Phase 3/4/5 above
+- Phase 4/5 above
 - A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
   7 M6.4 audit findings require it — the single biggest remaining risk item
 - A future ADR decision on Supabase Auth (or per-request session

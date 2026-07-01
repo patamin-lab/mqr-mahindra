@@ -78,6 +78,10 @@ const activeRecord = {
   meter_photo_url: 'https://drive.google.com/meter.jpg',
   nameplate_photo_url: 'https://drive.google.com/nameplate.jpg',
   report_photo_url: 'https://drive.google.com/report.jpg',
+  latitude: 13.7563,
+  longitude: 100.5018,
+  gps_accuracy: 5,
+  google_maps_url: 'https://maps.google.com/?q=13.7563,100.5018',
   status: 'Scheduled',
   notes: null,
   created_by: 'alice',
@@ -180,6 +184,10 @@ describe('SupabasePmRecordRepository', () => {
       meter_photo_url: 'https://drive.google.com/meter.jpg',
       nameplate_photo_url: 'https://drive.google.com/nameplate.jpg',
       report_photo_url: 'https://drive.google.com/report.jpg',
+      latitude: 13.7563,
+      longitude: 100.5018,
+      gps_accuracy: 5,
+      google_maps_url: 'https://maps.google.com/?q=13.7563,100.5018',
       notes: null,
     };
     const actor = { username: 'alice' };
@@ -202,11 +210,27 @@ describe('SupabasePmRecordRepository', () => {
         customer_name: 'Somchai',
         hour_meter: 100,
         pm_interval_id: 'interval-1',
+        latitude: 13.7563,
+        longitude: 100.5018,
+        gps_accuracy: 5,
+        google_maps_url: 'https://maps.google.com/?q=13.7563,100.5018',
         created_by: 'alice',
         updated_by: 'alice',
         record_status: 'Active',
       });
       expect(result).toEqual(activeRecord);
+    });
+
+    it('inserts null GPS fields when the technician did not capture a location', async () => {
+      const { calls } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null });
+      const repository = new SupabasePmRecordRepository();
+
+      await repository.create({ ...input, latitude: null, longitude: null, gps_accuracy: null, google_maps_url: null }, actor);
+
+      const insertCall = calls.find((c) => c.method === 'insert');
+      const payload = insertCall?.args[0] as Record<string, unknown>;
+      expect(payload.latitude).toBeNull();
+      expect(payload.longitude).toBeNull();
     });
 
     it('throws when Supabase returns an error', async () => {
@@ -239,6 +263,23 @@ describe('SupabasePmRecordRepository', () => {
         ['id', 'rec-1'],
         ['record_status', 'Active'],
       ]);
+    });
+
+    it('includes GPS fields when present on the input', async () => {
+      const { calls } = setupClient({ data: activeRecord, error: null });
+      const repository = new SupabasePmRecordRepository();
+
+      await repository.update(
+        'rec-1',
+        { latitude: 13.7563, longitude: 100.5018, gps_accuracy: 5, google_maps_url: 'https://maps.google.com/?q=13.7563,100.5018' },
+        actor
+      );
+
+      const updateCall = calls.find((c) => c.method === 'update');
+      const payload = updateCall?.args[0] as Record<string, unknown>;
+      expect(payload).toEqual(
+        expect.objectContaining({ latitude: 13.7563, longitude: 100.5018, gps_accuracy: 5 })
+      );
     });
 
     it('throws when Supabase returns an error', async () => {

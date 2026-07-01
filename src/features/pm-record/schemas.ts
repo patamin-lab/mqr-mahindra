@@ -42,6 +42,17 @@ export const PmRecordStatusSchema = z.preprocess(
   z.string().min(1, 'status is required')
 );
 
+/** GPS is optional (per spec); when a numeric value is present it must be
+ *  a valid latitude/longitude/non-negative accuracy - null/undefined pass
+ *  straight through untouched. */
+const optionalLatitude = z
+  .union([z.coerce.number().min(-90, 'ละติจูดไม่ถูกต้อง').max(90, 'ละติจูดไม่ถูกต้อง'), z.null(), z.undefined()])
+  .optional();
+const optionalLongitude = z
+  .union([z.coerce.number().min(-180, 'ลองจิจูดไม่ถูกต้อง').max(180, 'ลองจิจูดไม่ถูกต้อง'), z.null(), z.undefined()])
+  .optional();
+const optionalAccuracy = z.union([z.coerce.number().min(0), z.null(), z.undefined()]).optional();
+
 /**
  * Validates the search-first workflow's create body (Phase 2). Everything
  * here is required per the spec's Validation section except `notes`
@@ -66,6 +77,10 @@ export const PmRecordCreateBodySchema = z.object({
   meter_photo_url: requiredTrimmedString('กรุณาอัปโหลดรูปมิเตอร์ชั่วโมง'),
   nameplate_photo_url: requiredTrimmedString('กรุณาอัปโหลดรูป Nameplate/หมายเลขเครื่อง'),
   report_photo_url: requiredTrimmedString('กรุณาอัปโหลดรูปใบรายงาน PM'),
+  latitude: optionalLatitude,
+  longitude: optionalLongitude,
+  gps_accuracy: optionalAccuracy,
+  google_maps_url: nullableTrimmedString.optional(),
   notes: nullableTrimmedString,
 });
 export type PmRecordCreateBody = z.infer<typeof PmRecordCreateBodySchema>;
@@ -89,6 +104,10 @@ export const PmRecordUpdateBodySchema = z
     meter_photo_url: nullableTrimmedString,
     nameplate_photo_url: nullableTrimmedString,
     report_photo_url: nullableTrimmedString,
+    latitude: optionalLatitude,
+    longitude: optionalLongitude,
+    gps_accuracy: optionalAccuracy,
+    google_maps_url: nullableTrimmedString,
   })
   .partial();
 export type PmRecordUpdateBody = z.infer<typeof PmRecordUpdateBodySchema>;
