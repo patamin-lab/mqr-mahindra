@@ -2,9 +2,9 @@
 # MSEAL SERVICE SYSTEM
 ## AI Engineering Context
 
-**Version:** 1.1
+**Version:** 1.3
 **Status:** Active
-**Last Updated:** 2026-06-30
+**Last Updated:** 2026-07-01
 
 ---
 
@@ -53,7 +53,10 @@ Approved
 
 Development Status
 
-Sprint 10.1 Foundation Complete
+PM Record module complete through M6.5 (Final Release Candidate Review):
+CRUD, tests, database/RLS migration alignment, CI pipeline, and a
+dependency audit are all done. See `PROJECT_STATE.md` for the
+authoritative, up-to-date milestone log.
 
 ---
 
@@ -184,13 +187,21 @@ Implement the PM Record reference module.
 
 Implementation Order
 
-1. Foundation (Sprint 10.1 — Complete)
-2. Master Data Integration
-3. CRUD
-4. Media Upload
-5. Dashboard
-6. PDF
-7. Testing
+1. Foundation — Complete
+2. CRUD (repository, service, API, UI) — Complete
+3. Testing (unit + API integration, Vitest) — Complete
+4. Database Hardening & RLS Audit — Complete (read-only audit; the two
+   live schema defects it found were fixed in M6.1, RLS hardened in M6.2)
+5. Documentation Synchronization — Complete
+6. CI Pipeline (GitHub Actions) — Complete (M6.3)
+7. Dependency & Security Audit — Complete (M6.4; safe updates applied,
+   remaining findings documented, none fixed — all require a breaking
+   major-version upgrade)
+8. Final Release Candidate Review — Complete (M6.5)
+9. Master Data Integration (branches/technicians beyond FK ids) — Not started
+10. Media Upload — Not started
+11. Dashboard — Not started
+12. PDF — Not started
 
 ---
 
@@ -300,21 +311,12 @@ Report the conflicting documents.
 
 # Current Priorities
 
-Priority 1
-
-Sprint 10.2 — Master Data Integration
-
-Priority 2
-
-PM CRUD
-
-Priority 3
-
-Dashboard
-
-Priority 4
-
-PDF
+The PM Record module (M1 through M6.5) is complete and, per M6.5's final
+review, ready for merge. No next priority has been scheduled yet — see
+`PROJECT_STATE.md` "Candidate next tasks" and wait for explicit direction
+before starting any of: a dedicated Next.js 14→16 upgrade, an ADR decision
+on Supabase Auth (for real RLS-enforced dealer/branch isolation), Master
+Data Integration, Dashboard, or PDF.
 
 ---
 
@@ -398,10 +400,10 @@ Documentation
 
 Frozen
 
-Sprint 10.1 Foundation
+PM Record Module
 
-Complete
+Complete through M6.5 (Final Release Candidate Review) — READY FOR MERGE
 
 Status
 
-READY FOR SPRINT 10.2
+AWAITING NEXT-TASK DIRECTION

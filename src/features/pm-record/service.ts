@@ -8,34 +8,41 @@
  * stub - no business logic exists yet, per Sprint 10.1's scope.
  */
 import { PmRecordRepository, PmRecordFilter } from './repository';
-import { PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import { PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
 
 export interface PmRecordActor {
   username: string;
 }
 
-const NOT_IMPLEMENTED = 'PM Record CRUD is not implemented yet (Sprint 10.1 is foundation-only).';
-
 export class PmRecordService {
   constructor(private readonly repository: PmRecordRepository) {}
 
-  async list(_filter?: PmRecordFilter) {
-    throw new Error(NOT_IMPLEMENTED);
+  async list(filter?: PmRecordFilter): Promise<PmRecord[]> {
+    return this.repository.list(filter);
   }
 
-  async getById(_id: string) {
-    throw new Error(NOT_IMPLEMENTED);
+  async getById(id: string): Promise<PmRecord | null> {
+    return this.repository.getById(id);
   }
 
-  async create(_input: PmRecordCreateInput, _actor: PmRecordActor) {
-    throw new Error(NOT_IMPLEMENTED);
+  async create(input: PmRecordCreateInput, actor: PmRecordActor): Promise<PmRecord> {
+    if (!actor?.username?.trim()) {
+      throw new Error('Actor username is required');
+    }
+    return this.repository.create(input, actor);
   }
 
-  async update(_id: string, _input: PmRecordUpdateInput, _actor: PmRecordActor) {
-    throw new Error(NOT_IMPLEMENTED);
+  async update(id: string, input: PmRecordUpdateInput, actor: PmRecordActor): Promise<PmRecord> {
+    if (!actor?.username?.trim()) {
+      throw new Error('Actor username is required');
+    }
+    return this.repository.update(id, input, actor);
   }
 
-  async delete(_id: string, _actor: PmRecordActor) {
-    throw new Error(NOT_IMPLEMENTED);
+  async delete(id: string, actor: PmRecordActor): Promise<void> {
+    if (!actor?.username?.trim()) {
+      throw new Error('Actor username is required');
+    }
+    return this.repository.delete(id, actor);
   }
 }

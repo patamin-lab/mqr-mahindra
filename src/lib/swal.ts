@@ -91,3 +91,36 @@ export function swalUpdateLoading(message: string) {
 export function swalClose() {
   Swal.close();
 }
+
+const toastConfig = {
+  toast: true,
+  position: 'top-end' as const,
+  showConfirmButton: false,
+  timerProgressBar: true,
+  customClass: {
+    popup: 'mqr-swal',
+  },
+};
+
+/** Non-blocking, auto-dismissing success notification - for quick
+ *  confirmations (e.g. "saved") where a full modal requiring a click
+ *  would be unnecessary friction. Use `swalSuccess` instead when the
+ *  message needs the user's explicit acknowledgement. */
+export function swalSuccessToast(message: string) {
+  return Swal.fire({
+    ...toastConfig,
+    icon: 'success' as SweetAlertIcon,
+    title: message,
+    timer: 2500,
+  });
+}
+
+/** Non-blocking, auto-dismissing error notification - see `swalSuccessToast`. */
+export function swalErrorToast(message: string) {
+  return Swal.fire({
+    ...toastConfig,
+    icon: 'error' as SweetAlertIcon,
+    title: message,
+    timer: 3500,
+  });
+}

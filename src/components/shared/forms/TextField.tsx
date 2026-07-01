@@ -16,6 +16,7 @@ export type TextFieldProps = {
   placeholder?: string;
   wrapperClassName?: string;
   inputClassName?: string;
+  disabled?: boolean;
 };
 
 export default function TextField({
@@ -25,6 +26,7 @@ export default function TextField({
   placeholder,
   wrapperClassName,
   inputClassName = 'border rounded px-2 py-1.5 text-sm w-full',
+  disabled,
 }: TextFieldProps) {
   const input = (
     <input
@@ -32,6 +34,7 @@ export default function TextField({
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
     />
   );
 

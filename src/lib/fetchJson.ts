@@ -45,19 +45,32 @@ export async function fetchJson<T = any>(url: string, init?: RequestInit): Promi
     );
   }
 
+  // Most routes answer errors as a plain string in `json.error`. Newer
+  // routes (the PM Record write endpoints) answer with `{ code, message }`
+  // instead - support both shapes so callers always get a displayable
+  // string rather than the object itself stringifying to "[object Object]".
+  const errorCode = json?.error && typeof json.error === 'object' ? json.error.code : undefined;
+  const errorMessage =
+    typeof json?.error === 'string'
+      ? json.error
+      : typeof json?.error?.message === 'string'
+        ? json.error.message
+        : undefined;
+
   // Every session-gated API route in this app answers a missing/expired
   // login cookie with the generic shape `{ ok:false, error:'unauthorized' }`
+  // (or, for PM Record routes, `{ error: { code: 'UNAUTHORIZED', ... } }`)
   // and status 401 - that case gets the friendly "please log in again"
   // popup. But /api/auth/login itself also responds with its own 401 for
   // an everyday wrong username/password, carrying a specific, already
   // user-facing Thai message in `json.error`. That message must reach the
   // caller as-is instead of being overwritten with "session expired".
-  if (res.status === 401 && (!json?.error || json.error === 'unauthorized')) {
+  if (res.status === 401 && (!json?.error || json.error === 'unauthorized' || errorCode === 'UNAUTHORIZED')) {
     throw new FetchJsonError('SESSION_EXPIRED', 401);
   }
 
   if (!res.ok && json?.ok !== true) {
-    throw new FetchJsonError(json?.error || `เกิดข้อผิดพลาด (${res.status})`, res.status);
+    throw new FetchJsonError(errorMessage || `เกิดข้อผิดพลาด (${res.status})`, res.status);
   }
 
   return json as T;

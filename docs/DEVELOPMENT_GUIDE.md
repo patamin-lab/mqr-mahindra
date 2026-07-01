@@ -69,16 +69,22 @@ push to `main` (there is currently no branch/PR workflow — direct-to-main
 is the existing convention, not something Sprint 1 is changing).
 
 After any deploy that touches a user-facing flow, do a live manual check —
-there is no CI/test gate to catch a regression before it ships.
+a CI pipeline (`.github/workflows/ci.yml`) now runs on every push/PR, but
+it validates the code (typecheck/lint/test/build), not a live deployment,
+so this manual check is still the only way to catch a real runtime
+regression before it reaches users.
 
-## 6. Testing (honest gap, not yet closed)
+## 6. Testing (partial — PM Record only, not yet repo-wide)
 
-There is no automated test framework in this repository today (confirmed
-absent from `package.json`: no Jest/Vitest/Playwright/etc.). Verification
-is manual: exercise the changed flow in the deployed app, check the
-relevant Supabase tables/RLS where applicable, check Vercel function logs
-for server errors. This is tracked as an open item in `docs/ROADMAP.md`,
-not something this guide pretends is solved.
+Vitest was introduced for the PM Record module (`src/features/pm-record/`,
+`src/app/api/pm-records/`) — unit tests for the service/repository layers
+plus API integration tests, all run in CI. No other module in this
+repository has automated test coverage yet (still confirmed absent for
+`records`, `admin/*`, `report`, etc.); verification there remains manual:
+exercise the changed flow in the deployed app, check the relevant Supabase
+tables/RLS where applicable, check Vercel function logs for server errors.
+Extending automated coverage to other modules is tracked as an open item
+in `docs/ROADMAP.md`, not something this guide pretends is solved.
 
 ## 7. Environment variables
 
