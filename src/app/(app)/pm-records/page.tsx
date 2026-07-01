@@ -42,14 +42,22 @@ export default function PmRecordsPage() {
           <h1 className="text-xl font-bold text-brand-dark">PM Records</h1>
           <p className="text-sm text-gray-500">Preventive maintenance records list.</p>
         </div>
-        <button
-          type="button"
-          onClick={loadRecords}
-          className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark"
-          disabled={loading}
-        >
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/pm-records/new"
+            className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark"
+          >
+            + New
+          </Link>
+          <button
+            type="button"
+            onClick={loadRecords}
+            className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+            disabled={loading}
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {loading && <p className="text-sm text-gray-500">Loading records…</p>}
