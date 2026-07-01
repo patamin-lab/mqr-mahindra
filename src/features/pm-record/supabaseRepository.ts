@@ -100,6 +100,7 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       .from(this.table)
       .update(updatePayload)
       .eq('id', id)
+      .eq('record_status', 'Active')
       .select('*')
       .single();
     if (error) throw error;
@@ -114,7 +115,8 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
         deleted_by: actor.username,
         deleted_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('record_status', 'Active');
     if (error) throw error;
   }
 }
