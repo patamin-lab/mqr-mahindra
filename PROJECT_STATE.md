@@ -1,7 +1,7 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-types
 Current Module: PM Record
-Current Milestone: M6.1 Complete — Database Migration & Platform Alignment
+Current Milestone: M6.2 Complete — Row Level Security Hardening
 Current Status: Complete
 
 Architecture: Frozen
@@ -41,18 +41,44 @@ version 20260701130836, applied to live project `lhlzzxjayywqhqtjzfiu`):
 - Table had 0 rows at migration time — purely additive/constraint-relaxing,
   no data migration was needed, no destructive changes made
 
-Still-open, unresolved (platform-wide, not fixed by M6.1 — explicitly out
-of this migration's scope):
-- RLS on `pm_records` is anon-permissive (`WITH CHECK (true)`), matching
-  the identical pattern on every other table in this Supabase project —
-  platform-wide debt, not a PM-Record-specific regression
+Resolved in M6.2 (Supabase migration `harden_pm_records_rls_soft_delete_scoping`,
+version 20260701131859, applied to live project `lhlzzxjayywqhqtjzfiu`):
+- `pm_records_anon_upd` now requires `record_status = 'Active'` to select a
+  row for update (was unconditional `true`) — an already-soft-deleted row
+  can no longer be touched by any raw update, independent of application
+  code; `WITH CHECK (true)` is explicit so the Active→Deleted transition
+  itself still succeeds
+- `pm_records_anon_ins` now requires the inserted row's `record_status` to
+  be `'Active'` (was unconditional `true`)
+- `pm_records_anon_sel` now requires `record_status = 'Active'` to be
+  visible at all (was unconditional `true`) — a soft-deleted row is now
+  invisible even to a raw anon-key API call; zero app behavior change
+  since `getById()`/`list()` already treated a Deleted row as "not found"
+- Confirmed (no change needed): no DELETE policy exists on `pm_records` —
+  hard delete via the anon key was already impossible before this
+  milestone, Postgres RLS defaults to deny with no matching policy
+
+Still-open, unresolved (structural, not fixed by M6.2 — requires a code
+change explicitly out of a migration-only milestone's scope):
+- **No RLS-enforced dealer/branch isolation exists, and none can be added
+  without a code change.** This app has no Supabase Auth and sets no
+  per-request Postgres session variable — every request reaches Postgres
+  through one shared `anon` role with zero identity signal, so a
+  dealer-scoped RLS policy has nothing to filter on. Real isolation
+  requires either adopting Supabase Auth with custom claims or having the
+  app `set_config()` a per-request session variable — both are future,
+  separately-authorized architecture decisions, not migration work.
+  Dealer/branch/actor-identity scoping remains 100% application-layer
+  (`PmRecordService` + route handlers), matching every other table in
+  this project (`applyScope()` in `lib/db.ts`).
 - Four unused legacy columns (`model`, `delivery_date`, `customer_name`,
   `customer_phone`) remain on `pm_records`, harmless but not part of
   `PmRecord`'s type — schema-cleanliness cleanup, not a defect
 
 Next Milestone: not yet scheduled
 Candidate next tasks (unscheduled, pending explicit direction):
-- RLS policy remediation (platform-wide, not PM-Record-specific)
+- A future ADR decision on Supabase Auth (or per-request session
+  variables) if real RLS-enforced dealer/branch isolation is ever required
 - Drop the four unused legacy columns on `pm_records` (cleanup only)
 - PDI/media upload, dashboard/KPI integration, PDF export — none started
 

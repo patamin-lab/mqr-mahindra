@@ -82,12 +82,33 @@ default/check-constraint shape as the existing `records` table, made
 indexed). The table had 0 rows at migration time, so this was purely
 additive/constraint-relaxing with no data migration involved.
 
-The anon-role RLS policies on `pm_records` (`WITH CHECK (true)` on
-insert/update) are permissive by design — this mirrors the identical
-pattern on every other table in this project; all real access control is
-enforced in application code (`getSession()` + `@/lib/scope` +
-server-side re-validation in each route/service method), not RLS. This is
-inherited platform-wide debt, not specific to this module.
+## RLS
+
+M6.2 hardened `pm_records`' anon-role RLS policies (migration
+`harden_pm_records_rls_soft_delete_scoping`) to independently enforce the
+soft-delete invariant at the database layer, as a second, defense-in-depth
+check alongside the repository's own filtering:
+
+- `pm_records_anon_sel`/`pm_records_anon_upd` now require
+  `record_status = 'Active'` — a soft-deleted row is invisible and
+  untouchable via any raw anon-key call, not just through the app.
+- `pm_records_anon_ins` requires a new row's `record_status` to be
+  `'Active'`.
+- No DELETE policy exists — hard delete via the anon key is already
+  impossible (Postgres RLS default-denies any operation with no matching
+  policy).
+
+**What RLS still does not do, and cannot do without a code change**: enforce
+dealer or branch isolation, or verify actor identity. This app has no
+Supabase Auth and sets no per-request Postgres session variable, so
+Postgres has no signal to filter on per dealer/branch/user — every request
+reaches the database through one shared `anon` role. All dealer/branch/actor
+scoping remains 100% application-layer (`PmRecordService` + route
+handlers), exactly matching every other table in this project
+(`applyScope()` in `lib/db.ts`). This is a real, structural limitation, not
+an oversight — closing it requires a separate, future architecture decision
+(Supabase Auth with custom claims, or per-request `set_config()`), not RLS
+policy work.
 
 ## What this module does NOT do
 
