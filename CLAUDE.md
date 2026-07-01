@@ -28,6 +28,81 @@ Operational rules that have proven necessary in practice:
 - **Never put credentials, tokens, or passwords into any command, field, or URL**, even if explicitly supplied/authorized by the user. If a step requires manual credential entry, stop and ask the user to do it. (Narrow, pre-established exceptions: GitHub's own auto-generated raw-content URL token encountered while *browsing* in an authenticated session is a navigation artifact, not something being "entered"; the Google Drive resumable-upload session URL is passed server→client via the custom header `X-Drive-Session-Url`, never as a query string or exposed token.)
 - This repo's git history is **upload-commit only** — there is no local working tree to `git diff` against. Always re-fetch the current file from GitHub (or this session's last-known state) before editing, to avoid clobbering changes.
 
+## 3.5 Engineering Working Agreement
+
+Before every issue:
+
+- Verify `git status`, current branch, `HEAD`, and that the repository is synchronized.
+- The working tree must be clean.
+
+Dependency rule:
+
+- Whenever `package.json` changes, `package-lock.json` must be updated in the same commit.
+- Never leave them out of sync.
+
+Branching rule:
+
+- One issue = one branch: `feature/<issue-name>`.
+- One logical change only.
+- Do not mix dependency updates, refactoring, feature work, or formatting into the same branch or commit.
+
+Commit series rule:
+
+- One issue = one commit series.
+- Use descriptive, issue-scoped commit messages.
+
+Pre-PR rule:
+
+- Run `npm.cmd run lint`, `npm.cmd run typecheck`, and `npm.cmd run build` before opening a pull request.
+- The repository must be clean.
+- No `TODO`, `FIXME`, `NotImplemented`, `console.log`, placeholder code, or disabled production UI in committed production code.
+
+Post-issue rule:
+
+- Never start the next issue automatically.
+- After every completed issue, provide:
+  - Files changed
+  - Architecture impact
+  - API impact
+  - Database impact
+  - Breaking changes
+  - Build status
+  - Lint status
+  - Typecheck status
+  - Commit SHA
+- Wait for engineering review.
+
+Grounding rule:
+
+- Before modifying any feature, always inspect:
+  - existing implementation
+  - related types
+  - repository
+  - service
+  - API
+  - ADR
+  - database schema (if applicable)
+- Never write code from memory.
+
+Scope rule:
+
+- Never modify files outside the approved Issue scope.
+- If additional files become necessary:
+  - STOP
+  - explain why
+  - request approval
+- Do not silently expand scope.
+
+Source of truth priority:
+
+1. Current Git working tree
+2. Current branch `HEAD`
+3. Database schema
+4. ADR
+5. Documentation
+
+If documentation differs from code, report the mismatch. Never assume.
+
 ## 4. Repository structure
 
 ```
