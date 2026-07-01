@@ -67,23 +67,20 @@ double-delete or delete-of-already-deleted correctly reports 404 instead
 of silently no-op'ing. `list`/`getById`/`update` all exclude
 `record_status = 'Deleted'` rows.
 
-## Known gap: live database schema drift (flagged, not yet fixed)
+## Database schema
 
-A read-only production-readiness audit (Database Hardening & RLS Audit)
-found that the **live** Supabase `pm_records` table does not fully match
-what this code assumes:
-
-- `record_status`, `deleted_by`, `deleted_at` — used by every repository
-  method above — do not exist as columns on the live table today.
-- `scheduled_date` is `NOT NULL` on the live table, but the app/UI treat it
-  as optional end-to-end.
-
-Fixing this requires a DDL migration against a live/production database,
-which is a separate, explicitly-approved follow-up (not part of any
-code change), per this repo's standing rule that schema changes need
-their own proposal + approval step. Do not assume the live table matches
-this code without re-checking (`list_tables` via the Supabase MCP tools)
-until that migration lands.
+The M5.5 Database Hardening & RLS Audit found that the live Supabase
+`pm_records` table didn't fully match what this code assumes
+(`record_status`/`deleted_by`/`deleted_at` missing entirely;
+`scheduled_date` `NOT NULL` vs. the app's end-to-end optional treatment).
+This was fixed in M6.1 via an explicitly-approved migration
+(`align_pm_records_soft_delete_and_constraints`, applied to the live
+project) that added the three missing columns with the same
+default/check-constraint shape as the existing `records` table, made
+`scheduled_date` nullable, and added indexes on `dealer_id`/`branch_id`/
+`technician_id`/`record_status` (previously only the primary key was
+indexed). The table had 0 rows at migration time, so this was purely
+additive/constraint-relaxing with no data migration involved.
 
 The anon-role RLS policies on `pm_records` (`WITH CHECK (true)` on
 insert/update) are permissive by design — this mirrors the identical

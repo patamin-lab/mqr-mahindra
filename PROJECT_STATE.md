@@ -1,7 +1,7 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-types
 Current Module: PM Record
-Current Milestone: M5.5 Complete — Database Hardening & RLS Audit
+Current Milestone: M6.1 Complete — Database Migration & Platform Alignment
 Current Status: Complete
 
 Architecture: Frozen
@@ -29,19 +29,31 @@ Delivered (Complete):
   soft delete/audit-field logic is correct in code; confirmed UI never
   bypasses Service/Repository; found two live-schema defects (below)
 
-Known open defects (live database, not code — require a separately
-approved migration, not part of any completed milestone):
-- Live `pm_records` table is missing `record_status`, `deleted_by`,
-  `deleted_at` columns that every repository method assumes exist
-- Live `pm_records.scheduled_date` is NOT NULL; the app treats it as
-  optional end-to-end
+Resolved in M6.1 (Supabase migration `align_pm_records_soft_delete_and_constraints`,
+version 20260701130836, applied to live project `lhlzzxjayywqhqtjzfiu`):
+- Live `pm_records` table now has `record_status` (`NOT NULL DEFAULT 'Active'`,
+  check constraint `Active`/`Deleted`), `deleted_by`, `deleted_at` — matching
+  every repository method's assumption
+- Live `pm_records.scheduled_date` is now nullable, matching the app's
+  end-to-end optional treatment
+- Added indexes on `dealer_id`, `branch_id`, `technician_id`, `record_status`
+  (previously only the PK was indexed)
+- Table had 0 rows at migration time — purely additive/constraint-relaxing,
+  no data migration was needed, no destructive changes made
+
+Still-open, unresolved (platform-wide, not fixed by M6.1 — explicitly out
+of this migration's scope):
 - RLS on `pm_records` is anon-permissive (`WITH CHECK (true)`), matching
   the identical pattern on every other table in this Supabase project —
   platform-wide debt, not a PM-Record-specific regression
+- Four unused legacy columns (`model`, `delivery_date`, `customer_name`,
+  `customer_phone`) remain on `pm_records`, harmless but not part of
+  `PmRecord`'s type — schema-cleanliness cleanup, not a defect
 
 Next Milestone: not yet scheduled
 Candidate next tasks (unscheduled, pending explicit direction):
-- Propose (not apply) a migration fixing the two live-schema defects above
+- RLS policy remediation (platform-wide, not PM-Record-specific)
+- Drop the four unused legacy columns on `pm_records` (cleanup only)
 - PDI/media upload, dashboard/KPI integration, PDF export — none started
 
 Current Blockers:
