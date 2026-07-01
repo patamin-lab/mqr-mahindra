@@ -1,7 +1,7 @@
 Current Sprint: Sprint 10
 Current Branch: feature/pm-record-types
 Current Module: PM Record
-Current Milestone: M6.4 Complete — Dependency & Security Audit
+Current Milestone: M6.5 Complete — Final Release Candidate Review (READY FOR MERGE)
 Current Status: Complete
 
 Architecture: Frozen
@@ -124,6 +124,27 @@ out of this milestone's scope per its own "document only" instruction):
     for manual review (`npm approve-scripts`), not auto-approved here.
   - No deprecated-package warnings surfaced from a fresh `npm install`.
 
+Fixed in M6.5 (one genuine release blocker found during the final review,
+fixed under that milestone's narrow "fix only if a genuine blocker exists"
+allowance):
+- `src/features/pm-record/fetchPmRecord.ts` built its server-to-server
+  fetch URL as `NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'`.
+  `NEXT_PUBLIC_APP_URL` is not set anywhere in this deployment (grepped
+  the whole `src/` tree and root `CLAUDE.md`'s environment-variables
+  section — it appears nowhere else and isn't documented), so in
+  production this would have silently targeted `http://localhost:3000`
+  from inside a Vercel serverless function — unreachable, breaking the PM
+  Record **detail and edit pages** (both call `fetchPmRecord()`). Fixed
+  by falling through to Vercel's automatically-provided `VERCEL_URL` env
+  var (no manual configuration needed) before ever defaulting to
+  localhost. One file, one function, no architecture change.
+
+Final M6.5 review: READY FOR MERGE. No other genuine release blocker was
+found across dependency direction, repository/service abstraction, API/
+response contracts, domain model, validation, authorization, persistence,
+soft delete, audit fields, testing, documentation, CI, RLS, migration
+alignment, security, or performance.
+
 Next Milestone: not yet scheduled
 Candidate next tasks (unscheduled, pending explicit direction):
 - A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
@@ -136,8 +157,10 @@ Candidate next tasks (unscheduled, pending explicit direction):
 - PDI/media upload, dashboard/KPI integration, PDF export — none started
 
 Current Blockers:
-None (the live-schema defects above are flagged, not blocking, since the
-table has 0 rows in the live environment today)
+None — the M6.5 review found and fixed the one genuine release blocker
+(above). The live-schema defects noted for M6.1 are already resolved;
+the two remaining items above (dead columns, RLS dealer isolation) are
+flagged debt, not blockers.
 
 Legacy Naming (tracked, not yet renamed — pending ADR):
 - SESSION_COOKIE = 'mqr_session' (lib/auth.ts)

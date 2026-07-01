@@ -12,8 +12,16 @@ export type FetchPmRecordResult =
  *  and the edit page so the fetch/error-shape handling isn't duplicated. */
 export async function fetchPmRecord(id: string): Promise<FetchPmRecordResult> {
   const cookieHeader = headers().get('cookie') ?? '';
+  // VERCEL_URL is set automatically by Vercel for every deployment (no
+  // manual config needed) - falling through to it before localhost avoids
+  // this Server Component's own-origin fetch silently targeting
+  // http://localhost:3000 (unreachable from inside a serverless function)
+  // if NEXT_PUBLIC_APP_URL was never explicitly configured.
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/pm-records/${encodeURIComponent(id)}`,
+    `${baseUrl}/api/pm-records/${encodeURIComponent(id)}`,
     {
       method: 'GET',
       headers: {
