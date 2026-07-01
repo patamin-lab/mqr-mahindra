@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { fetchPmRecord } from '@/features/pm-record/fetchPmRecord';
+import PmRecordDeleteButton from './delete-button';
 
 interface RouteParams {
   params: {
@@ -91,6 +92,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <Link href="/pm-records" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
             Back to List
           </Link>
+          <PmRecordDeleteButton id={record.id} />
         </div>
       </div>
 
