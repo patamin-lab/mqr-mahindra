@@ -1,6 +1,5 @@
-import { headers } from 'next/headers';
 import Link from 'next/link';
-import type { PmRecord } from '@/features/pm-record/types';
+import { fetchPmRecord } from '@/features/pm-record/fetchPmRecord';
 
 interface RouteParams {
   params: {
@@ -9,33 +8,6 @@ interface RouteParams {
 }
 
 export const dynamic = 'force-dynamic';
-
-type FetchPmRecordResult =
-  | { notFound: true }
-  | { error: string }
-  | { record: PmRecord };
-
-async function fetchPmRecord(id: string): Promise<FetchPmRecordResult> {
-  const cookieHeader = headers().get('cookie') ?? '';
-  const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/api/pm-records/${encodeURIComponent(id)}`, {
-    method: 'GET',
-    headers: {
-      cookie: cookieHeader,
-    },
-    cache: 'no-store',
-  });
-
-  if (response.status === 404) {
-    return { notFound: true };
-  }
-
-  const payload = await response.json();
-  if (!response.ok) {
-    return { error: payload?.error || 'Unable to load record' };
-  }
-
-  return { record: payload.data as PmRecord };
-}
 
 export default async function PmRecordDetailPage({ params }: RouteParams) {
   const result = await fetchPmRecord(params.id);
@@ -109,9 +81,17 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <h1 className="text-xl font-bold text-brand-dark">PM Record Detail</h1>
           <p className="text-sm text-gray-500">Record ID: {params.id}</p>
         </div>
-        <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-          Back to List
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/pm-records/${encodeURIComponent(record.id)}/edit`}
+            className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark"
+          >
+            Edit
+          </Link>
+          <Link href="/pm-records" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
+            Back to List
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-4 rounded border border-gray-200 bg-white p-6 shadow-sm">
