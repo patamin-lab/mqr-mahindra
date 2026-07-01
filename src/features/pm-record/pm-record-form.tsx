@@ -19,18 +19,25 @@ export interface PmRecordFormInitial {
   notes?: string | null;
 }
 
-interface PmRecordFormProps {
-  mode: 'create' | 'edit';
-  /** Only rendered/sent in 'create' mode - a privileged actor may set an
-   *  arbitrary dealer_id; PmRecordUpdateInput has no dealer_id field at
-   *  all, so 'edit' mode never shows or sends it. */
-  showDealerField: boolean;
-  /** Required for 'edit' mode - the id to PUT to. */
-  recordId?: string;
-  initial?: PmRecordFormInitial;
-}
+/** Discriminated on `mode` so `recordId` is compiler-enforced as required
+ *  for 'edit' (a PUT with no id would be a bug, not a runtime option). */
+export type PmRecordFormProps =
+  | {
+      mode: 'create';
+      /** A privileged actor may set an arbitrary dealer_id; only rendered/sent in 'create' mode. */
+      showDealerField: boolean;
+    }
+  | {
+      mode: 'edit';
+      /** PmRecordUpdateInput has no dealer_id field at all, so 'edit' mode never shows or sends it. */
+      showDealerField: boolean;
+      recordId: string;
+      initial?: PmRecordFormInitial;
+    };
 
-export default function PmRecordForm({ mode, showDealerField, recordId, initial }: PmRecordFormProps) {
+export default function PmRecordForm(props: PmRecordFormProps) {
+  const { mode, showDealerField } = props;
+  const initial = props.mode === 'edit' ? props.initial : undefined;
   const router = useRouter();
   const [dealerId, setDealerId] = useState(initial?.dealer_id ?? '');
   const [branchId, setBranchId] = useState(initial?.branch_id ?? '');
@@ -72,7 +79,8 @@ export default function PmRecordForm({ mode, showDealerField, recordId, initial 
     setSubmitting(true);
     swalLoading('กำลังบันทึก...');
     try {
-      const url = mode === 'create' ? '/api/pm-records' : `/api/pm-records/${encodeURIComponent(recordId!)}`;
+      const url =
+        props.mode === 'create' ? '/api/pm-records' : `/api/pm-records/${encodeURIComponent(props.recordId)}`;
       const method = mode === 'create' ? 'POST' : 'PUT';
 
       const result = await fetchJson<{ ok: true; data: PmRecord }>(url, {
