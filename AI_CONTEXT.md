@@ -2,9 +2,9 @@
 # MSEAL SERVICE SYSTEM
 ## AI Engineering Context
 
-**Version:** 1.1
+**Version:** 1.2
 **Status:** Active
-**Last Updated:** 2026-06-30
+**Last Updated:** 2026-07-01
 
 ---
 
@@ -53,7 +53,8 @@ Approved
 
 Development Status
 
-Sprint 10.1 Foundation Complete
+PM Record CRUD, tests, and database/RLS audit complete (M5.5). See
+`PROJECT_STATE.md` for the authoritative, up-to-date milestone log.
 
 ---
 
@@ -184,13 +185,16 @@ Implement the PM Record reference module.
 
 Implementation Order
 
-1. Foundation (Sprint 10.1 — Complete)
-2. Master Data Integration
-3. CRUD
-4. Media Upload
-5. Dashboard
-6. PDF
-7. Testing
+1. Foundation — Complete
+2. CRUD (repository, service, API, UI) — Complete
+3. Testing (unit + API integration, Vitest) — Complete
+4. Database Hardening & RLS Audit — Complete (read-only; found two live
+   schema defects, tracked in `PROJECT_STATE.md`, not yet fixed)
+5. Documentation Synchronization — Complete
+6. Master Data Integration (branches/technicians beyond FK ids) — Not started
+7. Media Upload — Not started
+8. Dashboard — Not started
+9. PDF — Not started
 
 ---
 
@@ -300,21 +304,11 @@ Report the conflicting documents.
 
 # Current Priorities
 
-Priority 1
-
-Sprint 10.2 — Master Data Integration
-
-Priority 2
-
-PM CRUD
-
-Priority 3
-
-Dashboard
-
-Priority 4
-
-PDF
+PM Record CRUD, automated tests, and the database/RLS audit are complete.
+No next priority has been scheduled yet — see `PROJECT_STATE.md`
+"Candidate next tasks" and wait for explicit direction before starting
+any of: a migration proposal for the two flagged live-schema defects,
+Master Data Integration, Dashboard, or PDF.
 
 ---
 
@@ -398,10 +392,10 @@ Documentation
 
 Frozen
 
-Sprint 10.1 Foundation
+PM Record Module
 
-Complete
+CRUD, tests, and database/RLS audit complete (M5.5)
 
 Status
 
-READY FOR SPRINT 10.2
+AWAITING NEXT-TASK DIRECTION
