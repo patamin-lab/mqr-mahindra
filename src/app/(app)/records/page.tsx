@@ -3,6 +3,9 @@ import { getSession } from '@/lib/auth';
 import { listRecordsPaginated, listDealers, listBranches } from '@/lib/db';
 import { seesAllDealers, canExport } from '@/lib/scope';
 import { STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
+import PageHeader from '@/components/shared/layout/PageHeader';
+import StatusPill from '@/components/shared/status/StatusPill';
+import SearchToolbar from '@/components/shared/layout/SearchToolbar';
 
 /** Colors per docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Status Colors
  *  table - Draft has no entry there (predates the standard's status list),
@@ -80,29 +83,49 @@ export default async function RecordsPage({
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-        <h1 className="text-2xl font-bold text-brand-dark">ติดตามรายงานปัญหาคุณภาพ</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {allowExport && (
-            <>
-              <a href={exportHref('xlsx')} className="btn-secondary">
-                Export Excel
-              </a>
-              <a href={exportHref('pdf')} className="btn-secondary">
-                Export PDF
-              </a>
-              <a href={exportHref('csv')} className="btn-secondary">
-                Export CSV
-              </a>
-            </>
-          )}
-          <Link href="/report" className="btn-primary">
-            + รายงานปัญหาใหม่
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="ติดตามรายงานปัญหาคุณภาพ"
+        titleClassName="text-2xl font-bold text-brand-dark"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4"
+        actionsClassName="flex flex-wrap items-center gap-2"
+        actions={
+          <>
+            {allowExport && (
+              <>
+                <a href={exportHref('xlsx')} className="btn-secondary">
+                  Export Excel
+                </a>
+                <a href={exportHref('pdf')} className="btn-secondary">
+                  Export PDF
+                </a>
+                <a href={exportHref('csv')} className="btn-secondary">
+                  Export CSV
+                </a>
+              </>
+            )}
+            <Link href="/report" className="btn-primary">
+              + รายงานปัญหาใหม่
+            </Link>
+          </>
+        }
+      />
 
-      <form className="card p-4 mb-4 flex flex-wrap gap-3 items-end">
+      <SearchToolbar
+        cardClassName="p-4 mb-4 flex flex-wrap gap-3 items-end"
+        filterLabel="กรอง"
+        filterButtonClassName="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50 hover:bg-gray-100 transition"
+        clearHref={
+          searchParams.q ||
+          searchParams.status ||
+          searchParams.dealerId ||
+          searchParams.branchId ||
+          searchParams.dateFrom ||
+          searchParams.dateTo
+            ? '/records'
+            : undefined
+        }
+        clearLabel="ล้างตัวกรอง"
+      >
         <div>
           <label className="block text-xs font-medium mb-1">ค้นหา</label>
           <input
@@ -179,18 +202,7 @@ export default async function RecordsPage({
             className="border border-gray-300 rounded px-3 py-2 text-sm"
           />
         </div>
-        <button className="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50 hover:bg-gray-100 transition">กรอง</button>
-        {(searchParams.q ||
-          searchParams.status ||
-          searchParams.dealerId ||
-          searchParams.branchId ||
-          searchParams.dateFrom ||
-          searchParams.dateTo) && (
-          <Link href="/records" className="text-sm text-gray-500 underline">
-            ล้างตัวกรอง
-          </Link>
-        )}
-      </form>
+      </SearchToolbar>
 
       <div className="card overflow-x-auto">
         <table className="w-full text-sm">
@@ -228,9 +240,9 @@ export default async function RecordsPage({
                 <td className="px-4 py-3">{r.problem_code ?? '-'}</td>
                 <td className="px-4 py-3 whitespace-nowrap">{r.warranty_status ?? '-'}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[r.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                  <StatusPill colorClassName={statusColor[r.status] ?? 'bg-gray-100 text-gray-600'}>
                     {STATUS_LABELS[r.status as StatusValue] ?? r.status}
-                  </span>
+                  </StatusPill>
                 </td>
               </tr>
             ))}

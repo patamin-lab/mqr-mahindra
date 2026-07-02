@@ -8,6 +8,10 @@ import MaintenanceDeleteButton from './delete-button';
 import MaintenanceUnlockButton from './unlock-button';
 import MaintenanceGpsDetail from '@/features/maintenance/components/maintenance-gps-detail';
 import { t, getServerLocale } from '@/lib/i18n/server';
+import PageHeader from '@/components/shared/layout/PageHeader';
+import Card from '@/components/shared/layout/Card';
+import AttachmentGallery, { AttachmentGalleryItem } from '@/components/shared/attachments/AttachmentGallery';
+import DetailRow from '@/components/shared/layout/DetailRow';
 
 interface RouteParams {
   params: {
@@ -24,15 +28,15 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
   if ('notFound' in result && result.notFound) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-brand-dark">{t('pmDetail.title')}</h1>
-            <p className="text-sm text-gray-500">{t('pmDetail.recordIdLabel', { id: params.id })}</p>
-          </div>
-          <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            {t('common.backToList')}
-          </Link>
-        </div>
+        <PageHeader
+          title={t('pmDetail.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
 
         <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
           <p>{t('pmDetail.notFound')}</p>
@@ -44,15 +48,15 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
   if ('error' in result) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-brand-dark">{t('pmDetail.title')}</h1>
-            <p className="text-sm text-gray-500">{t('pmDetail.recordIdLabel', { id: params.id })}</p>
-          </div>
-          <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            {t('common.backToList')}
-          </Link>
-        </div>
+        <PageHeader
+          title={t('pmDetail.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
 
         <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
           <p>{t('pmDetail.errorPrefix', { error: result.error })}</p>
@@ -64,15 +68,15 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
   if (!('record' in result)) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-brand-dark">{t('pmDetail.title')}</h1>
-            <p className="text-sm text-gray-500">{t('pmDetail.recordIdLabel', { id: params.id })}</p>
-          </div>
-          <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            {t('common.backToList')}
-          </Link>
-        </div>
+        <PageHeader
+          title={t('pmDetail.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
 
         <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
           <p>{t('pmDetail.unexpectedError')}</p>
@@ -89,34 +93,34 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-brand-dark">{t('pmDetail.title')}</h1>
-            <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{record.status}</span>
-          </div>
-          <p className="text-sm text-gray-500">{record.pm_number ?? record.serial ?? t('common.pm')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={`/api/pm-records/${encodeURIComponent(record.id)}/export`}
-            className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-          >
-            {t('common.exportPdf')}
-          </a>
-          <Link
-            href={`/pm-records/${encodeURIComponent(record.id)}/edit`}
-            className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark"
-          >
-            {t('common.edit')}
-          </Link>
-          <Link href="/pm-records" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
-            {t('common.backToList')}
-          </Link>
-          {lock.locked && canManageLock && <MaintenanceUnlockButton id={record.id} />}
-          <MaintenanceDeleteButton id={record.id} locked={lock.locked} canForceDelete={canForceDelete} />
-        </div>
-      </div>
+      <PageHeader
+        title={t('pmDetail.title')}
+        titleAdornments={
+          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{record.status}</span>
+        }
+        subtitle={record.pm_number ?? record.serial ?? t('common.pm')}
+        actions={
+          <>
+            <a
+              href={`/api/pm-records/${encodeURIComponent(record.id)}/export`}
+              className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              {t('common.exportPdf')}
+            </a>
+            <Link
+              href={`/pm-records/${encodeURIComponent(record.id)}/edit`}
+              className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark"
+            >
+              {t('common.edit')}
+            </Link>
+            <Link href="/pm-records" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
+              {t('common.backToList')}
+            </Link>
+            {lock.locked && canManageLock && <MaintenanceUnlockButton id={record.id} />}
+            <MaintenanceDeleteButton id={record.id} locked={lock.locked} canForceDelete={canForceDelete} />
+          </>
+        }
+      />
 
       {lock.locked && (
         <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -125,7 +129,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
         </div>
       )}
 
-      <div className="space-y-4 rounded border border-gray-200 bg-white p-6 shadow-sm">
+      <Card variant="compact" className="space-y-4 p-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <DetailRow label={t('csv.pmNumber')} value={record.pm_number ?? 'N/A'} />
           <DetailRow label={t('pmDetail.dealerId')} value={record.dealer_id} />
@@ -172,19 +176,18 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
         {(record.meter_photo_url || record.nameplate_photo_url || record.report_photo_url) && (
           <div>
             <h2 className="text-sm font-semibold text-brand-dark">{t('pmDetail.photosTitle')}</h2>
-            <div className="mt-2 grid gap-3 sm:grid-cols-3">
-              {record.meter_photo_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={record.meter_photo_url} alt={t('pdf.photoMeter')} className="h-32 w-full rounded border object-cover" />
-              )}
-              {record.nameplate_photo_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={record.nameplate_photo_url} alt={t('pdf.photoNameplate')} className="h-32 w-full rounded border object-cover" />
-              )}
-              {record.report_photo_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={record.report_photo_url} alt={t('pdf.photoReport')} className="h-32 w-full rounded border object-cover" />
-              )}
+            <div className="mt-2">
+              <AttachmentGallery
+                className="grid gap-3 sm:grid-cols-3"
+                imgClassName="h-32 w-full rounded border object-cover"
+                items={
+                  [
+                    record.meter_photo_url && { key: 'meter', url: record.meter_photo_url, alt: t('pdf.photoMeter') },
+                    record.nameplate_photo_url && { key: 'nameplate', url: record.nameplate_photo_url, alt: t('pdf.photoNameplate') },
+                    record.report_photo_url && { key: 'report', url: record.report_photo_url, alt: t('pdf.photoReport') },
+                  ].filter(Boolean) as AttachmentGalleryItem[]
+                }
+              />
             </div>
           </div>
         )}
@@ -193,16 +196,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <h2 className="text-sm font-semibold text-brand-dark">{t('common.notes')}</h2>
           <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">{record.notes ?? t('pmDetail.noNotes')}</p>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded border border-gray-100 bg-gray-50 p-3">
-      <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-sm text-gray-900">{value}</p>
+      </Card>
     </div>
   );
 }

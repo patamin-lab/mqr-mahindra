@@ -7,6 +7,7 @@ import { PdfBrandLogo } from './pdf/PdfBrandLogo';
 import { ensureFontsRegistered } from './pdf/fonts';
 import { fetchImageAsDataUri } from './pdf/fetchImage';
 import { PDF_BRAND_RED } from './pdf/brand';
+import { sharedPdfStyles } from './pdf/sharedStyles';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 
@@ -18,14 +19,7 @@ async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, stri
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 28, fontFamily: 'Sarabun', fontSize: 9, color: '#1a1a1a' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title: { fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: PDF_BRAND_RED },
-  titleRule: { borderBottomWidth: 2, borderColor: PDF_BRAND_RED, marginTop: 6, marginBottom: 10 },
-  subtitle: { fontSize: 9, color: '#666', marginBottom: 2 },
-  qr: { width: 56, height: 56 },
-  qrCaption: { fontSize: 6, color: '#999', textAlign: 'center', marginTop: 2, width: 56 },
-  badgeRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  ...sharedPdfStyles,
   badge: { fontSize: 8, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, color: '#fff' },
 
   // Bulk/list export (renderRecordsListPdf) - unchanged from the original
@@ -37,42 +31,14 @@ const styles = StyleSheet.create({
   cell: { padding: 4, fontSize: 8 },
 
   section: { marginTop: 8, marginBottom: 10 },
-  sectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 4, color: PDF_BRAND_RED },
-  paragraph: { fontSize: 9, lineHeight: 1.4 },
-  link: { fontSize: 8.5, color: '#1a56db' },
 
   // Single-record info table - a bordered grid (label/value pairs, two per
   // row, with long-text fields spanning the full row) modeled after the
   // legacy MSEAL/Tractor-PM report layouts the dealers are used to.
   infoTable: { borderWidth: 1, borderColor: '#ccc' },
-  infoRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#e5e5e5' },
-  infoCellLabel: {
-    width: '17%',
-    backgroundColor: '#f3f3f3',
-    padding: 5,
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: '#444',
-    borderRightWidth: 1,
-    borderColor: '#e5e5e5',
-  },
-  infoCellValue: { width: '33%', padding: 5, fontSize: 8.5, borderRightWidth: 1, borderColor: '#e5e5e5' },
-  infoCellValueLast: { width: '33%', padding: 5, fontSize: 8.5 },
-  infoCellValueFull: { width: '83%', padding: 5, fontSize: 8.5 },
   rcaHeaderRow: { backgroundColor: '#fbeaea', padding: 5, borderBottomWidth: 1, borderColor: '#e5c5c5' },
   rcaHeaderText: { fontSize: 9, fontWeight: 'bold', color: PDF_BRAND_RED },
 
-  photoCategoryLabel: {
-    fontSize: 8.5,
-    fontWeight: 'bold',
-    color: '#fff',
-    backgroundColor: PDF_BRAND_RED,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    marginBottom: 6,
-    marginTop: 10,
-  },
-  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photoBox: { width: 120, marginBottom: 8, borderWidth: 1, borderColor: '#ddd', padding: 3 },
   photo: { width: 112, height: 92, objectFit: 'cover' },
   photoPlaceholder: {
@@ -83,11 +49,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   photoPlaceholderText: { fontSize: 7, color: '#aaa' },
-  photoLabel: { fontSize: 7, marginTop: 3, textAlign: 'center', color: '#555' },
-
-  auditText: { fontSize: 7, color: '#999' },
-  issuedText: { fontSize: 7, color: '#999', marginTop: 2 },
-  footer: { position: 'absolute', bottom: 16, left: 28, right: 28, fontSize: 7, color: '#999', textAlign: 'right' },
 });
 
 const SEVERITY_COLORS: Record<Severity, string> = {

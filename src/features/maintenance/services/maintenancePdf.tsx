@@ -16,6 +16,7 @@ import { ensureFontsRegistered } from '@/lib/pdf/fonts';
 import { fetchImageAsDataUri } from '@/lib/pdf/fetchImage';
 import { PdfBrandLogo } from '@/lib/pdf/PdfBrandLogo';
 import { PDF_BRAND_RED } from '@/lib/pdf/brand';
+import { sharedPdfStyles } from '@/lib/pdf/sharedStyles';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
@@ -29,58 +30,18 @@ const ATTACHMENT_I18N_KEY: Record<MaintenanceAttachmentKind, string> = {
 };
 
 const styles = StyleSheet.create({
-  page: { padding: 28, fontFamily: 'Sarabun', fontSize: 9, color: '#1a1a1a' },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title: { fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: PDF_BRAND_RED },
-  titleRule: { borderBottomWidth: 2, borderColor: PDF_BRAND_RED, marginTop: 6, marginBottom: 10 },
-  subtitle: { fontSize: 9, color: '#666', marginBottom: 2 },
-  qr: { width: 56, height: 56 },
-  qrCaption: { fontSize: 6, color: '#999', textAlign: 'center', marginTop: 2, width: 56 },
-  badgeRow: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  ...sharedPdfStyles,
   badge: { fontSize: 8, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, color: '#fff', backgroundColor: '#555' },
   lockedBadge: { fontSize: 8, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, color: '#7a4a00', backgroundColor: '#fde9c8' },
 
   infoTable: { borderWidth: 1, borderColor: '#ccc', marginTop: 4 },
-  infoRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#e5e5e5' },
-  infoCellLabel: {
-    width: '17%',
-    backgroundColor: '#f3f3f3',
-    padding: 5,
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: '#444',
-    borderRightWidth: 1,
-    borderColor: '#e5e5e5',
-  },
-  infoCellValue: { width: '33%', padding: 5, fontSize: 8.5, borderRightWidth: 1, borderColor: '#e5e5e5' },
-  infoCellValueLast: { width: '33%', padding: 5, fontSize: 8.5 },
-  infoCellValueFull: { width: '83%', padding: 5, fontSize: 8.5 },
 
   section: { marginTop: 10, marginBottom: 4 },
-  sectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 4, color: PDF_BRAND_RED },
-  paragraph: { fontSize: 9, lineHeight: 1.4 },
-  link: { fontSize: 8.5, color: '#1a56db' },
 
-  photoCategoryLabel: {
-    fontSize: 8.5,
-    fontWeight: 'bold',
-    color: '#fff',
-    backgroundColor: PDF_BRAND_RED,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    marginBottom: 6,
-    marginTop: 10,
-  },
-  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   photoBox: { width: 150, marginBottom: 8, borderWidth: 1, borderColor: '#ddd', padding: 3 },
   photo: { width: 142, height: 110, objectFit: 'cover' },
   photoPlaceholder: { width: 142, height: 110, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa' },
   photoPlaceholderText: { fontSize: 7, color: '#aaa' },
-  photoLabel: { fontSize: 7, marginTop: 3, textAlign: 'center', color: '#555' },
-
-  auditText: { fontSize: 7, color: '#999' },
-  issuedText: { fontSize: 7, color: '#999', marginTop: 2 },
-  footer: { position: 'absolute', bottom: 16, left: 28, right: 28, fontSize: 7, color: '#999', textAlign: 'right' },
 });
 
 function fmt(v?: string | number | null): string {
@@ -258,8 +219,8 @@ function listCols(locale: Locale): { key: string; label: string; width: string; 
 }
 
 const listStyles = StyleSheet.create({
-  page: { padding: 28, fontFamily: 'Sarabun', fontSize: 9, color: '#1a1a1a' },
-  title: { fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: PDF_BRAND_RED },
+  page: sharedPdfStyles.page,
+  title: sharedPdfStyles.title,
   subtitle: { fontSize: 9, color: '#666', marginBottom: 8 },
   table: { width: '100%', borderWidth: 1, borderColor: '#ddd' },
   rowHeader: { flexDirection: 'row', backgroundColor: '#f3f3f3', borderBottomWidth: 1, borderColor: '#ccc' },

@@ -12,6 +12,12 @@ import DeleteButton from './delete-button';
 import PrintButton from './print-button';
 import RecordPrintView from './print-view';
 import { t, getServerLocale } from '@/lib/i18n/server';
+import PageHeader from '@/components/shared/layout/PageHeader';
+import StatusPill from '@/components/shared/status/StatusPill';
+import Card from '@/components/shared/layout/Card';
+import Timeline from '@/components/shared/timeline/Timeline';
+import TimelineItem from '@/components/shared/timeline/TimelineItem';
+import AttachmentGallery from '@/components/shared/attachments/AttachmentGallery';
 
 export default async function RecordDetailPage({ params }: { params: { jobId: string } }) {
   const session = await getSession();
@@ -41,55 +47,62 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
     <div className="max-w-4xl">
       <RecordPrintView record={record} dealerName={dealer?.full_name} qrDataUrl={qrDataUrl} recordUrl={recordUrl} />
       <div className="print:hidden space-y-6">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
+      <PageHeader
+        title={record.job_id}
+        titleClassName="text-2xl font-bold text-brand-dark"
+        className="flex items-start justify-between gap-3 flex-wrap"
+        backLink={
           <Link href="/records" className="text-sm text-gray-500 hover:underline print:hidden">
             ← {t('common.backToList')}
           </Link>
-          <div className="flex items-center gap-3 mt-1">
-            <h1 className="text-2xl font-bold text-brand-dark">{record.job_id}</h1>
-            <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+        }
+        titleAdornments={
+          <>
+            <StatusPill colorClassName="bg-gray-100 text-gray-700">
               {t(`mqrStatus.${record.status}`)}
-            </span>
+            </StatusPill>
             {record.severity && (
-              <span
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
+              <StatusPill
+                colorClassName={
                   record.severity === 'Critical'
                     ? 'bg-red-100 text-red-700'
                     : record.severity === 'Major'
                     ? 'bg-amber-100 text-amber-700'
                     : 'bg-blue-100 text-blue-700'
-                }`}
+                }
               >
                 {t(`severity.${record.severity}`)}
-              </span>
+              </StatusPill>
             )}
-          </div>
-          <p className="text-sm text-gray-500">{dealer?.full_name ?? record.dealer_id}</p>
-        </div>
-        <div className="flex items-center gap-2 print:hidden">
-          <PrintButton />
-          {allowExport && (
-            <>
-              <a
-                href={`/api/records/${encodedJobId}/export?format=xlsx`}
-                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.exportExcel')}
-              </a>
-              <a
-                href={`/api/records/${encodedJobId}/export?format=pdf`}
-                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.exportPdf')}
-              </a>
-            </>
-          )}
-          {allowDelete && <DeleteButton jobId={record.job_id} />}
-        </div>
-      </div>
+          </>
+        }
+        subtitle={dealer?.full_name ?? record.dealer_id}
+        actionsClassName="flex items-center gap-2 print:hidden"
+        actions={
+          <>
+            <PrintButton />
+            {allowExport && (
+              <>
+                <a
+                  href={`/api/records/${encodedJobId}/export?format=xlsx`}
+                  className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  {t('common.exportExcel')}
+                </a>
+                <a
+                  href={`/api/records/${encodedJobId}/export?format=pdf`}
+                  className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  {t('common.exportPdf')}
+                </a>
+              </>
+            )}
+            {allowDelete && <DeleteButton jobId={record.job_id} />}
+          </>
+        }
+      />
 
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <Card as="section" variant="flat" className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
           <div className="text-gray-400 text-xs">{t('pdf.colVehicle')}</div>
           <div>
@@ -165,10 +178,10 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             )}
           </div>
         )}
-      </section>
+      </Card>
 
       {(record.cause || record.damaged_parts || record.technician_action || record.corrective_action || record.preventive_action) && (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <Card as="section" variant="flat" className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <h2 className="font-semibold text-brand-dark sm:col-span-2">{t('pdf.rcaSectionTitle')}</h2>
           {record.cause && (
             <div>
@@ -200,11 +213,11 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
               <div className="whitespace-pre-wrap">{record.preventive_action}</div>
             </div>
           )}
-        </section>
+        </Card>
       )}
 
       {(record.photo_links?.length || record.video_link) && (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+        <Card as="section" variant="flat" className="p-5 space-y-4">
           <h2 className="font-semibold text-brand-dark">{t('recordDetail.photosVideosTitle')}</h2>
           {PHOTO_CATEGORIES.map((cat) => {
             const photos = (record.photo_links ?? []).filter((p) => p.category === cat.key);
@@ -213,14 +226,10 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             return (
               <div key={cat.key}>
                 <div className="text-xs text-gray-400 mb-2">{categoryLabel}</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {photos.map((p, i) => (
-                    <a key={i} href={p.url} target="_blank" className="block">
-                      <img src={p.url} alt={categoryLabel} className="rounded border border-gray-200 aspect-square object-cover" />
-                      <div className="text-xs text-gray-500 mt-1 truncate">{categoryLabel}</div>
-                    </a>
-                  ))}
-                </div>
+                <AttachmentGallery
+                  linkable
+                  items={photos.map((p, i) => ({ key: i, url: p.url, alt: categoryLabel, caption: categoryLabel }))}
+                />
               </div>
             );
           })}
@@ -242,11 +251,11 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
               </a>
             </div>
           )}
-        </section>
+        </Card>
       )}
 
       {otherHistory.length > 0 && (
-        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 print:hidden">
+        <Card as="section" variant="flat" className="p-5 print:hidden">
           <h2 className="font-semibold text-brand-dark mb-3">
             {t('recordDetail.vehicleRepairHistory', { count: String(otherHistory.length) })}
           </h2>
@@ -262,35 +271,32 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 print:hidden">
+      <Card as="section" variant="flat" className="p-5 print:hidden">
         <h2 className="font-semibold text-brand-dark mb-3">{t('recordDetail.updateStatusTitle')}</h2>
         {canUpdateStatus(session.role) ? (
           <UpdateForm record={record} role={session.role} />
         ) : (
           <p className="text-sm text-gray-500">{t('recordDetail.noPermissionUpdateStatus')}</p>
         )}
-      </section>
+      </Card>
 
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 print:hidden">
+      <Card as="section" variant="flat" className="p-5 print:hidden">
         <h2 className="font-semibold text-brand-dark text-sm mb-3">{t('common.auditTrail')}</h2>
         {auditLog.length === 0 ? (
           <p className="text-sm text-gray-400">{t('recordDetail.noAuditHistory')}</p>
         ) : (
-          <ol className="space-y-2 text-sm">
+          <Timeline className="space-y-2 text-sm">
             {auditLog.map((entry) => (
-              <li key={entry.id} className="border-b border-gray-50 pb-2 last:border-0 last:pb-0">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-gray-400">{formatDateTimeLocalized(entry.performedAt, locale)}</span>
-                    <span className="rounded-full bg-brand-dark/5 px-2 py-0.5 text-xs font-medium text-brand-dark">
-                      {t(`auditEvent.${entry.eventType}`)}
-                    </span>
-                  </div>
-                  <span className="text-xs text-gray-500">{t('vehicle360.byUser', { user: entry.performedBy })}</span>
-                </div>
+              <TimelineItem
+                key={entry.id}
+                liClassName="border-b border-gray-50 pb-2 last:border-0 last:pb-0"
+                date={formatDateTimeLocalized(entry.performedAt, locale)}
+                badge={t(`auditEvent.${entry.eventType}`)}
+                trailing={<span className="text-xs text-gray-500">{t('vehicle360.byUser', { user: entry.performedBy })}</span>}
+              >
                 {(entry.fieldName || entry.oldValue !== null || entry.newValue !== null) && (
                   <p className="mt-1 text-gray-700">
                     {entry.fieldName && <span className="text-gray-500">{entry.fieldName}: </span>}
@@ -298,19 +304,19 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
                     {entry.newValue !== null && <span>{entry.newValue}</span>}
                   </p>
                 )}
-              </li>
+              </TimelineItem>
             ))}
-          </ol>
+          </Timeline>
         )}
-      </section>
+      </Card>
 
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-xs text-gray-500 space-y-1">
+      <Card as="section" variant="flat" className="p-5 text-xs text-gray-500 space-y-1">
         <h2 className="font-semibold text-brand-dark text-sm mb-2">{t('recordDetail.recordMetadataTitle')}</h2>
         <div>{t('pdf.createdByAt', { by: record.created_by ?? record.user_name ?? '-', at: formatDateTimeLocalized(record.created_at, locale) })}</div>
         {record.updated_by && (
           <div>{t('pdf.updatedByAt', { by: record.updated_by, at: formatDateTimeLocalized(record.updated_at, locale) })}</div>
         )}
-      </section>
+      </Card>
       </div>
     </div>
   );

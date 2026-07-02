@@ -11,24 +11,28 @@ import {
   StatusBarChart,
   AgingBarChart,
 } from './charts';
+import PageHeader from '@/components/shared/layout/PageHeader';
+import StatusPill from '@/components/shared/status/StatusPill';
+import Card from '@/components/shared/layout/Card';
+import SearchToolbar from '@/components/shared/layout/SearchToolbar';
 
 function KpiCard({ label, value, accent, sub }: { label: string; value: number | string; accent?: string; sub?: string }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <Card variant="flat" className="p-5">
       <div className="text-sm text-gray-500">{label}</div>
       <div className={`text-3xl font-bold mt-1 ${accent ?? 'text-brand-dark'}`}>{value}</div>
       {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
-    </div>
+    </Card>
   );
 }
 
 function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <Card variant="flat" className="p-5">
       <h2 className="font-semibold text-brand-dark mb-1">{title}</h2>
       {note && <p className="text-xs text-gray-400 mb-2">{note}</p>}
       {children}
-    </div>
+    </Card>
   );
 }
 
@@ -89,13 +93,22 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-dark">หน้าหลัก</h1>
-        <p className="text-sm text-gray-500">ภาพรวมคุณภาพและสถานะงานซ่อมในระยะรับประกัน</p>
-      </div>
+      <PageHeader
+        title="หน้าหลัก"
+        titleClassName="text-2xl font-bold text-brand-dark"
+        subtitle="ภาพรวมคุณภาพและสถานะงานซ่อมในระยะรับประกัน"
+        className="block"
+      />
 
       {/* ---------- Filter bar ---------- */}
-      <form className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap gap-3 items-end">
+      <SearchToolbar
+        cardVariant="flat"
+        cardClassName="p-4 flex flex-wrap gap-3 items-end"
+        filterLabel="กรอง"
+        filterButtonClassName="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50"
+        clearHref={hasFilters ? '/dashboard' : undefined}
+        clearLabel="ล้างตัวกรอง"
+      >
         <div>
           <label className="block text-xs font-medium mb-1">ปี (พ.ศ.)</label>
           <select name="year" defaultValue={searchParams.year ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
@@ -155,13 +168,7 @@ export default async function DashboardPage({
             </select>
           </div>
         )}
-        <button className="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50">กรอง</button>
-        {hasFilters && (
-          <Link href="/dashboard" className="text-sm text-gray-500 underline">
-            ล้างตัวกรอง
-          </Link>
-        )}
-      </form>
+      </SearchToolbar>
 
       {/* ---------- Current backlog (always "right now", not affected by year/month filter) ---------- */}
       <div>
@@ -220,9 +227,9 @@ export default async function DashboardPage({
                       <td className="py-1.5 pr-3 text-gray-600">{STATUS_LABELS[j.status as StatusValue] ?? j.status}</td>
                       <td className="py-1.5 pr-3">
                         {j.severity ? (
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${severityBadgeClass(j.severity)}`}>
+                          <StatusPill className="px-2 py-0.5 rounded-full text-xs" colorClassName={severityBadgeClass(j.severity)}>
                             {SEVERITY_LABELS[j.severity as Severity] ?? j.severity}
-                          </span>
+                          </StatusPill>
                         ) : (
                           '-'
                         )}
