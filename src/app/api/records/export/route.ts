@@ -4,6 +4,7 @@ import { listRecords } from '@/lib/db';
 import { canExport } from '@/lib/scope';
 import { buildRecordsWorkbook } from '@/lib/exportExcel';
 import { renderRecordsListPdf } from '@/lib/exportPdf';
+import { buildRecordsCsv } from '@/lib/exportCsv';
 
 export const runtime = 'nodejs';
 
@@ -18,7 +19,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams, origin } = new URL(req.url);
-    const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
+    const formatParam = searchParams.get('format');
+    const format = formatParam === 'pdf' ? 'pdf' : formatParam === 'csv' ? 'csv' : 'xlsx';
     const records = await listRecords(session, {
       status: searchParams.get('status') ?? undefined,
       q: searchParams.get('q') ?? undefined,
@@ -34,6 +36,16 @@ export async function GET(req: NextRequest) {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="${filenameBase}.pdf"`,
+        },
+      });
+    }
+
+    if (format === 'csv') {
+      const buf = buildRecordsCsv(records);
+      return new NextResponse(new Uint8Array(buf), {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filenameBase}.csv"`,
         },
       });
     }

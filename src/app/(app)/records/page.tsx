@@ -59,7 +59,7 @@ export default async function RecordsPage({
   if (searchParams.dealerId) exportQuery.set('dealerId', searchParams.dealerId);
   if (searchParams.branchId) exportQuery.set('branchId', searchParams.branchId);
   const exportQs = exportQuery.toString();
-  const exportHref = (format: 'xlsx' | 'pdf') =>
+  const exportHref = (format: 'xlsx' | 'pdf' | 'csv') =>
     `/api/records/export?format=${format}${exportQs ? `&${exportQs}` : ''}`;
 
   const pageHref = (targetPage: number) => {
@@ -87,6 +87,9 @@ export default async function RecordsPage({
               </a>
               <a href={exportHref('pdf')} className="btn-secondary">
                 Export PDF
+              </a>
+              <a href={exportHref('csv')} className="btn-secondary">
+                Export CSV
               </a>
             </>
           )}
