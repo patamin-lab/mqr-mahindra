@@ -76,8 +76,10 @@ regression before it reaches users.
 
 ## 6. Testing (partial — PM Record only, not yet repo-wide)
 
-Vitest was introduced for the PM Record module (`src/features/pm-record/`,
-`src/app/api/pm-records/`) — unit tests for the service/repository layers
+Vitest was introduced for the PM Record module (technical name
+`maintenance` since the Architecture Refactoring pass —
+`src/features/maintenance/`, `src/app/api/pm-records/`) — unit tests for
+the service/repository layers
 plus API integration tests, all run in CI. No other module in this
 repository has automated test coverage yet (still confirmed absent for
 `records`, `admin/*`, `report`, etc.); verification there remains manual:

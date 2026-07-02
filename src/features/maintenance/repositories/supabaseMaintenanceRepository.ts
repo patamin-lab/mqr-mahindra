@@ -1,20 +1,21 @@
 /**
- * PM Record — Supabase-backed repository implementation.
+ * Maintenance — Supabase-backed repository implementation.
  *
  * Reuses the existing server-only client from `@/lib/supabase` (same
  * pattern every other table in `src/lib/db.ts` uses) rather than creating
- * a second Supabase client/connection.
+ * a second Supabase client/connection. Table name (`pm_records`) is
+ * unchanged - Architecture Refactoring's backward-compatibility rule.
  */
 import { getSupabase } from '@/lib/supabase';
-import { PmRecordRepository, PmRecordFilter } from './repository';
+import { MaintenanceRepository, MaintenanceFilter } from './maintenanceRepository';
 import {
-  PmDuplicateCheckParams,
-  PmHistoryFilter,
-  PmHistoryResult,
-  PmRecord,
-  PmRecordCreateInput,
-  PmRecordUpdateInput,
-} from './types';
+  MaintenanceDuplicateCheckParams,
+  MaintenanceHistoryFilter,
+  MaintenanceHistoryResult,
+  MaintenanceRecord,
+  MaintenanceRecordCreateInput,
+  MaintenanceRecordUpdateInput,
+} from '../types';
 
 /** Universal-search columns (Phase 4a) - all GIN-trigram-indexed, see the
  *  align_pm_records_history_search_support migration. */
@@ -30,12 +31,12 @@ const HISTORY_SEARCH_COLUMNS = [
   'notes',
 ] as const;
 
-export class SupabasePmRecordRepository implements PmRecordRepository {
+export class SupabaseMaintenanceRepository implements MaintenanceRepository {
   private readonly client = getSupabase();
 
   private readonly table = 'pm_records';
 
-  async list(filter?: PmRecordFilter): Promise<PmRecord[]> {
+  async list(filter?: MaintenanceFilter): Promise<MaintenanceRecord[]> {
     let query = this.client.from(this.table).select('*').order('created_at', { ascending: false });
     query = query.eq('record_status', 'Active');
 
@@ -51,10 +52,10 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
 
     const { data, error } = await query;
     if (error) throw error;
-    return (data ?? []) as PmRecord[];
+    return (data ?? []) as MaintenanceRecord[];
   }
 
-  async getById(id: string): Promise<PmRecord | null> {
+  async getById(id: string): Promise<MaintenanceRecord | null> {
     const { data, error } = await this.client
       .from(this.table)
       .select('*')
@@ -62,15 +63,15 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       .maybeSingle();
     if (error) throw error;
     if (!data || data.record_status === 'Deleted') return null;
-    return data as PmRecord;
+    return data as MaintenanceRecord;
   }
 
   /** Generates the business-facing PM number PM-[DealerCode]-[Year]-[Running],
    *  reusing the existing job_seq table / next_job_seq() RPC that QIR's job_id
    *  already uses - it's already a generic (dealer_id, year) -> atomic
    *  increment counter; QIR just calls it with a global sentinel dealer_id,
-   *  while PM Record calls it with the real dealer code so each dealer gets
-   *  its own running sequence that resets every year, per spec. */
+   *  while Maintenance calls it with the real dealer code so each dealer
+   *  gets its own running sequence that resets every year, per spec. */
   private async nextPmNumber(dealerId: string): Promise<string> {
     const year = String(new Date().getFullYear());
     const { data, error } = await this.client.rpc('next_job_seq', {
@@ -86,7 +87,7 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
    *  next_pm_due date server-side (never trusts client-supplied names -
    *  same "zero-leakage" principle already applied to dealer_id). Runs in
    *  parallel with pm_number generation since none depend on each other. */
-  private async resolveSnapshotFields(input: PmRecordCreateInput): Promise<{
+  private async resolveSnapshotFields(input: MaintenanceRecordCreateInput): Promise<{
     technicianName: string | null;
     branchName: string | null;
     nextPmDue: string | null;
@@ -121,7 +122,7 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
     };
   }
 
-  async create(input: PmRecordCreateInput, actor: { username: string }): Promise<PmRecord> {
+  async create(input: MaintenanceRecordCreateInput, actor: { username: string }): Promise<MaintenanceRecord> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const [pmNumber, snapshot] = await Promise.all([
@@ -167,10 +168,10 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       .select('*')
       .single();
     if (error) throw error;
-    return data as PmRecord;
+    return data as MaintenanceRecord;
   }
 
-  async update(id: string, input: PmRecordUpdateInput, actor: { username: string }): Promise<PmRecord> {
+  async update(id: string, input: MaintenanceRecordUpdateInput, actor: { username: string }): Promise<MaintenanceRecord> {
     const updatePayload: Record<string, unknown> = {
       updated_by: actor.username,
       updated_at: new Date().toISOString(),
@@ -203,7 +204,7 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       .select('*')
       .single();
     if (error) throw error;
-    return data as PmRecord;
+    return data as MaintenanceRecord;
   }
 
   async delete(id: string, actor: { username: string }): Promise<void> {
@@ -219,7 +220,7 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
     if (error) throw error;
   }
 
-  async findDuplicate(params: PmDuplicateCheckParams): Promise<PmRecord | null> {
+  async findDuplicate(params: MaintenanceDuplicateCheckParams): Promise<MaintenanceRecord | null> {
     const { data, error } = await this.client
       .from(this.table)
       .select('*')
@@ -229,10 +230,10 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
       .eq('performed_date', params.performedDate)
       .maybeSingle();
     if (error) throw error;
-    return (data as PmRecord) ?? null;
+    return (data as MaintenanceRecord) ?? null;
   }
 
-  async listHistory(filter: PmHistoryFilter): Promise<PmHistoryResult> {
+  async listHistory(filter: MaintenanceHistoryFilter): Promise<MaintenanceHistoryResult> {
     const page = Math.max(filter.page, 1);
     const pageSize = Math.min(Math.max(filter.pageSize, 1), 200);
     const from = (page - 1) * pageSize;
@@ -281,6 +282,6 @@ export class SupabasePmRecordRepository implements PmRecordRepository {
 
     const { data, error, count } = await query;
     if (error) throw error;
-    return { data: (data ?? []) as PmRecord[], total: count ?? 0 };
+    return { data: (data ?? []) as MaintenanceRecord[], total: count ?? 0 };
   }
 }

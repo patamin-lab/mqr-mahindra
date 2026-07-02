@@ -2,8 +2,9 @@
  * VehicleHealthService — the Vehicle Health Engine (Phase 5b).
  *
  * Deterministic scoring only - no AI, no ML, no external calls. Pure
- * function of the inputs the caller supplies (`VehicleSummaryService`
- * assembles them from Maintenance Due + MQR history) - reusable and
+ * function of the inputs the caller supplies (`vehicle/service.ts`'s
+ * `getVehicleSummary()` assembles them from each module's
+ * `VehicleSummaryProvider` contribution) - reusable and
  * trivially testable.
  */
 import { HealthStatus, VehicleHealthInput, VehicleHealthResult } from './types';

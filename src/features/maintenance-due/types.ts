@@ -31,7 +31,7 @@ export interface MaintenanceDueInput {
   currentHourMeter: number | null;
   currentDate: string;
   /** This vehicle's Product Family's assigned Maintenance Program stages -
-   *  resolved by the caller (`VehicleSummaryService`), never by this
+   *  resolved by the caller (`MaintenanceSummaryProvider`), never by this
    *  service itself, so it stays a pure calculator. */
   stages: MaintenanceProgramStage[];
   history: MaintenanceHistoryEntry[];

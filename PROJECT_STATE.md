@@ -508,6 +508,71 @@ What was built (all three new tables applied via confirmed live migrations):
   only, never computes Due/Health/Compliance itself.
 - 26 new tests (Due Engine + Health Engine) - 140/140 total passing.
 
+Architecture Refactoring — Maintenance Domain Standardization (complete,
+this commit)
+
+Purely a technical reorganization - "no new business functionality," per
+spec, and confirmed with the user beforehand: only the Maintenance
+(formerly `pm-record`) module and the Vehicle 360 aggregation layer were
+touched; MQR, Dashboard, master-data admin CRUD, and `vehicle-event` (the
+Phase 4.5 platform framework) are untouched, since re-homing any of those
+is separately tracked in `docs/ROADMAP.md`'s own future Phase 2/3.
+Business-facing wording is unchanged everywhere ("PM Record"/"PM
+History"/"PM Interval" in the UI); only the technical/code layer renamed.
+Database table (`pm_records`) and API routes (`/api/pm-records/*`,
+`/pm-records/*` pages) are unchanged - zero destructive changes,
+zero URL breaks.
+
+What changed:
+- `src/features/pm-record/` -> `src/features/maintenance/`, restructured
+  into `types/`, `schemas/`, `repositories/`, `services/`, `utils/`,
+  `components/`, `tests/` subfolders. Renamed: `PmRecordService` ->
+  `MaintenanceService`, `PmRecordRepository`/`SupabasePmRecordRepository`
+  -> `MaintenanceRepository`/`SupabaseMaintenanceRepository`,
+  `fetchPmRecord()` -> `fetchMaintenance()`, `PmRecord` ->
+  `MaintenanceRecord` (+ every `Pm*` type - `MaintenanceRecordCreateInput`/
+  `UpdateInput`, `MaintenanceHistoryFilter`/`Result`/`SortField`/`SortDir`,
+  `MaintenanceDuplicateCheckParams`), UI components (`MaintenanceSearch`/
+  `MaintenanceCreateForm`/`MaintenanceHistory`/`MaintenanceGpsDetail`/
+  `MaintenanceForm`/`MaintenanceDeleteButton`). Added `MaintenanceStage`/
+  `MaintenanceProgram`/`MaintenanceAttachment` types per spec's "Types"
+  list (the latter derived from the existing 3 flat photo-url columns via
+  `maintenanceAttachmentsOf()`, not a storage restructure).
+- `src/features/vehicle-360/` -> `src/features/vehicle/`. Introduced the
+  Vehicle Summary Architecture: `VehicleSummaryProvider` interface
+  (`vehicle/types.ts`) - "Vehicle360 must never directly depend on
+  business repositories... each module implements its own provider."
+  `MaintenanceSummaryProvider` (`maintenance/providers/`) and
+  `MqrSummaryProvider` (new, minimal `src/features/mqr/providers/` -
+  the MQR module itself was NOT moved; this one small adapter file reads
+  through the existing, unmodified `getVehicleHistory()`) are registered in
+  `vehicle/providers/registry.ts` - the only file a future module
+  (PDI/NTR/Campaign/Parts Request/...) needs to touch to contribute to
+  Vehicle 360.
+- The old monolithic `VehicleSummaryService` (Phase 5b) was retired -
+  its logic split across the two providers above plus a thinner
+  `vehicle/service.ts`, which now: resolves only core vehicle identity
+  itself (dealer/branch/model - nobody's business data), collects each
+  provider's contribution via a generic merge (first provider in registry
+  order to set a non-null field wins), and computes Health Score itself
+  (the one genuinely cross-module calculation, needing both Maintenance's
+  and MQR's signals - not owned by either provider alone).
+  `vehicle/service.ts`'s `getVehicleTimeline()` is byte-for-byte unchanged
+  from Phase 5a.
+- One accepted, minor behavior nuance from this restructuring: `ownerName`/
+  `ownerPhone` resolution changed from "whichever module's record is
+  chronologically newer" (Phase 5a/5b) to "whichever registered provider
+  runs first and has a non-null value" (Maintenance, then MQR) - the
+  provider abstraction no longer gives the aggregator visibility into raw
+  record dates across modules. Flagged here rather than silently changed.
+- `docs/DEVELOPMENT_GUIDE.md` and `docs/NAMING_STANDARD.md` updated to
+  reference the new `maintenance` technical name where they cited the old
+  `pm-record` path; `AI_CONTEXT.md` needed no changes (it only ever used
+  the business term "PM Record", never a technical path).
+- Zero test changes needed beyond updating import paths/mock targets to
+  match the moved files - all business logic and assertions are identical.
+  140/140 tests still passing.
+
 Not started (Phase 5c, Phase 4b/4c):
 - Phase 5c: Service Intelligence Dashboard (Executive/Dealer/Technician/
   MQR/Campaign KPI sections) + Global Search (serial/engine/PM number/MQR
@@ -531,9 +596,10 @@ Candidate next tasks (unscheduled, pending explicit direction):
 - Wire PM Record's create() and MQR's create()/status-close to actually
   call `VehicleEventPublisher` (Phase 4.5 built the framework but
   deliberately didn't wire any real call-site), then migrate Vehicle 360's
-  timeline (Phase 5a) to read from `vehicle_events` instead of its current
-  registry.ts live-aggregation approach - two separate, explicit decisions,
-  not a silent side effect of a future phase
+  timeline (`src/features/vehicle/registry.ts`, renamed from
+  `vehicle-360/` in the Architecture Refactoring pass) to read from
+  `vehicle_events` instead of its current live-aggregation approach - two
+  separate, explicit decisions, not a silent side effect of a future phase
 - Wire the new `pendingCampaignCount`/campaign scoring rules to a real
   Campaign module once one exists - Vehicle Health Engine already has the
   input slot, it's just always 0 today

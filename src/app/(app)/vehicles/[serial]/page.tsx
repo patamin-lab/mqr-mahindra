@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { getVehicleTimeline } from '@/features/vehicle-360/service';
-import { VEHICLE_EVENT_MODULE_LABEL, VehicleEvent } from '@/features/vehicle-360/types';
-import { VehicleSummaryService } from '@/features/vehicle-summary/service';
+import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
+import { VEHICLE_EVENT_MODULE_LABEL, VehicleEvent } from '@/features/vehicle/types';
 import type { MaintenanceDueColor } from '@/features/maintenance-due/types';
 import type { HealthStatus } from '@/features/vehicle-health/types';
 
@@ -33,15 +32,13 @@ const HEALTH_STATUS_CLASS: Record<HealthStatus, string> = {
   critical: 'bg-red-100 text-red-700',
 };
 
-const vehicleSummaryService = new VehicleSummaryService();
-
 export default async function Vehicle360Page({ params }: RouteParams) {
   const serial = decodeURIComponent(params.serial);
   const session = await getSession();
   if (!session) return null;
 
   const [summary, timeline] = await Promise.all([
-    vehicleSummaryService.getSummary(serial, session),
+    getVehicleSummary(serial, session),
     getVehicleTimeline(serial, session),
   ]);
 

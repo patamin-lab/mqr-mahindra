@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
-import { fetchPmRecord } from '@/features/pm-record/fetchPmRecord';
-import PmRecordForm from '@/features/pm-record/pm-record-form';
+import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
+import MaintenanceForm from '@/features/maintenance/components/maintenance-form';
 
 interface RouteParams {
   params: {
@@ -16,7 +16,7 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
   const session = await getSession();
   if (!session) return null;
 
-  const result = await fetchPmRecord(params.id);
+  const result = await fetchMaintenance(params.id);
 
   if ('notFound' in result && result.notFound) {
     return (
@@ -95,7 +95,7 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
         </Link>
       </div>
 
-      <PmRecordForm
+      <MaintenanceForm
         mode="edit"
         recordId={record.id}
         showDealerField={seesAllDealers(session.role)}

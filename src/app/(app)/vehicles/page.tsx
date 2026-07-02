@@ -1,4 +1,4 @@
-import VehicleSearchBox from '@/features/vehicle-360/vehicle-search-box';
+import VehicleSearchBox from '@/features/vehicle/vehicle-search-box';
 
 export default function VehiclesIndexPage() {
   return (

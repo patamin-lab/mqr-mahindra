@@ -8,7 +8,8 @@ interface QueryResult {
 
 /**
  * Fake Supabase query builder - same shape as
- * `src/features/pm-record/supabaseRepository.test.ts`'s harness. Deliberately
+ * `src/features/maintenance/tests/supabaseMaintenanceRepository.test.ts`'s
+ * harness. Deliberately
  * has no `.delete()` method: if the repository ever called a real hard
  * delete instead of a soft-delete `update()`, this mock would throw
  * "not a function" and fail the test loudly.

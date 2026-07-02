@@ -27,7 +27,7 @@ import { swalErrorToast } from '@/lib/swal';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
-import type { PmRecord, PmHistorySortField, PmHistorySortDir } from './types';
+import type { MaintenanceRecord, MaintenanceHistorySortField, MaintenanceHistorySortDir } from '../types';
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -138,11 +138,11 @@ interface SavedFilters {
   branchId: string;
   dateFrom: string;
   dateTo: string;
-  sortField: PmHistorySortField;
-  sortDir: PmHistorySortDir;
+  sortField: MaintenanceHistorySortField;
+  sortDir: MaintenanceHistorySortDir;
 }
 
-const columnHelper = createColumnHelper<PmRecord>();
+const columnHelper = createColumnHelper<MaintenanceRecord>();
 
 interface Props {
   dealers: Dealer[];
@@ -151,7 +151,7 @@ interface Props {
   username: string;
 }
 
-export default function PmRecordHistory({ dealers, showDealerField, defaultDealerId, username }: Props) {
+export default function MaintenanceHistory({ dealers, showDealerField, defaultDealerId, username }: Props) {
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey | null>(null);
   const [search, setSearch] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -164,7 +164,7 @@ export default function PmRecordHistory({ dealers, showDealerField, defaultDeale
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [pmIntervals, setPmIntervals] = useState<PmInterval[]>([]);
 
-  const [data, setData] = useState<PmRecord[]>([]);
+  const [data, setData] = useState<MaintenanceRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
@@ -280,7 +280,7 @@ export default function PmRecordHistory({ dealers, showDealerField, defaultDeale
         params.set('sortDir', sort.desc ? 'desc' : 'asc');
       }
 
-      const json = await fetchJson<{ ok: boolean; data: PmRecord[]; total: number }>(
+      const json = await fetchJson<{ ok: boolean; data: MaintenanceRecord[]; total: number }>(
         `/api/pm-records/history?${params.toString()}`
       );
       setData(json.data ?? []);
@@ -314,7 +314,7 @@ export default function PmRecordHistory({ dealers, showDealerField, defaultDeale
       branchId: filters.branchId,
       dateFrom: filters.dateFrom,
       dateTo: filters.dateTo,
-      sortField: (sort?.id as PmHistorySortField) ?? 'performed_date',
+      sortField: (sort?.id as MaintenanceHistorySortField) ?? 'performed_date',
       sortDir: sort?.desc === false ? 'asc' : 'desc',
     };
     window.localStorage.setItem(savedFiltersKey(username), JSON.stringify(toSave));

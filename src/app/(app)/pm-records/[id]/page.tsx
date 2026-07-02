@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { fetchPmRecord } from '@/features/pm-record/fetchPmRecord';
-import PmRecordDeleteButton from './delete-button';
-import PmRecordGpsDetail from '@/features/pm-record/pm-record-gps-detail';
+import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
+import MaintenanceDeleteButton from './delete-button';
+import MaintenanceGpsDetail from '@/features/maintenance/components/maintenance-gps-detail';
 
 interface RouteParams {
   params: {
@@ -12,7 +12,7 @@ interface RouteParams {
 export const dynamic = 'force-dynamic';
 
 export default async function PmRecordDetailPage({ params }: RouteParams) {
-  const result = await fetchPmRecord(params.id);
+  const result = await fetchMaintenance(params.id);
 
   if ('notFound' in result && result.notFound) {
     return (
@@ -93,7 +93,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <Link href="/pm-records" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
             Back to List
           </Link>
-          <PmRecordDeleteButton id={record.id} />
+          <MaintenanceDeleteButton id={record.id} />
         </div>
       </div>
 
@@ -133,7 +133,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
         </div>
 
         {record.latitude !== null && record.longitude !== null && (
-          <PmRecordGpsDetail
+          <MaintenanceGpsDetail
             latitude={record.latitude}
             longitude={record.longitude}
             accuracy={record.gps_accuracy}

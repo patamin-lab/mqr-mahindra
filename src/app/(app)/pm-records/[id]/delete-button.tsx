@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/swal';
 
-export default function PmRecordDeleteButton({ id }: { id: string }) {
+export default function MaintenanceDeleteButton({ id }: { id: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 

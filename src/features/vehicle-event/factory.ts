@@ -13,7 +13,7 @@ const vehicleLookup: VehicleLookup = {
     // null dealerId = no dealer-scope narrowing here; resolving "does this
     // serial exist at all" is a lookup, not a scoped business read - the
     // caller (API route) applies its own dealer scope on the event query,
-    // same separation PmRecordSearch already relies on for vehicle search.
+    // same separation MaintenanceSearch already relies on for vehicle search.
     const vehicle = await getVehicleBySerial(serial, null);
     return vehicle?.id ?? null;
   },

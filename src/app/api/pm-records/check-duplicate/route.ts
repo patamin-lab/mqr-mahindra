@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { SupabasePmRecordRepository } from '@/features/pm-record/supabaseRepository';
-import { PmRecordService } from '@/features/pm-record/service';
+import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
+import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
 
 /** Pre-save duplicate check (same tractor + PM interval + performed date) -
  *  a warning only, never a hard block; the client decides whether to show
@@ -23,8 +23,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const repository = new SupabasePmRecordRepository();
-  const service = new PmRecordService(repository);
+  const repository = new SupabaseMaintenanceRepository();
+  const service = new MaintenanceService(repository);
 
   try {
     const existing = await service.findDuplicate({ serial, pmIntervalId, performedDate });

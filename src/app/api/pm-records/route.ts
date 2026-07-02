@@ -3,11 +3,11 @@ import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
 import { getDealer } from '@/lib/db';
 import { relocatePendingFiles } from '@/lib/googleDrive';
-import { SupabasePmRecordRepository } from '@/features/pm-record/supabaseRepository';
-import { PmRecordService } from '@/features/pm-record/service';
-import { isNonEmptyString, parseWithSchema, ValidationError } from '@/features/pm-record/validation';
-import { PmRecordCreateBodySchema, PmRecordCreateBody } from '@/features/pm-record/schemas';
-import { PmRecordCreateInput } from '@/features/pm-record/types';
+import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
+import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
+import { isNonEmptyString, parseWithSchema, ValidationError } from '@/features/maintenance/utils/validation';
+import { MaintenanceRecordCreateBodySchema, MaintenanceRecordCreateBody } from '@/features/maintenance/schemas';
+import { MaintenanceRecordCreateInput } from '@/features/maintenance/types';
 
 export async function GET() {
   const session = await getSession();
@@ -18,8 +18,8 @@ export async function GET() {
     );
   }
 
-  const repository = new SupabasePmRecordRepository();
-  const service = new PmRecordService(repository);
+  const repository = new SupabaseMaintenanceRepository();
+  const service = new MaintenanceService(repository);
 
   try {
     const data = await service.list();
@@ -65,9 +65,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let parsedBody: PmRecordCreateBody;
+  let parsedBody: MaintenanceRecordCreateBody;
   try {
-    parsedBody = parseWithSchema<PmRecordCreateBody>(PmRecordCreateBodySchema, body);
+    parsedBody = parseWithSchema<MaintenanceRecordCreateBody>(MaintenanceRecordCreateBodySchema, body);
   } catch (error) {
     if (error instanceof ValidationError) {
       return NextResponse.json(
@@ -78,13 +78,13 @@ export async function POST(req: NextRequest) {
     throw error;
   }
 
-  const input: PmRecordCreateInput = {
+  const input: MaintenanceRecordCreateInput = {
     dealer_id: dealerId,
     ...parsedBody,
   };
 
-  const repository = new SupabasePmRecordRepository();
-  const service = new PmRecordService(repository);
+  const repository = new SupabaseMaintenanceRepository();
+  const service = new MaintenanceService(repository);
 
   try {
     const record = await service.create(input, { username: session.username });

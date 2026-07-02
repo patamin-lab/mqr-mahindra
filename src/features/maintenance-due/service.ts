@@ -5,7 +5,7 @@
  * (hour-based, month-based, or combined), remaining hours/days, status, and
  * Maintenance Compliance from the Maintenance Program stages + maintenance
  * history the caller supplies. Never touches Supabase, never resolves
- * Product Family itself (that's `VehicleSummaryService`'s job) - keeps this
+ * Product Family itself (that's `MaintenanceSummaryProvider`'s job) - keeps this
  * service a pure, easily-testable calculator, reusable by any future
  * consumer (Dashboard, telematics-driven recalculation, etc.).
  */

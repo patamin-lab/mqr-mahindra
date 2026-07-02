@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PmRecordService } from './service';
-import type { PmRecordRepository } from './repository';
-import type { PmRecord, PmRecordCreateInput, PmRecordUpdateInput } from './types';
+import { MaintenanceService } from '../services/maintenanceService';
+import type { MaintenanceRepository } from '../repositories/maintenanceRepository';
+import type { MaintenanceRecord, MaintenanceRecordCreateInput, MaintenanceRecordUpdateInput } from '../types';
 
-function makeRecord(overrides: Partial<PmRecord> = {}): PmRecord {
+function makeRecord(overrides: Partial<MaintenanceRecord> = {}): MaintenanceRecord {
   return {
     id: 'rec-1',
     dealer_id: 'D1',
@@ -40,7 +40,7 @@ function makeRecord(overrides: Partial<PmRecord> = {}): PmRecord {
   };
 }
 
-function makeMockRepository(): PmRecordRepository {
+function makeMockRepository(): MaintenanceRepository {
   return {
     list: vi.fn(),
     getById: vi.fn(),
@@ -52,14 +52,14 @@ function makeMockRepository(): PmRecordRepository {
   };
 }
 
-describe('PmRecordService', () => {
-  let repository: PmRecordRepository;
-  let service: PmRecordService;
+describe('MaintenanceService', () => {
+  let repository: MaintenanceRepository;
+  let service: MaintenanceService;
   const actor = { username: 'alice' };
 
   beforeEach(() => {
     repository = makeMockRepository();
-    service = new PmRecordService(repository);
+    service = new MaintenanceService(repository);
   });
 
   describe('list', () => {
@@ -104,7 +104,7 @@ describe('PmRecordService', () => {
   });
 
   describe('create', () => {
-    const input: PmRecordCreateInput = {
+    const input: MaintenanceRecordCreateInput = {
       dealer_id: 'D1',
       branch_id: null,
       serial: 'SN-1',
@@ -142,7 +142,7 @@ describe('PmRecordService', () => {
   });
 
   describe('update', () => {
-    const input: PmRecordUpdateInput = { status: 'Completed' };
+    const input: MaintenanceRecordUpdateInput = { status: 'Completed' };
 
     it('delegates to repository.update with the given id, input, and actor', async () => {
       const updated = makeRecord({ status: 'Completed' });

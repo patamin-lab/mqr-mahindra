@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
-import { SupabasePmRecordRepository } from '@/features/pm-record/supabaseRepository';
-import { PmRecordService } from '@/features/pm-record/service';
-import { PmHistoryFilter, PmHistorySortDir, PmHistorySortField } from '@/features/pm-record/types';
+import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
+import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
+import { MaintenanceHistoryFilter, MaintenanceHistorySortDir, MaintenanceHistorySortField } from '@/features/maintenance/types';
 
-const SORT_FIELDS: PmHistorySortField[] = ['performed_date', 'pm_number', 'hour_meter', 'created_at'];
+const SORT_FIELDS: MaintenanceHistorySortField[] = ['performed_date', 'pm_number', 'hour_meter', 'created_at'];
 
 function numberOrNull(value: string | null): number | null {
   if (value === null || value === '') return null;
@@ -36,13 +36,13 @@ export async function GET(req: NextRequest) {
   const branchId = seesAllDealers(session.role) ? requestedBranchId : requestedBranchId;
 
   const sortFieldParam = searchParams.get('sortField');
-  const sortField = SORT_FIELDS.includes(sortFieldParam as PmHistorySortField)
-    ? (sortFieldParam as PmHistorySortField)
+  const sortField = SORT_FIELDS.includes(sortFieldParam as MaintenanceHistorySortField)
+    ? (sortFieldParam as MaintenanceHistorySortField)
     : undefined;
   const sortDirParam = searchParams.get('sortDir');
-  const sortDir: PmHistorySortDir | undefined = sortDirParam === 'asc' || sortDirParam === 'desc' ? sortDirParam : undefined;
+  const sortDir: MaintenanceHistorySortDir | undefined = sortDirParam === 'asc' || sortDirParam === 'desc' ? sortDirParam : undefined;
 
-  const filter: PmHistoryFilter = {
+  const filter: MaintenanceHistoryFilter = {
     dealerId,
     branchId,
     technicianId: searchParams.get('technicianId'),
@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
     branchName: !seesAllDealers(session.role) && session.branch && !branchId ? session.branch : undefined,
   };
 
-  const repository = new SupabasePmRecordRepository();
-  const service = new PmRecordService(repository);
+  const repository = new SupabaseMaintenanceRepository();
+  const service = new MaintenanceService(repository);
 
   try {
     const result = await service.listHistory(filter);

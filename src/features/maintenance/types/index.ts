@@ -1,14 +1,21 @@
 /**
- * PM Record (Preventive Maintenance) — shared types.
+ * Maintenance (Preventive Maintenance / "PM" to users) — shared types.
+ *
+ * Architecture Refactoring: the technical domain is named `maintenance`;
+ * business/user-facing wording (PM Record, PM History, PM Report, PM
+ * Interval) is unchanged - see root README/AI_CONTEXT.md. Database table
+ * (`pm_records`) and API route (`/api/pm-records`) are also unchanged, per
+ * the refactor's explicit backward-compatibility rule.
  *
  * Phase 2 (search-first production workflow). Fields below reflect the
  * actual live schema: dealer/branch/serial/model/delivery_date/engine_number
  * are a point-in-time snapshot of the selected vehicle (Tractor Master),
  * captured at auto-fill time - never a live join back to `vehicles` - so a
- * PM Record stays accurate even if the vehicle's master data changes later.
- * customer_name/customer_phone are entered fresh every PM (never auto-filled
- * - see pm-record-form.tsx), consistent with "Customer remains Snapshot
- * Data" in AI_CONTEXT.md's locked architecture decisions.
+ * record stays accurate even if the vehicle's master data changes later.
+ * customer_name/customer_phone are entered fresh every visit (never
+ * auto-filled - see components/maintenance-form.tsx), consistent with
+ * "Customer remains Snapshot Data" in AI_CONTEXT.md's locked architecture
+ * decisions.
  */
 
 /**
@@ -17,9 +24,9 @@
  * sprint is not authorized to make. Replace with a real union once a
  * requirements sprint defines the actual PM lifecycle.
  */
-export type PmRecordStatus = string;
+export type MaintenanceRecordStatus = string;
 
-export interface PmRecord {
+export interface MaintenanceRecord {
   id: string;
   dealer_id: string;
   branch_id: string | null;
@@ -54,7 +61,7 @@ export interface PmRecord {
   longitude: number | null;
   gps_accuracy: number | null;
   google_maps_url: string | null;
-  status: PmRecordStatus;
+  status: MaintenanceRecordStatus;
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -63,13 +70,13 @@ export interface PmRecord {
 }
 
 /**
- * Shape accepted when creating a PM Record via the search-first workflow.
- * Server assigns id/audit fields and generates pm_number (never client-set,
- * mirrors how QIR's job_id is server-generated in SupabasePmRecordRepository,
- * not accepted from the request body).
+ * Shape accepted when creating a Maintenance Record via the search-first
+ * workflow. Server assigns id/audit fields and generates pm_number (never
+ * client-set, mirrors how QIR's job_id is server-generated in
+ * `SupabaseMaintenanceRepository`, not accepted from the request body).
  */
-export type PmRecordCreateInput = Pick<
-  PmRecord,
+export type MaintenanceRecordCreateInput = Pick<
+  MaintenanceRecord,
   | 'dealer_id'
   | 'branch_id'
   | 'serial'
@@ -86,8 +93,8 @@ export type PmRecordCreateInput = Pick<
   | 'report_photo_url'
   | 'notes'
 > & {
-  /** The date the PM was actually performed (today, by default - this
-   *  workflow records a visit happening now, not a future appointment). */
+  /** The date the maintenance was actually performed (today, by default -
+   *  this workflow records a visit happening now, not a future appointment). */
   performed_date: string;
   /** GPS is optional (Phase 3) - omit entirely, or send null, if the
    *  technician didn't capture a location. */
@@ -97,10 +104,10 @@ export type PmRecordCreateInput = Pick<
   google_maps_url?: string | null;
 };
 
-/** Shape accepted when updating a PM Record. All fields optional (partial patch). */
-export type PmRecordUpdateInput = Partial<
+/** Shape accepted when updating a Maintenance Record. All fields optional (partial patch). */
+export type MaintenanceRecordUpdateInput = Partial<
   Pick<
-    PmRecord,
+    MaintenanceRecord,
     | 'branch_id'
     | 'serial'
     | 'technician_id'
@@ -122,22 +129,22 @@ export type PmRecordUpdateInput = Partial<
   >
 >;
 
-/** Params for the pre-save duplicate check: same tractor + same PM interval
- *  + same performed date already recorded (Active rows only). */
-export interface PmDuplicateCheckParams {
+/** Params for the pre-save duplicate check: same tractor + same maintenance
+ *  interval + same performed date already recorded (Active rows only). */
+export interface MaintenanceDuplicateCheckParams {
   serial: string;
   pmIntervalId: string;
   performedDate: string;
 }
 
-export type PmHistorySortField = 'performed_date' | 'pm_number' | 'hour_meter' | 'created_at';
-export type PmHistorySortDir = 'asc' | 'desc';
+export type MaintenanceHistorySortField = 'performed_date' | 'pm_number' | 'hour_meter' | 'created_at';
+export type MaintenanceHistorySortDir = 'asc' | 'desc';
 
 /** Server-side, paginated, filtered, searchable History query (Phase 4a).
  *  `search` is the universal search box (matches across PM number/serial/
  *  customer name/phone/technician/branch/model/notes); every other field
  *  is an Advanced Filter narrowing the same result set (AND semantics). */
-export interface PmHistoryFilter {
+export interface MaintenanceHistoryFilter {
   dealerId?: string | null;
   branchId?: string | null;
   /** Exact branch-name match, used for session-based branch scoping (a
@@ -162,11 +169,46 @@ export interface PmHistoryFilter {
   search?: string | null;
   page: number;
   pageSize: number;
-  sortField?: PmHistorySortField;
-  sortDir?: PmHistorySortDir;
+  sortField?: MaintenanceHistorySortField;
+  sortDir?: MaintenanceHistorySortDir;
 }
 
-export interface PmHistoryResult {
-  data: PmRecord[];
+export interface MaintenanceHistoryResult {
+  data: MaintenanceRecord[];
   total: number;
+}
+
+/** One maintenance interval/milestone definition (a `pm_intervals` row -
+ *  table name unchanged, per the refactor's backward-compatibility rule).
+ *  Matches `maintenance-due/types.ts`'s `MaintenanceProgramStage` shape -
+ *  this is the type name standardized for general use across the domain. */
+export interface MaintenanceStage {
+  pmIntervalId: string;
+  label: string;
+  intervalHours: number | null;
+  intervalMonths: number | null;
+}
+
+/** A Product Family's full assigned Maintenance Program - an ordered list
+ *  of `MaintenanceStage`s (via `maintenance_program_assignments`). */
+export type MaintenanceProgram = MaintenanceStage[];
+
+/** One of the 3 required photos on a Maintenance Record. The underlying
+ *  storage stays 3 flat URL columns (`meter_photo_url`/`nameplate_photo_url`/
+ *  `report_photo_url` - no destructive schema change); this type is the
+ *  standardized shape for code that wants to treat them as a list. */
+export type MaintenanceAttachmentKind = 'meter' | 'nameplate' | 'report';
+export interface MaintenanceAttachment {
+  kind: MaintenanceAttachmentKind;
+  url: string;
+}
+
+/** Derives the standardized `MaintenanceAttachment[]` view from a record's
+ *  3 flat photo URL columns - skips any that are missing. */
+export function maintenanceAttachmentsOf(record: Pick<MaintenanceRecord, 'meter_photo_url' | 'nameplate_photo_url' | 'report_photo_url'>): MaintenanceAttachment[] {
+  const attachments: MaintenanceAttachment[] = [];
+  if (record.meter_photo_url) attachments.push({ kind: 'meter', url: record.meter_photo_url });
+  if (record.nameplate_photo_url) attachments.push({ kind: 'nameplate', url: record.nameplate_photo_url });
+  if (record.report_photo_url) attachments.push({ kind: 'report', url: record.report_photo_url });
+  return attachments;
 }

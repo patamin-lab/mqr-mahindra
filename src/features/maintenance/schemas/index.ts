@@ -27,17 +27,17 @@ const requiredTrimmedString = (message: string) =>
  * server-side too (the UI also live-formats as the technician types, but
  * the API must not trust that alone).
  */
-const PmCustomerPhoneSchema = z.preprocess((val) => {
+const MaintenanceCustomerPhoneSchema = z.preprocess((val) => {
   if (typeof val !== 'string') return val;
   return val.replace(/\D/g, '');
 }, z.string().regex(/^0\d{9}$/, 'เบอร์โทรศัพท์ไม่ถูกต้อง ต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0').transform((digits) => `${digits.slice(0, 3)}-${digits.slice(3)}`));
 
 /**
- * PM Record status - intentionally a loose non-empty string, not a fixed
- * union. Defining a real status workflow is a business-logic decision this
- * module isn't authorized to make yet (see types.ts).
+ * Maintenance Record status - intentionally a loose non-empty string, not a
+ * fixed union. Defining a real status workflow is a business-logic decision
+ * this module isn't authorized to make yet (see types/index.ts).
  */
-export const PmRecordStatusSchema = z.preprocess(
+export const MaintenanceRecordStatusSchema = z.preprocess(
   (val) => (typeof val === 'string' ? val.trim() : val),
   z.string().min(1, 'status is required')
 );
@@ -62,14 +62,14 @@ const optionalAccuracy = z.union([z.coerce.number().min(0), z.null(), z.undefine
  * (zero-leakage - see src/app/api/pm-records/route.ts), so it isn't in
  * this schema. `pm_number` is server-generated, also not in this schema.
  */
-export const PmRecordCreateBodySchema = z.object({
+export const MaintenanceRecordCreateBodySchema = z.object({
   branch_id: nullableTrimmedString,
   serial: requiredTrimmedString('กรุณาเลือกรถแทรกเตอร์'),
   model: nullableTrimmedString,
   delivery_date: nullableTrimmedString,
   engine_number: nullableTrimmedString,
   customer_name: requiredTrimmedString('กรุณากรอกชื่อลูกค้า'),
-  customer_phone: PmCustomerPhoneSchema,
+  customer_phone: MaintenanceCustomerPhoneSchema,
   technician_id: requiredTrimmedString('กรุณาเลือกช่างซ่อม'),
   performed_date: requiredTrimmedString('กรุณาระบุวันที่ทำ PM'),
   hour_meter: z.coerce.number({ invalid_type_error: 'กรุณากรอกชั่วโมงเครื่องยนต์' }).min(0, 'ชั่วโมงเครื่องยนต์ต้องไม่ติดลบ'),
@@ -83,22 +83,22 @@ export const PmRecordCreateBodySchema = z.object({
   google_maps_url: nullableTrimmedString.optional(),
   notes: nullableTrimmedString,
 });
-export type PmRecordCreateBody = z.infer<typeof PmRecordCreateBodySchema>;
+export type MaintenanceRecordCreateBody = z.infer<typeof MaintenanceRecordCreateBodySchema>;
 
 /**
- * Validates PmRecordUpdateInput - every field is an optional partial patch.
+ * Validates MaintenanceRecordUpdateInput - every field is an optional partial patch.
  */
-export const PmRecordUpdateBodySchema = z
+export const MaintenanceRecordUpdateBodySchema = z
   .object({
     branch_id: nullableTrimmedString,
     serial: nullableTrimmedString,
     technician_id: nullableTrimmedString,
     scheduled_date: nullableTrimmedString,
     performed_date: nullableTrimmedString,
-    status: PmRecordStatusSchema,
+    status: MaintenanceRecordStatusSchema,
     notes: nullableTrimmedString,
     customer_name: requiredTrimmedString('กรุณากรอกชื่อลูกค้า'),
-    customer_phone: PmCustomerPhoneSchema,
+    customer_phone: MaintenanceCustomerPhoneSchema,
     hour_meter: z.coerce.number().min(0, 'ชั่วโมงเครื่องยนต์ต้องไม่ติดลบ'),
     pm_interval_id: nullableTrimmedString,
     meter_photo_url: nullableTrimmedString,
@@ -110,4 +110,4 @@ export const PmRecordUpdateBodySchema = z
     google_maps_url: nullableTrimmedString,
   })
   .partial();
-export type PmRecordUpdateBody = z.infer<typeof PmRecordUpdateBodySchema>;
+export type MaintenanceRecordUpdateBody = z.infer<typeof MaintenanceRecordUpdateBodySchema>;

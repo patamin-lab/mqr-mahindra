@@ -4,7 +4,7 @@ A consistent naming convention lets any contributor predict where something live
 
 ## Modules
 
-- Directory name: lowercase, kebab-case, business-meaningful — e.g. `modules/pm-record/`, `modules/new-tractor-delivery/`, `modules/parts-request/`.
+- Directory name: lowercase, kebab-case, business-meaningful — e.g. `modules/maintenance/` (PM Record's technical domain name, per the Architecture Refactoring pass — business wording stays "PM"), `modules/new-tractor-delivery/`, `modules/parts-request/`.
 - A module's internal structure mirrors `modules/template/` (see Sprint 1 scaffolding).
 - A module name should match the business module name used in `docs/VISION.md`, just kebab-cased.
 

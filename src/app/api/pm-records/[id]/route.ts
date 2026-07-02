@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { SupabasePmRecordRepository } from '@/features/pm-record/supabaseRepository';
-import { PmRecordService } from '@/features/pm-record/service';
-import { parseWithSchema, ValidationError } from '@/features/pm-record/validation';
-import { PmRecordUpdateBodySchema, PmRecordUpdateBody } from '@/features/pm-record/schemas';
+import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
+import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
+import { parseWithSchema, ValidationError } from '@/features/maintenance/utils/validation';
+import { MaintenanceRecordUpdateBodySchema, MaintenanceRecordUpdateBody } from '@/features/maintenance/schemas';
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
@@ -14,8 +14,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  const repository = new SupabasePmRecordRepository();
-  const service = new PmRecordService(repository);
+  const repository = new SupabaseMaintenanceRepository();
+  const service = new MaintenanceService(repository);
 
   try {
     const record = await service.getById(params.id);
@@ -54,9 +54,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     );
   }
 
-  let input: PmRecordUpdateBody;
+  let input: MaintenanceRecordUpdateBody;
   try {
-    input = parseWithSchema<PmRecordUpdateBody>(PmRecordUpdateBodySchema, body);
+    input = parseWithSchema<MaintenanceRecordUpdateBody>(MaintenanceRecordUpdateBodySchema, body);
   } catch (error) {
     if (error instanceof ValidationError) {
       return NextResponse.json(
@@ -67,8 +67,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     throw error;
   }
 
-  const repository = new SupabasePmRecordRepository();
-  const service = new PmRecordService(repository);
+  const repository = new SupabaseMaintenanceRepository();
+  const service = new MaintenanceService(repository);
 
   try {
     const existing = await service.getById(params.id);
@@ -99,8 +99,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     );
   }
 
-  const repository = new SupabasePmRecordRepository();
-  const service = new PmRecordService(repository);
+  const repository = new SupabaseMaintenanceRepository();
+  const service = new MaintenanceService(repository);
 
   try {
     const existing = await service.getById(params.id);

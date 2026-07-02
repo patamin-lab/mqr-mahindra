@@ -2,7 +2,8 @@
  * Vehicle Event — service layer.
  *
  * Validates before delegating to the repository - mirrors
- * `src/features/pm-record/service.ts`'s shape exactly. Every business
+ * `src/features/maintenance/services/maintenanceService.ts`'s shape
+ * exactly. Every business
  * module (Maintenance, MQR, future PDI/NTR/...) reaches this layer only
  * through `VehicleEventPublisher`, never directly.
  */

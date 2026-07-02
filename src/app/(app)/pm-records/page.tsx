@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { listDealers } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
-import PmRecordHistory from '@/features/pm-record/pm-record-history';
+import MaintenanceHistory from '@/features/maintenance/components/maintenance-history';
 
 export default async function PmRecordsPage() {
   const session = await getSession();
@@ -11,7 +11,7 @@ export default async function PmRecordsPage() {
   const dealers = showDealerField ? await listDealers() : [];
 
   return (
-    <PmRecordHistory
+    <MaintenanceHistory
       dealers={dealers}
       showDealerField={showDealerField}
       defaultDealerId={showDealerField ? null : session.dealerId}

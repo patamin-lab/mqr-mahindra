@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { listDealers } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
-import PmRecordSearch from '@/features/pm-record/pm-record-search';
+import MaintenanceSearch from '@/features/maintenance/components/maintenance-search';
 
 export default async function PmRecordNewPage() {
   const session = await getSession();
@@ -11,7 +11,7 @@ export default async function PmRecordNewPage() {
   const dealers = showDealerField ? await listDealers() : [];
 
   return (
-    <PmRecordSearch
+    <MaintenanceSearch
       dealers={dealers}
       showDealerField={showDealerField}
       defaultDealerId={showDealerField ? null : session.dealerId}

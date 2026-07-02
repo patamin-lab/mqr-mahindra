@@ -25,8 +25,8 @@ const mockRepository = {
   findDuplicate: vi.fn(),
 };
 
-vi.mock('@/features/pm-record/supabaseRepository', () => ({
-  SupabasePmRecordRepository: vi.fn().mockImplementation(function () {
+vi.mock('@/features/maintenance/repositories/supabaseMaintenanceRepository', () => ({
+  SupabaseMaintenanceRepository: vi.fn().mockImplementation(function () {
     return mockRepository;
   }),
 }));

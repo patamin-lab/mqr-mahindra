@@ -11,7 +11,7 @@ const GpsMapView = dynamic(() => import('@/components/shared/gps/GpsMapView'), {
   ),
 });
 
-export default function PmRecordGpsDetail({
+export default function MaintenanceGpsDetail({
   latitude,
   longitude,
   accuracy,

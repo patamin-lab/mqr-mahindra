@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalLoading, swalClose, swalSuccessToast, swalErrorToast } from '@/lib/swal';
-import { isNonEmptyString } from './validation';
-import type { PmRecord } from './types';
+import { isNonEmptyString } from '../utils/validation';
+import type { MaintenanceRecord } from '../types';
 import TextField from '@/components/shared/forms/TextField';
 
-export interface PmRecordFormInitial {
+export interface MaintenanceFormInitial {
   dealer_id?: string | null;
   branch_id?: string | null;
   serial?: string | null;
@@ -22,7 +22,7 @@ export interface PmRecordFormInitial {
 
 /** Discriminated on `mode` so `recordId` is compiler-enforced as required
  *  for 'edit' (a PUT with no id would be a bug, not a runtime option). */
-export type PmRecordFormProps =
+export type MaintenanceFormProps =
   | {
       mode: 'create';
       /** A privileged actor may set an arbitrary dealer_id; only rendered/sent in 'create' mode. */
@@ -30,13 +30,13 @@ export type PmRecordFormProps =
     }
   | {
       mode: 'edit';
-      /** PmRecordUpdateInput has no dealer_id field at all, so 'edit' mode never shows or sends it. */
+      /** MaintenanceRecordUpdateInput has no dealer_id field at all, so 'edit' mode never shows or sends it. */
       showDealerField: boolean;
       recordId: string;
-      initial?: PmRecordFormInitial;
+      initial?: MaintenanceFormInitial;
     };
 
-export default function PmRecordForm(props: PmRecordFormProps) {
+export default function MaintenanceForm(props: MaintenanceFormProps) {
   const { mode, showDealerField } = props;
   const initial = props.mode === 'edit' ? props.initial : undefined;
   const router = useRouter();
@@ -85,7 +85,7 @@ export default function PmRecordForm(props: PmRecordFormProps) {
         props.mode === 'create' ? '/api/pm-records' : `/api/pm-records/${encodeURIComponent(props.recordId)}`;
       const method = mode === 'create' ? 'POST' : 'PUT';
 
-      const result = await fetchJson<{ ok: true; data: PmRecord }>(url, {
+      const result = await fetchJson<{ ok: true; data: MaintenanceRecord }>(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',

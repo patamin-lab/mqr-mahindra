@@ -14,7 +14,7 @@ interface QueryResult {
  * also resolves to it - matching how the repository awaits `list()`/
  * `delete()` without a terminal `.single()` call.
  *
- * Deliberately has no `.delete()` method: if SupabasePmRecordRepository
+ * Deliberately has no `.delete()` method: if SupabaseMaintenanceRepository
  * ever called a real hard delete instead of a soft-delete `update()`, this
  * mock would throw "not a function" and fail the test loudly.
  */
@@ -70,7 +70,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 // Imported after the mock is registered so the repository picks it up.
-const { SupabasePmRecordRepository } = await import('./supabaseRepository');
+const { SupabaseMaintenanceRepository } = await import('../repositories/supabaseMaintenanceRepository');
 
 function setupClient(result: QueryResult, rpcResult?: QueryResult, lookups?: Record<string, QueryResult>) {
   const mocked = mockGetSupabase(result, rpcResult, lookups);
@@ -113,7 +113,7 @@ const activeRecord = {
   record_status: 'Active',
 };
 
-describe('SupabasePmRecordRepository', () => {
+describe('SupabaseMaintenanceRepository', () => {
   beforeEach(() => {
     state.client = null;
   });
@@ -121,7 +121,7 @@ describe('SupabasePmRecordRepository', () => {
   describe('list', () => {
     it('always filters record_status=Active, with no other filters applied by default', async () => {
       const { client, calls } = setupClient({ data: [activeRecord], error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.list();
 
@@ -132,7 +132,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('applies dealerId, branchId, and status filters when provided', async () => {
       const { calls } = setupClient({ data: [], error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.list({ dealerId: 'D1', branchId: 'B1', status: 'Scheduled' });
 
@@ -147,7 +147,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('throws when Supabase returns an error', async () => {
       setupClient({ data: null, error: new Error('db down') });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await expect(repository.list()).rejects.toThrow('db down');
     });
@@ -156,7 +156,7 @@ describe('SupabasePmRecordRepository', () => {
   describe('getById', () => {
     it('returns the record when active', async () => {
       setupClient({ data: activeRecord, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.getById('rec-1');
 
@@ -165,7 +165,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('returns null when the record is soft-deleted', async () => {
       setupClient({ data: { ...activeRecord, record_status: 'Deleted' }, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.getById('rec-1');
 
@@ -174,7 +174,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('returns null when no row is found', async () => {
       setupClient({ data: null, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.getById('missing');
 
@@ -183,7 +183,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('throws when Supabase returns an error', async () => {
       setupClient({ data: null, error: new Error('db down') });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await expect(repository.getById('rec-1')).rejects.toThrow('db down');
     });
@@ -222,7 +222,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('inserts a payload with a generated id, a generated pm_number, and record_status=Active', async () => {
       const { calls, rpc } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null }, lookups);
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.create(input, actor);
 
@@ -251,7 +251,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('resolves technician_name/branch_name snapshots and computes next_pm_due from the interval', async () => {
       const { calls } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null }, lookups);
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.create(input, actor);
 
@@ -269,7 +269,7 @@ describe('SupabasePmRecordRepository', () => {
         { data: 1, error: null },
         { pm_intervals: { data: { interval_months: null }, error: null } }
       );
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.create({ ...input, technician_id: null, branch_id: null }, actor);
 
@@ -282,7 +282,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('inserts null GPS fields when the technician did not capture a location', async () => {
       const { calls } = setupClient({ data: activeRecord, error: null }, { data: 1, error: null }, lookups);
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.create({ ...input, latitude: null, longitude: null, gps_accuracy: null, google_maps_url: null }, actor);
 
@@ -294,7 +294,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('throws when Supabase returns an error', async () => {
       setupClient({ data: null, error: new Error('insert failed') }, undefined, lookups);
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await expect(repository.create(input, actor)).rejects.toThrow('insert failed');
     });
@@ -305,7 +305,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('only includes fields present on the input, plus updated_by/updated_at, and scopes by record_status=Active', async () => {
       const { calls } = setupClient({ data: activeRecord, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.update('rec-1', { status: 'Completed' }, actor);
 
@@ -326,7 +326,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('includes GPS fields when present on the input', async () => {
       const { calls } = setupClient({ data: activeRecord, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.update(
         'rec-1',
@@ -343,7 +343,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('throws when Supabase returns an error', async () => {
       setupClient({ data: null, error: new Error('update failed') });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await expect(repository.update('rec-1', { status: 'Completed' }, actor)).rejects.toThrow(
         'update failed'
@@ -356,7 +356,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('sets record_status=Deleted with deleted_by/deleted_at, scoped by record_status=Active, and never hard-deletes', async () => {
       const { calls } = setupClient({ data: null, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.delete('rec-1', actor);
 
@@ -380,7 +380,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('throws when Supabase returns an error', async () => {
       setupClient({ data: null, error: new Error('delete failed') });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await expect(repository.delete('rec-1', actor)).rejects.toThrow('delete failed');
     });
@@ -389,7 +389,7 @@ describe('SupabasePmRecordRepository', () => {
   describe('findDuplicate', () => {
     it('scopes by serial, pm_interval_id, performed_date, and record_status=Active', async () => {
       const { calls } = setupClient({ data: activeRecord, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.findDuplicate({
         serial: 'SN-1',
@@ -409,7 +409,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('returns null when no duplicate exists', async () => {
       setupClient({ data: null, error: null });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.findDuplicate({
         serial: 'SN-1',
@@ -422,7 +422,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('throws when Supabase returns an error', async () => {
       setupClient({ data: null, error: new Error('db down') });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await expect(
         repository.findDuplicate({ serial: 'SN-1', pmIntervalId: 'interval-1', performedDate: '2026-01-01' })
@@ -433,7 +433,7 @@ describe('SupabasePmRecordRepository', () => {
   describe('listHistory', () => {
     it('always filters record_status=Active and paginates via range', async () => {
       const { calls } = setupClient({ data: [activeRecord], error: null, count: 1 });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       const result = await repository.listHistory({ page: 2, pageSize: 25 });
 
@@ -446,7 +446,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('applies advanced filters and the universal search across the documented columns', async () => {
       const { calls } = setupClient({ data: [], error: null, count: 0 });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.listHistory({
         page: 1,
@@ -481,7 +481,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('caps pageSize at 200 and floors page at 1', async () => {
       const { calls } = setupClient({ data: [], error: null, count: 0 });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await repository.listHistory({ page: 0, pageSize: 10000 });
 
@@ -491,7 +491,7 @@ describe('SupabasePmRecordRepository', () => {
 
     it('throws when Supabase returns an error', async () => {
       setupClient({ data: null, error: new Error('db down'), count: 0 });
-      const repository = new SupabasePmRecordRepository();
+      const repository = new SupabaseMaintenanceRepository();
 
       await expect(repository.listHistory({ page: 1, pageSize: 25 })).rejects.toThrow('db down');
     });

@@ -4,9 +4,9 @@ import { searchVehiclesForPm } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
 
 /**
- * Server-side Tractor Master search for the PM Record search-first
- * workflow. Not part of PmRecordRepository (which is scoped to `pm_records`
- * CRUD only) - this reads `vehicles` + `pm_records` history, matching the
+ * Server-side Tractor Master search for the Maintenance search-first
+ * workflow. Not part of MaintenanceRepository (which is scoped to
+ * `pm_records` CRUD only) - this reads `vehicles` + `pm_records` history, matching the
  * existing pattern of shared lookups living in `lib/db.ts` alongside
  * technicians/branches, not inside a module-specific repository.
  */

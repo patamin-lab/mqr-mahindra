@@ -2,8 +2,8 @@
  * Vehicle Event — repository interface.
  *
  * Defines the data-access contract only; see `supabaseRepository.ts` for the
- * Supabase-backed adapter. Mirrors the `PmRecordRepository` shape/pattern
- * from `src/features/pm-record/repository.ts`.
+ * Supabase-backed adapter. Mirrors the `MaintenanceRepository` shape/pattern
+ * from `src/features/maintenance/repositories/maintenanceRepository.ts`.
  */
 import {
   EventDefinition,

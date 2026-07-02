@@ -11,7 +11,7 @@ import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
 import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
 import type { PmVehicleSearchResult } from '@/lib/db';
-import type { PmRecord } from './types';
+import type { MaintenanceRecord } from '../types';
 
 const EMPTY_GPS: GpsLocation = { latitude: null, longitude: null, accuracy: null, googleMapsUrl: null };
 
@@ -56,7 +56,7 @@ interface Props {
   defaultDealerId: string | null;
 }
 
-export default function PmRecordSearch({ dealers, showDealerField, defaultDealerId }: Props) {
+export default function MaintenanceSearch({ dealers, showDealerField, defaultDealerId }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<'search' | 'form'>('search');
 
@@ -151,7 +151,7 @@ export default function PmRecordSearch({ dealers, showDealerField, defaultDealer
 
   if (mode === 'form' && selectedVehicle) {
     return (
-      <PmRecordCreateForm
+      <MaintenanceCreateForm
         vehicle={selectedVehicle}
         onBack={() => {
           setMode('search');
@@ -273,14 +273,14 @@ export default function PmRecordSearch({ dealers, showDealerField, defaultDealer
   );
 }
 
-function PmRecordCreateForm({
+function MaintenanceCreateForm({
   vehicle,
   onBack,
   onSaved,
 }: {
   vehicle: PmVehicleSearchResult;
   onBack: () => void;
-  onSaved: (record: PmRecord) => void;
+  onSaved: (record: MaintenanceRecord) => void;
 }) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -387,7 +387,7 @@ function PmRecordCreateForm({
     setSubmitting(true);
     swalLoading('กำลังตรวจสอบ...');
     try {
-      const dupCheck = await fetchJson<{ ok: boolean; data: { duplicate: PmRecord | null } }>(
+      const dupCheck = await fetchJson<{ ok: boolean; data: { duplicate: MaintenanceRecord | null } }>(
         `/api/pm-records/check-duplicate?serial=${encodeURIComponent(vehicle.serial)}&pmIntervalId=${encodeURIComponent(
           pmIntervalId
         )}&performedDate=${performedDate}`
@@ -405,7 +405,7 @@ function PmRecordCreateForm({
       }
 
       swalLoading('กำลังบันทึก...');
-      const created = await fetchJson<{ ok: true; data: PmRecord }>('/api/pm-records', {
+      const created = await fetchJson<{ ok: true; data: MaintenanceRecord }>('/api/pm-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',

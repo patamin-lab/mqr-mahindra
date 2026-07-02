@@ -1,16 +1,17 @@
 import { headers } from 'next/headers';
-import type { PmRecord } from './types';
+import type { MaintenanceRecord } from '../types';
 
-export type FetchPmRecordResult =
+export type FetchMaintenanceResult =
   | { notFound: true }
   | { error: string }
-  | { record: PmRecord };
+  | { record: MaintenanceRecord };
 
-/** Server-side fetch of a single PM Record via the API route (not the
- *  repository/service directly) - keeps "UI never accesses Repository
+/** Server-side fetch of a single Maintenance Record via the API route (not
+ *  the repository/service directly) - keeps "UI never accesses Repository
  *  directly" true even for Server Components. Shared by the detail page
- *  and the edit page so the fetch/error-shape handling isn't duplicated. */
-export async function fetchPmRecord(id: string): Promise<FetchPmRecordResult> {
+ *  and the edit page so the fetch/error-shape handling isn't duplicated.
+ *  API route path (`/api/pm-records`) is unchanged - backward compatibility. */
+export async function fetchMaintenance(id: string): Promise<FetchMaintenanceResult> {
   const cookieHeader = headers().get('cookie') ?? '';
   // VERCEL_URL is set automatically by Vercel for every deployment (no
   // manual config needed) - falling through to it before localhost avoids
@@ -42,5 +43,5 @@ export async function fetchPmRecord(id: string): Promise<FetchPmRecordResult> {
     return { error: message };
   }
 
-  return { record: payload.data as PmRecord };
+  return { record: payload.data as MaintenanceRecord };
 }
