@@ -1,6 +1,10 @@
 import Link from 'next/link';
+import { getSession } from '@/lib/auth';
+import { seesAllDealers } from '@/lib/scope';
 import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
+import { evaluateMaintenanceLock, MAINTENANCE_LOCK_REASON_LABEL } from '@/features/maintenance/utils/maintenanceLock';
 import MaintenanceDeleteButton from './delete-button';
+import MaintenanceUnlockButton from './unlock-button';
 import MaintenanceGpsDetail from '@/features/maintenance/components/maintenance-gps-detail';
 
 interface RouteParams {
@@ -12,6 +16,7 @@ interface RouteParams {
 export const dynamic = 'force-dynamic';
 
 export default async function PmRecordDetailPage({ params }: RouteParams) {
+  const session = await getSession();
   const result = await fetchMaintenance(params.id);
 
   if ('notFound' in result && result.notFound) {
@@ -75,6 +80,9 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
   }
 
   const record = result.record;
+  const lock = evaluateMaintenanceLock(record);
+  const canManageLock = session ? seesAllDealers(session.role) : false; // SuperAdmin/CentralAdmin
+  const canForceDelete = session?.role === 'SuperAdmin';
 
   return (
     <div className="space-y-4">
@@ -93,9 +101,17 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <Link href="/pm-records" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
             Back to List
           </Link>
-          <MaintenanceDeleteButton id={record.id} />
+          {lock.locked && canManageLock && <MaintenanceUnlockButton id={record.id} />}
+          <MaintenanceDeleteButton id={record.id} locked={lock.locked} canForceDelete={canForceDelete} />
         </div>
       </div>
+
+      {lock.locked && (
+        <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          🔒 รายการนี้ถูกล็อกแล้ว: {MAINTENANCE_LOCK_REASON_LABEL[lock.reason!]} — เฉพาะหมายเหตุเท่านั้นที่แก้ไขได้
+          {canManageLock && ' (ปลดล็อกชั่วคราวได้ที่ปุ่มด้านบน)'}
+        </div>
+      )}
 
       <div className="space-y-4 rounded border border-gray-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 sm:grid-cols-2">

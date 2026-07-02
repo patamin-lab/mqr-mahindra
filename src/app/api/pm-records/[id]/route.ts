@@ -79,24 +79,41 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
-    const record = await service.update(params.id, input, { username: session.username });
+    const record = await service.update(params.id, input, { username: session.username, role: session.role });
     return NextResponse.json({ ok: true, data: record }, { status: 200 });
   } catch (error) {
     console.error('PM Record update API error', error);
+    // A lock violation is a real, actor-facing message (in Thai) thrown by
+    // the Service layer - surface it as-is rather than a generic 500, same
+    // as MQR's update route already does for its own thrown errors.
+    const message = error instanceof Error ? error.message : 'internal error';
+    const isLockViolation = message.includes('ถูกล็อก');
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL_ERROR', message: 'internal error' } },
-      { status: 500 }
+      { ok: false, error: { code: isLockViolation ? 'LOCKED' : 'INTERNAL_ERROR', message } },
+      { status: isLockViolation ? 409 : 500 }
     );
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json(
       { ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } },
       { status: 401 }
     );
+  }
+
+  // Locked records require a mandatory reason (enforced in the Service
+  // layer) - unlocked records ignore a missing/empty body entirely, same
+  // as before this sprint.
+  let reason: string | null = null;
+  try {
+    const body = await req.json();
+    if (typeof body?.reason === 'string') reason = body.reason;
+  } catch {
+    // No JSON body sent - fine, delete-button.tsx doesn't send one for an
+    // unlocked record.
   }
 
   const repository = new SupabaseMaintenanceRepository();
@@ -111,12 +128,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    await service.delete(params.id, { username: session.username });
+    await service.delete(params.id, { username: session.username, role: session.role }, reason);
     return NextResponse.json({ ok: true, data: null }, { status: 200 });
   } catch (error) {
     console.error('PM Record delete API error', error);
+    const message = error instanceof Error ? error.message : 'internal error';
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL_ERROR', message: 'internal error' } },
+      { ok: false, error: { code: 'INTERNAL_ERROR', message } },
       { status: 500 }
     );
   }

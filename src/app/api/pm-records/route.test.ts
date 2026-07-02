@@ -8,9 +8,12 @@ vi.mock('@/lib/auth', () => ({
 // getDealer/relocatePendingFiles are called after a successful create (Drive
 // folder relocation) - mocked so this integration test never touches
 // Supabase or Google Drive for real, per the "mock Repository layer only,
-// never connect to Supabase" constraint.
+// never connect to Supabase" constraint. logAuditEvent/logAuditEvents are
+// called by MaintenanceService.create() now too - same reasoning.
 vi.mock('@/lib/db', () => ({
   getDealer: vi.fn().mockResolvedValue({ id: 'D1', short_name: 'D1' }),
+  logAuditEvent: vi.fn(),
+  logAuditEvents: vi.fn(),
 }));
 vi.mock('@/lib/googleDrive', () => ({
   relocatePendingFiles: vi.fn().mockResolvedValue(undefined),
@@ -23,6 +26,10 @@ const mockRepository = {
   update: vi.fn(),
   delete: vi.fn(),
   findDuplicate: vi.fn(),
+  listHistory: vi.fn(),
+  lockRecord: vi.fn(),
+  unlockRecord: vi.fn(),
+  lockSupersededRecordsForVehicle: vi.fn().mockResolvedValue([]),
 };
 
 vi.mock('@/features/maintenance/repositories/supabaseMaintenanceRepository', () => ({

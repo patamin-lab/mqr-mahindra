@@ -5,6 +5,14 @@ vi.mock('@/lib/auth', () => ({
   getSession: vi.fn(),
 }));
 
+// logAuditEvent/logAuditEvents touch Supabase directly - stub them (the
+// Service layer's lock-guard/diff logic is what this file tests, not the
+// audit write itself).
+vi.mock('@/lib/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/db')>();
+  return { ...actual, logAuditEvent: vi.fn(), logAuditEvents: vi.fn() };
+});
+
 const mockRepository = {
   list: vi.fn(),
   getById: vi.fn(),
@@ -12,6 +20,10 @@ const mockRepository = {
   update: vi.fn(),
   delete: vi.fn(),
   findDuplicate: vi.fn(),
+  listHistory: vi.fn(),
+  lockRecord: vi.fn(),
+  unlockRecord: vi.fn(),
+  lockSupersededRecordsForVehicle: vi.fn(),
 };
 
 vi.mock('@/features/maintenance/repositories/supabaseMaintenanceRepository', () => ({
@@ -42,9 +54,17 @@ const activeRecord = {
   status: 'Scheduled',
   notes: null,
   created_by: 'alice',
-  created_at: '2026-01-01T00:00:00.000Z',
+  // Recent by default so the calculation-lock's 24h editable window never
+  // trips a fixed test fixture into "locked" as real time passes.
+  created_at: new Date().toISOString(),
   updated_by: 'alice',
-  updated_at: '2026-01-01T00:00:00.000Z',
+  updated_at: new Date().toISOString(),
+  locked_at: null,
+  locked_reason: null,
+  unlocked_until: null,
+  unlocked_by: null,
+  unlock_reason: null,
+  deleted_reason: null,
 };
 
 function getRequest() {
@@ -136,7 +156,7 @@ describe('PUT /api/pm-records/[id]', () => {
     expect(mockRepository.update).toHaveBeenCalledWith(
       'rec-1',
       expect.objectContaining({ status: 'Completed' }),
-      { username: 'alice' }
+      { username: 'alice', role: 'DealerUser' }
     );
   });
 
@@ -194,7 +214,7 @@ describe('DELETE /api/pm-records/[id]', () => {
 
     expect(res.status).toBe(200);
     expect(json).toEqual({ ok: true, data: null });
-    expect(mockRepository.delete).toHaveBeenCalledWith('rec-1', { username: 'alice' });
+    expect(mockRepository.delete).toHaveBeenCalledWith('rec-1', { username: 'alice', role: 'DealerUser' }, null);
   });
 
   it('returns 404 for an already-deleted record', async () => {

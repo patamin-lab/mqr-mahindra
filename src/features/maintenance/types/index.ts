@@ -26,6 +26,14 @@
  */
 export type MaintenanceRecordStatus = string;
 
+/** Lock reasons (Production Stabilization Sprint) - see
+ *  `utils/maintenanceLock.ts` for the enforcement logic. */
+export type MaintenanceLockReason =
+  | 'edit_window_expired'
+  | 'superseded'
+  | 'administrative_lock'
+  | 'manual_override';
+
 export interface MaintenanceRecord {
   id: string;
   dealer_id: string;
@@ -67,6 +75,18 @@ export interface MaintenanceRecord {
   created_at: string;
   updated_by: string | null;
   updated_at: string;
+  /** Calculation-protection lock (Production Stabilization Sprint) - see
+   *  `utils/maintenanceLock.ts`. `locked_at`/`locked_reason` are the
+   *  permanent record of the most recent lock event; `unlocked_until` is a
+   *  temporary Central/SuperAdmin override window, separate from the
+   *  underlying lock reason so an expired override correctly falls back to
+   *  "locked again" rather than "never was locked". */
+  locked_at: string | null;
+  locked_reason: MaintenanceLockReason | null;
+  unlocked_until: string | null;
+  unlocked_by: string | null;
+  unlock_reason: string | null;
+  deleted_reason: string | null;
 }
 
 /**

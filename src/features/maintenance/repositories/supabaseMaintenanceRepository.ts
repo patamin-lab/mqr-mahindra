@@ -12,6 +12,7 @@ import {
   MaintenanceDuplicateCheckParams,
   MaintenanceHistoryFilter,
   MaintenanceHistoryResult,
+  MaintenanceLockReason,
   MaintenanceRecord,
   MaintenanceRecordCreateInput,
   MaintenanceRecordUpdateInput,
@@ -207,17 +208,81 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     return data as MaintenanceRecord;
   }
 
-  async delete(id: string, actor: { username: string }): Promise<void> {
+  async delete(id: string, actor: { username: string }, reason?: string | null): Promise<void> {
     const { error } = await this.client
       .from(this.table)
       .update({
         record_status: 'Deleted',
         deleted_by: actor.username,
         deleted_at: new Date().toISOString(),
+        deleted_reason: reason ?? null,
       })
       .eq('id', id)
       .eq('record_status', 'Active');
     if (error) throw error;
+  }
+
+  async lockRecord(id: string, reason: MaintenanceLockReason, actor: { username: string }): Promise<MaintenanceRecord> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .update({
+        locked_at: new Date().toISOString(),
+        locked_reason: reason,
+        updated_by: actor.username,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as MaintenanceRecord;
+  }
+
+  async unlockRecord(id: string, until: string, actor: { username: string }): Promise<MaintenanceRecord> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .update({
+        unlocked_until: until,
+        unlocked_by: actor.username,
+        updated_by: actor.username,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data as MaintenanceRecord;
+  }
+
+  async lockSupersededRecordsForVehicle(serial: string, actor: { username: string }): Promise<string[]> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .select('id, performed_date, created_at, locked_at')
+      .eq('record_status', 'Active')
+      .eq('serial', serial)
+      .order('performed_date', { ascending: false })
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    const rows = (data ?? []) as { id: string; performed_date: string | null; created_at: string; locked_at: string | null }[];
+    // The first row (already sorted newest-first) is the current "latest"
+    // for this vehicle and is never locked by supersession - every other
+    // active row that isn't already locked becomes locked now.
+    const idsToLock = rows.slice(1).filter((r) => !r.locked_at).map((r) => r.id);
+    if (idsToLock.length === 0) return [];
+
+    const { error: updateError } = await this.client
+      .from(this.table)
+      .update({
+        locked_at: new Date().toISOString(),
+        locked_reason: 'superseded',
+        updated_by: actor.username,
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', idsToLock);
+    if (updateError) throw updateError;
+
+    return idsToLock;
   }
 
   async findDuplicate(params: MaintenanceDuplicateCheckParams): Promise<MaintenanceRecord | null> {

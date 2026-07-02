@@ -20,7 +20,7 @@ interface QueryResult {
  */
 function createQueryBuilder(result: QueryResult) {
   const calls: { method: string; args: unknown[] }[] = [];
-  const chainMethods = ['select', 'eq', 'order', 'insert', 'update', 'range', 'or', 'gte', 'lte', 'lt'] as const;
+  const chainMethods = ['select', 'eq', 'order', 'insert', 'update', 'range', 'or', 'gte', 'lte', 'lt', 'in'] as const;
 
   const builder: Record<string, unknown> = {};
   for (const method of chainMethods) {
@@ -427,6 +427,83 @@ describe('SupabaseMaintenanceRepository', () => {
       await expect(
         repository.findDuplicate({ serial: 'SN-1', pmIntervalId: 'interval-1', performedDate: '2026-01-01' })
       ).rejects.toThrow('db down');
+    });
+  });
+
+  describe('lockRecord', () => {
+    it('sets locked_at/locked_reason and returns the updated row', async () => {
+      const { calls } = setupClient({ data: { ...activeRecord, locked_reason: 'administrative_lock' }, error: null });
+      const repository = new SupabaseMaintenanceRepository();
+
+      const result = await repository.lockRecord('rec-1', 'administrative_lock', { username: 'alice' });
+
+      const updateCall = calls.find((c) => c.method === 'update');
+      const payload = updateCall?.args[0] as Record<string, unknown>;
+      expect(payload.locked_reason).toBe('administrative_lock');
+      expect(typeof payload.locked_at).toBe('string');
+      expect(result.locked_reason).toBe('administrative_lock');
+    });
+  });
+
+  describe('unlockRecord', () => {
+    it('sets unlocked_until/unlocked_by and returns the updated row', async () => {
+      const until = '2026-06-16T00:00:00.000Z';
+      const { calls } = setupClient({ data: { ...activeRecord, unlocked_until: until }, error: null });
+      const repository = new SupabaseMaintenanceRepository();
+
+      const result = await repository.unlockRecord('rec-1', until, { username: 'alice' });
+
+      const updateCall = calls.find((c) => c.method === 'update');
+      const payload = updateCall?.args[0] as Record<string, unknown>;
+      expect(payload).toMatchObject({ unlocked_until: until, unlocked_by: 'alice' });
+      expect(result.unlocked_until).toBe(until);
+    });
+  });
+
+  describe('lockSupersededRecordsForVehicle', () => {
+    it('locks every record except the most recent one (by performed_date) for the vehicle', async () => {
+      const rows = [
+        { id: 'rec-latest', performed_date: '2026-06-01', created_at: '2026-06-01T00:00:00Z', locked_at: null },
+        { id: 'rec-older', performed_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z', locked_at: null },
+      ];
+      const { calls } = setupClient({ data: rows, error: null });
+      const repository = new SupabaseMaintenanceRepository();
+
+      const result = await repository.lockSupersededRecordsForVehicle('SN-1', { username: 'alice' });
+
+      expect(result).toEqual(['rec-older']);
+      const updateCall = calls.find((c) => c.method === 'update');
+      const payload = updateCall?.args[0] as Record<string, unknown>;
+      expect(payload).toMatchObject({ locked_reason: 'superseded' });
+      const inCall = calls.find((c) => c.method === 'in');
+      expect(inCall?.args).toEqual(['id', ['rec-older']]);
+    });
+
+    it('does nothing (no update call) when there is 0 or 1 active record for the vehicle', async () => {
+      const { calls } = setupClient({
+        data: [{ id: 'rec-only', performed_date: '2026-06-01', created_at: '2026-06-01T00:00:00Z', locked_at: null }],
+        error: null,
+      });
+      const repository = new SupabaseMaintenanceRepository();
+
+      const result = await repository.lockSupersededRecordsForVehicle('SN-1', { username: 'alice' });
+
+      expect(result).toEqual([]);
+      expect(calls.some((c) => c.method === 'update')).toBe(false);
+    });
+
+    it('skips rows that are already locked (idempotent)', async () => {
+      const rows = [
+        { id: 'rec-latest', performed_date: '2026-06-01', created_at: '2026-06-01T00:00:00Z', locked_at: null },
+        { id: 'rec-already-locked', performed_date: '2026-01-01', created_at: '2026-01-01T00:00:00Z', locked_at: '2026-01-02T00:00:00Z' },
+      ];
+      const { calls } = setupClient({ data: rows, error: null });
+      const repository = new SupabaseMaintenanceRepository();
+
+      const result = await repository.lockSupersededRecordsForVehicle('SN-1', { username: 'alice' });
+
+      expect(result).toEqual([]);
+      expect(calls.some((c) => c.method === 'update')).toBe(false);
     });
   });
 

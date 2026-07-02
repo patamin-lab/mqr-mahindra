@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
 import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
+import { evaluateMaintenanceLock, MAINTENANCE_LOCK_REASON_LABEL } from '@/features/maintenance/utils/maintenanceLock';
 import MaintenanceForm from '@/features/maintenance/components/maintenance-form';
 
 interface RouteParams {
@@ -79,6 +80,7 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
   }
 
   const record = result.record;
+  const lock = evaluateMaintenanceLock(record);
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -95,10 +97,18 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
         </Link>
       </div>
 
+      {lock.locked && (
+        <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          🔒 รายการนี้ถูกล็อกแล้ว: {MAINTENANCE_LOCK_REASON_LABEL[lock.reason!]} — สามารถแก้ไขได้เฉพาะหมายเหตุ ฟิลด์อื่นที่กระทบการคำนวณ
+          (Serial, Performed Date) ถูกปิดการแก้ไข กรุณาปลดล็อกชั่วคราวจากหน้ารายละเอียดก่อนแก้ไขข้อมูลอื่น
+        </div>
+      )}
+
       <MaintenanceForm
         mode="edit"
         recordId={record.id}
         showDealerField={seesAllDealers(session.role)}
+        locked={lock.locked}
         initial={{
           dealer_id: record.dealer_id,
           branch_id: record.branch_id,

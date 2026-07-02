@@ -34,11 +34,18 @@ export type MaintenanceFormProps =
       showDealerField: boolean;
       recordId: string;
       initial?: MaintenanceFormInitial;
+      /** Server-computed via `evaluateMaintenanceLock()` - when true, the
+       *  two calculation-affecting fields this form exposes (Serial,
+       *  Performed Date) are disabled. Notes/Status/other non-calculation
+       *  fields stay editable even on a locked record. The API enforces
+       *  this independently either way - this is UX only. */
+      locked?: boolean;
     };
 
 export default function MaintenanceForm(props: MaintenanceFormProps) {
   const { mode, showDealerField } = props;
   const initial = props.mode === 'edit' ? props.initial : undefined;
+  const locked = props.mode === 'edit' && (props.locked ?? false);
   const router = useRouter();
   const [dealerId, setDealerId] = useState(initial?.dealer_id ?? '');
   const [branchId, setBranchId] = useState(initial?.branch_id ?? '');
@@ -65,7 +72,6 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
 
     const payload: Record<string, unknown> = {
       branch_id: branchId.trim() || null,
-      serial: serial.trim() || null,
       technician_id: technicianId.trim() || null,
       scheduled_date: scheduledDate.trim() || null,
       status: status.trim(),
@@ -74,8 +80,16 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
     if (showDealerInput) {
       payload.dealer_id = dealerId.trim();
     }
-    if (mode === 'edit') {
-      payload.performed_date = performedDate.trim() || null;
+    // Calculation-affecting fields are omitted entirely (not just left
+    // unchanged) when locked, so a locked record's edit still goes through
+    // for the fields that are actually being changed (e.g. notes) instead
+    // of being rejected server-side just for including these keys
+    // unmodified - see MaintenanceService.update()'s touchesLockAffectingFields() guard.
+    if (!locked) {
+      payload.serial = serial.trim() || null;
+      if (mode === 'edit') {
+        payload.performed_date = performedDate.trim() || null;
+      }
     }
 
     setSubmitting(true);
@@ -131,11 +145,11 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
           disabled={submitting}
         />
         <TextField
-          label="Serial"
+          label={locked ? 'Serial (ล็อกอยู่)' : 'Serial'}
           value={serial}
           onChange={setSerial}
           placeholder="Vehicle serial (optional)"
-          disabled={submitting}
+          disabled={submitting || locked}
         />
         <TextField
           label="Technician ID"
@@ -153,11 +167,11 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
         />
         {mode === 'edit' && (
           <TextField
-            label="Performed Date"
+            label={locked ? 'Performed Date (ล็อกอยู่)' : 'Performed Date'}
             value={performedDate}
             onChange={setPerformedDate}
             placeholder="YYYY-MM-DD (optional)"
-            disabled={submitting}
+            disabled={submitting || locked}
           />
         )}
         <TextField
