@@ -230,3 +230,49 @@ export const STATUS_LABELS: Record<StatusValue, string> = {
 };
 
 export const OPEN_STATUSES = STATUS_VALUES.filter((s) => s !== 'Closed');
+
+/** Shared, immutable audit trail (`record_audit_log`) - one system-logged
+ *  entry per business event, reused by both MQR (`records`) and PM
+ *  (`pm_records`), which is why it lives in the platform-wide `types.ts`/
+ *  `db.ts` rather than either module's own feature folder. Never edited or
+ *  deleted after insert - see `record_audit_log`'s RLS policies (no
+ *  UPDATE/DELETE policy exists at all). */
+export type AuditModule = 'mqr' | 'pm';
+
+export type AuditEventType =
+  | 'Created'
+  | 'StatusChanged'
+  | 'FieldChanged'
+  | 'AttachmentAdded'
+  | 'AttachmentRemoved'
+  | 'RcaUpdated'
+  | 'SeverityChanged'
+  | 'AssignmentChanged'
+  | 'Locked'
+  | 'Unlocked'
+  | 'Deleted'
+  | 'SystemEvent';
+
+export interface AuditLogEntry {
+  id: string;
+  module: AuditModule;
+  recordId: string;
+  recordRef: string;
+  eventType: AuditEventType;
+  fieldName: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  performedBy: string;
+  performedAt: string;
+}
+
+export interface LogAuditEventInput {
+  module: AuditModule;
+  recordId: string;
+  recordRef: string;
+  eventType: AuditEventType;
+  fieldName?: string | null;
+  oldValue?: string | null;
+  newValue?: string | null;
+  performedBy: string;
+}

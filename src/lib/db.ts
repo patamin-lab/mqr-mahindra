@@ -16,6 +16,9 @@ import {
   Role,
   PhotoLink,
   Severity,
+  AuditModule,
+  AuditLogEntry,
+  LogAuditEventInput,
 } from './types';
 
 // ---------- Auth / users ----------
@@ -1014,6 +1017,95 @@ export async function getVehicleHistory(serial: string, session: SessionUser): P
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as MqrRecord[];
+}
+
+// ---------- Audit Log (shared: MQR `records` + PM `pm_records`) ----------
+
+/** Writes one immutable audit-log row. Never throws-and-swallows - a failed
+ *  audit write must surface as a real error, since a silent audit gap would
+ *  defeat the point of the trail. */
+export async function logAuditEvent(input: LogAuditEventInput): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('record_audit_log').insert({
+    module: input.module,
+    record_id: input.recordId,
+    record_ref: input.recordRef,
+    event_type: input.eventType,
+    field_name: input.fieldName ?? null,
+    old_value: input.oldValue ?? null,
+    new_value: input.newValue ?? null,
+    performed_by: input.performedBy,
+  });
+  if (error) throw error;
+}
+
+/** Batched form of `logAuditEvent`, for a single business action that
+ *  produces several field-level entries at once (e.g. one edit that changes
+ *  three fields becomes three rows, inserted together). */
+export async function logAuditEvents(inputs: LogAuditEventInput[]): Promise<void> {
+  if (inputs.length === 0) return;
+  const supabase = getSupabase();
+  const { error } = await supabase.from('record_audit_log').insert(
+    inputs.map((input) => ({
+      module: input.module,
+      record_id: input.recordId,
+      record_ref: input.recordRef,
+      event_type: input.eventType,
+      field_name: input.fieldName ?? null,
+      old_value: input.oldValue ?? null,
+      new_value: input.newValue ?? null,
+      performed_by: input.performedBy,
+    }))
+  );
+  if (error) throw error;
+}
+
+export async function listAuditLog(module: AuditModule, recordId: string): Promise<AuditLogEntry[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('record_audit_log')
+    .select('*')
+    .eq('module', module)
+    .eq('record_id', recordId)
+    .order('performed_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    module: row.module,
+    recordId: row.record_id,
+    recordRef: row.record_ref,
+    eventType: row.event_type,
+    fieldName: row.field_name,
+    oldValue: row.old_value,
+    newValue: row.new_value,
+    performedBy: row.performed_by,
+    performedAt: row.performed_at,
+  }));
+}
+
+/** Compares `before`/`after` on each key in `fieldLabels` and returns one
+ *  `FieldChanged` audit input per key whose stringified value actually
+ *  changed (null/undefined both normalize to `null` so "cleared" is not
+ *  reported as a false-positive change from `undefined` to `null`). Callers
+ *  pass only the base fields (module/recordId/recordRef/performedBy) - this
+ *  never touches Supabase itself, so it's easy to unit test the diff logic
+ *  in isolation from the insert. */
+export function diffFieldsForAudit(
+  base: Omit<LogAuditEventInput, 'eventType' | 'fieldName' | 'oldValue' | 'newValue'>,
+  fieldLabels: Record<string, string>,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): LogAuditEventInput[] {
+  const events: LogAuditEventInput[] = [];
+  for (const [key, label] of Object.entries(fieldLabels)) {
+    const oldRaw = before[key];
+    const newRaw = after[key];
+    const oldStr = oldRaw === null || oldRaw === undefined ? null : String(oldRaw);
+    const newStr = newRaw === null || newRaw === undefined ? null : String(newRaw);
+    if (oldStr === newStr) continue;
+    events.push({ ...base, eventType: 'FieldChanged', fieldName: label, oldValue: oldStr, newValue: newStr });
+  }
+  return events;
 }
 
 // ---------- Dashboard (Phase 6: full KPI suite) ----------
