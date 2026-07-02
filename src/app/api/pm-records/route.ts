@@ -6,8 +6,10 @@ import { relocatePendingFiles } from '@/lib/googleDrive';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
 import { isNonEmptyString, parseWithSchema, ValidationError } from '@/features/maintenance/utils/validation';
-import { MaintenanceRecordCreateBodySchema, MaintenanceRecordCreateBody } from '@/features/maintenance/schemas';
+import { buildMaintenanceRecordCreateBodySchema, MaintenanceRecordCreateBody } from '@/features/maintenance/schemas';
 import { MaintenanceRecordCreateInput } from '@/features/maintenance/types';
+import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/translate';
 
 export async function GET() {
   const session = await getSession();
@@ -52,6 +54,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
+
   // Zero-leakage: only a privileged role may set an arbitrary dealer_id from
   // the request body — everyone else is pinned to their own session dealer,
   // mirroring the same rule already enforced in src/app/api/records/route.ts.
@@ -67,7 +71,7 @@ export async function POST(req: NextRequest) {
 
   let parsedBody: MaintenanceRecordCreateBody;
   try {
-    parsedBody = parseWithSchema<MaintenanceRecordCreateBody>(MaintenanceRecordCreateBodySchema, body);
+    parsedBody = parseWithSchema<MaintenanceRecordCreateBody>(buildMaintenanceRecordCreateBodySchema(locale), body);
   } catch (error) {
     if (error instanceof ValidationError) {
       return NextResponse.json(
@@ -97,7 +101,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message: 'รอบ PM ที่เลือกไม่ได้อยู่ใน Maintenance Program ของรถคันนี้ กรุณาเลือกใหม่',
+            message: translate(locale, 'validation.pmIntervalNotInProgram'),
           },
         },
         { status: 400 }

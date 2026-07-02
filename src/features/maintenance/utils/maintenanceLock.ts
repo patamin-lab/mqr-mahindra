@@ -23,13 +23,6 @@ export const MAINTENANCE_EDITABLE_WINDOW_HOURS = 24;
  *  locked record. */
 export const MAINTENANCE_LOCK_AFFECTING_FIELDS = ['serial', 'performed_date', 'hour_meter', 'pm_interval_id'] as const;
 
-export const MAINTENANCE_LOCK_REASON_LABEL: Record<MaintenanceLockReason, string> = {
-  edit_window_expired: 'พ้นระยะเวลาที่แก้ไขได้ (24 ชั่วโมงหลังบันทึก)',
-  superseded: 'มีการบันทึก PM ครั้งใหม่ของรถคันนี้แล้ว',
-  administrative_lock: 'ล็อกโดยผู้ดูแลระบบ',
-  manual_override: 'เคยถูกปลดล็อกชั่วคราวโดยผู้ดูแลระบบ (ครบกำหนดแล้ว)',
-};
-
 export interface MaintenanceLockStatus {
   locked: boolean;
   reason: MaintenanceLockReason | null;

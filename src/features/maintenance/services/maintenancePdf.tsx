@@ -16,14 +16,16 @@ import { ensureFontsRegistered } from '@/lib/pdf/fonts';
 import { fetchImageAsDataUri } from '@/lib/pdf/fetchImage';
 import { PdfBrandLogo } from '@/lib/pdf/PdfBrandLogo';
 import { PDF_BRAND_RED } from '@/lib/pdf/brand';
-import { formatThaiDateTime } from '@/lib/thaiDate';
+import { formatDateTimeLocalized } from '@/lib/thaiDate';
+import { translate } from '@/lib/i18n/translate';
+import { Locale } from '@/lib/i18n/types';
 import { MaintenanceRecord, maintenanceAttachmentsOf, MaintenanceAttachmentKind } from '../types';
-import { evaluateMaintenanceLock, MAINTENANCE_LOCK_REASON_LABEL } from '../utils/maintenanceLock';
+import { evaluateMaintenanceLock } from '../utils/maintenanceLock';
 
-const ATTACHMENT_LABEL: Record<MaintenanceAttachmentKind, string> = {
-  meter: 'รูปมิเตอร์ชั่วโมง',
-  nameplate: 'รูป Nameplate / หมายเลขเครื่อง',
-  report: 'รูปใบรายงาน PM',
+const ATTACHMENT_I18N_KEY: Record<MaintenanceAttachmentKind, string> = {
+  meter: 'photoMeter',
+  nameplate: 'photoNameplate',
+  report: 'photoReport',
 };
 
 const styles = StyleSheet.create({
@@ -112,9 +114,18 @@ interface MaintenanceDocumentProps {
   qrDataUrl: string;
   recordUrl: string;
   photoDataUris: Map<string, string | null>;
+  locale: Locale;
 }
 
-function MaintenanceDocument({ record, dealerName, intervalLabel, qrDataUrl, recordUrl, photoDataUris }: MaintenanceDocumentProps) {
+function MaintenanceDocument({
+  record,
+  dealerName,
+  intervalLabel,
+  qrDataUrl,
+  recordUrl,
+  photoDataUris,
+  locale,
+}: MaintenanceDocumentProps) {
   const lock = evaluateMaintenanceLock(record);
   const attachments = maintenanceAttachmentsOf(record);
   const hasGps = record.latitude !== null && record.longitude !== null;
@@ -125,41 +136,65 @@ function MaintenanceDocument({ record, dealerName, intervalLabel, qrDataUrl, rec
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <PdfBrandLogo />
-            <Text style={styles.title}>ใบรายงานบำรุงรักษาเชิงป้องกัน (Preventive Maintenance Report)</Text>
+            <Text style={styles.title}>{translate(locale, 'pdf.pmTitle')}</Text>
             <Text style={styles.subtitle}>
-              เลขที่ PM {record.pm_number ?? record.id} — {dealerName ?? record.dealer_id}
+              {translate(locale, 'common.pmNumber')} {record.pm_number ?? record.id} — {dealerName ?? record.dealer_id}
             </Text>
-            <Text style={styles.subtitle}>พิมพ์เมื่อ {formatThaiDateTime(new Date())}</Text>
+            <Text style={styles.subtitle}>
+              {translate(locale, 'pdf.printedAt')} {formatDateTimeLocalized(new Date(), locale)}
+            </Text>
             <View style={styles.badgeRow}>
               <Text style={styles.badge}>{record.status}</Text>
               {lock.locked && (
-                <Text style={styles.lockedBadge}>🔒 {MAINTENANCE_LOCK_REASON_LABEL[lock.reason!]}</Text>
+                <Text style={styles.lockedBadge}>🔒 {translate(locale, `lockReason.${lock.reason}`)}</Text>
               )}
             </View>
           </View>
           <View>
             <Image src={qrDataUrl} style={styles.qr} />
-            <Text style={styles.qrCaption}>สแกนเพื่อเปิดรายงาน</Text>
+            <Text style={styles.qrCaption}>{translate(locale, 'pdf.scanToOpen')}</Text>
           </View>
         </View>
         <View style={styles.titleRule} />
 
         <View style={styles.infoTable}>
-          <Row2 l1="รุ่นรถ" v1={record.model} l2="หมายเลขรถ (Serial)" v2={record.serial} />
-          <Row2 l1="หมายเลขเครื่อง" v1={record.engine_number} l2="วันที่ส่งมอบ" v2={record.delivery_date} />
-          <Row2 l1="ชื่อลูกค้า" v1={record.customer_name} l2="เบอร์โทรลูกค้า" v2={record.customer_phone} />
-          <Row2 l1="ช่างซ่อม" v1={record.technician_name} l2="สาขา" v2={record.branch_name} />
-          <Row2 l1="วันที่ทำ PM" v1={record.performed_date} l2="ชั่วโมงเครื่องยนต์" v2={record.hour_meter} />
-          <Row2 l1="รอบ PM" v1={intervalLabel} l2="รอบ PM ถัดไป" v2={record.next_pm_due} />
-          {record.notes && <RowFull label="หมายเหตุ" value={record.notes} />}
+          <Row2 l1={translate(locale, 'csv.model')} v1={record.model} l2={translate(locale, 'pdf.serial')} v2={record.serial} />
+          <Row2
+            l1={translate(locale, 'common.engineNumber')}
+            v1={record.engine_number}
+            l2={translate(locale, 'pdf.deliveryDate')}
+            v2={record.delivery_date}
+          />
+          <Row2
+            l1={translate(locale, 'pdf.customerName')}
+            v1={record.customer_name}
+            l2={translate(locale, 'pdf.customerPhone')}
+            v2={record.customer_phone}
+          />
+          <Row2
+            l1={translate(locale, 'csv.technicianName')}
+            v1={record.technician_name}
+            l2={translate(locale, 'common.branch')}
+            v2={record.branch_name}
+          />
+          <Row2
+            l1={translate(locale, 'common.performedDate')}
+            v1={record.performed_date}
+            l2={translate(locale, 'pdf.hourMeter')}
+            v2={record.hour_meter}
+          />
+          <Row2 l1={translate(locale, 'pdf.pmInterval')} v1={intervalLabel} l2={translate(locale, 'pdf.nextPmDue')} v2={record.next_pm_due} />
+          {record.notes && <RowFull label={translate(locale, 'common.notes')} value={record.notes} />}
         </View>
 
         {hasGps && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>พิกัดสถานที่</Text>
+            <Text style={styles.sectionTitle}>{translate(locale, 'pdf.gpsLocation')}</Text>
             <Text style={styles.paragraph}>
               {record.latitude}, {record.longitude}
-              {record.gps_accuracy !== null ? ` (ความแม่นยำ ±${Math.round(record.gps_accuracy)} m)` : ''}
+              {record.gps_accuracy !== null
+                ? translate(locale, 'pdf.gpsAccuracySuffix', { m: Math.round(record.gps_accuracy) })
+                : ''}
             </Text>
             {record.google_maps_url && <Text style={styles.link}>{record.google_maps_url}</Text>}
           </View>
@@ -167,19 +202,20 @@ function MaintenanceDocument({ record, dealerName, intervalLabel, qrDataUrl, rec
 
         {attachments.map((a) => {
           const dataUri = photoDataUris.get(a.url);
+          const label = translate(locale, `pdf.${ATTACHMENT_I18N_KEY[a.kind]}`);
           return (
             <View key={a.kind}>
-              <Text style={styles.photoCategoryLabel}>{ATTACHMENT_LABEL[a.kind]}</Text>
+              <Text style={styles.photoCategoryLabel}>{label}</Text>
               <View style={styles.photoGrid}>
                 <View style={styles.photoBox} wrap={false}>
                   {dataUri ? (
                     <Image src={dataUri} style={styles.photo} />
                   ) : (
                     <View style={styles.photoPlaceholder}>
-                      <Text style={styles.photoPlaceholderText}>โหลดรูปไม่สำเร็จ</Text>
+                      <Text style={styles.photoPlaceholderText}>{translate(locale, 'pdf.photoLoadFailed')}</Text>
                     </View>
                   )}
-                  <Text style={styles.photoLabel}>{ATTACHMENT_LABEL[a.kind]}</Text>
+                  <Text style={styles.photoLabel}>{label}</Text>
                 </View>
               </View>
             </View>
@@ -188,10 +224,17 @@ function MaintenanceDocument({ record, dealerName, intervalLabel, qrDataUrl, rec
 
         <View style={{ marginTop: 10 }}>
           <Text style={styles.auditText}>
-            สร้างโดย {record.created_by ?? '-'} · {formatThaiDateTime(record.created_at)}
-            {record.updated_by ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${formatThaiDateTime(record.updated_at)}` : ''}
+            {translate(locale, 'pdf.createdByAt', { by: record.created_by ?? '-', at: formatDateTimeLocalized(record.created_at, locale) })}
+            {record.updated_by
+              ? ` — ${translate(locale, 'pdf.updatedByAt', {
+                  by: record.updated_by,
+                  at: formatDateTimeLocalized(record.updated_at, locale),
+                })}`
+              : ''}
           </Text>
-          <Text style={styles.issuedText}>เอกสารออกเมื่อ {formatThaiDateTime(new Date())} โดยระบบ PM</Text>
+          <Text style={styles.issuedText}>
+            {translate(locale, 'pdf.issuedBy', { at: formatDateTimeLocalized(new Date(), locale) })} PM
+          </Text>
         </View>
 
         <Text style={styles.footer}>{recordUrl}</Text>
@@ -200,17 +243,19 @@ function MaintenanceDocument({ record, dealerName, intervalLabel, qrDataUrl, rec
   );
 }
 
-const LIST_COLS: { key: string; label: string; width: string; value: (r: MaintenanceRecord) => string }[] = [
-  { key: 'pm_number', label: 'เลขที่ PM', width: '14%', value: (r) => r.pm_number ?? '-' },
-  { key: 'dealer_id', label: 'ดีลเลอร์', width: '9%', value: (r) => r.dealer_id },
-  { key: 'performed_date', label: 'วันที่ทำ PM', width: '9%', value: (r) => r.performed_date ?? '-' },
-  { key: 'vehicle', label: 'รถ / Serial', width: '15%', value: (r) => `${r.model ?? '-'} (${r.serial ?? '-'})` },
-  { key: 'customer_name', label: 'ลูกค้า', width: '13%', value: (r) => r.customer_name ?? '-' },
-  { key: 'technician_name', label: 'ช่างซ่อม', width: '13%', value: (r) => r.technician_name ?? '-' },
-  { key: 'hour_meter', label: 'ชั่วโมง', width: '9%', value: (r) => (r.hour_meter != null ? String(r.hour_meter) : '-') },
-  { key: 'status', label: 'สถานะ', width: '9%', value: (r) => r.status },
-  { key: 'next_pm_due', label: 'รอบถัดไป', width: '9%', value: (r) => r.next_pm_due ?? '-' },
-];
+function listCols(locale: Locale): { key: string; label: string; width: string; value: (r: MaintenanceRecord) => string }[] {
+  return [
+    { key: 'pm_number', label: translate(locale, 'csv.pmNumber'), width: '14%', value: (r) => r.pm_number ?? '-' },
+    { key: 'dealer_id', label: translate(locale, 'csv.dealer'), width: '9%', value: (r) => r.dealer_id },
+    { key: 'performed_date', label: translate(locale, 'csv.performedDate'), width: '9%', value: (r) => r.performed_date ?? '-' },
+    { key: 'vehicle', label: translate(locale, 'pdf.colVehicle'), width: '15%', value: (r) => `${r.model ?? '-'} (${r.serial ?? '-'})` },
+    { key: 'customer_name', label: translate(locale, 'pdf.colCustomer'), width: '13%', value: (r) => r.customer_name ?? '-' },
+    { key: 'technician_name', label: translate(locale, 'csv.technicianName'), width: '13%', value: (r) => r.technician_name ?? '-' },
+    { key: 'hour_meter', label: translate(locale, 'pdf.hourMeter'), width: '9%', value: (r) => (r.hour_meter != null ? String(r.hour_meter) : '-') },
+    { key: 'status', label: translate(locale, 'common.status'), width: '9%', value: (r) => r.status },
+    { key: 'next_pm_due', label: translate(locale, 'pdf.nextPmDue'), width: '9%', value: (r) => r.next_pm_due ?? '-' },
+  ];
+}
 
 const listStyles = StyleSheet.create({
   page: { padding: 28, fontFamily: 'Sarabun', fontSize: 9, color: '#1a1a1a' },
@@ -223,18 +268,20 @@ const listStyles = StyleSheet.create({
   cell: { padding: 4, fontSize: 8 },
 });
 
-function MaintenanceListDocument({ records, title }: { records: MaintenanceRecord[]; title: string }) {
+function MaintenanceListDocument({ records, title, locale }: { records: MaintenanceRecord[]; title: string; locale: Locale }) {
+  const cols = listCols(locale);
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={listStyles.page}>
         <PdfBrandLogo />
-        <Text style={listStyles.title}>PM History Report</Text>
+        <Text style={listStyles.title}>{translate(locale, 'pdf.pmListTitle')}</Text>
         <Text style={listStyles.subtitle}>
-          {title} — พิมพ์เมื่อ {formatThaiDateTime(new Date())} — จำนวน {records.length} รายการ
+          {title} — {translate(locale, 'pdf.printedAt')} {formatDateTimeLocalized(new Date(), locale)} —{' '}
+          {translate(locale, 'pdf.quantity')} {records.length} {translate(locale, 'pdf.recordsUnit')}
         </Text>
         <View style={listStyles.table}>
           <View style={listStyles.rowHeader}>
-            {LIST_COLS.map((c) => (
+            {cols.map((c) => (
               <Text key={c.key} style={[listStyles.cellHeader, { width: c.width }]}>
                 {c.label}
               </Text>
@@ -242,7 +289,7 @@ function MaintenanceListDocument({ records, title }: { records: MaintenanceRecor
           </View>
           {records.map((r) => (
             <View style={listStyles.row} key={r.id} wrap={false}>
-              {LIST_COLS.map((c) => (
+              {cols.map((c) => (
                 <Text key={c.key} style={[listStyles.cell, { width: c.width }]}>
                   {c.value(r)}
                 </Text>
@@ -265,9 +312,10 @@ async function resolveAttachmentDataUris(record: MaintenanceRecord): Promise<Map
 export async function renderMaintenanceRecordPdf(
   record: MaintenanceRecord,
   baseUrl: string,
-  options?: { dealerName?: string; intervalLabel?: string }
+  options?: { dealerName?: string; intervalLabel?: string; locale?: Locale }
 ): Promise<Buffer> {
   ensureFontsRegistered();
+  const locale = options?.locale ?? 'th';
   const recordUrl = `${baseUrl}/pm-records/${encodeURIComponent(record.id)}`;
   const [qrDataUrl, photoDataUris] = await Promise.all([
     QRCode.toDataURL(recordUrl, { margin: 0, width: 160 }),
@@ -281,11 +329,12 @@ export async function renderMaintenanceRecordPdf(
       qrDataUrl={qrDataUrl}
       recordUrl={recordUrl}
       photoDataUris={photoDataUris}
+      locale={locale}
     />
   );
 }
 
-export async function renderMaintenanceListPdf(records: MaintenanceRecord[], title: string): Promise<Buffer> {
+export async function renderMaintenanceListPdf(records: MaintenanceRecord[], title: string, locale: Locale = 'th'): Promise<Buffer> {
   ensureFontsRegistered();
-  return renderToBuffer(<MaintenanceListDocument records={records} title={title} />);
+  return renderToBuffer(<MaintenanceListDocument records={records} title={title} locale={locale} />);
 }

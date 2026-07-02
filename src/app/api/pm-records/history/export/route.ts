@@ -6,6 +6,8 @@ import { parseMaintenanceHistoryFilterFromSearchParams } from '@/features/mainte
 import { renderMaintenanceListPdf } from '@/features/maintenance/services/maintenancePdf';
 import { buildMaintenanceRecordsCsv } from '@/features/maintenance/services/maintenanceCsv';
 import type { MaintenanceRecord } from '@/features/maintenance/types';
+import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/translate';
 
 export const runtime = 'nodejs';
 
@@ -41,13 +43,14 @@ export async function GET(req: NextRequest) {
 
   const repository = new SupabaseMaintenanceRepository();
   const service = new MaintenanceService(repository);
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
 
   try {
     const records = await fetchAllMatchingPages(service, filter);
     const filenameBase = `pm-history-${new Date().toISOString().slice(0, 10)}`;
 
     if (format === 'pdf') {
-      const buf = await renderMaintenanceListPdf(records, 'ประวัติการบำรุงรักษา (PM History)');
+      const buf = await renderMaintenanceListPdf(records, translate(locale, 'pdf.pmListTitle'), locale);
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           'Content-Type': 'application/pdf',
@@ -57,7 +60,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (format === 'csv') {
-      const buf = buildMaintenanceRecordsCsv(records);
+      const buf = buildMaintenanceRecordsCsv(records, locale);
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           'Content-Type': 'text/csv; charset=utf-8',
@@ -70,7 +73,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('PM history export error', error);
     return NextResponse.json(
-      { ok: false, error: { code: 'INTERNAL_ERROR', message: 'ส่งออกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง' } },
+      { ok: false, error: { code: 'INTERNAL_ERROR', message: translate(locale, 'validation.exportFailed') } },
       { status: 500 }
     );
   }

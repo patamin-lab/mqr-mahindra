@@ -1,5 +1,7 @@
 import { getSupabase } from './supabase';
 import { seesAllDealers, seesOwnRecordsOnly, canDelete } from './scope';
+import { translate } from './i18n/translate';
+import { Locale } from './i18n/types';
 import {
   SessionUser,
   Dealer,
@@ -1294,7 +1296,12 @@ const MQR_RCA_FIELD_LABELS: Record<string, string> = {
   preventive_action: 'การป้องกัน (Preventive Action)',
 };
 
-export async function updateRecord(jobId: string, patch: UpdateRecordInput, session: SessionUser): Promise<MqrRecord> {
+export async function updateRecord(
+  jobId: string,
+  patch: UpdateRecordInput,
+  session: SessionUser,
+  locale: Locale = 'th'
+): Promise<MqrRecord> {
   // Re-validate scope before allowing the write.
   const existing = await getRecordByJobId(jobId, session);
   if (!existing) throw new Error('ไม่พบรายงานนี้ หรือไม่มีสิทธิ์เข้าถึง');
@@ -1302,9 +1309,10 @@ export async function updateRecord(jobId: string, patch: UpdateRecordInput, sess
   if (patch.status !== undefined && patch.status !== existing.status) {
     if (!canTransitionMqrStatus(existing.status as StatusValue, patch.status as StatusValue, session.role)) {
       throw new Error(
-        `ไม่สามารถเปลี่ยนสถานะจาก "${STATUS_LABELS[existing.status as StatusValue] ?? existing.status}" เป็น "${
-          STATUS_LABELS[patch.status as StatusValue] ?? patch.status
-        }" ได้ กรุณาเปลี่ยนสถานะตามลำดับขั้นตอนที่กำหนด`
+        translate(locale, 'validation.invalidStatusTransition', {
+          from: translate(locale, `mqrStatus.${existing.status}`),
+          to: translate(locale, `mqrStatus.${patch.status}`),
+        })
       );
     }
   }

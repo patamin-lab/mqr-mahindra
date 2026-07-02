@@ -12,6 +12,8 @@
  */
 import { logAuditEvent, logAuditEvents, diffFieldsForAudit } from '@/lib/db';
 import { Role } from '@/lib/types';
+import { translate } from '@/lib/i18n/translate';
+import { Locale } from '@/lib/i18n/types';
 import { MaintenanceRepository, MaintenanceFilter } from '../repositories/maintenanceRepository';
 import {
   MaintenanceDuplicateCheckParams,
@@ -21,12 +23,19 @@ import {
   MaintenanceRecordCreateInput,
   MaintenanceRecordUpdateInput,
 } from '../types';
-import { evaluateMaintenanceLock, touchesLockAffectingFields, MAINTENANCE_LOCK_REASON_LABEL } from '../utils/maintenanceLock';
+import { evaluateMaintenanceLock, touchesLockAffectingFields } from '../utils/maintenanceLock';
 
 export interface MaintenanceActor {
   username: string;
   role?: Role;
 }
+
+/** Thrown when `update()` is blocked by the calculation-protection lock -
+ *  a distinct type (not just a plain `Error`) so callers (the API route)
+ *  can detect a lock violation via `instanceof` rather than sniffing the
+ *  error message's text, which would break once the message is
+ *  localized and could read in either Thai or English. */
+export class MaintenanceLockError extends Error {}
 
 const UNLOCK_ROLES: Role[] = ['SuperAdmin', 'CentralAdmin'];
 const DEFAULT_UNLOCK_HOURS = 24;
@@ -89,7 +98,12 @@ export class MaintenanceService {
     return created;
   }
 
-  async update(id: string, input: MaintenanceRecordUpdateInput, actor: MaintenanceActor): Promise<MaintenanceRecord> {
+  async update(
+    id: string,
+    input: MaintenanceRecordUpdateInput,
+    actor: MaintenanceActor,
+    locale: Locale = 'th'
+  ): Promise<MaintenanceRecord> {
     if (!actor?.username?.trim()) {
       throw new Error('Actor username is required');
     }
@@ -101,10 +115,8 @@ export class MaintenanceService {
     if (touchesLockAffectingFields(input)) {
       const lock = evaluateMaintenanceLock(existing);
       if (lock.locked) {
-        throw new Error(
-          `ไม่สามารถแก้ไขข้อมูลนี้ได้ เนื่องจากรายการถูกล็อก (${
-            MAINTENANCE_LOCK_REASON_LABEL[lock.reason!]
-          }) - เฉพาะฟิลด์ที่ไม่กระทบการคำนวณ (หมายเหตุ) เท่านั้นที่แก้ไขได้ กรุณาปลดล็อกชั่วคราวก่อนแก้ไขข้อมูลอื่น`
+        throw new MaintenanceLockError(
+          translate(locale, 'validation.recordLocked', { reason: translate(locale, `lockReason.${lock.reason}`) })
         );
       }
     }
@@ -125,7 +137,7 @@ export class MaintenanceService {
   /** Locked records may only be soft-deleted by SuperAdmin, with a
    *  mandatory reason - an unlocked record follows whatever delete
    *  permission the caller (route) already enforced, unchanged. */
-  async delete(id: string, actor: MaintenanceActor, reason?: string | null): Promise<void> {
+  async delete(id: string, actor: MaintenanceActor, reason?: string | null, locale: Locale = 'th'): Promise<void> {
     if (!actor?.username?.trim()) {
       throw new Error('Actor username is required');
     }
@@ -137,10 +149,10 @@ export class MaintenanceService {
     const lock = evaluateMaintenanceLock(existing);
     if (lock.locked) {
       if (actor.role !== 'SuperAdmin') {
-        throw new Error('รายการนี้ถูกล็อกแล้ว เฉพาะ Super Admin เท่านั้นที่สามารถลบได้');
+        throw new Error(translate(locale, 'validation.recordLockedDeleteSuperAdminOnly'));
       }
       if (!reason?.trim()) {
-        throw new Error('กรุณาระบุเหตุผลในการลบรายการที่ถูกล็อก');
+        throw new Error(translate(locale, 'validation.deleteReasonRequired'));
       }
     }
 
@@ -158,9 +170,9 @@ export class MaintenanceService {
   /** Explicit administrative lock - Central/SuperAdmin only. Locking an
    *  already-locked record is a harmless no-op write (idempotent from the
    *  caller's point of view, still logged). */
-  async lock(id: string, actor: MaintenanceActor): Promise<MaintenanceRecord> {
+  async lock(id: string, actor: MaintenanceActor, locale: Locale = 'th'): Promise<MaintenanceRecord> {
     if (!actor.role || !UNLOCK_ROLES.includes(actor.role)) {
-      throw new Error('เฉพาะผู้ดูแลส่วนกลางขึ้นไปเท่านั้นที่สามารถล็อกรายการได้');
+      throw new Error(translate(locale, 'validation.lockRequiresAdmin'));
     }
     const existing = await this.repository.getById(id);
     if (!existing) {
@@ -184,9 +196,14 @@ export class MaintenanceService {
    *  by `update()` as normal `FieldChanged`/`RcaUpdated`-style events, and
    *  the record reads as locked again (reason `manual_override`) once
    *  `unlocked_until` passes - see `evaluateMaintenanceLock()`. */
-  async unlock(id: string, actor: MaintenanceActor, hours: number = DEFAULT_UNLOCK_HOURS): Promise<MaintenanceRecord> {
+  async unlock(
+    id: string,
+    actor: MaintenanceActor,
+    hours: number = DEFAULT_UNLOCK_HOURS,
+    locale: Locale = 'th'
+  ): Promise<MaintenanceRecord> {
     if (!actor.role || !UNLOCK_ROLES.includes(actor.role)) {
-      throw new Error('เฉพาะผู้ดูแลส่วนกลางขึ้นไปเท่านั้นที่สามารถปลดล็อกชั่วคราวได้');
+      throw new Error(translate(locale, 'validation.unlockRequiresAdmin'));
     }
     const existing = await this.repository.getById(id);
     if (!existing) {

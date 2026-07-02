@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
 import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
-import { evaluateMaintenanceLock, MAINTENANCE_LOCK_REASON_LABEL } from '@/features/maintenance/utils/maintenanceLock';
+import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanceLock';
 import MaintenanceForm from '@/features/maintenance/components/maintenance-form';
+import { t } from '@/lib/i18n/server';
 
 interface RouteParams {
   params: {
@@ -24,16 +25,16 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-            <p className="text-sm text-gray-500">Record ID: {params.id}</p>
+            <h1 className="text-xl font-bold text-brand-dark">{t('pmEdit.title')}</h1>
+            <p className="text-sm text-gray-500">{t('pmDetail.recordIdLabel', { id: params.id })}</p>
           </div>
           <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            Back to List
+            {t('common.backToList')}
           </Link>
         </div>
 
         <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p>Record not found.</p>
+          <p>{t('pmDetail.notFound')}</p>
         </div>
       </div>
     );
@@ -44,16 +45,16 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-            <p className="text-sm text-gray-500">Record ID: {params.id}</p>
+            <h1 className="text-xl font-bold text-brand-dark">{t('pmEdit.title')}</h1>
+            <p className="text-sm text-gray-500">{t('pmDetail.recordIdLabel', { id: params.id })}</p>
           </div>
           <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            Back to List
+            {t('common.backToList')}
           </Link>
         </div>
 
         <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>Error: {result.error}</p>
+          <p>{t('pmDetail.errorPrefix', { error: result.error })}</p>
         </div>
       </div>
     );
@@ -64,16 +65,16 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-            <p className="text-sm text-gray-500">Record ID: {params.id}</p>
+            <h1 className="text-xl font-bold text-brand-dark">{t('pmEdit.title')}</h1>
+            <p className="text-sm text-gray-500">{t('pmDetail.recordIdLabel', { id: params.id })}</p>
           </div>
           <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            Back to List
+            {t('common.backToList')}
           </Link>
         </div>
 
         <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>Unexpected error loading record.</p>
+          <p>{t('pmDetail.unexpectedError')}</p>
         </div>
       </div>
     );
@@ -86,21 +87,21 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
     <div className="max-w-2xl space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-          <p className="text-sm text-gray-500">Record ID: {record.id}</p>
+          <h1 className="text-xl font-bold text-brand-dark">{t('pmEdit.title')}</h1>
+          <p className="text-sm text-gray-500">{t('pmDetail.recordIdLabel', { id: record.id })}</p>
         </div>
         <Link
           href={`/pm-records/${encodeURIComponent(record.id)}`}
           className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
         >
-          Back to Detail
+          {t('pmEdit.backToDetail')}
         </Link>
       </div>
 
       {lock.locked && (
         <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          🔒 รายการนี้ถูกล็อกแล้ว: {MAINTENANCE_LOCK_REASON_LABEL[lock.reason!]} — สามารถแก้ไขได้เฉพาะหมายเหตุ ฟิลด์อื่นที่กระทบการคำนวณ
-          (Serial, Performed Date) ถูกปิดการแก้ไข กรุณาปลดล็อกชั่วคราวจากหน้ารายละเอียดก่อนแก้ไขข้อมูลอื่น
+          🔒 {t('pmDetail.lockedBannerPrefix', { reason: t(`lockReason.${lock.reason}`) })}
+          {t('pmEdit.lockedBannerSuffix')}
         </div>
       )}
 

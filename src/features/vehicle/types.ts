@@ -31,22 +31,6 @@ export type VehicleEventType =
   | 'Inspection'
   | 'Other';
 
-export const VEHICLE_EVENT_MODULE_LABEL: Record<VehicleEventType, string> = {
-  FactoryBuild: 'โรงงาน',
-  DealerReceive: 'ดีลเลอร์รับรถ',
-  PdiCompleted: 'PDI',
-  NtrCompleted: 'NTR',
-  MaintenanceCompleted: 'บำรุงรักษา (Maintenance)',
-  MqrOpened: 'รายงานปัญหาคุณภาพ (MQR)',
-  MqrClosed: 'รายงานปัญหาคุณภาพ (MQR)',
-  CampaignAssigned: 'แคมเปญ',
-  CampaignCompleted: 'แคมเปญ',
-  PartsRequested: 'คำขออะไหล่',
-  PartsDelivered: 'คำขออะไหล่',
-  Inspection: 'ตรวจสภาพ',
-  Other: 'อื่นๆ',
-};
-
 /** One row on the Vehicle Life Cycle timeline. `date` is an ISO date/timestamp
  *  string so events from different modules sort correctly together. */
 export interface VehicleEvent {

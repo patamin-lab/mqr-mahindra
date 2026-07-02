@@ -4,6 +4,8 @@ import { getRecordByJobId, updateRecord, softDeleteRecord, getDealer } from '@/l
 import { canUpdateStatus, canDelete } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
 import { sendRecordNotification } from '@/lib/email';
+import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/translate';
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 // Per spec section 8: the second notification email fires when a job is
@@ -18,7 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
   }
   const record = await getRecordByJobId(decodeURIComponent(params.jobId), session);
   if (!record) {
-    return NextResponse.json({ ok: false, error: 'ไม่พบรายงานนี้' }, { status: 404 });
+    return NextResponse.json({ ok: false, error: translate(getLocaleFromCookieHeader(req.headers.get('cookie')), 'validation.recordNotFound') }, { status: 404 });
   }
   return NextResponse.json({ ok: true, record });
 }
@@ -28,13 +30,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
   if (!session) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!canUpdateStatus(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์อัปเดตสถานะรายงาน' }, { status: 403 });
+    return NextResponse.json({ ok: false, error: translate(locale, 'validation.unauthorizedUpdateStatus') }, { status: 403 });
   }
   try {
     const body = await req.json();
     if (body.severity !== undefined && body.severity !== null && !SEVERITY_VALUES.includes(body.severity)) {
-      return NextResponse.json({ ok: false, error: 'ความรุนแรงไม่ถูกต้อง' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidSeverity') }, { status: 400 });
     }
     const addPhotoLinks: PhotoLink[] | undefined = Array.isArray(body.addPhotoLinks)
       ? body.addPhotoLinks
@@ -61,7 +64,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
         addPhotoLinks,
         removePhotoUrls,
       },
-      session
+      session,
+      locale
     );
 
     const justClosed = !wasAlreadyClosed && CLOSING_STATUSES.has(record.status);
@@ -77,7 +81,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
     return NextResponse.json({ ok: true, record });
   } catch (err: any) {
     console.error('update record error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: err?.message ?? translate(locale, 'validation.internalSystemError') }, { status: 500 });
   }
 }
 
@@ -87,14 +91,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { jobId: st
   if (!session) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!canDelete(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์ลบรายงานนี้' }, { status: 403 });
+    return NextResponse.json({ ok: false, error: translate(locale, 'validation.unauthorizedDelete') }, { status: 403 });
   }
   try {
     await softDeleteRecord(decodeURIComponent(params.jobId), session);
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     console.error('delete record error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: err?.message ?? translate(locale, 'validation.internalSystemError') }, { status: 500 });
   }
 }

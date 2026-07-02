@@ -3,6 +3,8 @@ import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
+import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/translate';
 
 const MAX_UNLOCK_HOURS = 168; // 7 days - a generous cap so a mistyped value can't leave a record unlocked indefinitely.
 
@@ -13,8 +15,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!session) {
     return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
   }
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!seesAllDealers(session.role)) {
-    return NextResponse.json({ ok: false, error: { code: 'FORBIDDEN', message: 'ไม่มีสิทธิ์เข้าถึง' } }, { status: 403 });
+    return NextResponse.json(
+      { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'common.unauthorized') } },
+      { status: 403 }
+    );
   }
 
   let hours = 24;
@@ -31,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const service = new MaintenanceService(repository);
 
   try {
-    const record = await service.unlock(params.id, { username: session.username, role: session.role }, hours);
+    const record = await service.unlock(params.id, { username: session.username, role: session.role }, hours, locale);
     return NextResponse.json({ ok: true, data: record }, { status: 200 });
   } catch (error) {
     console.error('PM Record unlock API error', error);

@@ -182,6 +182,20 @@ export const PHOTO_CATEGORIES: { key: PhotoCategory; label: string; required: bo
   { key: 'problem_location', label: 'ภาพตำแหน่ง/จุดที่เกิดปัญหา (เดิม)', required: false },
 ];
 
+/** Maps each photo category to its `pdf.*` / dictionary translation key -
+ *  shared by the PDF renderer and any UI page that wants a locale-aware
+ *  label instead of `PHOTO_CATEGORIES`' single Thai-only `label` field. */
+export const PHOTO_CATEGORY_I18N_KEY: Record<PhotoCategory, string> = {
+  odometer: 'photoOdometer',
+  vehicle_serial: 'photoVehicleSerial',
+  damage_point_1: 'photoDamagePoint1',
+  damage_point_2: 'photoDamagePoint2',
+  damage_point_3: 'photoDamagePoint3',
+  after_repair: 'photoAfterRepair',
+  problem_evidence: 'photoProblemEvidence',
+  problem_location: 'photoProblemLocation',
+};
+
 export interface PhotoLink {
   category: PhotoCategory;
   label: string;

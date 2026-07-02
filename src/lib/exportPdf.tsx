@@ -1,19 +1,14 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image, Link, renderToBuffer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
-import {
-  MqrRecord,
-  SEVERITY_LABELS,
-  Severity,
-  PHOTO_CATEGORIES,
-  STATUS_LABELS,
-  StatusValue,
-} from './types';
-import { formatThaiDateTime } from './thaiDate';
+import { MqrRecord, Severity, PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY } from './types';
+import { formatDateTimeLocalized } from './thaiDate';
 import { PdfBrandLogo } from './pdf/PdfBrandLogo';
 import { ensureFontsRegistered } from './pdf/fonts';
 import { fetchImageAsDataUri } from './pdf/fetchImage';
 import { PDF_BRAND_RED } from './pdf/brand';
+import { translate } from './i18n/translate';
+import { Locale } from './i18n/types';
 
 /** Resolves every photo URL on a record to a data URI in parallel, keyed by the original URL. */
 async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, string | null>> {
@@ -101,36 +96,40 @@ const SEVERITY_COLORS: Record<Severity, string> = {
   Minor: '#2471a3',
 };
 
-function problemSystemLabel(s: string | null) {
-  if (s === 'powertrain') return 'Powertrain (48 เดือน)';
-  if (s) return 'อื่นๆ (24 เดือน)';
+function problemSystemLabel(s: string | null, locale: Locale) {
+  if (s === 'powertrain') return translate(locale, 'pdf.powertrainSystem');
+  if (s) return translate(locale, 'pdf.otherSystem');
   return '-';
 }
 
-const LIST_COLS: { key: keyof MqrRecord | 'vehicle'; label: string; width: string }[] = [
-  { key: 'job_id', label: 'เลขที่งาน', width: '11%' },
-  { key: 'dealer_id', label: 'ดีลเลอร์', width: '8%' },
-  { key: 'found_date', label: 'วันที่พบ', width: '8%' },
-  { key: 'vehicle', label: 'รถ / Serial', width: '14%' },
-  { key: 'severity', label: 'ความรุนแรง', width: '9%' },
-  { key: 'customer_name', label: 'ลูกค้า', width: '12%' },
-  { key: 'problem_code', label: 'อาการ', width: '20%' },
-  { key: 'warranty_status', label: 'ประกัน', width: '9%' },
-  { key: 'status', label: 'สถานะ', width: '9%' },
-];
+function listCols(locale: Locale): { key: keyof MqrRecord | 'vehicle'; label: string; width: string }[] {
+  return [
+    { key: 'job_id', label: translate(locale, 'pdf.colReportNumber'), width: '11%' },
+    { key: 'dealer_id', label: translate(locale, 'pdf.colDealer'), width: '8%' },
+    { key: 'found_date', label: translate(locale, 'pdf.colFoundDate'), width: '8%' },
+    { key: 'vehicle', label: translate(locale, 'pdf.colVehicle'), width: '14%' },
+    { key: 'severity', label: translate(locale, 'pdf.colSeverity'), width: '9%' },
+    { key: 'customer_name', label: translate(locale, 'pdf.colCustomer'), width: '12%' },
+    { key: 'problem_code', label: translate(locale, 'pdf.colProblem'), width: '20%' },
+    { key: 'warranty_status', label: translate(locale, 'pdf.colWarranty'), width: '9%' },
+    { key: 'status', label: translate(locale, 'pdf.colStatus'), width: '9%' },
+  ];
+}
 
-function RecordsListDocument({ records, title }: { records: MqrRecord[]; title: string }) {
+function RecordsListDocument({ records, title, locale }: { records: MqrRecord[]; title: string; locale: Locale }) {
+  const cols = listCols(locale);
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <PdfBrandLogo />
-        <Text style={styles.title}>Market Quality Report</Text>
+        <Text style={styles.title}>{translate(locale, 'pdf.mqrTitle')}</Text>
         <Text style={styles.subtitle}>
-          {title} — พิมพ์เมื่อ {formatThaiDateTime(new Date())} — จำนวน {records.length} งาน
+          {title} — {translate(locale, 'pdf.printedAt')} {formatDateTimeLocalized(new Date(), locale)} —{' '}
+          {translate(locale, 'pdf.quantity')} {records.length} {translate(locale, 'pdf.jobsUnit')}
         </Text>
         <View style={styles.table}>
           <View style={styles.rowHeader}>
-            {LIST_COLS.map((c) => (
+            {cols.map((c) => (
               <Text key={c.key} style={[styles.cellHeader, { width: c.width }]}>
                 {c.label}
               </Text>
@@ -138,19 +137,19 @@ function RecordsListDocument({ records, title }: { records: MqrRecord[]; title: 
           </View>
           {records.map((r) => (
             <View style={styles.row} key={r.id} wrap={false}>
-              <Text style={[styles.cell, { width: LIST_COLS[0].width }]}>{r.job_id}</Text>
-              <Text style={[styles.cell, { width: LIST_COLS[1].width }]}>{r.dealer_id ?? '-'}</Text>
-              <Text style={[styles.cell, { width: LIST_COLS[2].width }]}>{r.found_date ?? '-'}</Text>
-              <Text style={[styles.cell, { width: LIST_COLS[3].width }]}>
+              <Text style={[styles.cell, { width: cols[0].width }]}>{r.job_id}</Text>
+              <Text style={[styles.cell, { width: cols[1].width }]}>{r.dealer_id ?? '-'}</Text>
+              <Text style={[styles.cell, { width: cols[2].width }]}>{r.found_date ?? '-'}</Text>
+              <Text style={[styles.cell, { width: cols[3].width }]}>
                 {r.model ?? '-'} ({r.serial ?? '-'})
               </Text>
-              <Text style={[styles.cell, { width: LIST_COLS[4].width }]}>
-                {r.severity ? SEVERITY_LABELS[r.severity as Severity] ?? r.severity : '-'}
+              <Text style={[styles.cell, { width: cols[4].width }]}>
+                {r.severity ? translate(locale, `severity.${r.severity as Severity}`) : '-'}
               </Text>
-              <Text style={[styles.cell, { width: LIST_COLS[5].width }]}>{r.customer_name ?? '-'}</Text>
-              <Text style={[styles.cell, { width: LIST_COLS[6].width }]}>{r.problem_code ?? '-'}</Text>
-              <Text style={[styles.cell, { width: LIST_COLS[7].width }]}>{r.warranty_status ?? '-'}</Text>
-              <Text style={[styles.cell, { width: LIST_COLS[8].width }]}>{r.status}</Text>
+              <Text style={[styles.cell, { width: cols[5].width }]}>{r.customer_name ?? '-'}</Text>
+              <Text style={[styles.cell, { width: cols[6].width }]}>{r.problem_code ?? '-'}</Text>
+              <Text style={[styles.cell, { width: cols[7].width }]}>{r.warranty_status ?? '-'}</Text>
+              <Text style={[styles.cell, { width: cols[8].width }]}>{translate(locale, `mqrStatus.${r.status}`)}</Text>
             </View>
           ))}
         </View>
@@ -209,14 +208,16 @@ function RecordDocument({
   qrDataUrl,
   recordUrl,
   photoDataUris,
+  locale,
 }: {
   record: MqrRecord;
   dealerName?: string;
   qrDataUrl: string;
   recordUrl: string;
   photoDataUris: Map<string, string | null>;
+  locale: Locale;
 }) {
-  const statusLabel = STATUS_LABELS[record.status as StatusValue] ?? record.status;
+  const statusLabel = translate(locale, `mqrStatus.${record.status}`);
   // Coerced to a real boolean: with `||`, if every RCA field is null/undefined
   // except a trailing empty string (''), `hasRca` would end up as `''` itself
   // - a falsy value, but still a *string*, which React then tries to render
@@ -239,88 +240,107 @@ function RecordDocument({
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <PdfBrandLogo />
-            <Text style={styles.title}>ใบรายงานปัญหาคุณภาพ (Market Quality Report)</Text>
+            <Text style={styles.title}>{translate(locale, 'pdf.mqrTitle')}</Text>
             <Text style={styles.subtitle}>
-              เลขที่งาน {record.job_id} — {dealerName ?? record.dealer_id}
+              {translate(locale, 'pdf.reportNumber')} {record.job_id} — {dealerName ?? record.dealer_id}
             </Text>
-            <Text style={styles.subtitle}>พิมพ์เมื่อ {formatThaiDateTime(new Date())}</Text>
+            <Text style={styles.subtitle}>
+              {translate(locale, 'pdf.printedAt')} {formatDateTimeLocalized(new Date(), locale)}
+            </Text>
             <View style={styles.badgeRow}>
               <Text style={[styles.badge, { backgroundColor: '#555' }]}>{statusLabel}</Text>
               {record.severity ? (
                 <Text style={[styles.badge, { backgroundColor: SEVERITY_COLORS[record.severity as Severity] }]}>
-                  {SEVERITY_LABELS[record.severity as Severity]}
+                  {translate(locale, `severity.${record.severity}`)}
                 </Text>
               ) : null}
             </View>
           </View>
           <View>
             <Image src={qrDataUrl} style={styles.qr} />
-            <Text style={styles.qrCaption}>สแกนเพื่อเปิดรายงาน</Text>
+            <Text style={styles.qrCaption}>{translate(locale, 'pdf.scanToOpen')}</Text>
           </View>
         </View>
         <View style={styles.titleRule} />
 
         <View style={styles.infoTable}>
           <Row2
-            l1="ลูกค้า"
+            l1={translate(locale, 'pdf.customerName')}
             v1={[record.customer_name, record.customer_phone].filter(Boolean).join(' / ')}
-            l2="ผู้แจ้งงาน"
+            l2={translate(locale, 'pdf.reporter')}
             v2={[record.reporter_name, record.reporter_phone].filter(Boolean).join(' / ')}
           />
-          <Row2 l1="รุ่นรถ" v1={record.model} l2="เลขรถ (Serial)" v2={record.serial} />
-          <Row2 l1="วันที่พบปัญหา" v1={record.found_date} l2="วันที่นำรถเข้าซ่อม" v2={record.repair_date} />
+          <Row2 l1={translate(locale, 'csv.model')} v1={record.model} l2={translate(locale, 'pdf.serial')} v2={record.serial} />
           <Row2
-            l1="ชั่วโมงที่พบปัญหา"
+            l1={translate(locale, 'pdf.foundDate')}
+            v1={record.found_date}
+            l2={translate(locale, 'pdf.repairDate')}
+            v2={record.repair_date}
+          />
+          <Row2
+            l1={translate(locale, 'pdf.hoursFound')}
             v1={record.hours}
-            l2="ชั่วโมงที่นำรถเข้าซ่อม"
+            l2={translate(locale, 'pdf.hoursRepair')}
             v2={record.hours_in_for_repair}
           />
-          <Row2 l1="สาขาที่ดำเนินการ" v1={record.branch_name} l2="ช่างผู้ดำเนินการ" v2={record.technician_name} />
-          <Row2 l1="ระบบ" v1={problemSystemLabel(record.problem_system)} l2="สถานะการรับประกัน" v2={record.warranty_status} />
-          <RowFull label="อาการที่พบ" value={record.problem_code} />
+          <Row2
+            l1={translate(locale, 'pdf.branchName')}
+            v1={record.branch_name}
+            l2={translate(locale, 'pdf.technicianName')}
+            v2={record.technician_name}
+          />
+          <Row2
+            l1={translate(locale, 'pdf.system')}
+            v1={problemSystemLabel(record.problem_system, locale)}
+            l2={translate(locale, 'pdf.warrantyStatus')}
+            v2={record.warranty_status}
+          />
+          <RowFull label={translate(locale, 'pdf.problemFound')} value={record.problem_code} />
           {record.peripheral_equipment ? (
-            <RowFull label="อุปกรณ์ต่อพ่วงที่ใช้งาน" value={record.peripheral_equipment} />
+            <RowFull label={translate(locale, 'pdf.peripheralEquipment')} value={record.peripheral_equipment} />
           ) : null}
-          {record.stock_note ? <RowFull label="ที่มาของรถ" value={record.stock_note} /> : null}
+          {record.stock_note ? <RowFull label={translate(locale, 'pdf.stockNote')} value={record.stock_note} /> : null}
           {record.lat !== null && record.lng !== null ? (
-            <RowFull label="พิกัดภูมิศาสตร์ (GPS)">
+            <RowFull label={translate(locale, 'pdf.gpsLocation')}>
               <Link
                 style={styles.link}
                 src={`https://www.openstreetmap.org/?mlat=${record.lat}&mlon=${record.lng}#map=16/${record.lat}/${record.lng}`}
               >
-                {record.lat}, {record.lng} (เปิดแผนที่ OpenStreetMap)
+                {record.lat}, {record.lng} ({translate(locale, 'pdf.openMap')})
               </Link>
             </RowFull>
           ) : null}
           {record.video_link ? (
-            <RowFull label="วิดีโอปัญหา">
+            <RowFull label={translate(locale, 'pdf.videoLabel')}>
               <Link style={styles.link} src={record.video_link}>
-                เปิดวิดีโอ
+                {translate(locale, 'pdf.openVideo')}
               </Link>
             </RowFull>
           ) : null}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>รายละเอียดปัญหาที่ลูกค้าพบ</Text>
+          <Text style={styles.sectionTitle}>{translate(locale, 'pdf.problemDetailSectionTitle')}</Text>
           <Text style={styles.paragraph}>{record.attachment || '-'}</Text>
         </View>
 
         {hasRca && (
           <View style={[styles.infoTable, { marginBottom: 10 }]}>
             <View style={styles.rcaHeaderRow}>
-              <Text style={styles.rcaHeaderText}>สาเหตุและการแก้ไข (RCA)</Text>
+              <Text style={styles.rcaHeaderText}>{translate(locale, 'pdf.rcaSectionTitle')}</Text>
             </View>
-            {record.cause ? <RowFull label="สาเหตุ" value={record.cause} /> : null}
-            {record.damaged_parts ? <RowFull label="ชิ้นส่วนที่เสียหาย" value={record.damaged_parts} /> : null}
+            {record.cause ? <RowFull label={translate(locale, 'pdf.cause')} value={record.cause} /> : null}
+            {record.damaged_parts ? (
+              <RowFull label={translate(locale, 'pdf.damagedParts')} value={record.damaged_parts} />
+            ) : null}
             {record.technician_action ? (
-              <RowFull label="การดำเนินการของช่าง" value={record.technician_action} />
+              <RowFull label={translate(locale, 'pdf.technicianAction')} value={record.technician_action} />
             ) : null}
             {record.corrective_action ? (
-              <RowFull label="การแก้ไข (Corrective)" value={record.corrective_action} />
+              <RowFull label={translate(locale, 'pdf.correctiveAction')} value={record.corrective_action} />
             ) : null}
             {record.preventive_action ? (
-              <RowFull label="การป้องกัน (Preventive)" value={record.preventive_action} />
+              <RowFull label={translate(locale, 'pdf.preventiveAction')} value={record.preventive_action} />
             ) : null}
           </View>
         )}
@@ -332,9 +352,10 @@ function RecordDocument({
           // PHOTO_CATEGORIES entries, including legacy categories no new
           // record ever populates, wasted page space for no reason.
           if (photos.length === 0) return null;
+          const categoryLabel = translate(locale, `pdf.${PHOTO_CATEGORY_I18N_KEY[cat.key] ?? 'photoAfterRepair'}`);
           return (
             <View key={cat.key}>
-              <Text style={styles.photoCategoryLabel}>{cat.label}</Text>
+              <Text style={styles.photoCategoryLabel}>{categoryLabel}</Text>
               <View style={styles.photoGrid}>
                 {photos.map((p, i) => {
                   const dataUri = photoDataUris.get(p.url);
@@ -344,10 +365,10 @@ function RecordDocument({
                         <Image src={dataUri} style={styles.photo} />
                       ) : (
                         <View style={styles.photoPlaceholder}>
-                          <Text style={styles.photoPlaceholderText}>โหลดรูปไม่สำเร็จ</Text>
+                          <Text style={styles.photoPlaceholderText}>{translate(locale, 'pdf.photoLoadFailed')}</Text>
                         </View>
                       )}
-                      <Text style={styles.photoLabel}>{p.label}</Text>
+                      <Text style={styles.photoLabel}>{categoryLabel}</Text>
                     </View>
                   );
                 })}
@@ -358,13 +379,20 @@ function RecordDocument({
 
         <View style={{ marginTop: 10 }}>
           <Text style={styles.auditText}>
-            สร้างโดย {record.created_by ?? record.user_name ?? '-'} ·{' '}
-            {formatThaiDateTime(record.created_at)}
+            {translate(locale, 'pdf.createdByAt', {
+              by: record.created_by ?? record.user_name ?? '-',
+              at: formatDateTimeLocalized(record.created_at, locale),
+            })}
             {record.updated_by
-              ? ` — แก้ไขล่าสุดโดย ${record.updated_by} · ${formatThaiDateTime(record.updated_at)}`
+              ? ` — ${translate(locale, 'pdf.updatedByAt', {
+                  by: record.updated_by,
+                  at: formatDateTimeLocalized(record.updated_at, locale),
+                })}`
               : ''}
           </Text>
-          <Text style={styles.issuedText}>เอกสารออกเมื่อ {formatThaiDateTime(new Date())} โดยระบบ MQR</Text>
+          <Text style={styles.issuedText}>
+            {translate(locale, 'pdf.issuedBy', { at: formatDateTimeLocalized(new Date(), locale) })} MQR
+          </Text>
         </View>
 
         <Text style={styles.footer}>{recordUrl}</Text>
@@ -376,16 +404,18 @@ function RecordDocument({
 export async function renderRecordsListPdf(
   records: MqrRecord[],
   title: string,
-  baseUrl: string
+  baseUrl: string,
+  locale: Locale = 'th'
 ): Promise<Buffer> {
   ensureFontsRegistered();
-  return renderToBuffer(<RecordsListDocument records={records} title={title} />);
+  return renderToBuffer(<RecordsListDocument records={records} title={title} locale={locale} />);
 }
 
 export async function renderRecordPdf(
   record: MqrRecord,
   baseUrl: string,
-  dealerName?: string
+  dealerName?: string,
+  locale: Locale = 'th'
 ): Promise<Buffer> {
   ensureFontsRegistered();
   const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
@@ -400,6 +430,7 @@ export async function renderRecordPdf(
       qrDataUrl={qrDataUrl}
       recordUrl={recordUrl}
       photoDataUris={photoDataUris}
+      locale={locale}
     />
   );
 }

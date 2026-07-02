@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { translate } from '@/lib/i18n/translate';
+import { Locale, DEFAULT_LOCALE } from '@/lib/i18n/types';
 
 /**
  * Coerces "", null, undefined, or a non-string value to `null`; trims a
@@ -27,30 +29,42 @@ const requiredTrimmedString = (message: string) =>
  * server-side too (the UI also live-formats as the technician types, but
  * the API must not trust that alone).
  */
-const MaintenanceCustomerPhoneSchema = z.preprocess((val) => {
-  if (typeof val !== 'string') return val;
-  return val.replace(/\D/g, '');
-}, z.string().regex(/^0\d{9}$/, 'เบอร์โทรศัพท์ไม่ถูกต้อง ต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0').transform((digits) => `${digits.slice(0, 3)}-${digits.slice(3)}`));
+const buildMaintenanceCustomerPhoneSchema = (locale: Locale) =>
+  z.preprocess((val) => {
+    if (typeof val !== 'string') return val;
+    return val.replace(/\D/g, '');
+  }, z.string().regex(/^0\d{9}$/, translate(locale, 'validation.invalidPhone')).transform((digits) => `${digits.slice(0, 3)}-${digits.slice(3)}`));
 
 /**
  * Maintenance Record status - intentionally a loose non-empty string, not a
  * fixed union. Defining a real status workflow is a business-logic decision
  * this module isn't authorized to make yet (see types/index.ts).
  */
-export const MaintenanceRecordStatusSchema = z.preprocess(
-  (val) => (typeof val === 'string' ? val.trim() : val),
-  z.string().min(1, 'status is required')
-);
+const buildMaintenanceRecordStatusSchema = (locale: Locale) =>
+  z.preprocess(
+    (val) => (typeof val === 'string' ? val.trim() : val),
+    z.string().min(1, translate(locale, 'validation.requiredField', { field: translate(locale, 'common.status') }))
+  );
 
 /** GPS is optional (per spec); when a numeric value is present it must be
  *  a valid latitude/longitude/non-negative accuracy - null/undefined pass
  *  straight through untouched. */
-const optionalLatitude = z
-  .union([z.coerce.number().min(-90, 'ละติจูดไม่ถูกต้อง').max(90, 'ละติจูดไม่ถูกต้อง'), z.null(), z.undefined()])
-  .optional();
-const optionalLongitude = z
-  .union([z.coerce.number().min(-180, 'ลองจิจูดไม่ถูกต้อง').max(180, 'ลองจิจูดไม่ถูกต้อง'), z.null(), z.undefined()])
-  .optional();
+const buildOptionalLatitude = (locale: Locale) =>
+  z
+    .union([
+      z.coerce.number().min(-90, translate(locale, 'validation.invalidLatitude')).max(90, translate(locale, 'validation.invalidLatitude')),
+      z.null(),
+      z.undefined(),
+    ])
+    .optional();
+const buildOptionalLongitude = (locale: Locale) =>
+  z
+    .union([
+      z.coerce.number().min(-180, translate(locale, 'validation.invalidLongitude')).max(180, translate(locale, 'validation.invalidLongitude')),
+      z.null(),
+      z.undefined(),
+    ])
+    .optional();
 const optionalAccuracy = z.union([z.coerce.number().min(0), z.null(), z.undefined()]).optional();
 
 /**
@@ -62,52 +76,56 @@ const optionalAccuracy = z.union([z.coerce.number().min(0), z.null(), z.undefine
  * (zero-leakage - see src/app/api/pm-records/route.ts), so it isn't in
  * this schema. `pm_number` is server-generated, also not in this schema.
  */
-export const MaintenanceRecordCreateBodySchema = z.object({
-  branch_id: nullableTrimmedString,
-  serial: requiredTrimmedString('กรุณาเลือกรถแทรกเตอร์'),
-  model: nullableTrimmedString,
-  delivery_date: nullableTrimmedString,
-  engine_number: nullableTrimmedString,
-  customer_name: requiredTrimmedString('กรุณากรอกชื่อลูกค้า'),
-  customer_phone: MaintenanceCustomerPhoneSchema,
-  technician_id: requiredTrimmedString('กรุณาเลือกช่างซ่อม'),
-  performed_date: requiredTrimmedString('กรุณาระบุวันที่ทำ PM'),
-  hour_meter: z.coerce.number({ invalid_type_error: 'กรุณากรอกชั่วโมงเครื่องยนต์' }).min(0, 'ชั่วโมงเครื่องยนต์ต้องไม่ติดลบ'),
-  pm_interval_id: requiredTrimmedString('กรุณาเลือกรอบ PM'),
-  meter_photo_url: requiredTrimmedString('กรุณาอัปโหลดรูปมิเตอร์ชั่วโมง'),
-  nameplate_photo_url: requiredTrimmedString('กรุณาอัปโหลดรูป Nameplate/หมายเลขเครื่อง'),
-  report_photo_url: requiredTrimmedString('กรุณาอัปโหลดรูปใบรายงาน PM'),
-  latitude: optionalLatitude,
-  longitude: optionalLongitude,
-  gps_accuracy: optionalAccuracy,
-  google_maps_url: nullableTrimmedString.optional(),
-  notes: nullableTrimmedString,
-});
-export type MaintenanceRecordCreateBody = z.infer<typeof MaintenanceRecordCreateBodySchema>;
+export const buildMaintenanceRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) =>
+  z.object({
+    branch_id: nullableTrimmedString,
+    serial: requiredTrimmedString(translate(locale, 'validation.selectVehicle')),
+    model: nullableTrimmedString,
+    delivery_date: nullableTrimmedString,
+    engine_number: nullableTrimmedString,
+    customer_name: requiredTrimmedString(translate(locale, 'validation.enterCustomerName')),
+    customer_phone: buildMaintenanceCustomerPhoneSchema(locale),
+    technician_id: requiredTrimmedString(translate(locale, 'validation.selectTechnician')),
+    performed_date: requiredTrimmedString(translate(locale, 'validation.specifyPerformedDate')),
+    hour_meter: z
+      .coerce.number({ invalid_type_error: translate(locale, 'validation.enterHourMeter') })
+      .min(0, translate(locale, 'validation.hourMeterNegative')),
+    pm_interval_id: requiredTrimmedString(translate(locale, 'validation.selectPmInterval')),
+    meter_photo_url: requiredTrimmedString(translate(locale, 'validation.uploadMeterPhoto')),
+    nameplate_photo_url: requiredTrimmedString(translate(locale, 'validation.uploadNameplatePhoto')),
+    report_photo_url: requiredTrimmedString(translate(locale, 'validation.uploadReportPhoto')),
+    latitude: buildOptionalLatitude(locale),
+    longitude: buildOptionalLongitude(locale),
+    gps_accuracy: optionalAccuracy,
+    google_maps_url: nullableTrimmedString.optional(),
+    notes: nullableTrimmedString,
+  });
+export type MaintenanceRecordCreateBody = z.infer<ReturnType<typeof buildMaintenanceRecordCreateBodySchema>>;
 
 /**
  * Validates MaintenanceRecordUpdateInput - every field is an optional partial patch.
  */
-export const MaintenanceRecordUpdateBodySchema = z
-  .object({
-    branch_id: nullableTrimmedString,
-    serial: nullableTrimmedString,
-    technician_id: nullableTrimmedString,
-    scheduled_date: nullableTrimmedString,
-    performed_date: nullableTrimmedString,
-    status: MaintenanceRecordStatusSchema,
-    notes: nullableTrimmedString,
-    customer_name: requiredTrimmedString('กรุณากรอกชื่อลูกค้า'),
-    customer_phone: MaintenanceCustomerPhoneSchema,
-    hour_meter: z.coerce.number().min(0, 'ชั่วโมงเครื่องยนต์ต้องไม่ติดลบ'),
-    pm_interval_id: nullableTrimmedString,
-    meter_photo_url: nullableTrimmedString,
-    nameplate_photo_url: nullableTrimmedString,
-    report_photo_url: nullableTrimmedString,
-    latitude: optionalLatitude,
-    longitude: optionalLongitude,
-    gps_accuracy: optionalAccuracy,
-    google_maps_url: nullableTrimmedString,
-  })
-  .partial();
-export type MaintenanceRecordUpdateBody = z.infer<typeof MaintenanceRecordUpdateBodySchema>;
+export const buildMaintenanceRecordUpdateBodySchema = (locale: Locale = DEFAULT_LOCALE) =>
+  z
+    .object({
+      branch_id: nullableTrimmedString,
+      serial: nullableTrimmedString,
+      technician_id: nullableTrimmedString,
+      scheduled_date: nullableTrimmedString,
+      performed_date: nullableTrimmedString,
+      status: buildMaintenanceRecordStatusSchema(locale),
+      notes: nullableTrimmedString,
+      customer_name: requiredTrimmedString(translate(locale, 'validation.enterCustomerName')),
+      customer_phone: buildMaintenanceCustomerPhoneSchema(locale),
+      hour_meter: z.coerce.number().min(0, translate(locale, 'validation.hourMeterNegative')),
+      pm_interval_id: nullableTrimmedString,
+      meter_photo_url: nullableTrimmedString,
+      nameplate_photo_url: nullableTrimmedString,
+      report_photo_url: nullableTrimmedString,
+      latitude: buildOptionalLatitude(locale),
+      longitude: buildOptionalLongitude(locale),
+      gps_accuracy: optionalAccuracy,
+      google_maps_url: nullableTrimmedString,
+    })
+    .partial();
+export type MaintenanceRecordUpdateBody = z.infer<ReturnType<typeof buildMaintenanceRecordUpdateBodySchema>>;

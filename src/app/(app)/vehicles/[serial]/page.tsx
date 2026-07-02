@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
-import { VEHICLE_EVENT_MODULE_LABEL, VehicleEvent } from '@/features/vehicle/types';
+import { VehicleEvent } from '@/features/vehicle/types';
 import type { MaintenanceDueColor } from '@/features/maintenance-due/types';
 import type { HealthStatus } from '@/features/vehicle-health/types';
+import { t } from '@/lib/i18n/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,13 +17,6 @@ const DUE_COLOR_CLASS: Record<MaintenanceDueColor, string> = {
   yellow: 'bg-amber-100 text-amber-700',
   red: 'bg-red-100 text-red-700',
   gray: 'bg-gray-100 text-gray-500',
-};
-
-const HEALTH_STATUS_LABEL: Record<HealthStatus, string> = {
-  excellent: 'ดีเยี่ยม',
-  good: 'ดี',
-  attention: 'ควรดูแล',
-  critical: 'วิกฤต',
 };
 
 const HEALTH_STATUS_CLASS: Record<HealthStatus, string> = {
@@ -51,11 +45,11 @@ export default async function Vehicle360Page({ params }: RouteParams) {
             <p className="text-sm text-gray-500">Serial: {serial}</p>
           </div>
           <Link href="/vehicles" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
-            ค้นหาใหม่
+            {t('vehicle360.searchAgain')}
           </Link>
         </div>
         <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p>ไม่พบข้อมูลรถหมายเลขนี้ หรือคุณไม่มีสิทธิ์เข้าถึง</p>
+          <p>{t('vehicle360.notFound')}</p>
         </div>
       </div>
     );
@@ -66,7 +60,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
       ? summary.maintenanceProgramStages
           .map((s) => s.label)
           .join(' / ')
-      : 'ยังไม่มีการกำหนดรอบบำรุงรักษา';
+      : t('vehicle360.noMaintenanceProgramSet');
 
   return (
     <div className="space-y-4">
@@ -78,46 +72,52 @@ export default async function Vehicle360Page({ params }: RouteParams) {
           </p>
         </div>
         <Link href="/vehicles" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
-          ค้นหาใหม่
+          {t('vehicle360.searchAgain')}
         </Link>
       </div>
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-brand-dark">ข้อมูลรถ / เจ้าของรถ</h2>
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('vehicle360.vehicleOwnerInfo')}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DetailRow label="Serial Number" value={summary.serial} />
-          <DetailRow label="รุ่นรถ" value={summary.model ?? 'N/A'} />
-          <DetailRow label="กลุ่มผลิตภัณฑ์ (Product Family)" value={summary.productFamilyName ?? 'ยังไม่ได้ผูกกลุ่มผลิตภัณฑ์'} />
-          <DetailRow label="หมายเลขเครื่องยนต์" value={summary.engineNumber ?? 'N/A'} />
-          <DetailRow label="วันที่ส่งมอบ (Retail Date)" value={summary.retailDate ?? 'N/A'} />
-          <DetailRow label="ดีลเลอร์" value={summary.dealerName ?? summary.dealerId ?? 'N/A'} />
-          <DetailRow label="สาขา" value={summary.branchName ?? 'N/A'} />
-          <DetailRow label="ชื่อลูกค้า (เจ้าของรถ)" value={summary.ownerName ?? 'N/A'} />
-          <DetailRow label="เบอร์โทรลูกค้า" value={summary.ownerPhone ?? 'N/A'} />
+          <DetailRow label={t('common.serial')} value={summary.serial} />
+          <DetailRow label={t('common.model')} value={summary.model ?? 'N/A'} />
+          <DetailRow label={t('common.productFamily')} value={summary.productFamilyName ?? t('vehicle360.notLinkedToProductFamily')} />
+          <DetailRow label={t('common.engineNumber')} value={summary.engineNumber ?? 'N/A'} />
+          <DetailRow label={t('pdf.deliveryDate')} value={summary.retailDate ?? 'N/A'} />
+          <DetailRow label={t('common.dealer')} value={summary.dealerName ?? summary.dealerId ?? 'N/A'} />
+          <DetailRow label={t('common.branch')} value={summary.branchName ?? 'N/A'} />
+          <DetailRow label={t('vehicle360.ownerName')} value={summary.ownerName ?? 'N/A'} />
+          <DetailRow label={t('pdf.customerPhone')} value={summary.ownerPhone ?? 'N/A'} />
         </div>
       </div>
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-brand-dark">การบำรุงรักษา (Maintenance)</h2>
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('vehicle360.maintenanceSectionTitle')}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <DetailRow
-            label="Maintenance Program"
+            label={t('common.maintenanceProgram')}
             value={
               summary.maintenanceProgramVersionNumber != null
-                ? `${programLabel} (Version ${summary.maintenanceProgramVersionNumber})`
+                ? `${programLabel} (${t('vehicle360.versionLabel', { version: String(summary.maintenanceProgramVersionNumber) })})`
                 : programLabel
             }
           />
-          <DetailRow label="ชั่วโมงเครื่องยนต์ล่าสุด" value={summary.currentHourMeter != null ? `${summary.currentHourMeter} ชม.` : 'N/A'} />
-          <DetailRow label="บำรุงรักษาครั้งล่าสุด" value={summary.lastMaintenanceDate ?? 'ยังไม่มีประวัติ'} />
-          <DetailRow label="รอบถัดไป" value={summary.nextMaintenanceLabel ?? 'N/A'} />
           <DetailRow
-            label="ชั่วโมงคงเหลือ"
-            value={summary.remainingHours != null ? `${summary.remainingHours} ชม.` : 'N/A'}
+            label={t('vehicle360.currentHourMeter')}
+            value={summary.currentHourMeter != null ? `${summary.currentHourMeter} ${t('unit.hours')}` : 'N/A'}
           />
-          <DetailRow label="วันคงเหลือ" value={summary.remainingDays != null ? `${summary.remainingDays} วัน` : 'N/A'} />
+          <DetailRow label={t('vehicle360.lastMaintenanceDate')} value={summary.lastMaintenanceDate ?? t('vehicle360.noMaintenanceHistory')} />
+          <DetailRow label={t('pdf.nextPmDue')} value={summary.nextMaintenanceLabel ?? 'N/A'} />
+          <DetailRow
+            label={t('vehicle360.remainingHours')}
+            value={summary.remainingHours != null ? `${summary.remainingHours} ${t('unit.hours')}` : 'N/A'}
+          />
+          <DetailRow
+            label={t('vehicle360.remainingDays')}
+            value={summary.remainingDays != null ? `${summary.remainingDays} ${t('unit.days')}` : 'N/A'}
+          />
           <div className="rounded border border-gray-100 bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">สถานะการบำรุงรักษา</p>
+            <p className="text-xs uppercase tracking-wide text-gray-500">{t('vehicle360.maintenanceStatus')}</p>
             <p className="mt-1">
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${DUE_COLOR_CLASS[summary.maintenanceDueColor]}`}>
                 {summary.maintenanceDueLabel}
@@ -125,7 +125,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
             </p>
           </div>
           <DetailRow
-            label="Maintenance Compliance"
+            label={t('common.compliance')}
             value={
               summary.compliancePercent != null
                 ? `${summary.completedStageCount} / ${summary.expectedStageCount} (${summary.compliancePercent}%)`
@@ -136,29 +136,29 @@ export default async function Vehicle360Page({ params }: RouteParams) {
       </div>
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-brand-dark">Vehicle Health</h2>
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('vehicle360.vehicleHealthTitle')}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded border border-gray-100 bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Health Score</p>
+            <p className="text-xs uppercase tracking-wide text-gray-500">{t('common.healthScore')}</p>
             <p className="mt-1 text-2xl font-bold text-brand-dark">{summary.healthScore}</p>
           </div>
           <div className="rounded border border-gray-100 bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Health Status</p>
+            <p className="text-xs uppercase tracking-wide text-gray-500">{t('vehicle360.healthStatusLabel')}</p>
             <p className="mt-1">
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${HEALTH_STATUS_CLASS[summary.healthStatus]}`}>
-                {HEALTH_STATUS_LABEL[summary.healthStatus]}
+                {t(`health.${summary.healthStatus}`)}
               </span>
             </p>
           </div>
-          <DetailRow label="MQR ที่ยังไม่ปิด (Open MQR)" value={String(summary.openMqrCount)} />
-          <DetailRow label="แคมเปญค้างดำเนินการ" value={String(summary.pendingCampaignCount)} />
+          <DetailRow label={t('vehicle360.openMqrLabel')} value={String(summary.openMqrCount)} />
+          <DetailRow label={t('vehicle360.pendingCampaignLabel')} value={String(summary.pendingCampaignCount)} />
         </div>
       </div>
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-brand-dark">Vehicle Life Cycle</h2>
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('common.timeline')}</h2>
         {timeline.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-400">ยังไม่มีเหตุการณ์ในประวัติรถคันนี้</p>
+          <p className="py-6 text-center text-sm text-gray-400">{t('vehicle360.noTimelineEvents')}</p>
         ) : (
           <ol className="space-y-3">
             {timeline.map((event, idx) => (
@@ -179,14 +179,14 @@ function TimelineRow({ event }: { event: VehicleEvent }) {
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-gray-400">{event.date}</span>
             <span className="rounded-full bg-brand-dark/5 px-2 py-0.5 text-xs font-medium text-brand-dark">
-              {VEHICLE_EVENT_MODULE_LABEL[event.type]}
+              {t(`vehicleEventType.${event.type}`)}
             </span>
             <span className="text-xs text-brand-red">{event.referenceNumber}</span>
           </div>
           {event.status && <span className="text-xs text-gray-500">{event.status}</span>}
         </div>
         <p className="mt-1 text-sm text-gray-800">{event.description}</p>
-        {event.user && <p className="mt-0.5 text-xs text-gray-400">โดย {event.user}</p>}
+        {event.user && <p className="mt-0.5 text-xs text-gray-400">{t('vehicle360.byUser', { user: event.user })}</p>}
       </Link>
     </li>
   );
