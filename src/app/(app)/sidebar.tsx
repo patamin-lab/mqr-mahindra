@@ -22,12 +22,16 @@ export default function Sidebar({ session }: { session: SessionUser }) {
   const showMasterData = canManageMasterData(session.role);
   const showDealers = seesAllDealers(session.role);
 
+  // Icons follow docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Official Menu
+  // Standard table - only modules that actually exist today get an entry;
+  // PDI/NTR/Campaign/Warranty/Parts/Reports/System Settings are defined by
+  // the standard for future modules and are intentionally not added here.
   const NAV = [
-    { href: '/dashboard', label: t('nav.dashboard') },
-    { href: '/report', label: t('nav.newReport') },
-    { href: '/records', label: t('nav.mqrRecords') },
-    { href: '/pm-records', label: t('nav.pmRecords') },
-    { href: '/vehicles', label: t('nav.vehicle360') },
+    { href: '/dashboard', icon: '🏠', label: t('nav.dashboard') },
+    { href: '/report', icon: '⚠️', label: t('nav.newReport') },
+    { href: '/records', icon: '⚠️', label: t('nav.mqrRecords') },
+    { href: '/pm-records', icon: '🔧', label: t('nav.pmRecords') },
+    { href: '/vehicles', icon: '🚜', label: t('nav.vehicle360') },
   ];
 
   const adminNav = [
@@ -39,10 +43,10 @@ export default function Sidebar({ session }: { session: SessionUser }) {
     ...(showDealers ? [{ href: '/admin/product-families', label: t('nav.adminProductFamilies') }] : []),
     ...(showDealers ? [{ href: '/admin/product-family-models', label: t('nav.adminProductFamilyModels') }] : []),
     ...(showDealers ? [{ href: '/admin/maintenance-programs', label: t('nav.adminMaintenancePrograms') }] : []),
-    { href: '/admin/users', label: t('nav.adminUsers') },
+    { href: '/admin/users', icon: '👥', label: t('nav.adminUsers') },
   ];
 
-  function NavLink({ href, label }: { href: string; label: string }) {
+  function NavLink({ href, icon, label }: { href: string; icon?: string; label: string }) {
     const active = pathname === href || pathname.startsWith(href + '/');
     return (
       <Link
@@ -52,6 +56,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
           active ? 'bg-gradient-primary text-white shadow-glow' : 'text-white/80 hover:bg-white/10'
         }`}
       >
+        {icon && <span className="mr-2">{icon}</span>}
         {label}
       </Link>
     );
@@ -115,7 +120,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
           ))}
           {showMasterData && (
             <>
-              <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">{t('nav.masterData')}</div>
+              <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">⚙️ {t('nav.masterData')}</div>
               {adminNav.map((item) => (
                 <NavLink key={item.href} {...item} />
               ))}

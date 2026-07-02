@@ -3,8 +3,8 @@ import { translate } from '../translate';
 
 describe('translate', () => {
   it('resolves a dotted key path against the requested locale', () => {
-    expect(translate('th', 'common.vehicle')).toBe('รถ');
-    expect(translate('en', 'common.vehicle')).toBe('Vehicle');
+    expect(translate('th', 'common.vehicle')).toBe('รถแทรกเตอร์');
+    expect(translate('en', 'common.vehicle')).toBe('Tractor');
   });
 
   it('resolves nested namespaces (pdf/csv/status/etc.)', () => {

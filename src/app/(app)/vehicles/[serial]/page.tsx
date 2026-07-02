@@ -41,8 +41,8 @@ export default async function Vehicle360Page({ params }: RouteParams) {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-brand-dark">Vehicle 360</h1>
-            <p className="text-sm text-gray-500">Serial: {serial}</p>
+            <h1 className="text-xl font-bold text-brand-dark">{t('vehicle360.tractorProfileTitle')}</h1>
+            <p className="text-sm text-gray-500">{t('common.serial')}: {serial}</p>
           </div>
           <Link href="/vehicles" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
             {t('vehicle360.searchAgain')}
@@ -66,7 +66,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-brand-dark">Vehicle 360</h1>
+          <h1 className="text-xl font-bold text-brand-dark">{t('vehicle360.tractorProfileTitle')}</h1>
           <p className="text-sm text-gray-500">
             {summary.serial} {summary.model ? `· ${summary.model}` : ''}
           </p>
@@ -86,7 +86,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
           <DetailRow label={t('pdf.deliveryDate')} value={summary.retailDate ?? 'N/A'} />
           <DetailRow label={t('common.dealer')} value={summary.dealerName ?? summary.dealerId ?? 'N/A'} />
           <DetailRow label={t('common.branch')} value={summary.branchName ?? 'N/A'} />
-          <DetailRow label={t('vehicle360.ownerName')} value={summary.ownerName ?? 'N/A'} />
+          <DetailRow label={t('common.owner')} value={summary.ownerName ?? 'N/A'} />
           <DetailRow label={t('pdf.customerPhone')} value={summary.ownerPhone ?? 'N/A'} />
         </div>
       </div>
@@ -136,7 +136,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
       </div>
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('vehicle360.vehicleHealthTitle')}</h2>
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('vehicle360.tractorHealthTitle')}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded border border-gray-100 bg-gray-50 p-3">
             <p className="text-xs uppercase tracking-wide text-gray-500">{t('common.healthScore')}</p>
@@ -156,7 +156,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
       </div>
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('common.timeline')}</h2>
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('vehicle360.tractorLifeCycleTitle')}</h2>
         {timeline.length === 0 ? (
           <p className="py-6 text-center text-sm text-gray-400">{t('vehicle360.noTimelineEvents')}</p>
         ) : (

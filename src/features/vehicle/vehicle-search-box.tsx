@@ -10,9 +10,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchJson } from '@/lib/fetchJson';
 import type { VehicleSearchResult } from '@/lib/db';
+import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 export default function VehicleSearchBox() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [q, setQ] = useState('');
   const [results, setResults] = useState<VehicleSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -48,17 +50,17 @@ export default function VehicleSearchBox() {
 
   return (
     <div className="max-w-md">
-      <label className="mb-1 block text-sm font-medium text-brand-dark">ค้นหาด้วยหมายเลขซีเรียล (Serial Number)</label>
+      <label className="mb-1 block text-sm font-medium text-brand-dark">{t('vehicle360.searchBySerialLabel')}</label>
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && q.trim()) goTo(q.trim());
         }}
-        placeholder="พิมพ์เลขซีเรียลอย่างน้อย 2 ตัวอักษร"
+        placeholder={t('vehicle360.searchPlaceholder')}
         className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
       />
-      {searching && <p className="mt-1 text-xs text-gray-400">กำลังค้นหา...</p>}
+      {searching && <p className="mt-1 text-xs text-gray-400">{t('common.searching')}</p>}
       {results.length > 0 && (
         <ul className="mt-2 divide-y divide-gray-100 rounded border border-gray-200 bg-white shadow-sm">
           {results.map((r) => (
