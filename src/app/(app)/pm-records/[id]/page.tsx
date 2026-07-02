@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
+import { formatThaiDateTime } from '@/lib/thaiDate';
 import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
 import { evaluateMaintenanceLock, MAINTENANCE_LOCK_REASON_LABEL } from '@/features/maintenance/utils/maintenanceLock';
 import MaintenanceDeleteButton from './delete-button';
@@ -88,7 +89,10 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-brand-dark">PM Record Detail</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-brand-dark">PM Record Detail</h1>
+            <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">{record.status}</span>
+          </div>
           <p className="text-sm text-gray-500">{record.pm_number ?? record.serial ?? 'PM Record'}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -149,9 +153,9 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <DetailRow label="Scheduled Date" value={record.scheduled_date ?? 'N/A'} />
           <DetailRow label="Performed Date" value={record.performed_date ?? 'N/A'} />
           <DetailRow label="Created By" value={record.created_by ?? 'N/A'} />
-          <DetailRow label="Created At" value={record.created_at} />
+          <DetailRow label="Created At" value={formatThaiDateTime(record.created_at)} />
           <DetailRow label="Updated By" value={record.updated_by ?? 'N/A'} />
-          <DetailRow label="Updated At" value={record.updated_at} />
+          <DetailRow label="Updated At" value={formatThaiDateTime(record.updated_at)} />
         </div>
 
         {record.latitude !== null && record.longitude !== null && (
