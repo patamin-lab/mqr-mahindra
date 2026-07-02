@@ -11,6 +11,7 @@ import {
   StatusValue,
 } from './types';
 import { formatThaiDateTime } from './thaiDate';
+import { PdfBrandLogo } from './pdf/PdfBrandLogo';
 
 let fontsRegistered = false;
 
@@ -214,6 +215,7 @@ function RecordsListDocument({ records, title }: { records: MqrRecord[]; title: 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
+        <PdfBrandLogo />
         <Text style={styles.title}>Market Quality Report</Text>
         <Text style={styles.subtitle}>
           {title} — พิมพ์เมื่อ {formatThaiDateTime(new Date())} — จำนวน {records.length} งาน
@@ -328,6 +330,7 @@ function RecordDocument({
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
+            <PdfBrandLogo />
             <Text style={styles.title}>ใบรายงานปัญหาคุณภาพ (Market Quality Report)</Text>
             <Text style={styles.subtitle}>
               เลขที่งาน {record.job_id} — {dealerName ?? record.dealer_id}
@@ -416,33 +419,30 @@ function RecordDocument({
 
         {PHOTO_CATEGORIES.map((cat) => {
           const photos = (record.photo_links ?? []).filter((p) => p.category === cat.key);
+          // Photo sections render only when photos actually exist for that
+          // category - an empty box for every one of the (currently 8)
+          // PHOTO_CATEGORIES entries, including legacy categories no new
+          // record ever populates, wasted page space for no reason.
+          if (photos.length === 0) return null;
           return (
             <View key={cat.key}>
               <Text style={styles.photoCategoryLabel}>{cat.label}</Text>
               <View style={styles.photoGrid}>
-                {photos.length > 0 ? (
-                  photos.map((p, i) => {
-                    const dataUri = photoDataUris.get(p.url);
-                    return (
-                      <View key={i} style={styles.photoBox} wrap={false}>
-                        {dataUri ? (
-                          <Image src={dataUri} style={styles.photo} />
-                        ) : (
-                          <View style={styles.photoPlaceholder}>
-                            <Text style={styles.photoPlaceholderText}>โหลดรูปไม่สำเร็จ</Text>
-                          </View>
-                        )}
-                        <Text style={styles.photoLabel}>{p.label}</Text>
-                      </View>
-                    );
-                  })
-                ) : (
-                  <View style={styles.photoBox}>
-                    <View style={styles.photoPlaceholder}>
-                      <Text style={styles.photoPlaceholderText}>ไม่มีรูป</Text>
+                {photos.map((p, i) => {
+                  const dataUri = photoDataUris.get(p.url);
+                  return (
+                    <View key={i} style={styles.photoBox} wrap={false}>
+                      {dataUri ? (
+                        <Image src={dataUri} style={styles.photo} />
+                      ) : (
+                        <View style={styles.photoPlaceholder}>
+                          <Text style={styles.photoPlaceholderText}>โหลดรูปไม่สำเร็จ</Text>
+                        </View>
+                      )}
+                      <Text style={styles.photoLabel}>{p.label}</Text>
                     </View>
-                  </View>
-                )}
+                  );
+                })}
               </View>
             </View>
           );
