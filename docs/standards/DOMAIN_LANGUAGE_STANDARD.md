@@ -34,6 +34,71 @@ User-facing UI must never use "Vehicle".
 Database tables may retain existing names (`vehicles`, `vehicle_id`, etc.)
 for backward compatibility.
 
+## Dealer Standard
+
+MASP currently supports Thailand only. Do not introduce Country or Region
+abstractions.
+
+The organizational hierarchy is:
+
+```
+MSEAL (Central)
+  ↓
+Dealer
+  ↓
+Branch
+```
+
+Use **Dealer Code** as the primary business identifier.
+
+Current supported Dealer Codes:
+
+| Code |
+|---|
+| MSEAL |
+| KTV |
+| CRR |
+| KKE |
+| PNT |
+| TNR |
+| SAM |
+
+> **Status note (as implemented):** as of this standard's adoption, only
+> `MSEAL`, `KTV`, and `CRR` exist as rows in the `dealers` table. `KKE`,
+> `PNT`, `TNR`, `SAM` are not yet onboarded — add them through the existing
+> Admin → Dealers master-data screen when ready; nothing here seeds them
+> automatically.
+
+Future dealer codes can be added through Master Data.
+
+Report numbers should follow:
+
+```
+<Module>-<DealerCode>-<Year>-<Running>
+```
+
+Example:
+
+- `PM-KTV-2026-000001`
+- `MQR-KTV-2026-000001`
+- `PDI-KTV-2026-000001`
+- `NTR-KTV-2026-000001`
+
+> **Status note (as implemented):** `pm_number` generation already matched
+> this format before this standard was written. `job_id` (MQR) previously
+> used a different, deliberately-global scheme (`QIR-YYMM-####`, no dealer
+> code) — this was a real conflict with the standard, flagged and then
+> migrated to `MQR-{DealerCode}-{Year}-{Running}` (see `nextJobId()` in
+> `src/lib/db.ts`) as part of adopting this standard. Already-issued
+> `QIR-YYMM-####` job IDs are untouched; only newly-created MQR records get
+> the new format. PDI/NTR don't exist as modules yet — their formats are
+> documented here for whoever builds them.
+
+Do not implement Country-level abstractions at this stage.
+
+All authorization, filtering, ownership, and reporting should be based on
+Dealer Code.
+
 ## Official Menu Standard
 
 | Icon | Thai | English |
@@ -166,15 +231,8 @@ Google Translate is NOT part of the production UI.
 
 ## Report Number
 
-- `PM-DLR-2026-000001`
-- `MQR-DLR-2026-000001`
-
-> **Status note (as implemented):** the live report-numbering scheme
-> (`job_id`/`pm_number` generation in `lib/db.ts` / the maintenance
-> repository) has not been changed to this format — see the compliance
-> notes in the module changelog. Changing it is a business-logic/schema
-> change, out of scope for a terminology-only pass, and requires its own
-> reviewed migration.
+`<Module>-<DealerCode>-<Year>-<Running>` — see the Dealer Standard section
+above for the current examples and implementation status.
 
 ## Status Colors
 

@@ -1006,24 +1006,33 @@ export async function searchVehicles(q: string, dealerId: string | null): Promis
 // ---------- Report number generation ----------
 
 /**
- * Atomic global-per-month counter via the job_seq table + next_job_seq() Postgres
- * function (INSERT ... ON CONFLICT DO UPDATE ... RETURNING). Reuses the existing
- * (dealer_id, year) composite key with a constant sentinel dealer_id so the
- * sequence is global rather than per-dealer, matching the new report number format.
- * Format: QIR-YYMM-0001
+ * Business-facing MQR report number: MQR-{DealerCode}-{Year}-{Running}
+ * (docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Dealer Standard - e.g.
+ * "MQR-KTV-2026-000001"). Reuses the same job_seq table / next_job_seq()
+ * Postgres RPC (INSERT ... ON CONFLICT DO UPDATE ... RETURNING) that PM's
+ * pm_number generation already uses (see nextPmNumber() in
+ * supabaseMaintenanceRepository.ts) - both modules share the table, but
+ * each gets its own independent per-dealer-per-year counter because the
+ * RPC's `dealer_id` argument is really just an opaque bucket key: PM calls
+ * it with the bare dealer code, MQR calls it with a `MQR:`-prefixed key,
+ * so the two modules' running numbers never interleave for the same
+ * dealer/year even though the report number itself only shows the plain
+ * dealer code.
+ *
+ * Supersedes the previous global QIR-YYMM-#### scheme (kept as-is for
+ * already-issued job_id values - this only changes what's generated for
+ * new records going forward, per the explicit migration approval).
  */
-export async function nextJobId(): Promise<string> {
+export async function nextJobId(dealerId: string): Promise<string> {
   const supabase = getSupabase();
-  const now = new Date();
-  const yymm = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const year = String(new Date().getFullYear());
   const { data, error } = await supabase.rpc('next_job_seq', {
-    p_dealer_id: '__QIR_GLOBAL__',
-    p_year: yymm,
+    p_dealer_id: `MQR:${dealerId}`,
+    p_year: year,
   });
   if (error) throw error;
   const seq = Number(data);
-  const seqStr = String(seq).padStart(4, '0');
-  return `QIR-${yymm}-${seqStr}`;
+  return `MQR-${dealerId}-${year}-${String(seq).padStart(6, '0')}`;
 }
 
 // ---------- Records ----------
@@ -1096,7 +1105,7 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
     throw new Error('กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ');
   }
 
-  const jobId = await nextJobId();
+  const jobId = await nextJobId(dealer.id);
   const { data, error } = await supabase
     .from('records')
     .insert({
