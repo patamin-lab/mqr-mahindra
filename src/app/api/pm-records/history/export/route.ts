@@ -4,6 +4,7 @@ import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositori
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
 import { parseMaintenanceHistoryFilterFromSearchParams } from '@/features/maintenance/utils/parseHistoryFilter';
 import { renderMaintenanceListPdf } from '@/features/maintenance/services/maintenancePdf';
+import { buildMaintenanceRecordsCsv } from '@/features/maintenance/services/maintenanceCsv';
 import type { MaintenanceRecord } from '@/features/maintenance/types';
 
 export const runtime = 'nodejs';
@@ -34,7 +35,8 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';
+  const formatParam = searchParams.get('format');
+  const format = formatParam === 'pdf' ? 'pdf' : formatParam === 'csv' ? 'csv' : 'unsupported';
   const filter = parseMaintenanceHistoryFilterFromSearchParams(searchParams, session);
 
   const repository = new SupabaseMaintenanceRepository();
@@ -50,6 +52,16 @@ export async function GET(req: NextRequest) {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="${filenameBase}.pdf"`,
+        },
+      });
+    }
+
+    if (format === 'csv') {
+      const buf = buildMaintenanceRecordsCsv(records);
+      return new NextResponse(new Uint8Array(buf), {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filenameBase}.csv"`,
         },
       });
     }

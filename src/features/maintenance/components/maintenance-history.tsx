@@ -439,6 +439,13 @@ export default function MaintenanceHistory({ dealers, showDealerField, defaultDe
           >
             Export PDF
           </a>
+          <a
+            href={exportHref('csv')}
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50"
+            title="ส่งออกรายการที่ตรงกับตัวกรอง/คำค้นหาปัจจุบันทั้งหมด (สูงสุด 2,000 รายการ)"
+          >
+            Export CSV
+          </a>
           <Link href="/pm-records/new" className="rounded bg-brand-red px-4 py-2 text-sm text-white hover:bg-brand-dark">
             + บันทึก PM ใหม่
           </Link>
