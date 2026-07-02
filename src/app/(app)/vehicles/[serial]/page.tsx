@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { getVehicle360Header, getVehicleTimeline } from '@/features/vehicle-360/service';
-import { VEHICLE_EVENT_MODULE_LABEL, VehicleEvent, MaintenanceStatus } from '@/features/vehicle-360/types';
+import { getVehicleTimeline } from '@/features/vehicle-360/service';
+import { VEHICLE_EVENT_MODULE_LABEL, VehicleEvent } from '@/features/vehicle-360/types';
+import { VehicleSummaryService } from '@/features/vehicle-summary/service';
+import type { MaintenanceDueColor } from '@/features/maintenance-due/types';
+import type { HealthStatus } from '@/features/vehicle-health/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,31 +12,40 @@ interface RouteParams {
   params: { serial: string };
 }
 
-const MAINTENANCE_STATUS_LABEL: Record<MaintenanceStatus, string> = {
-  normal: 'ปกติ',
-  due_soon: 'ใกล้ถึงกำหนด',
-  overdue: 'เลยกำหนด',
-  none: 'ยังไม่มีประวัติ PM',
+const DUE_COLOR_CLASS: Record<MaintenanceDueColor, string> = {
+  green: 'bg-green-100 text-green-700',
+  yellow: 'bg-amber-100 text-amber-700',
+  red: 'bg-red-100 text-red-700',
+  gray: 'bg-gray-100 text-gray-500',
 };
 
-const MAINTENANCE_STATUS_CLASS: Record<MaintenanceStatus, string> = {
-  normal: 'bg-green-100 text-green-700',
-  due_soon: 'bg-amber-100 text-amber-700',
-  overdue: 'bg-red-100 text-red-700',
-  none: 'bg-gray-100 text-gray-500',
+const HEALTH_STATUS_LABEL: Record<HealthStatus, string> = {
+  excellent: 'ดีเยี่ยม',
+  good: 'ดี',
+  attention: 'ควรดูแล',
+  critical: 'วิกฤต',
 };
+
+const HEALTH_STATUS_CLASS: Record<HealthStatus, string> = {
+  excellent: 'bg-green-100 text-green-700',
+  good: 'bg-blue-100 text-blue-700',
+  attention: 'bg-amber-100 text-amber-700',
+  critical: 'bg-red-100 text-red-700',
+};
+
+const vehicleSummaryService = new VehicleSummaryService();
 
 export default async function Vehicle360Page({ params }: RouteParams) {
   const serial = decodeURIComponent(params.serial);
   const session = await getSession();
   if (!session) return null;
 
-  const [header, timeline] = await Promise.all([
-    getVehicle360Header(serial, session),
+  const [summary, timeline] = await Promise.all([
+    vehicleSummaryService.getSummary(serial, session),
     getVehicleTimeline(serial, session),
   ]);
 
-  if (!header) {
+  if (!summary) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -52,13 +64,20 @@ export default async function Vehicle360Page({ params }: RouteParams) {
     );
   }
 
+  const programLabel =
+    summary.maintenanceProgramStages.length > 0
+      ? summary.maintenanceProgramStages
+          .map((s) => s.label)
+          .join(' / ')
+      : 'ยังไม่มีการกำหนดรอบบำรุงรักษา';
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-brand-dark">Vehicle 360</h1>
           <p className="text-sm text-gray-500">
-            {header.serial} {header.model ? `· ${header.model}` : ''}
+            {summary.serial} {summary.model ? `· ${summary.model}` : ''}
           </p>
         </div>
         <Link href="/vehicles" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
@@ -67,37 +86,68 @@ export default async function Vehicle360Page({ params }: RouteParams) {
       </div>
 
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">ข้อมูลรถ / เจ้าของรถ</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DetailRow label="Serial Number" value={header.serial} />
-          <DetailRow label="รุ่นรถ" value={header.model ?? 'N/A'} />
-          <DetailRow label="หมายเลขเครื่องยนต์" value={header.engineNumber ?? 'N/A'} />
-          <DetailRow label="วันที่ส่งมอบ (Retail Date)" value={header.retailDate ?? 'N/A'} />
-          <DetailRow label="ดีลเลอร์" value={header.dealerName ?? header.dealerId ?? 'N/A'} />
-          <DetailRow label="สาขา" value={header.branchName ?? 'N/A'} />
-          <DetailRow label="ชื่อลูกค้า (เจ้าของรถ)" value={header.ownerName ?? 'N/A'} />
-          <DetailRow label="เบอร์โทรลูกค้า" value={header.ownerPhone ?? 'N/A'} />
-          <DetailRow label="ชั่วโมงเครื่องยนต์ล่าสุด" value={header.currentHourMeter != null ? `${header.currentHourMeter} ชม.` : 'N/A'} />
-          <DetailRow label="กำหนด PM ครั้งถัดไป" value={header.nextMaintenanceDate ?? 'N/A'} />
+          <DetailRow label="Serial Number" value={summary.serial} />
+          <DetailRow label="รุ่นรถ" value={summary.model ?? 'N/A'} />
+          <DetailRow label="กลุ่มผลิตภัณฑ์ (Product Family)" value={summary.productFamilyName ?? 'ยังไม่ได้ผูกกลุ่มผลิตภัณฑ์'} />
+          <DetailRow label="หมายเลขเครื่องยนต์" value={summary.engineNumber ?? 'N/A'} />
+          <DetailRow label="วันที่ส่งมอบ (Retail Date)" value={summary.retailDate ?? 'N/A'} />
+          <DetailRow label="ดีลเลอร์" value={summary.dealerName ?? summary.dealerId ?? 'N/A'} />
+          <DetailRow label="สาขา" value={summary.branchName ?? 'N/A'} />
+          <DetailRow label="ชื่อลูกค้า (เจ้าของรถ)" value={summary.ownerName ?? 'N/A'} />
+          <DetailRow label="เบอร์โทรลูกค้า" value={summary.ownerPhone ?? 'N/A'} />
+        </div>
+      </div>
+
+      <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">การบำรุงรักษา (Maintenance)</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <DetailRow label="Maintenance Program" value={programLabel} />
+          <DetailRow label="ชั่วโมงเครื่องยนต์ล่าสุด" value={summary.currentHourMeter != null ? `${summary.currentHourMeter} ชม.` : 'N/A'} />
+          <DetailRow label="บำรุงรักษาครั้งล่าสุด" value={summary.lastMaintenanceDate ?? 'ยังไม่มีประวัติ'} />
+          <DetailRow label="รอบถัดไป" value={summary.nextMaintenanceLabel ?? 'N/A'} />
+          <DetailRow
+            label="ชั่วโมงคงเหลือ"
+            value={summary.remainingHours != null ? `${summary.remainingHours} ชม.` : 'N/A'}
+          />
+          <DetailRow label="วันคงเหลือ" value={summary.remainingDays != null ? `${summary.remainingDays} วัน` : 'N/A'} />
           <div className="rounded border border-gray-100 bg-gray-50 p-3">
             <p className="text-xs uppercase tracking-wide text-gray-500">สถานะการบำรุงรักษา</p>
             <p className="mt-1">
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${MAINTENANCE_STATUS_CLASS[header.maintenanceStatus]}`}>
-                {MAINTENANCE_STATUS_LABEL[header.maintenanceStatus]}
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${DUE_COLOR_CLASS[summary.maintenanceDueColor]}`}>
+                {summary.maintenanceDueLabel}
               </span>
             </p>
+          </div>
+          <DetailRow
+            label="Maintenance Compliance"
+            value={
+              summary.compliancePercent != null
+                ? `${summary.completedStageCount} / ${summary.expectedStageCount} (${summary.compliancePercent}%)`
+                : 'N/A'
+            }
+          />
+        </div>
+      </div>
+
+      <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">Vehicle Health</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded border border-gray-100 bg-gray-50 p-3">
+            <p className="text-xs uppercase tracking-wide text-gray-500">Health Score</p>
+            <p className="mt-1 text-2xl font-bold text-brand-dark">{summary.healthScore}</p>
           </div>
           <div className="rounded border border-gray-100 bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">สถานะรถ</p>
+            <p className="text-xs uppercase tracking-wide text-gray-500">Health Status</p>
             <p className="mt-1">
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  header.vehicleStatus === 'open_job' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                }`}
-              >
-                {header.vehicleStatus === 'open_job' ? 'มีงานค้าง (MQR)' : 'ปกติ'}
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${HEALTH_STATUS_CLASS[summary.healthStatus]}`}>
+                {HEALTH_STATUS_LABEL[summary.healthStatus]}
               </span>
             </p>
           </div>
+          <DetailRow label="MQR ที่ยังไม่ปิด (Open MQR)" value={String(summary.openMqrCount)} />
+          <DetailRow label="แคมเปญค้างดำเนินการ" value={String(summary.pendingCampaignCount)} />
         </div>
       </div>
 

@@ -63,23 +63,3 @@ export interface VehicleEvent {
  *  timeline. Scoping (dealer/branch) must be applied inside the source
  *  itself, exactly like every other module-owned query in this app. */
 export type VehicleEventSource = (serial: string, session: SessionUser) => Promise<VehicleEvent[]>;
-
-export type MaintenanceStatus = 'normal' | 'due_soon' | 'overdue' | 'none';
-export type VehicleOperationalStatus = 'normal' | 'open_job';
-
-/** Vehicle 360 header — single source of truth summary for one serial. */
-export interface Vehicle360Header {
-  serial: string;
-  model: string | null;
-  engineNumber: string | null;
-  retailDate: string | null;
-  dealerId: string | null;
-  dealerName: string | null;
-  branchName: string | null;
-  ownerName: string | null;
-  ownerPhone: string | null;
-  currentHourMeter: number | null;
-  maintenanceStatus: MaintenanceStatus;
-  nextMaintenanceDate: string | null;
-  vehicleStatus: VehicleOperationalStatus;
-}

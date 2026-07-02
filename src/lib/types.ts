@@ -59,15 +59,39 @@ export interface PmInterval {
   active?: boolean;
 }
 
-/** PM Program - maps a Tractor Model (free-text, sourced from the existing
- *  Vehicle Master `vehicles.model` values, not a separate Models table -
- *  none exists today, and this avoids duplicating master data) to a PM
- *  Interval. A pure junction table: no soft-delete/audit value of its own,
- *  unlike PM Record/PM Interval - unchecking a model in the admin UI just
- *  removes the row. */
-export interface PmProgram {
+/** Product Family Master (Phase 5b) - maintenance behavior is inherited
+ *  through Product Family, never directly from Tractor Model ("Tractor
+ *  Model remains for identification only" per spec). Supersedes the
+ *  model-based PM Program mapping (removed this phase - see
+ *  PROJECT_STATE.md). */
+export interface ProductFamily {
   id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  active?: boolean;
+}
+
+/** Maps a Tractor Model (free-text, from the existing Vehicle Master
+ *  `vehicles.model` values) to exactly one Product Family - "every tractor
+ *  model belongs to one Product Family" per spec, unlike the old
+ *  model<->interval mapping which was many-to-many. */
+export interface ProductFamilyModel {
+  id: string;
+  product_family_id: string;
   model: string;
+  active?: boolean;
+}
+
+/** Maintenance Program Assignment - maps a Product Family to one or more
+ *  Maintenance Intervals (`pm_intervals`, reused as-is as the "Maintenance
+ *  Program" master - see PROJECT_STATE.md for why no separate
+ *  maintenance_programs table was created). A pure junction table like the
+ *  PM Program mapping it replaces: no soft-delete/audit value of its own,
+ *  unchecking a Product Family in the admin UI just removes the row. */
+export interface MaintenanceProgramAssignment {
+  id: string;
+  product_family_id: string;
   pm_interval_id: string;
 }
 

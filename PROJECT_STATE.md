@@ -420,11 +420,95 @@ user beforehand):
 - 65 new tests (repository/service/publisher/API, incl. soft-delete
   invariant and dealer-scoping join tests) - 119/119 total passing.
 
-Not started (Phase 5b/5c, Phase 4b/4c):
-- Phase 5b: Maintenance Due Engine (hour-based + month-based, Remaining
-  Hours/Remaining Days, Normal/Due Soon/Overdue with color), plus the
-  Product Family master data + migrating PM Program from model-based to
-  Product-Family-based mapping.
+Phase 5b — Product Family, Maintenance Program, Maintenance Due Engine &
+Vehicle Health Engine (complete, this commit)
+
+Business context: maintenance scheduling must depend on Product Family, not
+individual Tractor Model - "Tractor Model remains for identification only."
+This phase replaces the model-based PM Program (Phase 4.5 predates this;
+PM Program itself shipped just before Phase 5a) with a Product Family
+hierarchy, and introduces the reusable Maintenance Due/Health Engines the
+spec calls for as Platform Services. Two decisions confirmed with the user
+before implementing (see chat):
+- PM Program (model-based, 0 rows in production either way) was fully
+  removed - admin page, nav entry, and API routes deleted - rather than
+  left in place unused, since the new hierarchy explicitly forbids
+  maintenance logic depending on Tractor Model directly and having two
+  overlapping "which interval applies here" screens would be confusing.
+- Once a vehicle's hour meter passes every explicitly configured stage in
+  its Product Family's Maintenance Program (e.g. past 1000 Hr on OJA
+  Compact's 50/250/500/1000 Hr program), the Due Engine repeats the gap
+  between the last two configured stages indefinitely, anchored on the
+  actual last-serviced hour meter/date (not the nominal stage threshold) -
+  so a vehicle can still correctly show Overdue if it goes unserviced past
+  a repeat cycle, rather than either freezing at the last real milestone or
+  perpetually appearing "not yet due."
+
+What was built (all three new tables applied via confirmed live migrations):
+- `product_families` (code/name/description/active/audit) - the Product
+  Family Master.
+- `product_family_models` (model -> product_family_id, unique per model -
+  "every tractor model belongs to one Product Family," unlike the
+  many-to-many mapping below).
+- `maintenance_program_assignments` (product_family_id <-> pm_interval_id,
+  many-to-many, real-delete junction table - replaces the old `pm_programs`
+  table, which is left in place unread rather than dropped). `pm_intervals`
+  itself is reused as-is for the "Maintenance Program" master (it already
+  had label/interval_hours/interval_months/active - exactly what was
+  needed), per the spec's own "extend safely instead of replacing" rule -
+  no new `maintenance_programs` table was created.
+- `listActivePmIntervals(model?)` (used by the PM Record create form) now
+  resolves Product Family -> Maintenance Program Assignment instead of
+  Model -> PM Program - the public function signature still accepts a
+  `model` string (that's what the UI actually knows), but the resolution
+  path underneath goes through Product Family, never directly.
+- New admin pages (Settings -> Master Data): `/admin/product-families`
+  (Product Family CRUD), `/admin/product-family-models` (per-model
+  dropdown assigning its one Product Family), `/admin/maintenance-programs`
+  (per-interval checkbox grid of Product Families - replaces the deleted
+  PM Program screen, same UX pattern, Product-Family-keyed instead of
+  model-keyed).
+- New `src/features/maintenance-due/` - `MaintenanceDueService` (pure
+  calculator, no Supabase access): resolves current/next maintenance stage,
+  remaining hours/days, status (Normal/Due Soon/Overdue/None) + color +
+  score, and Maintenance Compliance (completed-vs-expected stage count),
+  from Maintenance Program stages + maintenance history the caller
+  supplies. Supports hour-only, month-only, and combined-on-one-stage
+  rules ("whichever comes first" governs overall status). 17 unit tests.
+- New `src/features/vehicle-health/` - `VehicleHealthService` (pure
+  calculator): deterministic 0-100 scoring per the spec's rule table
+  (completed-on-schedule/no-overdue/no-open-MQR/no-pending-campaign/
+  within-interval/no-repeated-MQR bonuses; overdue/per-open-MQR/repeated-
+  MQR/per-campaign/incomplete-photos/missing-GPS penalties), clamped to
+  [0,100], mapped to Excellent/Good/Attention/Critical via named threshold
+  constants (not hardcoded in any UI component, per spec - "must be
+  configurable later"). Explicitly NOT AI - a fixed rule table. Pending
+  Campaign Count is always 0 (no Campaign module exists in this codebase
+  yet); "repeated MQR" uses a documented 90-day lookback constant
+  (`REPEATED_MQR_WINDOW_DAYS`). 9 unit tests.
+- New `src/features/vehicle-summary/` - `VehicleSummaryService`
+  (orchestration only): resolves Product Family, loads its Maintenance
+  Program stages, loads maintenance/MQR history through the same
+  module-owned reads Vehicle 360's Timeline already used (Phase 5a's
+  `fetchMaintenanceRecords`/`fetchMqrRecords` - no new duplicate queries),
+  then delegates all business-rule computation to the two engines above.
+  Not unit-tested directly (matches this codebase's existing convention -
+  `vehicle-360/service.ts`'s prior header-aggregation code was never unit
+  tested either; the business-logic-heavy engines it wires together are
+  the ones that get real test coverage).
+- Vehicle 360 (`/vehicles/[serial]`) enhanced to show Product Family,
+  Maintenance Program, Last/Next Maintenance, Remaining Hours/Days,
+  Maintenance Status (color-coded), Health Score + Status, Maintenance
+  Compliance (X/Y, %), Open MQR Count, Pending Campaign Count - still
+  "aggregate and display only," per spec; the old `Vehicle360Header`/
+  `getVehicle360Header` (Phase 5a) were removed from
+  `vehicle-360/types.ts`/`service.ts` in favor of `VehicleSummaryService`,
+  which now owns that responsibility. `vehicle-360/service.ts` now
+  contains only `getVehicleTimeline()` - Timeline still reads from events
+  only, never computes Due/Health/Compliance itself.
+- 26 new tests (Due Engine + Health Engine) - 140/140 total passing.
+
+Not started (Phase 5c, Phase 4b/4c):
 - Phase 5c: Service Intelligence Dashboard (Executive/Dealer/Technician/
   MQR/Campaign KPI sections) + Global Search (serial/engine/PM number/MQR
   number/customer/phone/dealer/branch, one box).
@@ -440,17 +524,19 @@ Not started (Phase 5b/5c, Phase 4b/4c):
   to implement bulk export as a single long-running, capped request
   instead ("Preparing Report..." while the one request completes)
 
-Next Milestone: Phase 5b (Maintenance Due Engine + Product Family) or
-Phase 5c (Dashboard + Global Search) or Phase 4b/4c - pending explicit
-direction
+Next Milestone: Phase 5c (Dashboard + Global Search) or Phase 4b/4c -
+pending explicit direction
 Candidate next tasks (unscheduled, pending explicit direction):
-- Phase 5b/5c/4b/4c above
+- Phase 5c/4b/4c above
 - Wire PM Record's create() and MQR's create()/status-close to actually
   call `VehicleEventPublisher` (Phase 4.5 built the framework but
   deliberately didn't wire any real call-site), then migrate Vehicle 360's
   timeline (Phase 5a) to read from `vehicle_events` instead of its current
   registry.ts live-aggregation approach - two separate, explicit decisions,
   not a silent side effect of a future phase
+- Wire the new `pendingCampaignCount`/campaign scoring rules to a real
+  Campaign module once one exists - Vehicle Health Engine already has the
+  input slot, it's just always 0 today
 - A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
   7 M6.4 audit findings require it — the single biggest remaining risk item
 - A future ADR decision on Supabase Auth (or per-request session

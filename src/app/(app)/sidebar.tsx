@@ -34,7 +34,9 @@ export default function Sidebar({ session }: { session: SessionUser }) {
     { href: '/admin/technicians', label: 'ช่างซ่อม' },
     ...(showDealers ? [{ href: '/admin/problem-codes', label: 'หมวดปัญหา/อาการเสีย' }] : []),
     ...(showDealers ? [{ href: '/admin/pm-intervals', label: 'รอบ PM' }] : []),
-    ...(showDealers ? [{ href: '/admin/pm-programs', label: 'PM Program' }] : []),
+    ...(showDealers ? [{ href: '/admin/product-families', label: 'กลุ่มผลิตภัณฑ์' }] : []),
+    ...(showDealers ? [{ href: '/admin/product-family-models', label: 'ผูกรุ่นรถกับกลุ่มผลิตภัณฑ์' }] : []),
+    ...(showDealers ? [{ href: '/admin/maintenance-programs', label: 'Maintenance Program' }] : []),
     { href: '/admin/users', label: 'ผู้ใช้งาน' },
   ];
 

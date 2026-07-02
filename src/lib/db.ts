@@ -6,7 +6,8 @@ import {
   Vehicle,
   ProblemCode,
   PmInterval,
-  PmProgram,
+  ProductFamily,
+  MaintenanceProgramAssignment,
   Technician,
   Branch,
   MqrRecord,
@@ -191,23 +192,26 @@ export async function updateProblemCode(
 /**
  * Active PM Interval Master entries - powers the PM Record form's dropdown.
  * When `model` is given, narrows to only the intervals mapped to that
- * Tractor Model via PM Program (never hardcoded - see `pm_programs`); a
- * model with no configured mapping yet correctly returns an empty list,
- * per spec ("PM Interval options MUST depend on the selected Tractor
- * Model... only intervals mapped to that tractor model shall be
- * displayed").
+ * model's Product Family via Maintenance Program Assignment (Phase 5b -
+ * maintenance logic must never depend directly on Tractor Model, only on
+ * Product Family; a model with no Product Family, or a Product Family with
+ * no assigned intervals, correctly returns an empty list, same "zero
+ * mapping = zero options" behavior as before, now one hierarchy level up).
  */
 export async function listActivePmIntervals(model?: string | null): Promise<PmInterval[]> {
   const supabase = getSupabase();
 
   let allowedIds: string[] | null = null;
   if (model) {
-    const { data: programRows, error: programError } = await supabase
-      .from('pm_programs')
+    const productFamilyId = await getProductFamilyIdForModel(model);
+    if (!productFamilyId) return [];
+
+    const { data: assignmentRows, error: assignmentError } = await supabase
+      .from('maintenance_program_assignments')
       .select('pm_interval_id')
-      .eq('model', model);
-    if (programError) throw programError;
-    allowedIds = Array.from(new Set((programRows ?? []).map((r) => r.pm_interval_id as string)));
+      .eq('product_family_id', productFamilyId);
+    if (assignmentError) throw assignmentError;
+    allowedIds = Array.from(new Set((assignmentRows ?? []).map((r) => r.pm_interval_id as string)));
     if (allowedIds.length === 0) return [];
   }
 
@@ -265,19 +269,10 @@ export async function updatePmInterval(
   return data as PmInterval;
 }
 
-/** Full PM Program mapping list (model -> pm_interval_id pairs) - admin
- *  management UI only. */
-export async function listAllPmProgramsAdmin(): Promise<PmProgram[]> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase.from('pm_programs').select('id, model, pm_interval_id');
-  if (error) throw error;
-  return data ?? [];
-}
-
-/** Distinct tractor models already known to Vehicle Master - powers the PM
- *  Program admin page's per-interval model checklist. A newly-synced model
- *  from the Tractor IN sheet appears here automatically - no code change
- *  needed to add a new tractor model, per spec. */
+/** Distinct tractor models already known to Vehicle Master - powers the
+ *  Product Family <-> Model mapping admin page. A newly-synced model from
+ *  the Tractor IN sheet appears here automatically - no code change needed
+ *  to add a new tractor model, per spec. */
 export async function listDistinctVehicleModels(): Promise<string[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase.from('vehicles').select('model').not('model', 'is', null);
@@ -286,42 +281,224 @@ export async function listDistinctVehicleModels(): Promise<string[]> {
   return models.sort((a, b) => a.localeCompare(b));
 }
 
+// ---------- Product Family Master (Phase 5b) ----------
+
+export async function listActiveProductFamilies(): Promise<ProductFamily[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('product_families').select('*').eq('active', true).order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Full Product Family list (including inactive) - admin management UI only. */
+export async function listAllProductFamiliesAdmin(): Promise<ProductFamily[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('product_families').select('*').order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getProductFamily(id: string): Promise<ProductFamily | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('product_families').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function createProductFamily(
+  input: { code: string; name: string; description: string | null },
+  session: SessionUser
+): Promise<ProductFamily> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('product_families')
+    .insert({
+      code: input.code,
+      name: input.name,
+      description: input.description,
+      created_by: session.username,
+      updated_by: session.username,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as ProductFamily;
+}
+
+export async function updateProductFamily(
+  id: string,
+  patch: Partial<{ code: string; name: string; description: string | null; active: boolean }>,
+  session: SessionUser
+): Promise<ProductFamily> {
+  const supabase = getSupabase();
+  const updatePayload: Record<string, unknown> = { updated_by: session.username, updated_at: new Date().toISOString() };
+  if (patch.code !== undefined) updatePayload.code = patch.code;
+  if (patch.name !== undefined) updatePayload.name = patch.name;
+  if (patch.description !== undefined) updatePayload.description = patch.description;
+  if (patch.active !== undefined) updatePayload.active = patch.active;
+  const { data, error } = await supabase.from('product_families').update(updatePayload).eq('id', id).select('*').single();
+  if (error) throw error;
+  return data as ProductFamily;
+}
+
+// ---------- Product Family <-> Model mapping (Phase 5b) ----------
+
+/** Resolves the Product Family a given Tractor Model belongs to, or null if
+ *  that model hasn't been assigned to one yet. "Every tractor model belongs
+ *  to one Product Family" per spec - this is the one place that rule is
+ *  enforced by construction (unique(model) on `product_family_models`). */
+export async function getProductFamilyIdForModel(model: string): Promise<string | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('product_family_models')
+    .select('product_family_id')
+    .eq('model', model)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { product_family_id: string } | null)?.product_family_id ?? null;
+}
+
+export interface ProductFamilyModelRow {
+  model: string;
+  productFamilyId: string | null;
+  productFamilyName: string | null;
+}
+
+/** Every known model paired with its assigned Product Family (or null if
+ *  unmapped yet) - powers the Product Family <-> Model mapping admin page. */
+export async function listProductFamilyModelMap(): Promise<ProductFamilyModelRow[]> {
+  const [models, mappingRows, families] = await Promise.all([
+    listDistinctVehicleModels(),
+    (async () => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.from('product_family_models').select('model, product_family_id');
+      if (error) throw error;
+      return (data ?? []) as { model: string; product_family_id: string }[];
+    })(),
+    listAllProductFamiliesAdmin(),
+  ]);
+
+  const familyNameById = new Map(families.map((f) => [f.id, f.name]));
+  const familyIdByModel = new Map(mappingRows.map((r) => [r.model, r.product_family_id]));
+
+  return models.map((model) => {
+    const productFamilyId = familyIdByModel.get(model) ?? null;
+    return {
+      model,
+      productFamilyId,
+      productFamilyName: productFamilyId ? familyNameById.get(productFamilyId) ?? null : null,
+    };
+  });
+}
+
+/** Upserts the single Product Family a model belongs to (unique per model -
+ *  never a many-to-many, unlike the interval<->family assignment below). */
+export async function setProductFamilyForModel(
+  model: string,
+  productFamilyId: string | null,
+  session: SessionUser
+): Promise<void> {
+  const supabase = getSupabase();
+  if (!productFamilyId) {
+    const { error } = await supabase.from('product_family_models').delete().eq('model', model);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from('product_family_models').upsert(
+    {
+      model,
+      product_family_id: productFamilyId,
+      created_by: session.username,
+      updated_by: session.username,
+    },
+    { onConflict: 'model' }
+  );
+  if (error) throw error;
+}
+
+// ---------- Maintenance Program Assignment (Phase 5b) ----------
+// Product Family <-> Maintenance Interval (`pm_intervals`, reused as the
+// "Maintenance Program" master - see PROJECT_STATE.md). Replaces the old
+// model-based PM Program mapping (removed this phase).
+
+/** Full Maintenance Program Assignment list (product_family_id <->
+ *  pm_interval_id pairs) - admin management UI only. */
+export async function listAllMaintenanceProgramAssignmentsAdmin(): Promise<MaintenanceProgramAssignment[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('maintenance_program_assignments')
+    .select('id, product_family_id, pm_interval_id');
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** The Maintenance Program stages (active `pm_intervals`) assigned to one
+ *  Product Family, shaped for `MaintenanceDueService` - powers Vehicle 360 /
+ *  the Due Engine, never resolved via Tractor Model. */
+export async function listMaintenanceProgramStagesForFamily(
+  productFamilyId: string
+): Promise<{ pmIntervalId: string; label: string; intervalHours: number | null; intervalMonths: number | null }[]> {
+  const supabase = getSupabase();
+  const { data: assignmentRows, error: assignmentError } = await supabase
+    .from('maintenance_program_assignments')
+    .select('pm_interval_id')
+    .eq('product_family_id', productFamilyId);
+  if (assignmentError) throw assignmentError;
+
+  const intervalIds = Array.from(new Set((assignmentRows ?? []).map((r) => r.pm_interval_id as string)));
+  if (intervalIds.length === 0) return [];
+
+  const { data: intervalRows, error: intervalError } = await supabase
+    .from('pm_intervals')
+    .select('id, label, interval_hours, interval_months')
+    .eq('active', true)
+    .in('id', intervalIds);
+  if (intervalError) throw intervalError;
+
+  return (intervalRows ?? []).map((r) => ({
+    pmIntervalId: r.id as string,
+    label: r.label as string,
+    intervalHours: r.interval_hours as number | null,
+    intervalMonths: r.interval_months as number | null,
+  }));
+}
+
 /**
- * Replaces the full set of models mapped to one PM Interval, matching the
- * admin UI's per-interval checkbox multi-select (checked = mapped,
- * unchecked = not mapped): deletes removed pairs, inserts newly-checked
- * ones. `pm_programs` is a pure junction table with no standalone
- * business/audit value of its own (unlike PM Record/PM Interval
- * themselves), so a real delete here - rather than a soft-delete flag -
- * is the correct, simplest model.
+ * Replaces the full set of Product Families mapped to one Maintenance
+ * Interval, matching the admin UI's per-interval checkbox multi-select
+ * (checked = mapped, unchecked = not mapped): deletes removed pairs,
+ * inserts newly-checked ones. A pure junction table with no standalone
+ * business/audit value of its own, so a real delete here - rather than a
+ * soft-delete flag - is the correct, simplest model (same reasoning as the
+ * PM Program mapping it replaces).
  */
-export async function setPmProgramModels(
+export async function setMaintenanceProgramFamilies(
   pmIntervalId: string,
-  models: string[],
+  productFamilyIds: string[],
   session: SessionUser
 ): Promise<void> {
   const supabase = getSupabase();
   const { data: existingRows, error: existingError } = await supabase
-    .from('pm_programs')
-    .select('id, model')
+    .from('maintenance_program_assignments')
+    .select('id, product_family_id')
     .eq('pm_interval_id', pmIntervalId);
   if (existingError) throw existingError;
 
   const existing = existingRows ?? [];
-  const wantedModels = new Set(models);
-  const existingModels = new Set(existing.map((r) => r.model as string));
+  const wantedFamilies = new Set(productFamilyIds);
+  const existingFamilies = new Set(existing.map((r) => r.product_family_id as string));
 
-  const idsToDelete = existing.filter((r) => !wantedModels.has(r.model as string)).map((r) => r.id);
-  const modelsToInsert = models.filter((m) => !existingModels.has(m));
+  const idsToDelete = existing.filter((r) => !wantedFamilies.has(r.product_family_id as string)).map((r) => r.id);
+  const familiesToInsert = productFamilyIds.filter((f) => !existingFamilies.has(f));
 
   if (idsToDelete.length > 0) {
-    const { error } = await supabase.from('pm_programs').delete().in('id', idsToDelete);
+    const { error } = await supabase.from('maintenance_program_assignments').delete().in('id', idsToDelete);
     if (error) throw error;
   }
-  if (modelsToInsert.length > 0) {
-    const { error } = await supabase.from('pm_programs').insert(
-      modelsToInsert.map((model) => ({
-        model,
+  if (familiesToInsert.length > 0) {
+    const { error } = await supabase.from('maintenance_program_assignments').insert(
+      familiesToInsert.map((productFamilyId) => ({
+        product_family_id: productFamilyId,
         pm_interval_id: pmIntervalId,
         created_by: session.username,
         updated_by: session.username,

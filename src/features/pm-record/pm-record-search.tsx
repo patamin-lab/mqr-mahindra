@@ -302,9 +302,11 @@ function PmRecordCreateForm({
   useEffect(() => {
     (async () => {
       try {
-        // PM Program: only intervals mapped to this tractor's model are
-        // offered - never the full list - so a model with no configured
-        // mapping yet correctly shows zero options rather than everything.
+        // Maintenance Program (Phase 5b): only intervals assigned to this
+        // tractor's Product Family are offered - never the full list, and
+        // never resolved from the model directly - so a model with no
+        // Product Family, or a family with no assigned intervals, correctly
+        // shows zero options rather than everything.
         const intervalParams = new URLSearchParams();
         if (vehicle.model) intervalParams.set('model', vehicle.model);
         const [intervalJson, technicianJson] = await Promise.all([
@@ -506,7 +508,7 @@ function PmRecordCreateForm({
         </div>
         {pmIntervals.length === 0 && (
           <p className="text-xs text-amber-600">
-            ยังไม่มีการกำหนดรอบ PM สำหรับรุ่นรถนี้ ({vehicle.model ?? '-'}) กรุณาติดต่อผู้ดูแลระบบเพื่อกำหนดที่หน้า PM Program
+            ยังไม่มีการกำหนดรอบบำรุงรักษาสำหรับรุ่นรถนี้ ({vehicle.model ?? '-'}) กรุณาติดต่อผู้ดูแลระบบเพื่อผูกรุ่นรถกับกลุ่มผลิตภัณฑ์ และกำหนดรอบที่หน้า Maintenance Program
           </p>
         )}
 

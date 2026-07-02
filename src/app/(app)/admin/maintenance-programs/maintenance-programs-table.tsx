@@ -1,39 +1,39 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { PmInterval, PmProgram } from '@/lib/types';
+import { MaintenanceProgramAssignment, PmInterval, ProductFamily } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalLoading, swalClose, swalSuccessToast } from '@/lib/swal';
 
 interface Props {
-  initialPmPrograms: PmProgram[];
-  models: string[];
+  initialAssignments: MaintenanceProgramAssignment[];
+  productFamilies: ProductFamily[];
   pmIntervals: PmInterval[];
 }
 
-export default function PmProgramsTable({ initialPmPrograms, models, pmIntervals }: Props) {
-  // modelsByInterval[pmIntervalId] = Set of currently-checked model names
-  // (draft state, independent per interval so switching one doesn't lose
-  // unsaved edits on another).
+export default function MaintenanceProgramsTable({ initialAssignments, productFamilies, pmIntervals }: Props) {
+  // familiesByInterval[pmIntervalId] = Set of currently-checked Product
+  // Family ids (draft state, independent per interval so switching one
+  // doesn't lose unsaved edits on another).
   const initialMap = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const iv of pmIntervals) map.set(iv.id, new Set());
-    for (const p of initialPmPrograms) {
-      if (!map.has(p.pm_interval_id)) map.set(p.pm_interval_id, new Set());
-      map.get(p.pm_interval_id)!.add(p.model);
+    for (const a of initialAssignments) {
+      if (!map.has(a.pm_interval_id)) map.set(a.pm_interval_id, new Set());
+      map.get(a.pm_interval_id)!.add(a.product_family_id);
     }
     return map;
-  }, [initialPmPrograms, pmIntervals]);
+  }, [initialAssignments, pmIntervals]);
 
-  const [modelsByInterval, setModelsByInterval] = useState(initialMap);
+  const [familiesByInterval, setFamiliesByInterval] = useState(initialMap);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  function toggleModel(pmIntervalId: string, model: string) {
-    setModelsByInterval((prev) => {
+  function toggleFamily(pmIntervalId: string, productFamilyId: string) {
+    setFamiliesByInterval((prev) => {
       const next = new Map(prev);
       const current = new Set(next.get(pmIntervalId) ?? []);
-      if (current.has(model)) current.delete(model);
-      else current.add(model);
+      if (current.has(productFamilyId)) current.delete(productFamilyId);
+      else current.add(productFamilyId);
       next.set(pmIntervalId, current);
       return next;
     });
@@ -43,10 +43,10 @@ export default function PmProgramsTable({ initialPmPrograms, models, pmIntervals
     setSavingId(pmIntervalId);
     swalLoading('กำลังบันทึก...');
     try {
-      const selected = Array.from(modelsByInterval.get(pmIntervalId) ?? []);
-      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/pm-programs/${pmIntervalId}`, {
+      const selected = Array.from(familiesByInterval.get(pmIntervalId) ?? []);
+      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/maintenance-programs/${pmIntervalId}`, {
         method: 'PUT',
-        body: JSON.stringify({ models: selected }),
+        body: JSON.stringify({ productFamilyIds: selected }),
       });
       if (!json.ok) throw new Error(json.error);
       swalClose();
@@ -71,10 +71,10 @@ export default function PmProgramsTable({ initialPmPrograms, models, pmIntervals
     );
   }
 
-  if (models.length === 0) {
+  if (productFamilies.length === 0) {
     return (
       <div className="rounded border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500">
-        ยังไม่พบรุ่นรถใน Vehicle Master
+        ยังไม่มีกลุ่มผลิตภัณฑ์ — กรุณาเพิ่มกลุ่มผลิตภัณฑ์ที่หน้า &quot;กลุ่มผลิตภัณฑ์&quot; ก่อน
       </div>
     );
   }
@@ -82,13 +82,14 @@ export default function PmProgramsTable({ initialPmPrograms, models, pmIntervals
   return (
     <div className="space-y-4">
       {pmIntervals.map((iv) => {
-        const selected = modelsByInterval.get(iv.id) ?? new Set<string>();
+        const selected = familiesByInterval.get(iv.id) ?? new Set<string>();
         return (
           <div key={iv.id} className="rounded border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-brand-dark">
                 {iv.label}
                 {iv.interval_hours ? ` (${iv.interval_hours} ชม.)` : ''}
+                {iv.interval_months ? ` (${iv.interval_months} เดือน)` : ''}
                 {iv.active === false ? <span className="ml-2 text-xs text-gray-400">(ปิดใช้งาน)</span> : null}
               </h2>
               <button
@@ -100,12 +101,16 @@ export default function PmProgramsTable({ initialPmPrograms, models, pmIntervals
                 {savingId === iv.id ? 'กำลังบันทึก...' : 'บันทึก'}
               </button>
             </div>
-            <p className="mb-2 text-xs text-gray-500">รุ่นรถที่ใช้รอบ PM นี้:</p>
+            <p className="mb-2 text-xs text-gray-500">กลุ่มผลิตภัณฑ์ที่ใช้รอบบำรุงรักษานี้:</p>
             <div className="grid gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {models.map((model) => (
-                <label key={model} className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={selected.has(model)} onChange={() => toggleModel(iv.id, model)} />
-                  {model}
+              {productFamilies.map((family) => (
+                <label key={family.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(family.id)}
+                    onChange={() => toggleFamily(iv.id, family.id)}
+                  />
+                  {family.name}
                 </label>
               ))}
             </div>
