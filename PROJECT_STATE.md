@@ -1,9 +1,9 @@
-Current Sprint: Sprint 10
+Current Sprint: Production Stabilization Sprint
 Current Branch: feature/pm-record-workflow-redesign (branched from main after M1-M6.5 merged)
-Current Module: PM Record
-Current Milestone: PM Program (model-aware PM Interval mapping) Complete
-Current Status: In Progress (ad hoc feature between Phase 4a and 4b; Phase
-4b/4c and Phase 5 of the production UX redesign not started)
+Current Module: MQR + PM (both)
+Current Milestone: Production Stabilization Sprint Complete (12 milestone commits)
+Current Status: Complete - see "Production Stabilization Sprint" section below.
+Awaiting explicit direction on next work; branch not yet merged to main.
 
 M1-M6.5 (CRUD module, tests, CI, dependency audit, release review) are
 merged into `main` (PR #2, merge commit `32c4e29`). Everything below this
@@ -589,10 +589,183 @@ Not started (Phase 5c, Phase 4b/4c):
   to implement bulk export as a single long-running, capped request
   instead ("Preparing Report..." while the one request completes)
 
-Next Milestone: Phase 5c (Dashboard + Global Search) or Phase 4b/4c -
-pending explicit direction
+========================================================
+Production Stabilization Sprint (complete, this commit series)
+========================================================
+
+Business context: stop expanding platform surface area and make MQR +
+PM production-ready for daily dealer use - explicitly no Dashboard/
+Analytics/AI/Notification/Offline/PWA/Calendar/Work Order/Platform
+Services work this sprint. Started with two parallel audit agents (one
+per module) reading the actual code against an explicit checklist
+(Report Creation/Investigation/Attachments/PDF/CSV/Search/Performance/
+Security for MQR; Search-first/Maintenance Engine/Attachments/History/
+PDF/CSV/Search/Validation for PM), then four architecture decisions
+confirmed with the user before implementing (MQR status enum: extend,
+don't rename; MQR audit trail: system-logged history only, no comments/
+chat; PM Maintenance Program: full immutable versioning, not just a
+per-record snapshot; PM lock rules: time+supersession based, with a
+temporary Central/SuperAdmin override, not a new Draft/Locked status
+field). 12 milestone commits, each independently verified (typecheck/
+lint/build/full test suite) before commit, per the sprint's own
+"verify after EACH milestone" instruction. 213/213 tests passing at the
+end (was 168 at the start of this sprint), all in this shared platform/
+module code - `records`/`admin/*`/`report` UI components still have no
+automated coverage, same documented gap as before.
+
+MQR (Part A) — completed:
+- **Investigation workflow**: added the two genuinely missing business
+  states (`WaitingCustomer`, `Rejected`) to the existing 6-status enum
+  without renaming `UnderInvestigation`/`Repaired`/etc to match another
+  spec's wording (`records_status_check` constraint extended, live
+  migration). Added `MQR_STATUS_TRANSITIONS`/`canTransitionMqrStatus()`
+  (`lib/types.ts`) - a real state-machine graph enforced in
+  `updateRecord()`, not just a free-form status dropdown; SuperAdmin
+  retains an unconditional override (e.g. to reopen a wrongly-closed
+  job), every other status-updating role must follow the graph. Status
+  dropdown UI filters to only valid next-states.
+- **Audit trail**: new shared `record_audit_log` table (module-scoped
+  `'mqr'|'pm'`, no UPDATE/DELETE RLS policy at all - immutable by
+  database construction, not just convention) plus
+  `logAuditEvent`/`logAuditEvents`/`listAuditLog`/`diffFieldsForAudit`
+  in `lib/db.ts`. Wired into `createRecord`/`updateRecord`/
+  `softDeleteRecord` (status changes, severity changes, RCA field
+  edits, attachment add/remove, create, delete); a read-only Timeline
+  section now renders on the record detail page. This same table is
+  reused by PM's lock/unlock/delete events below - one shared audit
+  mechanism, not two.
+- **Search/pagination**: `listRecords()`'s `.limit(500)` silently
+  truncated any dealer/period with more than 500 records with zero
+  indication to the user - a real, invisible data-loss-in-view bug.
+  Replaced the records list page with `listRecordsPaginated()`
+  (`range()`-based, real total count, Prev/Next pager); `listRecords()`
+  itself untouched since bulk export still needs the whole matching set.
+  Added a `found_date` range filter and broadened free-text search to
+  branch_name/technician_name/problem_code.
+  `records.gps_accuracy`/`google_maps_url` added (live migration) so
+  the richer picker's data isn't discarded.
+- **Attachment framework**: extracted the size-routed upload logic
+  (proxy ≤4MB, chunked Drive relay above it) into
+  `components/shared/upload/uploadFileSmart.ts`; the record update
+  form previously always proxied directly with no >4MB path (a real
+  gap - a large after-repair photo could silently fail against
+  Vercel's body cap), now uses the same shared uploader as the report
+  form. Swapped MQR's own local GPS picker
+  (`report/location-picker.tsx`/`map-view.tsx`, deleted) for the
+  shared `components/shared/gps/GpsLocationPicker` PM already used -
+  one GPS implementation, not two.
+- **PDF**: `lib/pdf/PdfBrandLogo.tsx` - a reusable logo slot reading
+  from `public/assets/branding/mahindra-logo.png` (configurable path,
+  never hardcoded per-document); no logo asset exists yet, so it
+  reserves a correctly-sized blank slot rather than fabricating a
+  placeholder image, per explicit instruction - drop the real PNG in
+  and every PDF (MQR + PM) picks it up automatically, no code change.
+  Photo sections now render only when a category actually has photos
+  (previously every one of the 8 `PHOTO_CATEGORIES` printed an empty
+  "no photo" box, including legacy categories no new record ever
+  populates).
+- **CSV**: `lib/exportCsv.ts` - shared `buildCsv()` (UTF-8 BOM,
+  proper comma/quote/newline escaping, CRLF) + `buildRecordsCsv()`.
+  `GET /api/records/export?format=csv` + an Export CSV button on the
+  list page.
+- Font registration (`ensureFontsRegistered`) and the remote-image
+  resolver (`fetchImageAsDataUri`) were extracted out of
+  `lib/exportPdf.tsx` into `lib/pdf/fonts.ts`/`fetchImage.ts` so PM's
+  new PDF (below) reuses the exact same hardened implementation
+  instead of a second copy - both documents' prior bug-fix history
+  (Deployment Protection font-fetch workaround, Drive-thumbnail
+  fetch-failure hardening) stays in one place.
+- Security/Performance: audited, no changes needed - dealer isolation,
+  soft delete, and audit-field handling were already correct
+  everywhere in this module.
+
+PM (Part B) — completed:
+- **Maintenance Program Versioning**: the Due/Compliance/Health
+  engines previously recomputed against the *current* live
+  `maintenance_program_assignments` set for a Product Family - editing
+  a family's stages after vehicles already had history would silently
+  reclassify already-completed stages as incomplete, with no record of
+  what applied at the time. New `maintenance_program_versions`/
+  `_stages` (immutable snapshots) + `vehicles.maintenance_program_
+  version_id` (permanent pin, resolved once against whichever version
+  was effective at the vehicle's retail date, falling back to the
+  earliest version if retail date predates all of them). A stale pin
+  (the vehicle's Product Family itself was reassigned since) is
+  detected and re-resolved, never trusted blindly.
+  `syncMaintenanceProgramVersion()` creates a new version only when a
+  family's *resolved* stage list actually changed (idempotent),
+  called after both admin mutation paths that can affect it
+  (assignment add/remove via `/admin/maintenance-programs`, and
+  editing an already-assigned interval's own hours/months via
+  `/admin/pm-intervals`). `MaintenanceSummaryProvider` now resolves
+  through the pinned version, never the live set; Vehicle 360 displays
+  the version number in effect.
+- **Lock rules & supersession**: PM records had no lifecycle status and
+  no lock rules at all - any field could be edited or the record
+  deleted at any time, silently changing Due/Compliance/Health for
+  that vehicle. Enforced solely in the Service layer (UI disables
+  fields only for UX, never the trust boundary): 24h editable window
+  after creation, then locked (`edit_window_expired`); creating a new
+  record for a vehicle automatically locks every other active record
+  for that vehicle no longer the most recent one (`superseded`); only
+  `serial`/`performed_date`/`hour_meter`/`pm_interval_id` (the
+  calculation-affecting fields) are blocked, notes/attachments stay
+  editable; soft-deleting a locked record requires SuperAdmin + a
+  mandatory reason (`pm_records.deleted_reason`); Central/SuperAdmin
+  may open a temporary unlock window (default 24h,
+  `POST .../[id]/unlock`) or explicitly lock a record
+  (`POST .../[id]/lock`) - once an unlock window expires the record
+  reads as locked again with reason `manual_override` rather than
+  reverting silently. Every lock/unlock/delete/field-change event
+  writes to the shared `record_audit_log`.
+- **PDF/CSV**: PM had neither - confirmed as the two largest blockers
+  in the audit (History Center's export buttons were disabled
+  "coming in Phase 4b/4c" stubs). New `maintenancePdf.tsx`
+  (single-record + bulk-list documents, reusing MQR's now-shared font/
+  image/logo infrastructure) and `maintenanceCsv.ts` (reuses
+  `lib/exportCsv.ts`'s `buildCsv()`). `GET /api/pm-records/[id]/export`
+  (single record) and `GET /api/pm-records/history/export?format=
+  pdf|csv` (current filter set, capped at 2,000 records across
+  paginated fetches - a deliberate ceiling, not a silent truncation)
+  with real Export buttons on the detail page and History Center.
+  True "export only the selected rows" (the History Center's
+  row-selection UI) remains a disabled, explicitly-labeled stub -
+  filter-based export was judged sufficient for this sprint's literal
+  checklist ("PDF History"/"CSV History"), selected-rows export is a
+  distinct, smaller feature not yet built. Bulk photo ZIP download
+  also remains deferred (would need a new `jszip`-class dependency,
+  already flagged as out of scope in Phase 4c's own prior scoping).
+- **Fixed a real zero-leakage bug** found in the audit: a
+  branch-restricted `DealerUser` could see a sibling branch's PM
+  records by passing an explicit `?branchId=` query param - the
+  session-based `branchName` scoping fallback only ever applied when
+  `branchId` was *absent*, never validated against one that was
+  present. Extracted the History Center's filter-parsing (shared by
+  the paginated list route and the new export route) into
+  `parseHistoryFilter.ts`, fixing this once for both.
+- **Fixed `pm_interval_id` trust gap**: the create form only ever
+  offers intervals filtered by the vehicle's resolved Product Family,
+  but nothing re-validated that server-side - a client could POST any
+  interval id. `POST /api/pm-records` now re-checks against
+  `listActivePmIntervals(model)` when a model is known.
+- Standardized `created_at`/`updated_at` on the PM detail page to go
+  through `formatThaiDateTime()` (was rendering the raw ISO string,
+  a direct violation of this repo's own binding §8.1 rule) and added
+  a neutral status badge matching MQR's header treatment.
+
+Explicitly deferred (documented, not silently dropped):
+- The Mahindra logo image itself - `PdfBrandLogo`/`public/assets/
+  branding/mahindra-logo.png` are ready, no code change needed once
+  supplied.
+- History Center "export selected rows only" and bulk photo ZIP
+  download (see above).
+- Everything on the sprint's own STOP list (Dashboard, AI, Platform
+  Services, Dealer KPI, Analytics, any new module).
+
+Next Milestone: none scheduled - awaiting explicit direction.
 Candidate next tasks (unscheduled, pending explicit direction):
-- Phase 5c/4b/4c above
+- Phase 5c (Dashboard + Global Search) or Phase 4b/4c's originally-listed
+  remainder (bulk PDF/ZIP image download, image viewer)
 - Wire PM Record's create() and MQR's create()/status-close to actually
   call `VehicleEventPublisher` (Phase 4.5 built the framework but
   deliberately didn't wire any real call-site), then migrate Vehicle 360's
@@ -610,8 +783,11 @@ Candidate next tasks (unscheduled, pending explicit direction):
 - Drop the four now-genuinely-unused legacy columns on `pm_records`
   (`model`/`delivery_date` are now used as snapshot fields, so only
   cleanup candidates remain if any are found to still be truly dead)
-- Extend automated test coverage to other modules (only PM Record has
-  tests today)
+- Extend automated test coverage to the remaining modules without any
+  (`records`/`report`/`admin/*` UI components - `lib/db.ts`'s MQR
+  functions, the new audit log, and status transitions do now have
+  coverage as of this sprint, but the React components themselves don't)
+- Supply the real Mahindra logo PNG (see "Explicitly deferred" above)
 
 Current Blockers:
 None. This redesign branch has not been merged to `main` yet — pending
