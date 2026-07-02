@@ -152,10 +152,13 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             <a
               className="text-brand-red hover:underline"
               target="_blank"
-              href={`https://maps.google.com/?q=${record.lat},${record.lng}`}
+              href={record.google_maps_url ?? `https://maps.google.com/?q=${record.lat},${record.lng}`}
             >
               {record.lat}, {record.lng}
             </a>
+            {record.gps_accuracy !== null && (
+              <span className="ml-2 text-xs text-gray-400">(ความแม่นยำ ±{Math.round(record.gps_accuracy)} m)</span>
+            )}
           </div>
         )}
       </section>

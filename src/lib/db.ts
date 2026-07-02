@@ -794,6 +794,8 @@ export interface CreateRecordInput {
   stockNote: string | null;
   lat: number | null;
   lng: number | null;
+  gpsAccuracy?: number | null;
+  googleMapsUrl?: string | null;
   photoLinks: PhotoLink[];
   videoLink: string | null;
   /** Only honored when the session role sees all dealers; otherwise forced to session.dealerId. */
@@ -867,6 +869,8 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       stock_note: input.stockNote,
       lat: input.lat,
       lng: input.lng,
+      gps_accuracy: input.gpsAccuracy ?? null,
+      google_maps_url: input.googleMapsUrl ?? null,
       photo_links: input.photoLinks,
       video_link: input.videoLink,
       branch_id: input.branchId,

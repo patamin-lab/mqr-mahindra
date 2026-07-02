@@ -104,6 +104,11 @@ export async function POST(req: NextRequest) {
         stockNote: vehicle ? null : String(body.stockNote ?? ''),
         lat: body.lat === undefined || body.lat === null || body.lat === '' ? null : Number(body.lat),
         lng: body.lng === undefined || body.lng === null || body.lng === '' ? null : Number(body.lng),
+        gpsAccuracy:
+          body.gpsAccuracy === undefined || body.gpsAccuracy === null || body.gpsAccuracy === ''
+            ? null
+            : Number(body.gpsAccuracy),
+        googleMapsUrl: body.googleMapsUrl ? String(body.googleMapsUrl) : null,
         photoLinks,
         videoLink: body.videoLink ? String(body.videoLink) : null,
         dealerId: dealerIdForLookup,

@@ -195,6 +195,8 @@ export interface MqrRecord {
   stock_note: string | null;
   lat: number | null;
   lng: number | null;
+  gps_accuracy: number | null;
+  google_maps_url: string | null;
   pdf_link: string | null;
   photo_links: PhotoLink[] | null;
   video_link: string | null;
