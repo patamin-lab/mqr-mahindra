@@ -414,39 +414,34 @@ function RecordDocument({
           </View>
         )}
 
-        {PHOTO_CATEGORIES.map((cat) => {
-          const photos = (record.photo_links ?? []).filter((p) => p.category === cat.key);
-          return (
+        {PHOTO_CATEGORIES
+          .map((cat) => ({
+            cat,
+            photos: (record.photo_links ?? []).filter((p) => p.category === cat.key),
+          }))
+          .filter(({ photos }) => photos.length > 0)
+          .map(({ cat, photos }) => (
             <View key={cat.key}>
               <Text style={styles.photoCategoryLabel}>{cat.label}</Text>
               <View style={styles.photoGrid}>
-                {photos.length > 0 ? (
-                  photos.map((p, i) => {
-                    const dataUri = photoDataUris.get(p.url);
-                    return (
-                      <View key={i} style={styles.photoBox} wrap={false}>
-                        {dataUri ? (
-                          <Image src={dataUri} style={styles.photo} />
-                        ) : (
-                          <View style={styles.photoPlaceholder}>
-                            <Text style={styles.photoPlaceholderText}>โหลดรูปไม่สำเร็จ</Text>
-                          </View>
-                        )}
-                        <Text style={styles.photoLabel}>{p.label}</Text>
-                      </View>
-                    );
-                  })
-                ) : (
-                  <View style={styles.photoBox}>
-                    <View style={styles.photoPlaceholder}>
-                      <Text style={styles.photoPlaceholderText}>ไม่มีรูป</Text>
+                {photos.map((p, i) => {
+                  const dataUri = photoDataUris.get(p.url);
+                  return (
+                    <View key={i} style={styles.photoBox} wrap={false}>
+                      {dataUri ? (
+                        <Image src={dataUri} style={styles.photo} />
+                      ) : (
+                        <View style={styles.photoPlaceholder}>
+                          <Text style={styles.photoPlaceholderText}>โหลดรูปไม่สำเร็จ</Text>
+                        </View>
+                      )}
+                      <Text style={styles.photoLabel}>{p.label}</Text>
                     </View>
-                  </View>
-                )}
+                  );
+                })}
               </View>
             </View>
-          );
-        })}
+          ))}
 
         <View style={{ marginTop: 10 }}>
           <Text style={styles.auditText}>
