@@ -92,6 +92,12 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           <p className="text-sm text-gray-500">{record.pm_number ?? record.serial ?? 'PM Record'}</p>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href={`/api/pm-records/${encodeURIComponent(record.id)}/export`}
+            className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+          >
+            Export PDF
+          </a>
           <Link
             href={`/pm-records/${encodeURIComponent(record.id)}/edit`}
             className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark"

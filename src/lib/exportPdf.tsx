@@ -1,6 +1,5 @@
 import React from 'react';
-import path from 'path';
-import { Document, Page, Text, View, StyleSheet, Font, Image, Link, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image, Link, renderToBuffer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import {
   MqrRecord,
@@ -12,100 +11,9 @@ import {
 } from './types';
 import { formatThaiDateTime } from './thaiDate';
 import { PdfBrandLogo } from './pdf/PdfBrandLogo';
-
-let fontsRegistered = false;
-
-/**
- * Fonts are loaded from an on-disk path instead of being fetched over HTTP.
- * We previously registered them with an absolute URL
- * (`${baseUrl}/fonts/*.ttf`) for react-pdf to fetch at render time, but
- * that self-fetch happens server-side, with no browser session attached -
- * and this Vercel project has Deployment Protection enabled, which
- * intercepts ANY unauthenticated request to the deployment, including the
- * app's own outbound fetch back to itself, and returns the Vercel SSO
- * login page instead of the font file. fontkit then tried to parse that
- * login page's HTML as a font and threw "Unknown font format" - on every
- * single export, for both the original WOFF files and the TTF files they
- * were converted to, regardless of how `baseUrl`/origin was derived.
- * (Confirmed via a temporary debug route that fetched the exact same URL
- * server-side and logged the response: status 200, but the body was the
- * Vercel SSO HTML page, not font bytes.)
- *
- * Passing the absolute file path as `src` sidesteps HTTP - and Deployment
- * Protection - entirely: @react-pdf/font's FontSource._load() falls through
- * to `fontkit.open(src, postscriptName)` for any src string that isn't one
- * of the standard font names, a data: URL, or an http(s) URL, and
- * fontkit.open() reads the file from disk itself.
- *
- * (We first tried passing a `Buffer` read via `fs.readFileSync` directly as
- * `src`, which satisfies react-pdf's runtime font-loading code in some
- * other contexts, but this version's `isDataUrl(this.src)` helper
- * unconditionally calls `this.src.indexOf(',')` then `.substring(...)` on
- * it - Buffer has `.indexOf` (byte search) but not `.substring`, so it blew
- * up with "dataUrl.substring is not a function" as soon as a 0x2C byte
- * appeared anywhere in the font's binary data. A plain path string avoids
- * that branch entirely.)
- *
- * For this to work inside the Vercel serverless function, the files under
- * /public/fonts must be explicitly included in the function's file trace
- * (see `outputFileTracingIncludes` in next.config.mjs) - by default Next
- * does not bundle /public into serverless functions, since it's normally
- * served separately via the CDN.
- */
-function ensureFontsRegistered() {
-  if (fontsRegistered) return;
-  const fontsDir = path.join(process.cwd(), 'public', 'fonts');
-  Font.register({
-    family: 'Sarabun',
-    fonts: [
-      { src: path.join(fontsDir, 'Sarabun-Regular.ttf'), fontWeight: 'normal' },
-      { src: path.join(fontsDir, 'Sarabun-Bold.ttf'), fontWeight: 'bold' },
-    ],
-  });
-  fontsRegistered = true;
-}
-
-/**
- * react-pdf's <Image src={remoteUrl}> fetches the URL itself at render
- * time, with no control over headers/timeout/retries and no way to
- * substitute a placeholder on failure - one bad fetch throws and takes
- * down the whole PDF (this is what caused the export 500 after switching
- * photo URLs to Drive's `thumbnail?id=...` endpoint, which - unlike a
- * normal <img> tag in a browser - can reject a plain server-side fetch
- * with no browser-like User-Agent/Accept headers).
- *
- * To make this robust, we fetch every photo ourselves up front (with a
- * timeout, a normal browser UA, and a try/catch per image) and hand
- * react-pdf an already-resolved base64 data: URI instead. A failed fetch
- * degrades to a "image failed to load" placeholder rather than crashing
- * the export.
- */
-async function fetchImageAsDataUri(url: string): Promise<string | null> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-    try {
-      const res = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          Accept: 'image/*',
-        },
-      });
-      if (!res.ok) return null;
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.startsWith('image/')) return null;
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length === 0) return null;
-      return `data:${contentType};base64,${buf.toString('base64')}`;
-    } finally {
-      clearTimeout(timeout);
-    }
-  } catch {
-    return null;
-  }
-}
+import { ensureFontsRegistered } from './pdf/fonts';
+import { fetchImageAsDataUri } from './pdf/fetchImage';
+import { PDF_BRAND_RED } from './pdf/brand';
 
 /** Resolves every photo URL on a record to a data URI in parallel, keyed by the original URL. */
 async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, string | null>> {
@@ -117,8 +25,8 @@ async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, stri
 const styles = StyleSheet.create({
   page: { padding: 28, fontFamily: 'Sarabun', fontSize: 9, color: '#1a1a1a' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  title: { fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: '#9c1c1c' },
-  titleRule: { borderBottomWidth: 2, borderColor: '#9c1c1c', marginTop: 6, marginBottom: 10 },
+  title: { fontSize: 15, fontWeight: 'bold', marginBottom: 2, color: PDF_BRAND_RED },
+  titleRule: { borderBottomWidth: 2, borderColor: PDF_BRAND_RED, marginTop: 6, marginBottom: 10 },
   subtitle: { fontSize: 9, color: '#666', marginBottom: 2 },
   qr: { width: 56, height: 56 },
   qrCaption: { fontSize: 6, color: '#999', textAlign: 'center', marginTop: 2, width: 56 },
@@ -134,7 +42,7 @@ const styles = StyleSheet.create({
   cell: { padding: 4, fontSize: 8 },
 
   section: { marginTop: 8, marginBottom: 10 },
-  sectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 4, color: '#9c1c1c' },
+  sectionTitle: { fontSize: 10, fontWeight: 'bold', marginBottom: 4, color: PDF_BRAND_RED },
   paragraph: { fontSize: 9, lineHeight: 1.4 },
   link: { fontSize: 8.5, color: '#1a56db' },
 
@@ -157,13 +65,13 @@ const styles = StyleSheet.create({
   infoCellValueLast: { width: '33%', padding: 5, fontSize: 8.5 },
   infoCellValueFull: { width: '83%', padding: 5, fontSize: 8.5 },
   rcaHeaderRow: { backgroundColor: '#fbeaea', padding: 5, borderBottomWidth: 1, borderColor: '#e5c5c5' },
-  rcaHeaderText: { fontSize: 9, fontWeight: 'bold', color: '#9c1c1c' },
+  rcaHeaderText: { fontSize: 9, fontWeight: 'bold', color: PDF_BRAND_RED },
 
   photoCategoryLabel: {
     fontSize: 8.5,
     fontWeight: 'bold',
     color: '#fff',
-    backgroundColor: '#9c1c1c',
+    backgroundColor: PDF_BRAND_RED,
     paddingVertical: 3,
     paddingHorizontal: 6,
     marginBottom: 6,

@@ -240,39 +240,57 @@ export default function MaintenanceHistory({ dealers, showDealerField, defaultDe
     return (id: string | null) => (id ? map.get(id) ?? id : '-');
   }, [pmIntervals]);
 
+  // Shared by both the live query (loadData) and the Export buttons, so
+  // "what you're looking at" and "what you export" are always the same
+  // filter set - the export routes never take page/pageSize, they return
+  // every matching row (capped, not paginated).
+  const buildFilterParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (filters.dealerId) params.set('dealerId', filters.dealerId);
+    if (filters.branchId) params.set('branchId', filters.branchId);
+    if (filters.technicianId) params.set('technicianId', filters.technicianId);
+    if (filters.pmIntervalId) params.set('pmIntervalId', filters.pmIntervalId);
+    if (filters.pmNumber) params.set('pmNumber', filters.pmNumber);
+    if (filters.serial) params.set('serial', filters.serial);
+    if (filters.customerName) params.set('customerName', filters.customerName);
+    if (filters.customerPhone) params.set('customerPhone', filters.customerPhone);
+    if (filters.model) params.set('model', filters.model);
+    if (filters.hourMeterMin) params.set('hourMeterMin', filters.hourMeterMin);
+    if (filters.hourMeterMax) params.set('hourMeterMax', filters.hourMeterMax);
+    if (filters.createdBy) params.set('createdBy', filters.createdBy);
+    if (filters.status) params.set('status', filters.status);
+    if (search.trim()) params.set('search', search.trim());
+
+    if (quickFilter === 'overdue') {
+      params.set('overdue', 'true');
+    } else if (quickFilter === 'upcoming') {
+      params.set('upcoming', 'true');
+    } else if (quickFilter) {
+      const range = quickFilterDateRange(quickFilter);
+      if (range.dateFrom) params.set('dateFrom', range.dateFrom);
+      if (range.dateTo) params.set('dateTo', range.dateTo);
+    } else {
+      if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+      if (filters.dateTo) params.set('dateTo', filters.dateTo);
+    }
+    return params;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, search, quickFilter]);
+
+  const exportHref = useCallback(
+    (format: 'pdf' | 'csv') => {
+      const params = buildFilterParams();
+      params.set('format', format);
+      return `/api/pm-records/history/export?${params.toString()}`;
+    },
+    [buildFilterParams]
+  );
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const sort = sorting[0];
-      const params = new URLSearchParams();
-      if (filters.dealerId) params.set('dealerId', filters.dealerId);
-      if (filters.branchId) params.set('branchId', filters.branchId);
-      if (filters.technicianId) params.set('technicianId', filters.technicianId);
-      if (filters.pmIntervalId) params.set('pmIntervalId', filters.pmIntervalId);
-      if (filters.pmNumber) params.set('pmNumber', filters.pmNumber);
-      if (filters.serial) params.set('serial', filters.serial);
-      if (filters.customerName) params.set('customerName', filters.customerName);
-      if (filters.customerPhone) params.set('customerPhone', filters.customerPhone);
-      if (filters.model) params.set('model', filters.model);
-      if (filters.hourMeterMin) params.set('hourMeterMin', filters.hourMeterMin);
-      if (filters.hourMeterMax) params.set('hourMeterMax', filters.hourMeterMax);
-      if (filters.createdBy) params.set('createdBy', filters.createdBy);
-      if (filters.status) params.set('status', filters.status);
-      if (search.trim()) params.set('search', search.trim());
-
-      if (quickFilter === 'overdue') {
-        params.set('overdue', 'true');
-      } else if (quickFilter === 'upcoming') {
-        params.set('upcoming', 'true');
-      } else if (quickFilter) {
-        const range = quickFilterDateRange(quickFilter);
-        if (range.dateFrom) params.set('dateFrom', range.dateFrom);
-        if (range.dateTo) params.set('dateTo', range.dateTo);
-      } else {
-        if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
-        if (filters.dateTo) params.set('dateTo', filters.dateTo);
-      }
-
+      const params = buildFilterParams();
       params.set('page', String(pageIndex + 1));
       params.set('pageSize', String(pageSize));
       if (sort) {
@@ -413,9 +431,18 @@ export default function MaintenanceHistory({ dealers, showDealerField, defaultDe
           <h1 className="text-xl font-bold text-brand-dark">ประวัติ PM (PM History Center)</h1>
           <p className="text-sm text-gray-500">ค้นหา กรอง และส่งออกข้อมูล PM Record ทั้งหมดที่นี่</p>
         </div>
-        <Link href="/pm-records/new" className="rounded bg-brand-red px-4 py-2 text-sm text-white hover:bg-brand-dark">
-          + บันทึก PM ใหม่
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={exportHref('pdf')}
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50"
+            title="ส่งออกรายการที่ตรงกับตัวกรอง/คำค้นหาปัจจุบันทั้งหมด (สูงสุด 2,000 รายการ)"
+          >
+            Export PDF
+          </a>
+          <Link href="/pm-records/new" className="rounded bg-brand-red px-4 py-2 text-sm text-white hover:bg-brand-dark">
+            + บันทึก PM ใหม่
+          </Link>
+        </div>
       </div>
 
       {/* Universal search */}
@@ -562,13 +589,23 @@ export default function MaintenanceHistory({ dealers, showDealerField, defaultDe
         <div className="flex items-center justify-between rounded border border-brand-red/30 bg-red-50 px-4 py-2 text-sm">
           <span>เลือกแล้ว {selectedCount} รายการ</span>
           <div className="flex gap-2">
-            <button type="button" disabled title="เร็วๆ นี้ (Phase 4b)" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs opacity-50">
-              ส่งออก CSV
+            <button
+              type="button"
+              disabled
+              title="ส่งออกเฉพาะรายการที่เลือกยังไม่รองรับ - ใช้ปุ่ม Export PDF/CSV ด้านบน (ส่งออกตามตัวกรองปัจจุบัน) แทนได้"
+              className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs opacity-50"
+            >
+              ส่งออก CSV (เฉพาะที่เลือก)
             </button>
-            <button type="button" disabled title="เร็วๆ นี้ (Phase 4b)" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs opacity-50">
-              ส่งออก PDF
+            <button
+              type="button"
+              disabled
+              title="ส่งออกเฉพาะรายการที่เลือกยังไม่รองรับ - ใช้ปุ่ม Export PDF/CSV ด้านบน (ส่งออกตามตัวกรองปัจจุบัน) แทนได้"
+              className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs opacity-50"
+            >
+              ส่งออก PDF (เฉพาะที่เลือก)
             </button>
-            <button type="button" disabled title="เร็วๆ นี้ (Phase 4c)" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs opacity-50">
+            <button type="button" disabled title="เร็วๆ นี้" className="rounded border border-gray-300 bg-white px-3 py-1.5 text-xs opacity-50">
               ดาวน์โหลดรูปภาพ
             </button>
           </div>

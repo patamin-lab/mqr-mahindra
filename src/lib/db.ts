@@ -229,6 +229,13 @@ export async function listActivePmIntervals(model?: string | null): Promise<PmIn
   return data ?? [];
 }
 
+export async function getPmInterval(id: string): Promise<PmInterval | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('pm_intervals').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Full PM Interval Master list (including inactive) - admin management UI only. */
 export async function listAllPmIntervalsAdmin(): Promise<PmInterval[]> {
   const supabase = getSupabase();
