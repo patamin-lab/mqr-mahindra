@@ -939,6 +939,68 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
   return (data ?? []) as MqrRecord[];
 }
 
+export interface ListRecordsPaginatedFilters extends ListRecordsFilters {
+  /** Inclusive `found_date` range, ISO `YYYY-MM-DD`. */
+  dateFrom?: string;
+  dateTo?: string;
+  /** 1-based. */
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedRecords {
+  records: MqrRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Server-side paginated/filtered records list, replacing the old
+ *  `listRecords()` + `.limit(500)` pattern that silently truncated any
+ *  dealer/period with more than 500 records with no indication to the user
+ *  (found in the production-stabilization audit). `listRecords()` itself is
+ *  kept unchanged for the bulk-export route, which still needs the whole
+ *  matching set rather than one page of it. */
+export async function listRecordsPaginated(
+  session: SessionUser,
+  filters: ListRecordsPaginatedFilters = {}
+): Promise<PaginatedRecords> {
+  const supabase = getSupabase();
+  const pageSize = Math.min(Math.max(Math.trunc(filters.pageSize ?? 50), 1), 200);
+  const page = Math.max(Math.trunc(filters.page ?? 1), 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase.from('records').select('*', { count: 'exact' }).order('created_at', { ascending: false });
+  query = applyScope(query, session);
+
+  if (filters.dealerId && seesAllDealers(session.role)) {
+    query = query.eq('dealer_id', filters.dealerId);
+  }
+  if (filters.branchId) {
+    query = query.eq('branch_id', filters.branchId);
+  }
+  if (filters.status) {
+    query = query.eq('status', filters.status);
+  }
+  if (filters.dateFrom) {
+    query = query.gte('found_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('found_date', filters.dateTo);
+  }
+  if (filters.q && filters.q.trim()) {
+    const term = filters.q.trim().replace(/[%,]/g, '');
+    query = query.or(
+      `job_id.ilike.%${term}%,serial.ilike.%${term}%,customer_name.ilike.%${term}%,model.ilike.%${term}%,branch_name.ilike.%${term}%,technician_name.ilike.%${term}%,problem_code.ilike.%${term}%`
+    );
+  }
+
+  const { data, error, count } = await query.range(from, to);
+  if (error) throw error;
+  return { records: (data ?? []) as MqrRecord[], total: count ?? 0, page, pageSize };
+}
+
 /** Fetch one record by job_id, enforcing the same zero-leakage scoping as listRecords. */
 export async function getRecordByJobId(jobId: string, session: SessionUser): Promise<MqrRecord | null> {
   const supabase = getSupabase();

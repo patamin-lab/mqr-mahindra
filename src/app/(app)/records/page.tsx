@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { listRecords, listDealers, listBranches } from '@/lib/db';
+import { listRecordsPaginated, listDealers, listBranches } from '@/lib/db';
 import { seesAllDealers, canExport } from '@/lib/scope';
 import { STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
 
@@ -9,24 +9,41 @@ const statusColor: Record<string, string> = {
   Open: 'bg-amber-100 text-amber-700',
   UnderInvestigation: 'bg-blue-100 text-blue-700',
   WaitingParts: 'bg-purple-100 text-purple-700',
+  WaitingCustomer: 'bg-orange-100 text-orange-700',
   Repaired: 'bg-teal-100 text-teal-700',
   Closed: 'bg-green-100 text-green-700',
+  Rejected: 'bg-red-100 text-red-700',
 };
 
 export default async function RecordsPage({
   searchParams,
 }: {
-  searchParams: { status?: string; q?: string; dealerId?: string; branchId?: string };
+  searchParams: {
+    status?: string;
+    q?: string;
+    dealerId?: string;
+    branchId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: string;
+  };
 }) {
   const session = await getSession();
   if (!session) return null;
 
-  const records = await listRecords(session, {
+  const page = Math.max(parseInt(searchParams.page ?? '1', 10) || 1, 1);
+  const pageSize = 50;
+  const { records, total } = await listRecordsPaginated(session, {
     status: searchParams.status,
     q: searchParams.q,
     dealerId: searchParams.dealerId,
     branchId: searchParams.branchId,
+    dateFrom: searchParams.dateFrom,
+    dateTo: searchParams.dateTo,
+    page,
+    pageSize,
   });
+  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
 
   const dealers = seesAllDealers(session.role) ? await listDealers() : [];
   // Central roles see branches scoped to whichever dealer is currently selected
@@ -44,6 +61,19 @@ export default async function RecordsPage({
   const exportQs = exportQuery.toString();
   const exportHref = (format: 'xlsx' | 'pdf') =>
     `/api/records/export?format=${format}${exportQs ? `&${exportQs}` : ''}`;
+
+  const pageHref = (targetPage: number) => {
+    const qs = new URLSearchParams();
+    if (searchParams.status) qs.set('status', searchParams.status);
+    if (searchParams.q) qs.set('q', searchParams.q);
+    if (searchParams.dealerId) qs.set('dealerId', searchParams.dealerId);
+    if (searchParams.branchId) qs.set('branchId', searchParams.branchId);
+    if (searchParams.dateFrom) qs.set('dateFrom', searchParams.dateFrom);
+    if (searchParams.dateTo) qs.set('dateTo', searchParams.dateTo);
+    if (targetPage > 1) qs.set('page', String(targetPage));
+    const s = qs.toString();
+    return `/records${s ? `?${s}` : ''}`;
+  };
 
   return (
     <div>
@@ -72,8 +102,8 @@ export default async function RecordsPage({
           <input
             name="q"
             defaultValue={searchParams.q ?? ''}
-            placeholder="เลขที่รายงาน / Serial / ลูกค้า"
-            className="border border-gray-300 rounded px-3 py-2 text-sm w-56"
+            placeholder="เลขที่รายงาน / Serial / ลูกค้า / สาขา / ช่าง / อาการ"
+            className="border border-gray-300 rounded px-3 py-2 text-sm w-64"
           />
         </div>
         <div>
@@ -125,8 +155,31 @@ export default async function RecordsPage({
             </select>
           </div>
         )}
+        <div>
+          <label className="block text-xs font-medium mb-1">วันที่พบปัญหา (จาก)</label>
+          <input
+            type="date"
+            name="dateFrom"
+            defaultValue={searchParams.dateFrom ?? ''}
+            className="border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-1">วันที่พบปัญหา (ถึง)</label>
+          <input
+            type="date"
+            name="dateTo"
+            defaultValue={searchParams.dateTo ?? ''}
+            className="border border-gray-300 rounded px-3 py-2 text-sm"
+          />
+        </div>
         <button className="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50 hover:bg-gray-100 transition">กรอง</button>
-        {(searchParams.q || searchParams.status || searchParams.dealerId || searchParams.branchId) && (
+        {(searchParams.q ||
+          searchParams.status ||
+          searchParams.dealerId ||
+          searchParams.branchId ||
+          searchParams.dateFrom ||
+          searchParams.dateTo) && (
           <Link href="/records" className="text-sm text-gray-500 underline">
             ล้างตัวกรอง
           </Link>
@@ -185,6 +238,33 @@ export default async function RecordsPage({
           </tbody>
         </table>
       </div>
+
+      {total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-gray-500">
+          <div>
+            แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จากทั้งหมด {total} รายการ
+          </div>
+          <div className="flex items-center gap-2">
+            {page > 1 ? (
+              <Link href={pageHref(page - 1)} className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
+                ก่อนหน้า
+              </Link>
+            ) : (
+              <span className="px-3 py-1.5 rounded border border-gray-200 text-gray-300 cursor-not-allowed">ก่อนหน้า</span>
+            )}
+            <span>
+              หน้า {page} / {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link href={pageHref(page + 1)} className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
+                ถัดไป
+              </Link>
+            ) : (
+              <span className="px-3 py-1.5 rounded border border-gray-200 text-gray-300 cursor-not-allowed">ถัดไป</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
