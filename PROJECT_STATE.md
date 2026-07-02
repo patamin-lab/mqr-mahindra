@@ -350,6 +350,76 @@ What was built:
   contract change - Vehicle 360 only reads through existing service
   methods).
 
+Phase 4.5 — Platform Event Framework (complete, this commit)
+
+Business context: Vehicle Event is being promoted from "something Vehicle
+360 reads at query time" (Phase 5a's `src/features/vehicle-360/registry.ts`
+approach) to a real Platform Service every module writes through - the
+backbone the whole Mahindra After Sales Platform is meant to run on.
+Confirmed with the user before implementing: this phase is infrastructure
+only (schema + Repository + Service + Publisher + API + tests) - it does
+NOT touch Vehicle Timeline/Vehicle 360/Dashboard, and it does NOT wire
+PM Record's or MQR's existing create()/update() code to actually call the
+publisher yet. `publish*()` exists and is fully tested in isolation, but no
+real module calls it today - Phase 5a's Vehicle 360 page still reads via its
+own registry, unchanged. Wiring real call-sites (and migrating Vehicle 360
+to read from `vehicle_events` instead) is deliberately deferred.
+
+Architecture (per spec, replacing "Module -> Repository -> Database"):
+Module -> Domain Service -> `VehicleEventPublisher` -> `VehicleEventService`
+-> `VehicleEventRepository` -> Supabase. No module may write directly into
+`vehicle_events` - the Publisher is the only entry point (even
+`/api/platform/events` POST goes through `publisher.publish()`, not
+`VehicleEventService.createEvent()` directly, for the same reason).
+
+What was built (live migrations applied, both explicitly confirmed with the
+user beforehand):
+- `event_definitions` - the Event Definition Master, seeded with all 16
+  codes from the spec (FACTORY_BUILD, DEALER_RECEIVED, PDI_COMPLETED,
+  NTR_COMPLETED, MAINTENANCE_COMPLETED, MQR_OPENED, MQR_CLOSED,
+  CAMPAIGN_ASSIGNED, CAMPAIGN_COMPLETED, PART_REQUESTED, PART_DELIVERED,
+  INSPECTION, SOFTWARE_UPDATE, RECALL, TELEMATICS_ALERT, OTHER).
+- `vehicle_events` - `vehicle_id` (FK to `vehicles.id`, resolved server-side
+  from a serial at publish time - never a live Supabase read from client
+  input), `event_definition_id` (FK - the table always stores this, never
+  the `event_code` string, per spec's Reference Integrity section),
+  `source_module`/`reference_id` (how Vehicle Timeline opens the originating
+  module later), `event_datetime`/`title`/`description`/`metadata` jsonb/
+  `status`, full audit trail, and `record_status`/`deleted_by`/`deleted_at`
+  soft delete (added beyond the spec's literal column list, matching every
+  other table's convention in this app). Indexed on vehicle_id,
+  event_datetime, event_definition_id, source_module per spec.
+- New `src/features/vehicle-event/` module: `types.ts`, `schemas.ts`/
+  `validation.ts` (zod, mirrors `pm-record`'s pattern - duplicated rather
+  than cross-imported, since `shared/` isn't wired up yet, per
+  `docs/ARCHITECTURE.md`), `repository.ts`/`supabaseRepository.ts`
+  (`createEvent`/`updateEvent`/`deleteEvent` (soft delete only)/
+  `getVehicleEvents`/`getModuleEvents`/`searchEvents`/
+  `getEventDefinitionByCode`), `service.ts` (validates, then delegates),
+  `publisher.ts` (`publish()` generic + the 9 named convenience methods
+  from the spec: `publishMaintenanceCompleted`/`publishNtrCompleted`/
+  `publishPdiCompleted`/`publishMqrOpened`/`publishMqrClosed`/
+  `publishCampaignAssigned`/`publishCampaignCompleted`/
+  `publishPartsRequested`/`publishPartsDelivered` - each resolves serial ->
+  vehicle_id and eventCode -> event_definition_id, then builds a
+  `VehicleEventCreateInput` with only a metadata snapshot, never a copy of
+  the calling module's actual business record), `factory.ts` (real-dependency
+  wiring for the API route and any future module).
+- `vehicle_events` has no `dealer_id` column of its own (per spec's column
+  list) - `/api/platform/events` GET enforces dealer scope via a
+  `vehicles!inner(dealer_id)` embedded-resource join instead of a stored
+  column, same "every query enforces dealer scope" rule every other table
+  in this app follows; a non-privileged caller is pinned to their own
+  dealer regardless of the `vehicleId`/`serial` query params they send.
+- `/api/platform/events` - GET (paginated/filtered search, dealer-scoped),
+  POST (routes through the Publisher - callers identify the vehicle/event
+  by `serial`/`eventCode`, never internal uuids), PUT (partial patch via
+  the Service), DELETE (soft delete via the Service). Response contract
+  matches PM Record's `{ok,data}`/`{ok:false,error:{code,message}}` (new
+  code, not the legacy admin string-error shape).
+- 65 new tests (repository/service/publisher/API, incl. soft-delete
+  invariant and dealer-scoping join tests) - 119/119 total passing.
+
 Not started (Phase 5b/5c, Phase 4b/4c):
 - Phase 5b: Maintenance Due Engine (hour-based + month-based, Remaining
   Hours/Remaining Days, Normal/Due Soon/Overdue with color), plus the
@@ -375,6 +445,12 @@ Phase 5c (Dashboard + Global Search) or Phase 4b/4c - pending explicit
 direction
 Candidate next tasks (unscheduled, pending explicit direction):
 - Phase 5b/5c/4b/4c above
+- Wire PM Record's create() and MQR's create()/status-close to actually
+  call `VehicleEventPublisher` (Phase 4.5 built the framework but
+  deliberately didn't wire any real call-site), then migrate Vehicle 360's
+  timeline (Phase 5a) to read from `vehicle_events` instead of its current
+  registry.ts live-aggregation approach - two separate, explicit decisions,
+  not a silent side effect of a future phase
 - A dedicated Next.js 14→16 (+ React 18→19) upgrade milestone, given 4 of
   7 M6.4 audit findings require it — the single biggest remaining risk item
 - A future ADR decision on Supabase Auth (or per-request session
