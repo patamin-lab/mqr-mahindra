@@ -14,6 +14,7 @@ vi.mock('@/lib/db', () => ({
   getDealer: vi.fn().mockResolvedValue({ id: 'D1', short_name: 'D1' }),
   logAuditEvent: vi.fn(),
   logAuditEvents: vi.fn(),
+  listActivePmIntervals: vi.fn().mockResolvedValue([{ id: 'interval-1', label: '50 Hr', interval_hours: 50, interval_months: null }]),
 }));
 vi.mock('@/lib/googleDrive', () => ({
   relocatePendingFiles: vi.fn().mockResolvedValue(undefined),
@@ -202,5 +203,27 @@ describe('POST /api/pm-records', () => {
     expect(res.status).toBe(400);
     expect(json.error.code).toBe('VALIDATION_ERROR');
     expect(mockRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a pm_interval_id not in the vehicle model\'s resolved Maintenance Program', async () => {
+    vi.mocked(getSession).mockResolvedValue(dealerUserSession);
+
+    const res = await POST(postRequest({ ...validCreateBody, pm_interval_id: 'interval-NOT-ALLOWED' }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error.code).toBe('VALIDATION_ERROR');
+    expect(mockRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('skips the Maintenance Program re-validation when no model is known (stockNote fallback path)', async () => {
+    vi.mocked(getSession).mockResolvedValue(dealerUserSession);
+    mockRepository.create.mockResolvedValue(activeRecord);
+
+    const res = await POST(postRequest({ ...validCreateBody, model: null, pm_interval_id: 'interval-ANYTHING' }));
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(json).toEqual({ ok: true, data: activeRecord });
   });
 });

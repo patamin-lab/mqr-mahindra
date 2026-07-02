@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
-import { getDealer } from '@/lib/db';
+import { getDealer, listActivePmIntervals } from '@/lib/db';
 import { relocatePendingFiles } from '@/lib/googleDrive';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
@@ -76,6 +76,33 @@ export async function POST(req: NextRequest) {
       );
     }
     throw error;
+  }
+
+  // Server-side re-validation: the create form only ever offers intervals
+  // returned by GET /api/pm-intervals?model=<vehicle's model> (resolved via
+  // Product Family), but nothing previously stopped a client from POSTing
+  // an arbitrary pm_interval_id outside that set - found in the
+  // production-stabilization audit as a "trust the client" gap
+  // inconsistent with how dealer_id is already re-validated above. A
+  // vehicle with no model known yet (stockNote fallback path) has no
+  // Product Family to validate against, so this only applies when a model
+  // is present - matching listActivePmIntervals()'s own "no model = no
+  // filtering" behavior.
+  if (parsedBody.model) {
+    const allowedIntervals = await listActivePmIntervals(parsedBody.model);
+    const allowedIds = new Set(allowedIntervals.map((iv) => iv.id));
+    if (!allowedIds.has(parsedBody.pm_interval_id)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'รอบ PM ที่เลือกไม่ได้อยู่ใน Maintenance Program ของรถคันนี้ กรุณาเลือกใหม่',
+          },
+        },
+        { status: 400 }
+      );
+    }
   }
 
   const input: MaintenanceRecordCreateInput = {
