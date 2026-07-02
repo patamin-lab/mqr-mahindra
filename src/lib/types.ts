@@ -208,14 +208,23 @@ export interface MqrRecord {
 }
 
 /** New status workflow (replaces the old 7-status Thai list). Machine codes are
- *  stored in the DB; STATUS_LABELS gives the Thai text shown in the UI. */
+ *  stored in the DB; STATUS_LABELS gives the Thai text shown in the UI.
+ *  WaitingCustomer/Rejected added in the Production Stabilization Sprint to
+ *  close two genuine gaps in the investigation workflow (a job can be
+ *  blocked on the customer, not just parts; a reported issue can turn out
+ *  not to be a valid claim) - the existing Draft/Open/UnderInvestigation/
+ *  WaitingParts/Repaired/Closed names were deliberately kept as-is rather
+ *  than renamed to match another spec's wording, to avoid unnecessary
+ *  schema/data churn. */
 export const STATUS_VALUES = [
   'Draft',
   'Open',
   'UnderInvestigation',
   'WaitingParts',
+  'WaitingCustomer',
   'Repaired',
   'Closed',
+  'Rejected',
 ] as const;
 
 export type StatusValue = (typeof STATUS_VALUES)[number];
@@ -225,11 +234,57 @@ export const STATUS_LABELS: Record<StatusValue, string> = {
   Open: 'เปิดเรื่อง',
   UnderInvestigation: 'กำลังตรวจสอบ',
   WaitingParts: 'รออะไหล่',
+  WaitingCustomer: 'รอข้อมูลจากลูกค้า',
   Repaired: 'ซ่อมเสร็จแล้ว',
   Closed: 'ปิดเรื่อง',
+  Rejected: 'ปฏิเสธเคลม',
 };
 
-export const OPEN_STATUSES = STATUS_VALUES.filter((s) => s !== 'Closed');
+export const OPEN_STATUSES = STATUS_VALUES.filter((s) => s !== 'Closed' && s !== 'Rejected');
+
+/** Normal-role-allowed forward transitions for the MQR investigation
+ *  workflow. `Closed`/`Rejected` are terminal for everyone but SuperAdmin -
+ *  see `canTransitionMqrStatus()`, which grants SuperAdmin an unconditional
+ *  override (e.g. to reopen a wrongly-closed job) while every other role
+ *  (CentralAdmin/DealerAdmin - DealerUser can never change status at all,
+ *  per `canUpdateStatus()` in `scope.ts`) must follow this graph. */
+export const MQR_STATUS_TRANSITIONS: Record<StatusValue, StatusValue[]> = {
+  Draft: ['Open'],
+  Open: ['UnderInvestigation', 'Rejected'],
+  UnderInvestigation: ['WaitingParts', 'WaitingCustomer', 'Repaired', 'Rejected'],
+  WaitingParts: ['UnderInvestigation', 'WaitingCustomer', 'Repaired'],
+  WaitingCustomer: ['UnderInvestigation', 'WaitingParts', 'Repaired'],
+  Repaired: ['Closed', 'UnderInvestigation'],
+  Closed: [],
+  Rejected: [],
+};
+
+/** Whether `role` may move an MQR record from `from` to `to`. Staying on the
+ *  same status is always allowed (a no-op transition, e.g. editing RCA text
+ *  without changing status). SuperAdmin may make any transition; every
+ *  other status-updating role must follow `MQR_STATUS_TRANSITIONS`. */
+export function canTransitionMqrStatus(from: StatusValue, to: StatusValue, role: Role): boolean {
+  if (from === to) return true;
+  if (role === 'SuperAdmin') return true;
+  return MQR_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/** Thai labels for the shared audit trail's event types, used by both the
+ *  MQR and PM Timeline UIs. */
+export const AUDIT_EVENT_LABELS_TH: Record<AuditEventType, string> = {
+  Created: 'สร้างรายการ',
+  StatusChanged: 'เปลี่ยนสถานะ',
+  FieldChanged: 'แก้ไขข้อมูล',
+  AttachmentAdded: 'เพิ่มไฟล์แนบ',
+  AttachmentRemoved: 'ลบไฟล์แนบ',
+  RcaUpdated: 'อัปเดตข้อมูลการวิเคราะห์สาเหตุ (RCA)',
+  SeverityChanged: 'เปลี่ยนระดับความรุนแรง',
+  AssignmentChanged: 'เปลี่ยนผู้รับผิดชอบ',
+  Locked: 'ล็อกข้อมูล',
+  Unlocked: 'ปลดล็อกข้อมูล',
+  Deleted: 'ลบรายการ',
+  SystemEvent: 'เหตุการณ์ระบบ',
+};
 
 /** Shared, immutable audit trail (`record_audit_log`) - one system-logged
  *  entry per business event, reused by both MQR (`records`) and PM

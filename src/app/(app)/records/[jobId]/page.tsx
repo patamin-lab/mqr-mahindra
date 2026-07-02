@@ -3,9 +3,9 @@ import { headers } from 'next/headers';
 import QRCode from 'qrcode';
 import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { getRecordByJobId, getVehicleHistory, getDealer } from '@/lib/db';
+import { getRecordByJobId, getVehicleHistory, getDealer, listAuditLog } from '@/lib/db';
 import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
-import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity, PHOTO_CATEGORIES, PhotoCategory } from '@/lib/types';
+import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity, PHOTO_CATEGORIES, PhotoCategory, AUDIT_EVENT_LABELS_TH } from '@/lib/types';
 import { formatThaiDateTime } from '@/lib/thaiDate';
 import UpdateForm from './update-form';
 import DeleteButton from './delete-button';
@@ -22,6 +22,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
 
   const dealer = await getDealer(record.dealer_id);
   const history = record.serial ? await getVehicleHistory(record.serial, session) : [];
+  const auditLog = await listAuditLog('mqr', record.id);
   const otherHistory = history.filter((h) => h.job_id !== record.job_id);
   const encodedJobId = encodeURIComponent(record.job_id);
   const allowExport = canExport(session.role);
@@ -257,9 +258,39 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 print:hidden">
         <h2 className="font-semibold text-brand-dark mb-3">อัปเดตสถานะ</h2>
         {canUpdateStatus(session.role) ? (
-          <UpdateForm record={record} />
+          <UpdateForm record={record} role={session.role} />
         ) : (
           <p className="text-sm text-gray-500">คุณไม่มีสิทธิ์อัปเดตสถานะรายงานนี้</p>
+        )}
+      </section>
+
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 print:hidden">
+        <h2 className="font-semibold text-brand-dark text-sm mb-3">ประวัติการเปลี่ยนแปลง (Timeline / Audit Trail)</h2>
+        {auditLog.length === 0 ? (
+          <p className="text-sm text-gray-400">ยังไม่มีประวัติการเปลี่ยนแปลง</p>
+        ) : (
+          <ol className="space-y-2 text-sm">
+            {auditLog.map((entry) => (
+              <li key={entry.id} className="border-b border-gray-50 pb-2 last:border-0 last:pb-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-400">{formatThaiDateTime(entry.performedAt)}</span>
+                    <span className="rounded-full bg-brand-dark/5 px-2 py-0.5 text-xs font-medium text-brand-dark">
+                      {AUDIT_EVENT_LABELS_TH[entry.eventType]}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-500">โดย {entry.performedBy}</span>
+                </div>
+                {(entry.fieldName || entry.oldValue !== null || entry.newValue !== null) && (
+                  <p className="mt-1 text-gray-700">
+                    {entry.fieldName && <span className="text-gray-500">{entry.fieldName}: </span>}
+                    {entry.oldValue !== null && <span className="text-gray-400 line-through mr-1">{entry.oldValue}</span>}
+                    {entry.newValue !== null && <span>{entry.newValue}</span>}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
         )}
       </section>
 

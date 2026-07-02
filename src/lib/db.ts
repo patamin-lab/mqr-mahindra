@@ -19,6 +19,9 @@ import {
   AuditModule,
   AuditLogEntry,
   LogAuditEventInput,
+  StatusValue,
+  STATUS_LABELS,
+  canTransitionMqrStatus,
 } from './types';
 
 // ---------- Auth / users ----------
@@ -878,7 +881,15 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
     .select('*')
     .single();
   if (error) throw error;
-  return data as MqrRecord;
+  const created = data as MqrRecord;
+  await logAuditEvent({
+    module: 'mqr',
+    recordId: created.id,
+    recordRef: created.job_id,
+    eventType: 'Created',
+    performedBy: session.username,
+  });
+  return created;
 }
 
 function applyScope(query: any, session: SessionUser) {
@@ -955,10 +966,32 @@ export interface UpdateRecordInput {
   removePhotoUrls?: string[];
 }
 
+/** Thai labels for the RCA-family free-text fields, reused between the audit
+ *  trail and (eventually) any other place these fields need a display name -
+ *  kept in one place rather than re-typed at each call site. Matches the
+ *  labels shown on the update form itself (`update-form.tsx`). */
+const MQR_RCA_FIELD_LABELS: Record<string, string> = {
+  cause: 'สาเหตุ',
+  damaged_parts: 'ชิ้นส่วนที่เสียหาย',
+  technician_action: 'การดำเนินการของช่าง',
+  corrective_action: 'การแก้ไข (Corrective Action)',
+  preventive_action: 'การป้องกัน (Preventive Action)',
+};
+
 export async function updateRecord(jobId: string, patch: UpdateRecordInput, session: SessionUser): Promise<MqrRecord> {
   // Re-validate scope before allowing the write.
   const existing = await getRecordByJobId(jobId, session);
   if (!existing) throw new Error('ไม่พบรายงานนี้ หรือไม่มีสิทธิ์เข้าถึง');
+
+  if (patch.status !== undefined && patch.status !== existing.status) {
+    if (!canTransitionMqrStatus(existing.status as StatusValue, patch.status as StatusValue, session.role)) {
+      throw new Error(
+        `ไม่สามารถเปลี่ยนสถานะจาก "${STATUS_LABELS[existing.status as StatusValue] ?? existing.status}" เป็น "${
+          STATUS_LABELS[patch.status as StatusValue] ?? patch.status
+        }" ได้ กรุณาเปลี่ยนสถานะตามลำดับขั้นตอนที่กำหนด`
+      );
+    }
+  }
 
   const supabase = getSupabase();
   const updatePayload: Record<string, unknown> = {
@@ -986,7 +1019,35 @@ export async function updateRecord(jobId: string, patch: UpdateRecordInput, sess
     .select('*')
     .single();
   if (error) throw error;
-  return data as MqrRecord;
+  const updated = data as MqrRecord;
+
+  const auditBase = { module: 'mqr' as const, recordId: updated.id, recordRef: updated.job_id, performedBy: session.username };
+  const events: LogAuditEventInput[] = [];
+  if (patch.status !== undefined && patch.status !== existing.status) {
+    events.push({
+      ...auditBase,
+      eventType: 'StatusChanged',
+      oldValue: STATUS_LABELS[existing.status as StatusValue] ?? existing.status,
+      newValue: STATUS_LABELS[updated.status as StatusValue] ?? updated.status,
+    });
+  }
+  if (patch.severity !== undefined && patch.severity !== existing.severity) {
+    events.push({ ...auditBase, eventType: 'SeverityChanged', oldValue: existing.severity, newValue: updated.severity });
+  }
+  events.push(
+    ...diffFieldsForAudit(auditBase, MQR_RCA_FIELD_LABELS, existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>).map(
+      (e) => ({ ...e, eventType: 'RcaUpdated' as const })
+    )
+  );
+  for (const p of patch.addPhotoLinks ?? []) {
+    events.push({ ...auditBase, eventType: 'AttachmentAdded', fieldName: p.label, newValue: p.url });
+  }
+  for (const url of patch.removePhotoUrls ?? []) {
+    events.push({ ...auditBase, eventType: 'AttachmentRemoved', oldValue: url });
+  }
+  await logAuditEvents(events);
+
+  return updated;
 }
 
 /** Soft-delete only — never a hard delete. Re-validates scope + the canDelete permission. */
@@ -1007,6 +1068,14 @@ export async function softDeleteRecord(jobId: string, session: SessionUser): Pro
     })
     .eq('job_id', jobId);
   if (error) throw error;
+
+  await logAuditEvent({
+    module: 'mqr',
+    recordId: existing.id,
+    recordRef: existing.job_id,
+    eventType: 'Deleted',
+    performedBy: session.username,
+  });
 }
 
 /** All prior jobs for a given vehicle serial, scoped the same way as listRecords. */

@@ -11,13 +11,24 @@ import {
   SEVERITY_VALUES,
   SEVERITY_LABELS,
   PhotoLink,
+  Role,
+  canTransitionMqrStatus,
 } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
 
-export default function UpdateForm({ record }: { record: MqrRecord }) {
+export default function UpdateForm({ record, role }: { record: MqrRecord; role: Role }) {
   const router = useRouter();
   const [status, setStatus] = useState(record.status);
+  // The record's own current status is always offered (a no-op "keep as-is"
+  // option), plus whatever canTransitionMqrStatus() allows from here for
+  // this role - SuperAdmin sees every status (unconditional override),
+  // everyone else only the forward transitions defined in
+  // MQR_STATUS_TRANSITIONS. Prevents selecting an invalid transition in the
+  // UI rather than only rejecting it after Save.
+  const selectableStatuses = STATUS_VALUES.filter(
+    (s) => s === record.status || canTransitionMqrStatus(record.status as StatusValue, s, role)
+  );
   const [severity, setSeverity] = useState<Severity | ''>(record.severity ?? '');
   const [cause, setCause] = useState(record.cause ?? '');
   const [damagedParts, setDamagedParts] = useState(record.damaged_parts ?? '');
@@ -102,7 +113,7 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            {STATUS_VALUES.map((s) => (
+            {selectableStatuses.map((s) => (
               <option key={s} value={s}>
                 {STATUS_LABELS[s as StatusValue]}
               </option>
