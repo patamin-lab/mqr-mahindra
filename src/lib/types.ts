@@ -26,6 +26,7 @@ export interface Vehicle {
   dealer_id: string | null;
   engine_number?: string | null;
   branch_id?: string | null;
+  maintenance_program_version_id?: string | null;
 }
 
 export type Severity = 'Critical' | 'Major' | 'Minor';
@@ -93,6 +94,32 @@ export interface MaintenanceProgramAssignment {
   id: string;
   product_family_id: string;
   pm_interval_id: string;
+}
+
+/** One immutable snapshot of a Product Family's Maintenance Program at a
+ *  point in time (Production Stabilization Sprint). A new version is
+ *  created whenever the live `maintenance_program_assignments` set for a
+ *  family - or the defining attributes of one of its assigned
+ *  `pm_intervals` - actually changes; `maintenance_program_assignments`
+ *  itself remains the "live/editable" assignment set the admin UI shows
+ *  and mutates, `maintenance_program_versions`/`_stages` are the
+ *  read-only history the Due/Compliance/Health engines evaluate against.
+ *  See `syncMaintenanceProgramVersion()`/`resolveVehicleProgramVersionStages()`
+ *  in `lib/db.ts`. */
+export interface MaintenanceProgramVersion {
+  id: string;
+  productFamilyId: string;
+  versionNumber: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isCurrent: boolean;
+}
+
+export interface MaintenanceProgramVersionStage {
+  pmIntervalId: string | null;
+  label: string;
+  intervalHours: number | null;
+  intervalMonths: number | null;
 }
 
 export interface Technician {

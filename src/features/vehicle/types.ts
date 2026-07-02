@@ -105,6 +105,13 @@ export interface VehicleSummary {
   productFamilyId: string | null;
   productFamilyName: string | null;
   maintenanceProgramStages: MaintenanceProgramStageSummary[];
+  /** Which immutable Maintenance Program Version this vehicle is
+   *  permanently pinned to (Production Stabilization Sprint) - shown for
+   *  transparency so it's clear the Due/Compliance figures below are
+   *  evaluated against a specific historical snapshot, not necessarily
+   *  today's live program configuration. Null when the Product Family has
+   *  no Maintenance Program configured at all yet. */
+  maintenanceProgramVersionNumber: number | null;
 
   currentHourMeter: number | null;
   lastMaintenanceDate: string | null;

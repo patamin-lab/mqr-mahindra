@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { updatePmInterval } from '@/lib/db';
+import { updatePmInterval, syncMaintenanceProgramVersionsForInterval } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -34,6 +34,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       { label: body.label, intervalHours, intervalMonths, active: body.active },
       session
     );
+    // Changing this interval's own hours/months changes what every Product
+    // Family currently assigned it resolves to, even though the assignment
+    // table itself didn't change - re-sync their version snapshots too.
+    await syncMaintenanceProgramVersionsForInterval(params.id, session);
     return NextResponse.json({ ok: true, pmInterval });
   } catch (err: any) {
     console.error('update pm interval error', err);

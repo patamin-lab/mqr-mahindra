@@ -22,6 +22,7 @@ import {
   StatusValue,
   STATUS_LABELS,
   canTransitionMqrStatus,
+  MaintenanceProgramVersionStage,
 } from './types';
 
 // ---------- Auth / users ----------
@@ -478,11 +479,15 @@ export async function listMaintenanceProgramStagesForFamily(
  * soft-delete flag - is the correct, simplest model (same reasoning as the
  * PM Program mapping it replaces).
  */
+/** Returns the set of Product Family ids whose assignment to this interval
+ *  actually changed (added or removed) - the caller uses this to know which
+ *  families' version snapshot needs re-syncing via
+ *  `syncMaintenanceProgramVersion()`. */
 export async function setMaintenanceProgramFamilies(
   pmIntervalId: string,
   productFamilyIds: string[],
   session: SessionUser
-): Promise<void> {
+): Promise<string[]> {
   const supabase = getSupabase();
   const { data: existingRows, error: existingError } = await supabase
     .from('maintenance_program_assignments')
@@ -495,6 +500,9 @@ export async function setMaintenanceProgramFamilies(
   const existingFamilies = new Set(existing.map((r) => r.product_family_id as string));
 
   const idsToDelete = existing.filter((r) => !wantedFamilies.has(r.product_family_id as string)).map((r) => r.id);
+  const familiesToDelete = existing
+    .filter((r) => !wantedFamilies.has(r.product_family_id as string))
+    .map((r) => r.product_family_id as string);
   const familiesToInsert = productFamilyIds.filter((f) => !existingFamilies.has(f));
 
   if (idsToDelete.length > 0) {
@@ -512,6 +520,241 @@ export async function setMaintenanceProgramFamilies(
     );
     if (error) throw error;
   }
+
+  return Array.from(new Set([...familiesToDelete, ...familiesToInsert]));
+}
+
+// ---------- Maintenance Program Versioning (Production Stabilization Sprint) ----------
+// Maintenance history must never be recalculated against today's live
+// program definition. Every time a Product Family's resolved stage list
+// actually changes (assignment add/remove, or an edit to one of its
+// assigned pm_intervals' own hours/months), a new immutable version
+// snapshot is created; each vehicle is pinned once to whichever version
+// was effective at its retail date, and stays pinned even after a newer
+// version is created for the same family.
+
+function sortMaintenanceStages<T extends { intervalHours: number | null; intervalMonths: number | null }>(
+  stages: T[]
+): T[] {
+  return [...stages].sort((a, b) => {
+    const ah = a.intervalHours ?? Number.POSITIVE_INFINITY;
+    const bh = b.intervalHours ?? Number.POSITIVE_INFINITY;
+    if (ah !== bh) return ah - bh;
+    const am = a.intervalMonths ?? Number.POSITIVE_INFINITY;
+    const bm = b.intervalMonths ?? Number.POSITIVE_INFINITY;
+    return am - bm;
+  });
+}
+
+/** Ensures `productFamilyId`'s current version snapshot matches its live
+ *  assignment set, creating a new version (closing out the previous one)
+ *  only if they actually differ. Idempotent - safe to call after any admin
+ *  mutation that could affect what the family's program resolves to, even
+ *  if nothing actually changed for this particular family. */
+export async function syncMaintenanceProgramVersion(productFamilyId: string, session: SessionUser): Promise<void> {
+  const supabase = getSupabase();
+  const liveStages = sortMaintenanceStages(await listMaintenanceProgramStagesForFamily(productFamilyId)).map((s) => ({
+    pmIntervalId: s.pmIntervalId as string | null,
+    label: s.label,
+    intervalHours: s.intervalHours,
+    intervalMonths: s.intervalMonths,
+  }));
+
+  const { data: currentVersionRow, error: currentVersionError } = await supabase
+    .from('maintenance_program_versions')
+    .select('id, version_number')
+    .eq('product_family_id', productFamilyId)
+    .eq('is_current', true)
+    .maybeSingle();
+  if (currentVersionError) throw currentVersionError;
+
+  let currentStages: typeof liveStages = [];
+  if (currentVersionRow) {
+    const { data: stageRows, error: stageError } = await supabase
+      .from('maintenance_program_version_stages')
+      .select('pm_interval_id, label, interval_hours, interval_months')
+      .eq('version_id', currentVersionRow.id)
+      .order('display_order', { ascending: true });
+    if (stageError) throw stageError;
+    currentStages = (stageRows ?? []).map((r) => ({
+      pmIntervalId: r.pm_interval_id,
+      label: r.label,
+      intervalHours: r.interval_hours,
+      intervalMonths: r.interval_months,
+    }));
+  }
+
+  if (currentVersionRow && JSON.stringify(currentStages) === JSON.stringify(liveStages)) return;
+  // A family with no live stages configured yet and no version created yet
+  // has nothing to snapshot - wait until it has at least one assigned
+  // interval before creating version 1.
+  if (!currentVersionRow && liveStages.length === 0) return;
+
+  const now = new Date().toISOString();
+  if (currentVersionRow) {
+    const { error } = await supabase
+      .from('maintenance_program_versions')
+      .update({ is_current: false, effective_to: now })
+      .eq('id', currentVersionRow.id);
+    if (error) throw error;
+  }
+
+  const nextVersionNumber = (currentVersionRow?.version_number ?? 0) + 1;
+  const { data: newVersion, error: insertVersionError } = await supabase
+    .from('maintenance_program_versions')
+    .insert({
+      product_family_id: productFamilyId,
+      version_number: nextVersionNumber,
+      effective_from: now,
+      is_current: true,
+      created_by: session.username,
+    })
+    .select('id')
+    .single();
+  if (insertVersionError) throw insertVersionError;
+
+  if (liveStages.length > 0) {
+    const { error: insertStagesError } = await supabase.from('maintenance_program_version_stages').insert(
+      liveStages.map((s, i) => ({
+        version_id: newVersion.id,
+        pm_interval_id: s.pmIntervalId,
+        label: s.label,
+        interval_hours: s.intervalHours,
+        interval_months: s.intervalMonths,
+        display_order: i,
+      }))
+    );
+    if (insertStagesError) throw insertStagesError;
+  }
+}
+
+/** Every Product Family currently assigned a given Maintenance Interval -
+ *  used to re-sync every affected family's version snapshot after an admin
+ *  edits that interval's own hours/months (not just its assignment set). */
+async function listProductFamilyIdsForInterval(pmIntervalId: string): Promise<string[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('maintenance_program_assignments')
+    .select('product_family_id')
+    .eq('pm_interval_id', pmIntervalId);
+  if (error) throw error;
+  return Array.from(new Set((data ?? []).map((r) => r.product_family_id as string)));
+}
+
+/** Re-syncs the version snapshot for every Product Family assigned this
+ *  interval - call after `updatePmInterval()` changes hours/months/label,
+ *  since that changes what every assigned family's *live* program resolves
+ *  to even though the assignment table itself didn't change. */
+export async function syncMaintenanceProgramVersionsForInterval(pmIntervalId: string, session: SessionUser): Promise<void> {
+  const familyIds = await listProductFamilyIdsForInterval(pmIntervalId);
+  for (const familyId of familyIds) {
+    await syncMaintenanceProgramVersion(familyId, session);
+  }
+}
+
+/**
+ * Resolves (and permanently pins, on first resolution) the Maintenance
+ * Program Version that applies to one vehicle: whichever version of its
+ * Product Family's program was effective at the vehicle's retail date (or
+ * "now" if no retail date is known). Once pinned, later edits to the
+ * family's program never change what this vehicle evaluates against - a
+ * stale pin (the vehicle's Product Family itself changed since) is
+ * detected and re-resolved rather than trusted blindly. Returns null if
+ * the family has no Maintenance Program configured at all yet.
+ */
+export async function resolveVehicleProgramVersionStages(
+  vehicleId: string,
+  productFamilyId: string,
+  retailDate: string | null
+): Promise<{ versionId: string; versionNumber: number; stages: MaintenanceProgramVersionStage[] } | null> {
+  const supabase = getSupabase();
+
+  const { data: vehicleRow, error: vehicleError } = await supabase
+    .from('vehicles')
+    .select('maintenance_program_version_id')
+    .eq('id', vehicleId)
+    .maybeSingle();
+  if (vehicleError) throw vehicleError;
+
+  let versionId: string | null = vehicleRow?.maintenance_program_version_id ?? null;
+
+  if (versionId) {
+    const { data: pinnedVersion, error: pinnedError } = await supabase
+      .from('maintenance_program_versions')
+      .select('id, product_family_id')
+      .eq('id', versionId)
+      .maybeSingle();
+    if (pinnedError) throw pinnedError;
+    // A pin belonging to a different Product Family (the vehicle's model
+    // was re-assigned since) is stale and must be re-resolved.
+    if (!pinnedVersion || pinnedVersion.product_family_id !== productFamilyId) {
+      versionId = null;
+    }
+  }
+
+  if (!versionId) {
+    const asOf = retailDate ?? new Date().toISOString();
+    const { data: candidateRows, error: candidateError } = await supabase
+      .from('maintenance_program_versions')
+      .select('id, effective_from')
+      .eq('product_family_id', productFamilyId)
+      .lte('effective_from', asOf)
+      .order('effective_from', { ascending: false })
+      .limit(1);
+    if (candidateError) throw candidateError;
+    let candidate = candidateRows?.[0] ?? null;
+
+    if (!candidate) {
+      // The vehicle's retail date predates every configured version -
+      // fall back to the earliest version for this family, if any.
+      const { data: earliestRows, error: earliestError } = await supabase
+        .from('maintenance_program_versions')
+        .select('id, effective_from')
+        .eq('product_family_id', productFamilyId)
+        .order('effective_from', { ascending: true })
+        .limit(1);
+      if (earliestError) throw earliestError;
+      candidate = earliestRows?.[0] ?? null;
+    }
+
+    if (!candidate) return null;
+    versionId = candidate.id;
+
+    const { error: pinError } = await supabase
+      .from('vehicles')
+      .update({ maintenance_program_version_id: versionId })
+      .eq('id', vehicleId);
+    if (pinError) throw pinError;
+  }
+  // Unreachable in practice (every path above either returns null or sets
+  // versionId to a real value) - narrows the type for TypeScript across the
+  // two conditional blocks above.
+  if (!versionId) return null;
+
+  const { data: versionRow, error: versionRowError } = await supabase
+    .from('maintenance_program_versions')
+    .select('id, version_number')
+    .eq('id', versionId)
+    .single();
+  if (versionRowError) throw versionRowError;
+
+  const { data: stageRows, error: stageError } = await supabase
+    .from('maintenance_program_version_stages')
+    .select('pm_interval_id, label, interval_hours, interval_months')
+    .eq('version_id', versionId)
+    .order('display_order', { ascending: true });
+  if (stageError) throw stageError;
+
+  return {
+    versionId,
+    versionNumber: versionRow.version_number,
+    stages: (stageRows ?? []).map((r) => ({
+      pmIntervalId: r.pm_interval_id,
+      label: r.label,
+      intervalHours: r.interval_hours,
+      intervalMonths: r.interval_months,
+    })),
+  };
 }
 
 /** Active technicians only - used to populate the report form's cascading dropdown. */

@@ -100,7 +100,14 @@ export default async function Vehicle360Page({ params }: RouteParams) {
       <div className="rounded border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold text-brand-dark">การบำรุงรักษา (Maintenance)</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DetailRow label="Maintenance Program" value={programLabel} />
+          <DetailRow
+            label="Maintenance Program"
+            value={
+              summary.maintenanceProgramVersionNumber != null
+                ? `${programLabel} (Version ${summary.maintenanceProgramVersionNumber})`
+                : programLabel
+            }
+          />
           <DetailRow label="ชั่วโมงเครื่องยนต์ล่าสุด" value={summary.currentHourMeter != null ? `${summary.currentHourMeter} ชม.` : 'N/A'} />
           <DetailRow label="บำรุงรักษาครั้งล่าสุด" value={summary.lastMaintenanceDate ?? 'ยังไม่มีประวัติ'} />
           <DetailRow label="รอบถัดไป" value={summary.nextMaintenanceLabel ?? 'N/A'} />

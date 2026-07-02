@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { setMaintenanceProgramFamilies } from '@/lib/db';
+import { setMaintenanceProgramFamilies, syncMaintenanceProgramVersion } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
 
 /** Replaces the full set of Product Families mapped to this Maintenance
@@ -17,7 +17,14 @@ export async function PUT(req: NextRequest, { params }: { params: { pmIntervalId
   try {
     const body = await req.json();
     const productFamilyIds = Array.isArray(body.productFamilyIds) ? body.productFamilyIds.map((f: unknown) => String(f)) : [];
-    await setMaintenanceProgramFamilies(params.pmIntervalId, productFamilyIds, session);
+    const affectedFamilyIds = await setMaintenanceProgramFamilies(params.pmIntervalId, productFamilyIds, session);
+    // Maintenance history must never be recalculated against today's live
+    // program definition - every family whose resolved stage list actually
+    // changed gets a new immutable version snapshot, vehicles already
+    // pinned to an older version are unaffected.
+    for (const familyId of affectedFamilyIds) {
+      await syncMaintenanceProgramVersion(familyId, session);
+    }
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     console.error('set maintenance program families error', err);

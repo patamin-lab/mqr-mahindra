@@ -85,6 +85,7 @@ export async function getVehicleSummary(serial: string, session: SessionUser): P
     productFamilyId: merged.productFamilyId ?? null,
     productFamilyName: merged.productFamilyName ?? null,
     maintenanceProgramStages: merged.maintenanceProgramStages ?? [],
+    maintenanceProgramVersionNumber: merged.maintenanceProgramVersionNumber ?? null,
 
     currentHourMeter: merged.currentHourMeter ?? null,
     lastMaintenanceDate: merged.lastMaintenanceDate ?? null,
