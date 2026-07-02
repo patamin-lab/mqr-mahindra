@@ -1445,6 +1445,12 @@ export async function logAuditEvents(inputs: LogAuditEventInput[]): Promise<void
   if (error) throw error;
 }
 
+/** Defensive cap - a long-lived, frequently-edited record could otherwise
+ *  grow this response unbounded (RC1 production-readiness review). The
+ *  Timeline UI shows newest-first and 300 entries is already far more
+ *  than a human reviews in one sitting. */
+const AUDIT_LOG_MAX_ENTRIES = 300;
+
 export async function listAuditLog(module: AuditModule, recordId: string): Promise<AuditLogEntry[]> {
   const supabase = getSupabase();
   const { data, error } = await supabase
@@ -1452,7 +1458,8 @@ export async function listAuditLog(module: AuditModule, recordId: string): Promi
     .select('*')
     .eq('module', module)
     .eq('record_id', recordId)
-    .order('performed_at', { ascending: false });
+    .order('performed_at', { ascending: false })
+    .limit(AUDIT_LOG_MAX_ENTRIES);
   if (error) throw error;
   return (data ?? []).map((row: any) => ({
     id: row.id,

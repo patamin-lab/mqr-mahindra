@@ -6,11 +6,22 @@ export interface CsvColumn<T> {
   value: (row: T) => string | number | null | undefined;
 }
 
+/** A cell starting with one of these is a potential CSV/formula-injection
+ *  vector: Excel/Sheets evaluate a cell beginning with `=`/`+`/`-`/`@` (or
+ *  tab/CR, which can smuggle one of those after leading whitespace) as a
+ *  formula when the file is opened - a well-known CSV export
+ *  vulnerability class distinct from plain comma/quote escaping. Any
+ *  free-text field a technician/customer can influence (name, notes,
+ *  RCA text) is a realistic injection point, so this applies to every
+ *  cell, not just specific columns. */
+const FORMULA_INJECTION_PREFIX = /^[=+\-@\t\r]/;
+
 function escapeCsvCell(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+  const safe = FORMULA_INJECTION_PREFIX.test(value) ? `'${value}` : value;
+  if (/[",\n\r]/.test(safe)) {
+    return `"${safe.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safe;
 }
 
 /**

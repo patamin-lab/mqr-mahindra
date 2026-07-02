@@ -31,6 +31,27 @@ describe('buildCsv', () => {
     const text = buf.toString('utf8').replace(/^﻿/, '');
     expect(text).toBe('V\r\n');
   });
+
+  it('neutralizes formula-injection prefixes (=, +, -, @) with a leading single quote', () => {
+    const buf = buildCsv(
+      [{ a: '=SUM(A1:A9)', b: '+1', c: '-1', d: '@cmd', e: 'safe text' }],
+      [
+        { header: 'A', value: (r) => r.a },
+        { header: 'B', value: (r) => r.b },
+        { header: 'C', value: (r) => r.c },
+        { header: 'D', value: (r) => r.d },
+        { header: 'E', value: (r) => r.e },
+      ]
+    );
+    const text = buf.toString('utf8').replace(/^﻿/, '');
+    expect(text).toBe("A,B,C,D,E\r\n'=SUM(A1:A9),'+1,'-1,'@cmd,safe text");
+  });
+
+  it('still quotes a neutralized formula cell if it also contains a comma', () => {
+    const buf = buildCsv([{ v: '=SUM(A1,A2)' }], [{ header: 'V', value: (r) => r.v }]);
+    const text = buf.toString('utf8').replace(/^﻿/, '');
+    expect(text).toBe('V\r\n"\'=SUM(A1,A2)"');
+  });
 });
 
 describe('buildRecordsCsv', () => {

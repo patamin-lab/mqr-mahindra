@@ -7,7 +7,7 @@ interface QueryResult {
 
 function createQueryBuilder(result: QueryResult) {
   const calls: { method: string; args: unknown[] }[] = [];
-  const chainMethods = ['select', 'eq', 'order', 'insert'] as const;
+  const chainMethods = ['select', 'eq', 'order', 'insert', 'limit'] as const;
   const builder: Record<string, unknown> = {};
   for (const method of chainMethods) {
     builder[method] = vi.fn((...args: unknown[]) => {
