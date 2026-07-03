@@ -6,6 +6,8 @@ import { seesAllDealers } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
 import { sendRecordNotification } from '@/lib/email';
 import { relocatePendingFiles } from '@/lib/googleDrive';
+import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/translate';
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 
@@ -16,8 +18,9 @@ export async function POST(req: NextRequest) {
   if (!session) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!seesAllDealers(session.role) && !session.dealerId) {
-    return NextResponse.json({ ok: false, error: 'ผู้ใช้นี้ไม่ได้ผูกกับดีลเลอร์' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: translate(locale, 'validation.userNotLinkedToDealer') }, { status: 400 });
   }
 
   try {
@@ -31,36 +34,36 @@ export async function POST(req: NextRequest) {
     const customerPhone = String(body.customerPhone ?? '').replace(/[^0-9]/g, '');
 
     if (!serial || !foundDate || !problemCode) {
-      return NextResponse.json({ ok: false, error: 'กรุณากรอกหมายเลขรถ วันที่พบปัญหา และอาการที่พบ ให้ครบถ้วน' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.requiredVehicleFoundDateProblem') }, { status: 400 });
     }
     if (!repairDate) {
-      return NextResponse.json({ ok: false, error: 'กรุณากรอกวันที่นำรถเข้าซ่อม' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.requiredRepairDate') }, { status: 400 });
     }
     if (new Date(repairDate) < new Date(foundDate)) {
-      return NextResponse.json({ ok: false, error: 'วันที่นำรถเข้าซ่อม ต้องไม่ก่อนวันที่พบปัญหา' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.repairDateBeforeFound') }, { status: 400 });
     }
     if (!customerName) {
-      return NextResponse.json({ ok: false, error: 'กรุณากรอกชื่อลูกค้า' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.enterCustomerName') }, { status: 400 });
     }
     const severity = body.severity as Severity;
     if (!SEVERITY_VALUES.includes(severity)) {
-      return NextResponse.json({ ok: false, error: 'กรุณาเลือกความรุนแรงของปัญหา' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.selectSeverity') }, { status: 400 });
     }
     const photoLinks: PhotoLink[] = Array.isArray(body.photoLinks) ? body.photoLinks : [];
     const REQUIRED_PHOTO_CATEGORIES = ['odometer', 'vehicle_serial', 'damage_point_1'];
     const presentCategories = new Set(photoLinks.map((p) => p?.category));
     if (REQUIRED_PHOTO_CATEGORIES.some((c) => !presentCategories.has(c as any))) {
       return NextResponse.json(
-        { ok: false, error: 'กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ' },
+        { ok: false, error: translate(locale, 'validation.requiredDamagePhotos') },
         { status: 400 }
       );
     }
     if (customerPhone && !THAI_MOBILE_RE.test(customerPhone)) {
-      return NextResponse.json({ ok: false, error: 'เบอร์โทรลูกค้าไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidCustomerPhone') }, { status: 400 });
     }
     const reporterPhoneDigits = String(body.reporterPhone ?? '').replace(/[^0-9]/g, '');
     if (reporterPhoneDigits && !THAI_MOBILE_RE.test(reporterPhoneDigits)) {
-      return NextResponse.json({ ok: false, error: 'เบอร์โทรผู้แจ้งไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidReporterPhone') }, { status: 400 });
     }
 
     const dealerIdForLookup = seesAllDealers(session.role) ? (body.dealerId ?? null) : session.dealerId;
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
     // Zero-leakage: if the vehicle exists but belongs to another dealer, treat it as not found.
     const vehicle = await getVehicleBySerial(serial, dealerIdForLookup);
     if (vehicle && dealerIdForLookup && vehicle.dealer_id && vehicle.dealer_id !== dealerIdForLookup) {
-      return NextResponse.json({ ok: false, error: 'หมายเลขรถนี้ไม่ได้อยู่ในดีลเลอร์ของคุณ' }, { status: 403 });
+      return NextResponse.json({ ok: false, error: translate(locale, 'validation.serialNotInYourDealer') }, { status: 403 });
     }
 
     const hours = body.hours === '' || body.hours === undefined || body.hours === null ? null : Number(body.hours);
@@ -78,7 +81,7 @@ export async function POST(req: NextRequest) {
         : Number(body.hoursInForRepair);
     if (hours !== null && hoursInForRepair !== null && hoursInForRepair < hours) {
       return NextResponse.json(
-        { ok: false, error: 'ชั่วโมงการใช้งานขณะนำเข้าซ่อม ต้องไม่น้อยกว่าชั่วโมงขณะพบปัญหา' },
+        { ok: false, error: translate(locale, 'validation.repairHoursLessThanFound') },
         { status: 400 }
       );
     }
@@ -104,6 +107,11 @@ export async function POST(req: NextRequest) {
         stockNote: vehicle ? null : String(body.stockNote ?? ''),
         lat: body.lat === undefined || body.lat === null || body.lat === '' ? null : Number(body.lat),
         lng: body.lng === undefined || body.lng === null || body.lng === '' ? null : Number(body.lng),
+        gpsAccuracy:
+          body.gpsAccuracy === undefined || body.gpsAccuracy === null || body.gpsAccuracy === ''
+            ? null
+            : Number(body.gpsAccuracy),
+        googleMapsUrl: body.googleMapsUrl ? String(body.googleMapsUrl) : null,
         photoLinks,
         videoLink: body.videoLink ? String(body.videoLink) : null,
         dealerId: dealerIdForLookup,
@@ -142,6 +150,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, record, warranty });
   } catch (err: any) {
     console.error('create record error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: err?.message ?? translate(locale, 'validation.internalSystemError') }, { status: 500 });
   }
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useLocale } from '@/lib/i18n/LocaleProvider';
+import type { Locale } from '@/lib/i18n/types';
 
 declare global {
   interface Window {
@@ -9,27 +11,21 @@ declare global {
   }
 }
 
-const COOKIE_NAME = 'googtrans';
+const GOOGTRANS_COOKIE = 'googtrans';
 
-function setLangCookie(lang: 'th' | 'en') {
-  document.cookie = `${COOKIE_NAME}=/th/${lang}; path=/; max-age=${60 * 60 * 24 * 30}`;
+function setGoogTransCookie(lang: 'th' | 'en') {
+  document.cookie = `${GOOGTRANS_COOKIE}=/th/${lang}; path=/; max-age=${60 * 60 * 24 * 30}`;
 }
 
-function clearLangCookie() {
-  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`;
-}
-
-function readLangFromCookie(): 'th' | 'en' {
-  if (typeof document === 'undefined') return 'th';
-  const match = document.cookie.match(/googtrans=\/[^/]+\/([a-zA-Z-]+)/);
-  return match && match[1] === 'en' ? 'en' : 'th';
+function clearGoogTransCookie() {
+  document.cookie = `${GOOGTRANS_COOKIE}=; path=/; max-age=0`;
 }
 
 // Drives Google's own (hidden) language <select> directly — the reliable
 // way to trigger the Website Translator widget programmatically, since the
 // cookie alone only auto-applies when autoDisplay is enabled (which would
 // also force-show Google's banner UI).
-function applyTranslation(target: 'en', attempt = 0) {
+function applyLegacyGoogleTranslate(target: 'en', attempt = 0) {
   const combo = document.querySelector<HTMLSelectElement>('.goog-te-combo');
   if (combo) {
     combo.value = target;
@@ -37,34 +33,44 @@ function applyTranslation(target: 'en', attempt = 0) {
     return;
   }
   if (attempt < 40) {
-    setTimeout(() => applyTranslation(target, attempt + 1), 250);
+    setTimeout(() => applyLegacyGoogleTranslate(target, attempt + 1), 250);
   }
 }
 
-// Lightweight TH/EN switch built on the free, unofficial Google Translate
-// Element widget. Google's own dropdown UI stays hidden (see globals.css);
-// we drive it ourselves by selecting its underlying <select> element.
-//
-// Rendered as a small trigger button — top-left on mobile (so it never
-// overlaps the sidebar's hamburger button, which sits top-right inside the
-// mobile header bar) and top-right on desktop (no header bar there, so no
-// collision). Tapping the trigger opens a dropdown panel that slides down
-// from underneath it, instead of two buttons sitting permanently on screen.
+/**
+ * TH/EN switch. The real language switch is `LocaleProvider`'s
+ * `app_locale` cookie/context (drives the dictionary-based `t()` used
+ * throughout the app — see `lib/i18n/`), which this component now
+ * controls via `useLocale().setLocale()`.
+ *
+ * Google's free Website Translator widget (the *previous* implementation
+ * of this toggle) is kept running alongside it, purely as a transitional
+ * fallback for whatever UI text hasn't been migrated to
+ * `src/locales/*.json` yet — it no longer has any say over PDF/CSV
+ * output, validation messages, standardized terminology, or dates, all
+ * of which now read the real `locale` directly. Already-migrated regions
+ * are wrapped `notranslate` (see `globals.css`/individual components) so
+ * Google's widget never re-translates text that's already correct.
+ *
+ * Same trigger button, same position (top-left on mobile, top-right on
+ * desktop) as before — only the underlying mechanism changed, per the
+ * explicit instruction to preserve the existing toggle's UI/UX.
+ */
 export default function LanguageToggle() {
-  const [lang, setLang] = useState<'th' | 'en'>('th');
+  const { locale, setLocale } = useLocale();
   const [open, setOpen] = useState(false);
-  const initialized = useRef(false);
+  const googleInitialized = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Bring the legacy Google widget in sync with whatever locale we
+  // started on (e.g. a returning visitor whose app_locale cookie is
+  // already 'en') so any not-yet-migrated text is translated too.
   useEffect(() => {
-    const cookieLang = readLangFromCookie();
-    setLang(cookieLang);
-
-    if (initialized.current) return;
-    initialized.current = true;
+    if (googleInitialized.current) return;
+    googleInitialized.current = true;
 
     if (document.getElementById('google-translate-script')) {
-      if (cookieLang === 'en') applyTranslation('en');
+      if (locale === 'en') applyLegacyGoogleTranslate('en');
       return;
     }
 
@@ -75,7 +81,7 @@ export default function LanguageToggle() {
           'google_translate_element'
         );
       }
-      if (cookieLang === 'en') applyTranslation('en');
+      if (locale === 'en') applyLegacyGoogleTranslate('en');
     };
 
     const script = document.createElement('script');
@@ -83,6 +89,8 @@ export default function LanguageToggle() {
     script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
     script.async = true;
     document.body.appendChild(script);
+    // Only ever needs to run once per page load, regardless of later locale changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -95,21 +103,27 @@ export default function LanguageToggle() {
     return () => document.removeEventListener('click', handleOutside);
   }, []);
 
-  function handleSelect(target: 'th' | 'en') {
+  function handleSelect(target: Locale) {
     setOpen(false);
-    if (target === lang) return;
-    setLang(target);
+    if (target === locale) return;
 
+    // Real switch — drives every migrated string, PDF/CSV, dates,
+    // validation messages, terminology.
+    setLocale(target);
+
+    // Best-effort legacy fallback for whatever isn't migrated yet.
     if (target === 'th') {
-      // Selecting the original language back via the combo isn't always
-      // clean, so clear the cookie and reload to restore pristine Thai.
-      clearLangCookie();
+      clearGoogTransCookie();
+      // Selecting the original language back via Google's combo isn't
+      // always clean, so a full reload restores pristine (untranslated)
+      // Thai for any lingering Google-translated DOM nodes. The real
+      // locale (app_locale cookie, already written above) survives the
+      // reload, so this is not a loss of the actual language switch.
       window.location.reload();
       return;
     }
-
-    setLangCookie('en');
-    applyTranslation('en');
+    setGoogTransCookie('en');
+    applyLegacyGoogleTranslate('en');
   }
 
   return (
@@ -129,7 +143,7 @@ export default function LanguageToggle() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.6 9h16.8M3.6 15h16.8M12 3a14.5 14.5 0 010 18 14.5 14.5 0 010-18z" />
         </svg>
-        {lang === 'th' ? 'ไทย' : 'EN'}
+        {locale === 'th' ? 'ไทย' : 'EN'}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -150,7 +164,7 @@ export default function LanguageToggle() {
           type="button"
           onClick={() => handleSelect('th')}
           className={`w-full text-left px-3 py-2 text-xs font-semibold transition ${
-            lang === 'th' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:bg-gray-50'
+            locale === 'th' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           ไทย
@@ -159,7 +173,7 @@ export default function LanguageToggle() {
           type="button"
           onClick={() => handleSelect('en')}
           className={`w-full text-left px-3 py-2 text-xs font-semibold transition ${
-            lang === 'en' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:bg-gray-50'
+            locale === 'en' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:bg-gray-50'
           }`}
         >
           EN

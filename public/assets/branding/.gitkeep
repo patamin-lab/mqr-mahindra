@@ -1,0 +1,4 @@
+Place the official Mahindra logo here as mahindra-logo.png (PNG only -
+react-pdf's <Image> does not render SVG). Every PDF document in the app
+(src/lib/pdf/PdfBrandLogo.tsx) picks it up automatically once present -
+no code change needed.

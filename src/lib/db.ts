@@ -1,10 +1,15 @@
 import { getSupabase } from './supabase';
 import { seesAllDealers, seesOwnRecordsOnly, canDelete } from './scope';
+import { translate } from './i18n/translate';
+import { Locale } from './i18n/types';
 import {
   SessionUser,
   Dealer,
   Vehicle,
   ProblemCode,
+  PmInterval,
+  ProductFamily,
+  MaintenanceProgramAssignment,
   Technician,
   Branch,
   MqrRecord,
@@ -13,6 +18,13 @@ import {
   Role,
   PhotoLink,
   Severity,
+  AuditModule,
+  AuditLogEntry,
+  LogAuditEventInput,
+  StatusValue,
+  STATUS_LABELS,
+  canTransitionMqrStatus,
+  MaintenanceProgramVersionStage,
 } from './types';
 
 // ---------- Auth / users ----------
@@ -86,6 +98,13 @@ export async function listDealers(): Promise<Dealer[]> {
 export async function getDealer(dealerId: string): Promise<Dealer | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase.from('dealers').select('*').eq('id', dealerId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function getBranchById(branchId: string): Promise<Branch | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('branches').select('*').eq('id', branchId).maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -179,6 +198,574 @@ export async function updateProblemCode(
   return data as ProblemCode;
 }
 
+/**
+ * Active PM Interval Master entries - powers the PM Record form's dropdown.
+ * When `model` is given, narrows to only the intervals mapped to that
+ * model's Product Family via Maintenance Program Assignment (Phase 5b -
+ * maintenance logic must never depend directly on Tractor Model, only on
+ * Product Family; a model with no Product Family, or a Product Family with
+ * no assigned intervals, correctly returns an empty list, same "zero
+ * mapping = zero options" behavior as before, now one hierarchy level up).
+ */
+export async function listActivePmIntervals(model?: string | null): Promise<PmInterval[]> {
+  const supabase = getSupabase();
+
+  let allowedIds: string[] | null = null;
+  if (model) {
+    const productFamilyId = await getProductFamilyIdForModel(model);
+    if (!productFamilyId) return [];
+
+    const { data: assignmentRows, error: assignmentError } = await supabase
+      .from('maintenance_program_assignments')
+      .select('pm_interval_id')
+      .eq('product_family_id', productFamilyId);
+    if (assignmentError) throw assignmentError;
+    allowedIds = Array.from(new Set((assignmentRows ?? []).map((r) => r.pm_interval_id as string)));
+    if (allowedIds.length === 0) return [];
+  }
+
+  let query = supabase.from('pm_intervals').select('*').eq('active', true);
+  if (allowedIds) query = query.in('id', allowedIds);
+  const { data, error } = await query.order('interval_hours', { ascending: true, nullsFirst: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getPmInterval(id: string): Promise<PmInterval | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('pm_intervals').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+/** Full PM Interval Master list (including inactive) - admin management UI only. */
+export async function listAllPmIntervalsAdmin(): Promise<PmInterval[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('pm_intervals')
+    .select('*')
+    .order('interval_hours', { ascending: true, nullsFirst: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createPmInterval(
+  input: { label: string; intervalHours: number | null; intervalMonths: number | null },
+  session: SessionUser
+): Promise<PmInterval> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('pm_intervals')
+    .insert({
+      label: input.label,
+      interval_hours: input.intervalHours,
+      interval_months: input.intervalMonths,
+      created_by: session.username,
+      updated_by: session.username,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as PmInterval;
+}
+
+export async function updatePmInterval(
+  id: string,
+  patch: Partial<{ label: string; intervalHours: number | null; intervalMonths: number | null; active: boolean }>,
+  session: SessionUser
+): Promise<PmInterval> {
+  const supabase = getSupabase();
+  const updatePayload: Record<string, unknown> = { updated_by: session.username, updated_at: new Date().toISOString() };
+  if (patch.label !== undefined) updatePayload.label = patch.label;
+  if (patch.intervalHours !== undefined) updatePayload.interval_hours = patch.intervalHours;
+  if (patch.intervalMonths !== undefined) updatePayload.interval_months = patch.intervalMonths;
+  if (patch.active !== undefined) updatePayload.active = patch.active;
+  const { data, error } = await supabase.from('pm_intervals').update(updatePayload).eq('id', id).select('*').single();
+  if (error) throw error;
+  return data as PmInterval;
+}
+
+/** Distinct tractor models already known to Vehicle Master - powers the
+ *  Product Family <-> Model mapping admin page. A newly-synced model from
+ *  the Tractor IN sheet appears here automatically - no code change needed
+ *  to add a new tractor model, per spec. */
+export async function listDistinctVehicleModels(): Promise<string[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('vehicles').select('model').not('model', 'is', null);
+  if (error) throw error;
+  const models = Array.from(new Set((data ?? []).map((v) => v.model as string)));
+  return models.sort((a, b) => a.localeCompare(b));
+}
+
+// ---------- Product Family Master (Phase 5b) ----------
+
+export async function listActiveProductFamilies(): Promise<ProductFamily[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('product_families').select('*').eq('active', true).order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Full Product Family list (including inactive) - admin management UI only. */
+export async function listAllProductFamiliesAdmin(): Promise<ProductFamily[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('product_families').select('*').order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getProductFamily(id: string): Promise<ProductFamily | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.from('product_families').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function createProductFamily(
+  input: { code: string; name: string; description: string | null },
+  session: SessionUser
+): Promise<ProductFamily> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('product_families')
+    .insert({
+      code: input.code,
+      name: input.name,
+      description: input.description,
+      created_by: session.username,
+      updated_by: session.username,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as ProductFamily;
+}
+
+export async function updateProductFamily(
+  id: string,
+  patch: Partial<{ code: string; name: string; description: string | null; active: boolean }>,
+  session: SessionUser
+): Promise<ProductFamily> {
+  const supabase = getSupabase();
+  const updatePayload: Record<string, unknown> = { updated_by: session.username, updated_at: new Date().toISOString() };
+  if (patch.code !== undefined) updatePayload.code = patch.code;
+  if (patch.name !== undefined) updatePayload.name = patch.name;
+  if (patch.description !== undefined) updatePayload.description = patch.description;
+  if (patch.active !== undefined) updatePayload.active = patch.active;
+  const { data, error } = await supabase.from('product_families').update(updatePayload).eq('id', id).select('*').single();
+  if (error) throw error;
+  return data as ProductFamily;
+}
+
+// ---------- Product Family <-> Model mapping (Phase 5b) ----------
+
+/** Resolves the Product Family a given Tractor Model belongs to, or null if
+ *  that model hasn't been assigned to one yet. "Every tractor model belongs
+ *  to one Product Family" per spec - this is the one place that rule is
+ *  enforced by construction (unique(model) on `product_family_models`). */
+export async function getProductFamilyIdForModel(model: string): Promise<string | null> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('product_family_models')
+    .select('product_family_id')
+    .eq('model', model)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { product_family_id: string } | null)?.product_family_id ?? null;
+}
+
+export interface ProductFamilyModelRow {
+  model: string;
+  productFamilyId: string | null;
+  productFamilyName: string | null;
+}
+
+/** Every known model paired with its assigned Product Family (or null if
+ *  unmapped yet) - powers the Product Family <-> Model mapping admin page. */
+export async function listProductFamilyModelMap(): Promise<ProductFamilyModelRow[]> {
+  const [models, mappingRows, families] = await Promise.all([
+    listDistinctVehicleModels(),
+    (async () => {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.from('product_family_models').select('model, product_family_id');
+      if (error) throw error;
+      return (data ?? []) as { model: string; product_family_id: string }[];
+    })(),
+    listAllProductFamiliesAdmin(),
+  ]);
+
+  const familyNameById = new Map(families.map((f) => [f.id, f.name]));
+  const familyIdByModel = new Map(mappingRows.map((r) => [r.model, r.product_family_id]));
+
+  return models.map((model) => {
+    const productFamilyId = familyIdByModel.get(model) ?? null;
+    return {
+      model,
+      productFamilyId,
+      productFamilyName: productFamilyId ? familyNameById.get(productFamilyId) ?? null : null,
+    };
+  });
+}
+
+/** Upserts the single Product Family a model belongs to (unique per model -
+ *  never a many-to-many, unlike the interval<->family assignment below). */
+export async function setProductFamilyForModel(
+  model: string,
+  productFamilyId: string | null,
+  session: SessionUser
+): Promise<void> {
+  const supabase = getSupabase();
+  if (!productFamilyId) {
+    const { error } = await supabase.from('product_family_models').delete().eq('model', model);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from('product_family_models').upsert(
+    {
+      model,
+      product_family_id: productFamilyId,
+      created_by: session.username,
+      updated_by: session.username,
+    },
+    { onConflict: 'model' }
+  );
+  if (error) throw error;
+}
+
+// ---------- Maintenance Program Assignment (Phase 5b) ----------
+// Product Family <-> Maintenance Interval (`pm_intervals`, reused as the
+// "Maintenance Program" master - see PROJECT_STATE.md). Replaces the old
+// model-based PM Program mapping (removed this phase).
+
+/** Full Maintenance Program Assignment list (product_family_id <->
+ *  pm_interval_id pairs) - admin management UI only. */
+export async function listAllMaintenanceProgramAssignmentsAdmin(): Promise<MaintenanceProgramAssignment[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('maintenance_program_assignments')
+    .select('id, product_family_id, pm_interval_id');
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** The Maintenance Program stages (active `pm_intervals`) assigned to one
+ *  Product Family, shaped for `MaintenanceDueService` - powers Vehicle 360 /
+ *  the Due Engine, never resolved via Tractor Model. */
+export async function listMaintenanceProgramStagesForFamily(
+  productFamilyId: string
+): Promise<{ pmIntervalId: string; label: string; intervalHours: number | null; intervalMonths: number | null }[]> {
+  const supabase = getSupabase();
+  const { data: assignmentRows, error: assignmentError } = await supabase
+    .from('maintenance_program_assignments')
+    .select('pm_interval_id')
+    .eq('product_family_id', productFamilyId);
+  if (assignmentError) throw assignmentError;
+
+  const intervalIds = Array.from(new Set((assignmentRows ?? []).map((r) => r.pm_interval_id as string)));
+  if (intervalIds.length === 0) return [];
+
+  const { data: intervalRows, error: intervalError } = await supabase
+    .from('pm_intervals')
+    .select('id, label, interval_hours, interval_months')
+    .eq('active', true)
+    .in('id', intervalIds);
+  if (intervalError) throw intervalError;
+
+  return (intervalRows ?? []).map((r) => ({
+    pmIntervalId: r.id as string,
+    label: r.label as string,
+    intervalHours: r.interval_hours as number | null,
+    intervalMonths: r.interval_months as number | null,
+  }));
+}
+
+/**
+ * Replaces the full set of Product Families mapped to one Maintenance
+ * Interval, matching the admin UI's per-interval checkbox multi-select
+ * (checked = mapped, unchecked = not mapped): deletes removed pairs,
+ * inserts newly-checked ones. A pure junction table with no standalone
+ * business/audit value of its own, so a real delete here - rather than a
+ * soft-delete flag - is the correct, simplest model (same reasoning as the
+ * PM Program mapping it replaces).
+ */
+/** Returns the set of Product Family ids whose assignment to this interval
+ *  actually changed (added or removed) - the caller uses this to know which
+ *  families' version snapshot needs re-syncing via
+ *  `syncMaintenanceProgramVersion()`. */
+export async function setMaintenanceProgramFamilies(
+  pmIntervalId: string,
+  productFamilyIds: string[],
+  session: SessionUser
+): Promise<string[]> {
+  const supabase = getSupabase();
+  const { data: existingRows, error: existingError } = await supabase
+    .from('maintenance_program_assignments')
+    .select('id, product_family_id')
+    .eq('pm_interval_id', pmIntervalId);
+  if (existingError) throw existingError;
+
+  const existing = existingRows ?? [];
+  const wantedFamilies = new Set(productFamilyIds);
+  const existingFamilies = new Set(existing.map((r) => r.product_family_id as string));
+
+  const idsToDelete = existing.filter((r) => !wantedFamilies.has(r.product_family_id as string)).map((r) => r.id);
+  const familiesToDelete = existing
+    .filter((r) => !wantedFamilies.has(r.product_family_id as string))
+    .map((r) => r.product_family_id as string);
+  const familiesToInsert = productFamilyIds.filter((f) => !existingFamilies.has(f));
+
+  if (idsToDelete.length > 0) {
+    const { error } = await supabase.from('maintenance_program_assignments').delete().in('id', idsToDelete);
+    if (error) throw error;
+  }
+  if (familiesToInsert.length > 0) {
+    const { error } = await supabase.from('maintenance_program_assignments').insert(
+      familiesToInsert.map((productFamilyId) => ({
+        product_family_id: productFamilyId,
+        pm_interval_id: pmIntervalId,
+        created_by: session.username,
+        updated_by: session.username,
+      }))
+    );
+    if (error) throw error;
+  }
+
+  return Array.from(new Set([...familiesToDelete, ...familiesToInsert]));
+}
+
+// ---------- Maintenance Program Versioning (Production Stabilization Sprint) ----------
+// Maintenance history must never be recalculated against today's live
+// program definition. Every time a Product Family's resolved stage list
+// actually changes (assignment add/remove, or an edit to one of its
+// assigned pm_intervals' own hours/months), a new immutable version
+// snapshot is created; each vehicle is pinned once to whichever version
+// was effective at its retail date, and stays pinned even after a newer
+// version is created for the same family.
+
+function sortMaintenanceStages<T extends { intervalHours: number | null; intervalMonths: number | null }>(
+  stages: T[]
+): T[] {
+  return [...stages].sort((a, b) => {
+    const ah = a.intervalHours ?? Number.POSITIVE_INFINITY;
+    const bh = b.intervalHours ?? Number.POSITIVE_INFINITY;
+    if (ah !== bh) return ah - bh;
+    const am = a.intervalMonths ?? Number.POSITIVE_INFINITY;
+    const bm = b.intervalMonths ?? Number.POSITIVE_INFINITY;
+    return am - bm;
+  });
+}
+
+/** Ensures `productFamilyId`'s current version snapshot matches its live
+ *  assignment set, creating a new version (closing out the previous one)
+ *  only if they actually differ. Idempotent - safe to call after any admin
+ *  mutation that could affect what the family's program resolves to, even
+ *  if nothing actually changed for this particular family. */
+export async function syncMaintenanceProgramVersion(productFamilyId: string, session: SessionUser): Promise<void> {
+  const supabase = getSupabase();
+  const liveStages = sortMaintenanceStages(await listMaintenanceProgramStagesForFamily(productFamilyId)).map((s) => ({
+    pmIntervalId: s.pmIntervalId as string | null,
+    label: s.label,
+    intervalHours: s.intervalHours,
+    intervalMonths: s.intervalMonths,
+  }));
+
+  const { data: currentVersionRow, error: currentVersionError } = await supabase
+    .from('maintenance_program_versions')
+    .select('id, version_number')
+    .eq('product_family_id', productFamilyId)
+    .eq('is_current', true)
+    .maybeSingle();
+  if (currentVersionError) throw currentVersionError;
+
+  let currentStages: typeof liveStages = [];
+  if (currentVersionRow) {
+    const { data: stageRows, error: stageError } = await supabase
+      .from('maintenance_program_version_stages')
+      .select('pm_interval_id, label, interval_hours, interval_months')
+      .eq('version_id', currentVersionRow.id)
+      .order('display_order', { ascending: true });
+    if (stageError) throw stageError;
+    currentStages = (stageRows ?? []).map((r) => ({
+      pmIntervalId: r.pm_interval_id,
+      label: r.label,
+      intervalHours: r.interval_hours,
+      intervalMonths: r.interval_months,
+    }));
+  }
+
+  if (currentVersionRow && JSON.stringify(currentStages) === JSON.stringify(liveStages)) return;
+  // A family with no live stages configured yet and no version created yet
+  // has nothing to snapshot - wait until it has at least one assigned
+  // interval before creating version 1.
+  if (!currentVersionRow && liveStages.length === 0) return;
+
+  const now = new Date().toISOString();
+  if (currentVersionRow) {
+    const { error } = await supabase
+      .from('maintenance_program_versions')
+      .update({ is_current: false, effective_to: now })
+      .eq('id', currentVersionRow.id);
+    if (error) throw error;
+  }
+
+  const nextVersionNumber = (currentVersionRow?.version_number ?? 0) + 1;
+  const { data: newVersion, error: insertVersionError } = await supabase
+    .from('maintenance_program_versions')
+    .insert({
+      product_family_id: productFamilyId,
+      version_number: nextVersionNumber,
+      effective_from: now,
+      is_current: true,
+      created_by: session.username,
+    })
+    .select('id')
+    .single();
+  if (insertVersionError) throw insertVersionError;
+
+  if (liveStages.length > 0) {
+    const { error: insertStagesError } = await supabase.from('maintenance_program_version_stages').insert(
+      liveStages.map((s, i) => ({
+        version_id: newVersion.id,
+        pm_interval_id: s.pmIntervalId,
+        label: s.label,
+        interval_hours: s.intervalHours,
+        interval_months: s.intervalMonths,
+        display_order: i,
+      }))
+    );
+    if (insertStagesError) throw insertStagesError;
+  }
+}
+
+/** Every Product Family currently assigned a given Maintenance Interval -
+ *  used to re-sync every affected family's version snapshot after an admin
+ *  edits that interval's own hours/months (not just its assignment set). */
+async function listProductFamilyIdsForInterval(pmIntervalId: string): Promise<string[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('maintenance_program_assignments')
+    .select('product_family_id')
+    .eq('pm_interval_id', pmIntervalId);
+  if (error) throw error;
+  return Array.from(new Set((data ?? []).map((r) => r.product_family_id as string)));
+}
+
+/** Re-syncs the version snapshot for every Product Family assigned this
+ *  interval - call after `updatePmInterval()` changes hours/months/label,
+ *  since that changes what every assigned family's *live* program resolves
+ *  to even though the assignment table itself didn't change. */
+export async function syncMaintenanceProgramVersionsForInterval(pmIntervalId: string, session: SessionUser): Promise<void> {
+  const familyIds = await listProductFamilyIdsForInterval(pmIntervalId);
+  for (const familyId of familyIds) {
+    await syncMaintenanceProgramVersion(familyId, session);
+  }
+}
+
+/**
+ * Resolves (and permanently pins, on first resolution) the Maintenance
+ * Program Version that applies to one vehicle: whichever version of its
+ * Product Family's program was effective at the vehicle's retail date (or
+ * "now" if no retail date is known). Once pinned, later edits to the
+ * family's program never change what this vehicle evaluates against - a
+ * stale pin (the vehicle's Product Family itself changed since) is
+ * detected and re-resolved rather than trusted blindly. Returns null if
+ * the family has no Maintenance Program configured at all yet.
+ */
+export async function resolveVehicleProgramVersionStages(
+  vehicleId: string,
+  productFamilyId: string,
+  retailDate: string | null
+): Promise<{ versionId: string; versionNumber: number; stages: MaintenanceProgramVersionStage[] } | null> {
+  const supabase = getSupabase();
+
+  const { data: vehicleRow, error: vehicleError } = await supabase
+    .from('vehicles')
+    .select('maintenance_program_version_id')
+    .eq('id', vehicleId)
+    .maybeSingle();
+  if (vehicleError) throw vehicleError;
+
+  let versionId: string | null = vehicleRow?.maintenance_program_version_id ?? null;
+
+  if (versionId) {
+    const { data: pinnedVersion, error: pinnedError } = await supabase
+      .from('maintenance_program_versions')
+      .select('id, product_family_id')
+      .eq('id', versionId)
+      .maybeSingle();
+    if (pinnedError) throw pinnedError;
+    // A pin belonging to a different Product Family (the vehicle's model
+    // was re-assigned since) is stale and must be re-resolved.
+    if (!pinnedVersion || pinnedVersion.product_family_id !== productFamilyId) {
+      versionId = null;
+    }
+  }
+
+  if (!versionId) {
+    const asOf = retailDate ?? new Date().toISOString();
+    const { data: candidateRows, error: candidateError } = await supabase
+      .from('maintenance_program_versions')
+      .select('id, effective_from')
+      .eq('product_family_id', productFamilyId)
+      .lte('effective_from', asOf)
+      .order('effective_from', { ascending: false })
+      .limit(1);
+    if (candidateError) throw candidateError;
+    let candidate = candidateRows?.[0] ?? null;
+
+    if (!candidate) {
+      // The vehicle's retail date predates every configured version -
+      // fall back to the earliest version for this family, if any.
+      const { data: earliestRows, error: earliestError } = await supabase
+        .from('maintenance_program_versions')
+        .select('id, effective_from')
+        .eq('product_family_id', productFamilyId)
+        .order('effective_from', { ascending: true })
+        .limit(1);
+      if (earliestError) throw earliestError;
+      candidate = earliestRows?.[0] ?? null;
+    }
+
+    if (!candidate) return null;
+    versionId = candidate.id;
+
+    const { error: pinError } = await supabase
+      .from('vehicles')
+      .update({ maintenance_program_version_id: versionId })
+      .eq('id', vehicleId);
+    if (pinError) throw pinError;
+  }
+  // Unreachable in practice (every path above either returns null or sets
+  // versionId to a real value) - narrows the type for TypeScript across the
+  // two conditional blocks above.
+  if (!versionId) return null;
+
+  const { data: versionRow, error: versionRowError } = await supabase
+    .from('maintenance_program_versions')
+    .select('id, version_number')
+    .eq('id', versionId)
+    .single();
+  if (versionRowError) throw versionRowError;
+
+  const { data: stageRows, error: stageError } = await supabase
+    .from('maintenance_program_version_stages')
+    .select('pm_interval_id, label, interval_hours, interval_months')
+    .eq('version_id', versionId)
+    .order('display_order', { ascending: true });
+  if (stageError) throw stageError;
+
+  return {
+    versionId,
+    versionNumber: versionRow.version_number,
+    stages: (stageRows ?? []).map((r) => ({
+      pmIntervalId: r.pm_interval_id,
+      label: r.label,
+      intervalHours: r.interval_hours,
+      intervalMonths: r.interval_months,
+    })),
+  };
+}
+
 /** Active technicians only - used to populate the report form's cascading dropdown. */
 export async function listTechnicians(dealerId: string | null, branchName?: string | null): Promise<Technician[]> {
   const supabase = getSupabase();
@@ -236,6 +823,140 @@ export async function listVehicles(dealerId: string | null): Promise<VehicleSear
   }));
 }
 
+export interface PmVehicleSearchFilters {
+  dealerId?: string | null;
+  branchId?: string | null;
+  serial?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  limit?: number;
+}
+
+export interface PmVehicleSearchResult {
+  id: string;
+  serial: string;
+  model: string | null;
+  delivery_date: string | null;
+  engine_number: string | null;
+  dealer_id: string | null;
+  dealer_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  last_pm_number: string | null;
+  last_pm_date: string | null;
+  last_hour_meter: number | null;
+  last_customer_name: string | null;
+  next_pm_due: string | null;
+}
+
+/**
+ * Server-side search over Vehicle Master (`vehicles`) ONLY - never the live
+ * Tractor IN sheet (unlike `searchVehicles` above, which QIR's report form
+ * uses) - enriched with each match's most recent active PM history (last PM
+ * number/date/hour meter, a rough next-due date estimate from the interval's
+ * month value, and last customer name, since `vehicles` itself carries no
+ * customer field - customer info only ever exists per PM visit). Always
+ * capped (default 20, max 50) so this never returns the full table, per the
+ * "must scale to 100,000+ vehicles" requirement. Two queries total (vehicles,
+ * then one bulk pm_records lookup for the matched serials) - not N+1.
+ */
+export async function searchVehiclesForPm(filters: PmVehicleSearchFilters): Promise<PmVehicleSearchResult[]> {
+  const supabase = getSupabase();
+  const limit = Math.min(filters.limit ?? 20, 50);
+
+  // "Customer Name"/"Phone Number" aren't vehicle attributes - narrow to
+  // serials that have a matching PM-visit history first, then filter the
+  // vehicle query itself by that serial set (AND semantics with the other
+  // filters, not OR).
+  let historySerials: string[] | null = null;
+  if (filters.customerName?.trim() || filters.customerPhone?.trim()) {
+    let historyQuery = supabase
+      .from('pm_records')
+      .select('serial')
+      .eq('record_status', 'Active')
+      .not('serial', 'is', null)
+      .limit(500);
+    if (filters.customerName?.trim()) historyQuery = historyQuery.ilike('customer_name', `%${filters.customerName.trim()}%`);
+    if (filters.customerPhone?.trim()) historyQuery = historyQuery.ilike('customer_phone', `%${filters.customerPhone.trim()}%`);
+    const { data: historyRows, error: historyError } = await historyQuery;
+    if (historyError) throw historyError;
+    historySerials = Array.from(new Set((historyRows ?? []).map((r: any) => r.serial as string).filter(Boolean)));
+    if (historySerials.length === 0) return [];
+  }
+
+  let query = supabase
+    .from('vehicles')
+    .select('id, serial, model, delivery_date, engine_number, dealer_id, branch_id, dealers(short_name, full_name), branches(name)')
+    .order('serial')
+    .limit(limit);
+
+  if (filters.dealerId) query = query.eq('dealer_id', filters.dealerId);
+  if (filters.branchId) query = query.eq('branch_id', filters.branchId);
+  if (filters.serial?.trim()) query = query.ilike('serial', `%${filters.serial.trim()}%`);
+  if (historySerials) query = query.in('serial', historySerials);
+
+  const { data: vehicleRows, error } = await query;
+  if (error) throw error;
+  const vehicles = (vehicleRows ?? []) as any[];
+  if (vehicles.length === 0) return [];
+
+  const serials = vehicles.map((v) => v.serial);
+  const { data: pmRows, error: pmError } = await supabase
+    .from('pm_records')
+    .select('serial, pm_number, performed_date, hour_meter, customer_name, pm_interval_id')
+    .eq('record_status', 'Active')
+    .in('serial', serials)
+    .order('performed_date', { ascending: false });
+  if (pmError) throw pmError;
+
+  const latestBySerial = new Map<string, any>();
+  for (const row of (pmRows ?? []) as any[]) {
+    if (row.serial && !latestBySerial.has(row.serial)) latestBySerial.set(row.serial, row);
+  }
+
+  const intervalIds = Array.from(
+    new Set(Array.from(latestBySerial.values()).map((r) => r.pm_interval_id).filter(Boolean))
+  );
+  const intervalsById = new Map<string, { interval_months: number | null }>();
+  if (intervalIds.length > 0) {
+    const { data: intervalRows, error: intervalError } = await supabase
+      .from('pm_intervals')
+      .select('id, interval_months')
+      .in('id', intervalIds);
+    if (intervalError) throw intervalError;
+    for (const iv of (intervalRows ?? []) as any[]) intervalsById.set(iv.id, iv);
+  }
+
+  return vehicles.map((v): PmVehicleSearchResult => {
+    const last = latestBySerial.get(v.serial);
+    let nextPmDue: string | null = null;
+    if (last?.performed_date && last?.pm_interval_id) {
+      const interval = intervalsById.get(last.pm_interval_id);
+      if (interval?.interval_months) {
+        const d = new Date(last.performed_date);
+        d.setMonth(d.getMonth() + interval.interval_months);
+        nextPmDue = d.toISOString().slice(0, 10);
+      }
+    }
+    return {
+      id: v.id,
+      serial: v.serial,
+      model: v.model,
+      delivery_date: v.delivery_date,
+      engine_number: v.engine_number,
+      dealer_id: v.dealer_id,
+      dealer_name: v.dealers?.short_name ?? v.dealers?.full_name ?? null,
+      branch_id: v.branch_id,
+      branch_name: v.branches?.name ?? null,
+      last_pm_number: last?.pm_number ?? null,
+      last_pm_date: last?.performed_date ?? null,
+      last_hour_meter: last?.hour_meter ?? null,
+      last_customer_name: last?.customer_name ?? null,
+      next_pm_due: nextPmDue,
+    };
+  });
+}
+
 /**
  * Partial-match "smart search" across both the Supabase `vehicles` table and the
  * live Tractor IN sheet, merged and de-duplicated by serial. Powers the report
@@ -285,24 +1006,33 @@ export async function searchVehicles(q: string, dealerId: string | null): Promis
 // ---------- Report number generation ----------
 
 /**
- * Atomic global-per-month counter via the job_seq table + next_job_seq() Postgres
- * function (INSERT ... ON CONFLICT DO UPDATE ... RETURNING). Reuses the existing
- * (dealer_id, year) composite key with a constant sentinel dealer_id so the
- * sequence is global rather than per-dealer, matching the new report number format.
- * Format: QIR-YYMM-0001
+ * Business-facing MQR report number: MQR-{DealerCode}-{Year}-{Running}
+ * (docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Dealer Standard - e.g.
+ * "MQR-KTV-2026-000001"). Reuses the same job_seq table / next_job_seq()
+ * Postgres RPC (INSERT ... ON CONFLICT DO UPDATE ... RETURNING) that PM's
+ * pm_number generation already uses (see nextPmNumber() in
+ * supabaseMaintenanceRepository.ts) - both modules share the table, but
+ * each gets its own independent per-dealer-per-year counter because the
+ * RPC's `dealer_id` argument is really just an opaque bucket key: PM calls
+ * it with the bare dealer code, MQR calls it with a `MQR:`-prefixed key,
+ * so the two modules' running numbers never interleave for the same
+ * dealer/year even though the report number itself only shows the plain
+ * dealer code.
+ *
+ * Supersedes the previous global QIR-YYMM-#### scheme (kept as-is for
+ * already-issued job_id values - this only changes what's generated for
+ * new records going forward, per the explicit migration approval).
  */
-export async function nextJobId(): Promise<string> {
+export async function nextJobId(dealerId: string): Promise<string> {
   const supabase = getSupabase();
-  const now = new Date();
-  const yymm = `${String(now.getFullYear()).slice(-2)}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const year = String(new Date().getFullYear());
   const { data, error } = await supabase.rpc('next_job_seq', {
-    p_dealer_id: '__QIR_GLOBAL__',
-    p_year: yymm,
+    p_dealer_id: `MQR:${dealerId}`,
+    p_year: year,
   });
   if (error) throw error;
   const seq = Number(data);
-  const seqStr = String(seq).padStart(4, '0');
-  return `QIR-${yymm}-${seqStr}`;
+  return `MQR-${dealerId}-${year}-${String(seq).padStart(6, '0')}`;
 }
 
 // ---------- Records ----------
@@ -325,6 +1055,8 @@ export interface CreateRecordInput {
   stockNote: string | null;
   lat: number | null;
   lng: number | null;
+  gpsAccuracy?: number | null;
+  googleMapsUrl?: string | null;
   photoLinks: PhotoLink[];
   videoLink: string | null;
   /** Only honored when the session role sees all dealers; otherwise forced to session.dealerId. */
@@ -373,7 +1105,7 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
     throw new Error('กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ');
   }
 
-  const jobId = await nextJobId();
+  const jobId = await nextJobId(dealer.id);
   const { data, error } = await supabase
     .from('records')
     .insert({
@@ -398,6 +1130,8 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       stock_note: input.stockNote,
       lat: input.lat,
       lng: input.lng,
+      gps_accuracy: input.gpsAccuracy ?? null,
+      google_maps_url: input.googleMapsUrl ?? null,
       photo_links: input.photoLinks,
       video_link: input.videoLink,
       branch_id: input.branchId,
@@ -412,7 +1146,15 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
     .select('*')
     .single();
   if (error) throw error;
-  return data as MqrRecord;
+  const created = data as MqrRecord;
+  await logAuditEvent({
+    module: 'mqr',
+    recordId: created.id,
+    recordRef: created.job_id,
+    eventType: 'Created',
+    performedBy: session.username,
+  });
+  return created;
 }
 
 function applyScope(query: any, session: SessionUser) {
@@ -432,6 +1174,9 @@ export interface ListRecordsFilters {
   q?: string;
   dealerId?: string;
   branchId?: string;
+  /** Inclusive `found_date` range, ISO `YYYY-MM-DD`. */
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export async function listRecords(session: SessionUser, filters: ListRecordsFilters = {}): Promise<MqrRecord[]> {
@@ -451,6 +1196,12 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
   if (filters.status) {
     query = query.eq('status', filters.status);
   }
+  if (filters.dateFrom) {
+    query = query.gte('found_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('found_date', filters.dateTo);
+  }
   if (filters.q && filters.q.trim()) {
     const term = filters.q.trim().replace(/[%,]/g, '');
     query = query.or(
@@ -460,6 +1211,65 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
   const { data, error } = await query.limit(500);
   if (error) throw error;
   return (data ?? []) as MqrRecord[];
+}
+
+export interface ListRecordsPaginatedFilters extends ListRecordsFilters {
+  /** 1-based. */
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PaginatedRecords {
+  records: MqrRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Server-side paginated/filtered records list, replacing the old
+ *  `listRecords()` + `.limit(500)` pattern that silently truncated any
+ *  dealer/period with more than 500 records with no indication to the user
+ *  (found in the production-stabilization audit). `listRecords()` itself is
+ *  kept unchanged for the bulk-export route, which still needs the whole
+ *  matching set rather than one page of it. */
+export async function listRecordsPaginated(
+  session: SessionUser,
+  filters: ListRecordsPaginatedFilters = {}
+): Promise<PaginatedRecords> {
+  const supabase = getSupabase();
+  const pageSize = Math.min(Math.max(Math.trunc(filters.pageSize ?? 50), 1), 200);
+  const page = Math.max(Math.trunc(filters.page ?? 1), 1);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase.from('records').select('*', { count: 'exact' }).order('created_at', { ascending: false });
+  query = applyScope(query, session);
+
+  if (filters.dealerId && seesAllDealers(session.role)) {
+    query = query.eq('dealer_id', filters.dealerId);
+  }
+  if (filters.branchId) {
+    query = query.eq('branch_id', filters.branchId);
+  }
+  if (filters.status) {
+    query = query.eq('status', filters.status);
+  }
+  if (filters.dateFrom) {
+    query = query.gte('found_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('found_date', filters.dateTo);
+  }
+  if (filters.q && filters.q.trim()) {
+    const term = filters.q.trim().replace(/[%,]/g, '');
+    query = query.or(
+      `job_id.ilike.%${term}%,serial.ilike.%${term}%,customer_name.ilike.%${term}%,model.ilike.%${term}%,branch_name.ilike.%${term}%,technician_name.ilike.%${term}%,problem_code.ilike.%${term}%`
+    );
+  }
+
+  const { data, error, count } = await query.range(from, to);
+  if (error) throw error;
+  return { records: (data ?? []) as MqrRecord[], total: count ?? 0, page, pageSize };
 }
 
 /** Fetch one record by job_id, enforcing the same zero-leakage scoping as listRecords. */
@@ -489,10 +1299,38 @@ export interface UpdateRecordInput {
   removePhotoUrls?: string[];
 }
 
-export async function updateRecord(jobId: string, patch: UpdateRecordInput, session: SessionUser): Promise<MqrRecord> {
+/** Thai labels for the RCA-family free-text fields, reused between the audit
+ *  trail and (eventually) any other place these fields need a display name -
+ *  kept in one place rather than re-typed at each call site. Matches the
+ *  labels shown on the update form itself (`update-form.tsx`). */
+const MQR_RCA_FIELD_LABELS: Record<string, string> = {
+  cause: 'สาเหตุ',
+  damaged_parts: 'ชิ้นส่วนที่เสียหาย',
+  technician_action: 'การดำเนินการของช่าง',
+  corrective_action: 'การแก้ไข (Corrective Action)',
+  preventive_action: 'การป้องกัน (Preventive Action)',
+};
+
+export async function updateRecord(
+  jobId: string,
+  patch: UpdateRecordInput,
+  session: SessionUser,
+  locale: Locale = 'th'
+): Promise<MqrRecord> {
   // Re-validate scope before allowing the write.
   const existing = await getRecordByJobId(jobId, session);
   if (!existing) throw new Error('ไม่พบรายงานนี้ หรือไม่มีสิทธิ์เข้าถึง');
+
+  if (patch.status !== undefined && patch.status !== existing.status) {
+    if (!canTransitionMqrStatus(existing.status as StatusValue, patch.status as StatusValue, session.role)) {
+      throw new Error(
+        translate(locale, 'validation.invalidStatusTransition', {
+          from: translate(locale, `mqrStatus.${existing.status}`),
+          to: translate(locale, `mqrStatus.${patch.status}`),
+        })
+      );
+    }
+  }
 
   const supabase = getSupabase();
   const updatePayload: Record<string, unknown> = {
@@ -520,7 +1358,35 @@ export async function updateRecord(jobId: string, patch: UpdateRecordInput, sess
     .select('*')
     .single();
   if (error) throw error;
-  return data as MqrRecord;
+  const updated = data as MqrRecord;
+
+  const auditBase = { module: 'mqr' as const, recordId: updated.id, recordRef: updated.job_id, performedBy: session.username };
+  const events: LogAuditEventInput[] = [];
+  if (patch.status !== undefined && patch.status !== existing.status) {
+    events.push({
+      ...auditBase,
+      eventType: 'StatusChanged',
+      oldValue: STATUS_LABELS[existing.status as StatusValue] ?? existing.status,
+      newValue: STATUS_LABELS[updated.status as StatusValue] ?? updated.status,
+    });
+  }
+  if (patch.severity !== undefined && patch.severity !== existing.severity) {
+    events.push({ ...auditBase, eventType: 'SeverityChanged', oldValue: existing.severity, newValue: updated.severity });
+  }
+  events.push(
+    ...diffFieldsForAudit(auditBase, MQR_RCA_FIELD_LABELS, existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>).map(
+      (e) => ({ ...e, eventType: 'RcaUpdated' as const })
+    )
+  );
+  for (const p of patch.addPhotoLinks ?? []) {
+    events.push({ ...auditBase, eventType: 'AttachmentAdded', fieldName: p.label, newValue: p.url });
+  }
+  for (const url of patch.removePhotoUrls ?? []) {
+    events.push({ ...auditBase, eventType: 'AttachmentRemoved', oldValue: url });
+  }
+  await logAuditEvents(events);
+
+  return updated;
 }
 
 /** Soft-delete only — never a hard delete. Re-validates scope + the canDelete permission. */
@@ -541,6 +1407,14 @@ export async function softDeleteRecord(jobId: string, session: SessionUser): Pro
     })
     .eq('job_id', jobId);
   if (error) throw error;
+
+  await logAuditEvent({
+    module: 'mqr',
+    recordId: existing.id,
+    recordRef: existing.job_id,
+    eventType: 'Deleted',
+    performedBy: session.username,
+  });
 }
 
 /** All prior jobs for a given vehicle serial, scoped the same way as listRecords. */
@@ -551,6 +1425,102 @@ export async function getVehicleHistory(serial: string, session: SessionUser): P
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as MqrRecord[];
+}
+
+// ---------- Audit Log (shared: MQR `records` + PM `pm_records`) ----------
+
+/** Writes one immutable audit-log row. Never throws-and-swallows - a failed
+ *  audit write must surface as a real error, since a silent audit gap would
+ *  defeat the point of the trail. */
+export async function logAuditEvent(input: LogAuditEventInput): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('record_audit_log').insert({
+    module: input.module,
+    record_id: input.recordId,
+    record_ref: input.recordRef,
+    event_type: input.eventType,
+    field_name: input.fieldName ?? null,
+    old_value: input.oldValue ?? null,
+    new_value: input.newValue ?? null,
+    performed_by: input.performedBy,
+  });
+  if (error) throw error;
+}
+
+/** Batched form of `logAuditEvent`, for a single business action that
+ *  produces several field-level entries at once (e.g. one edit that changes
+ *  three fields becomes three rows, inserted together). */
+export async function logAuditEvents(inputs: LogAuditEventInput[]): Promise<void> {
+  if (inputs.length === 0) return;
+  const supabase = getSupabase();
+  const { error } = await supabase.from('record_audit_log').insert(
+    inputs.map((input) => ({
+      module: input.module,
+      record_id: input.recordId,
+      record_ref: input.recordRef,
+      event_type: input.eventType,
+      field_name: input.fieldName ?? null,
+      old_value: input.oldValue ?? null,
+      new_value: input.newValue ?? null,
+      performed_by: input.performedBy,
+    }))
+  );
+  if (error) throw error;
+}
+
+/** Defensive cap - a long-lived, frequently-edited record could otherwise
+ *  grow this response unbounded (RC1 production-readiness review). The
+ *  Timeline UI shows newest-first and 300 entries is already far more
+ *  than a human reviews in one sitting. */
+const AUDIT_LOG_MAX_ENTRIES = 300;
+
+export async function listAuditLog(module: AuditModule, recordId: string): Promise<AuditLogEntry[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('record_audit_log')
+    .select('*')
+    .eq('module', module)
+    .eq('record_id', recordId)
+    .order('performed_at', { ascending: false })
+    .limit(AUDIT_LOG_MAX_ENTRIES);
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    module: row.module,
+    recordId: row.record_id,
+    recordRef: row.record_ref,
+    eventType: row.event_type,
+    fieldName: row.field_name,
+    oldValue: row.old_value,
+    newValue: row.new_value,
+    performedBy: row.performed_by,
+    performedAt: row.performed_at,
+  }));
+}
+
+/** Compares `before`/`after` on each key in `fieldLabels` and returns one
+ *  `FieldChanged` audit input per key whose stringified value actually
+ *  changed (null/undefined both normalize to `null` so "cleared" is not
+ *  reported as a false-positive change from `undefined` to `null`). Callers
+ *  pass only the base fields (module/recordId/recordRef/performedBy) - this
+ *  never touches Supabase itself, so it's easy to unit test the diff logic
+ *  in isolation from the insert. */
+export function diffFieldsForAudit(
+  base: Omit<LogAuditEventInput, 'eventType' | 'fieldName' | 'oldValue' | 'newValue'>,
+  fieldLabels: Record<string, string>,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): LogAuditEventInput[] {
+  const events: LogAuditEventInput[] = [];
+  for (const [key, label] of Object.entries(fieldLabels)) {
+    const oldRaw = before[key];
+    const newRaw = after[key];
+    const oldStr = oldRaw === null || oldRaw === undefined ? null : String(oldRaw);
+    const newStr = newRaw === null || newRaw === undefined ? null : String(newRaw);
+    if (oldStr === newStr) continue;
+    events.push({ ...base, eventType: 'FieldChanged', fieldName: label, oldValue: oldStr, newValue: newStr });
+  }
+  return events;
 }
 
 // ---------- Dashboard (Phase 6: full KPI suite) ----------

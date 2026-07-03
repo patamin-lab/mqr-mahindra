@@ -4,19 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
-import { roleLabelTh, canManageMasterData, seesAllDealers } from '@/lib/scope';
-
-const NAV = [
-  { href: '/dashboard', label: 'หน้าหลัก' },
-  { href: '/report', label: 'รายงานปัญหาคุณภาพ' },
-  { href: '/records', label: 'ติดตามรายงานปัญหาคุณภาพ' },
-  { href: '/pm-records', label: 'บำรุงรักษาเชิงป้องกัน' },
-];
+import { canManageMasterData, seesAllDealers } from '@/lib/scope';
+import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 export default function Sidebar({ session }: { session: SessionUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -27,15 +22,31 @@ export default function Sidebar({ session }: { session: SessionUser }) {
   const showMasterData = canManageMasterData(session.role);
   const showDealers = seesAllDealers(session.role);
 
-  const adminNav = [
-    ...(showDealers ? [{ href: '/admin/dealers', label: 'ดีลเลอร์' }] : []),
-    { href: '/admin/branches', label: 'สาขา' },
-    { href: '/admin/technicians', label: 'ช่างซ่อม' },
-    ...(showDealers ? [{ href: '/admin/problem-codes', label: 'หมวดปัญหา/อาการเสีย' }] : []),
-    { href: '/admin/users', label: 'ผู้ใช้งาน' },
+  // Icons follow docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Official Menu
+  // Standard table - only modules that actually exist today get an entry;
+  // PDI/NTR/Campaign/Warranty/Parts/Reports/System Settings are defined by
+  // the standard for future modules and are intentionally not added here.
+  const NAV = [
+    { href: '/dashboard', icon: '🏠', label: t('nav.dashboard') },
+    { href: '/report', icon: '⚠️', label: t('nav.newReport') },
+    { href: '/records', icon: '⚠️', label: t('nav.mqrRecords') },
+    { href: '/pm-records', icon: '🔧', label: t('nav.pmRecords') },
+    { href: '/vehicles', icon: '🚜', label: t('nav.vehicle360') },
   ];
 
-  function NavLink({ href, label }: { href: string; label: string }) {
+  const adminNav = [
+    ...(showDealers ? [{ href: '/admin/dealers', label: t('nav.adminDealers') }] : []),
+    { href: '/admin/branches', label: t('nav.adminBranches') },
+    { href: '/admin/technicians', label: t('nav.adminTechnicians') },
+    ...(showDealers ? [{ href: '/admin/problem-codes', label: t('nav.adminProblemCodes') }] : []),
+    ...(showDealers ? [{ href: '/admin/pm-intervals', label: t('nav.adminPmIntervals') }] : []),
+    ...(showDealers ? [{ href: '/admin/product-families', label: t('nav.adminProductFamilies') }] : []),
+    ...(showDealers ? [{ href: '/admin/product-family-models', label: t('nav.adminProductFamilyModels') }] : []),
+    ...(showDealers ? [{ href: '/admin/maintenance-programs', label: t('nav.adminMaintenancePrograms') }] : []),
+    { href: '/admin/users', icon: '👥', label: t('nav.adminUsers') },
+  ];
+
+  function NavLink({ href, icon, label }: { href: string; icon?: string; label: string }) {
     const active = pathname === href || pathname.startsWith(href + '/');
     return (
       <Link
@@ -45,6 +56,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
           active ? 'bg-gradient-primary text-white shadow-glow' : 'text-white/80 hover:bg-white/10'
         }`}
       >
+        {icon && <span className="mr-2">{icon}</span>}
         {label}
       </Link>
     );
@@ -59,7 +71,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
         </div>
         <button
           onClick={() => setOpen(true)}
-          aria-label="เปิดเมนู"
+          aria-label={t('nav.openMenu')}
           className="p-2 rounded hover:bg-white/10 transition"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -88,13 +100,13 @@ export default function Sidebar({ session }: { session: SessionUser }) {
             </div>
             <div className="text-xs text-white/70 mt-2">{session.fullName}</div>
             <div className="text-xs text-white/40">
-              {roleLabelTh[session.role]}
+              {t(`role.${session.role}`)}
               {session.dealerId ? ` · ${session.dealerId}` : ''}
             </div>
           </div>
           <button
             onClick={() => setOpen(false)}
-            aria-label="ปิดเมนู"
+            aria-label={t('nav.closeMenu')}
             className="md:hidden p-1 text-white/60 hover:text-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -108,7 +120,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
           ))}
           {showMasterData && (
             <>
-              <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">จัดการข้อมูลหลัก</div>
+              <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">⚙️ {t('nav.masterData')}</div>
               {adminNav.map((item) => (
                 <NavLink key={item.href} {...item} />
               ))}
@@ -116,7 +128,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
           )}
         </nav>
         <button onClick={logout} className="m-2 px-3 py-2 rounded text-sm text-white/80 hover:bg-white/10 text-left">
-          ออกจากระบบ
+          {t('nav.logout')}
         </button>
       </aside>
     </>

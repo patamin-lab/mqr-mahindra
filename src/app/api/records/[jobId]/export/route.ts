@@ -4,6 +4,8 @@ import { getRecordByJobId, getDealer } from '@/lib/db';
 import { canExport } from '@/lib/scope';
 import { buildSingleRecordWorkbook } from '@/lib/exportExcel';
 import { renderRecordPdf } from '@/lib/exportPdf';
+import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/translate';
 
 export const runtime = 'nodejs';
 
@@ -12,14 +14,15 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
   if (!session) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!canExport(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์ส่งออกข้อมูล' }, { status: 403 });
+    return NextResponse.json({ ok: false, error: translate(locale, 'validation.unauthorizedExport') }, { status: 403 });
   }
 
   const jobId = decodeURIComponent(params.jobId);
   const record = await getRecordByJobId(jobId, session);
   if (!record) {
-    return NextResponse.json({ ok: false, error: 'ไม่พบรายงานนี้' }, { status: 404 });
+    return NextResponse.json({ ok: false, error: translate(locale, 'validation.recordNotFound') }, { status: 404 });
   }
 
   try {
@@ -30,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
     const safeJobId = record.job_id.replace(/[^a-zA-Z0-9_-]/g, '_');
 
     if (format === 'pdf') {
-      const buf = await renderRecordPdf(record, origin, dealer?.full_name);
+      const buf = await renderRecordPdf(record, origin, dealer?.full_name, locale);
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           'Content-Type': 'application/pdf',
@@ -49,7 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
   } catch (err: any) {
     console.error('record export error', err);
     return NextResponse.json(
-      { ok: false, error: err?.message ?? 'ส่งออกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง' },
+      { ok: false, error: err?.message ?? translate(locale, 'validation.exportFailed') },
       { status: 500 }
     );
   }

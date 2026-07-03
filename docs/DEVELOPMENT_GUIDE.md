@@ -74,16 +74,23 @@ it validates the code (typecheck/lint/test/build), not a live deployment,
 so this manual check is still the only way to catch a real runtime
 regression before it reaches users.
 
-## 6. Testing (partial — PM Record only, not yet repo-wide)
+## 6. Testing (partial — service/repository/API layers, not yet full UI coverage)
 
-Vitest was introduced for the PM Record module (`src/features/pm-record/`,
-`src/app/api/pm-records/`) — unit tests for the service/repository layers
-plus API integration tests, all run in CI. No other module in this
-repository has automated test coverage yet (still confirmed absent for
-`records`, `admin/*`, `report`, etc.); verification there remains manual:
+Vitest was introduced for the PM Record module (technical name
+`maintenance` since the Architecture Refactoring pass —
+`src/features/maintenance/`, `src/app/api/pm-records/`) — unit tests for
+the service/repository layers plus API integration tests, all run in CI.
+The Production Stabilization Sprint extended this to shared platform code
+and MQR's non-UI logic: `lib/db.ts`'s audit log
+(`logAuditEvent`/`diffFieldsForAudit`), the MQR status transition state
+machine, `listRecordsPaginated()`, `exportCsv.ts`, the Maintenance Program
+versioning resolver/sync functions, and the PM lock-evaluation logic
+(`evaluateMaintenanceLock()`) all now have unit test coverage. React UI
+components (`records`/`report`/`admin/*`/`pm-records` pages and forms)
+still have no automated coverage; verification there remains manual:
 exercise the changed flow in the deployed app, check the relevant Supabase
 tables/RLS where applicable, check Vercel function logs for server errors.
-Extending automated coverage to other modules is tracked as an open item
+Extending automated coverage to the UI layer is tracked as an open item
 in `docs/ROADMAP.md`, not something this guide pretends is solved.
 
 ## 7. Environment variables

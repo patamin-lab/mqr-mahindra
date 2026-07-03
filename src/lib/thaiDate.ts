@@ -48,3 +48,54 @@ export function formatThaiDateTime(value: string | number | Date): string {
   const d = value instanceof Date ? value : new Date(value);
   return d.toLocaleString('th-TH', { timeZone: BANGKOK_TZ });
 }
+
+// ---------- Locale-aware formatting (src/lib/i18n) ----------
+// Thai UI -> Buddhist-era date, full Thai month name ("01 กรกฎาคม 2569").
+// English UI -> Gregorian date, short English month ("01 Jul 2026").
+// Both always render in Thailand local time (GMT+7), regardless of which
+// language is selected - only the calendar/month-name/year representation
+// changes, never the underlying moment in time. See lib/i18n/ for the
+// `Locale` type this takes.
+
+const ENGLISH_MONTHS_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/** Parts (day/month/year) of `value` as they read in Thailand local time,
+ *  independent of the server's own timezone. */
+function bangkokDateParts(value: string | number | Date): { day: number; month: number; year: number } {
+  const d = value instanceof Date ? value : new Date(value);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BANGKOK_TZ,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(d);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return { day: get('day'), month: get('month'), year: get('year') };
+}
+
+/** Date-only, locale-aware: `01 กรกฎาคม 2569` (th) / `01 Jul 2026` (en). */
+export function formatDateLocalized(value: string | number | Date, locale: 'th' | 'en'): string {
+  const { day, month, year } = bangkokDateParts(value);
+  const dd = String(day).padStart(2, '0');
+  if (locale === 'th') {
+    return `${dd} ${THAI_MONTHS_FULL[month - 1]} ${toBuddhistYear(year)}`;
+  }
+  return `${dd} ${ENGLISH_MONTHS_SHORT[month - 1]} ${year}`;
+}
+
+/** Full timestamp, locale-aware - same date representation as
+ *  `formatDateLocalized()` plus a 24h time-of-day suffix. */
+export function formatDateTimeLocalized(value: string | number | Date, locale: 'th' | 'en'): string {
+  const d = value instanceof Date ? value : new Date(value);
+  const datePart = formatDateLocalized(d, locale);
+  const timePart = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BANGKOK_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+  return `${datePart} ${timePart}`;
+}

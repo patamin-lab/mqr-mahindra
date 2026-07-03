@@ -11,13 +11,25 @@ import {
   SEVERITY_VALUES,
   SEVERITY_LABELS,
   PhotoLink,
+  Role,
+  canTransitionMqrStatus,
 } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
+import { uploadFileSmart } from '@/components/shared/upload/uploadFileSmart';
 
-export default function UpdateForm({ record }: { record: MqrRecord }) {
+export default function UpdateForm({ record, role }: { record: MqrRecord; role: Role }) {
   const router = useRouter();
   const [status, setStatus] = useState(record.status);
+  // The record's own current status is always offered (a no-op "keep as-is"
+  // option), plus whatever canTransitionMqrStatus() allows from here for
+  // this role - SuperAdmin sees every status (unconditional override),
+  // everyone else only the forward transitions defined in
+  // MQR_STATUS_TRANSITIONS. Prevents selecting an invalid transition in the
+  // UI rather than only rejecting it after Save.
+  const selectableStatuses = STATUS_VALUES.filter(
+    (s) => s === record.status || canTransitionMqrStatus(record.status as StatusValue, s, role)
+  );
   const [severity, setSeverity] = useState<Severity | ''>(record.severity ?? '');
   const [cause, setCause] = useState(record.cause ?? '');
   const [damagedParts, setDamagedParts] = useState(record.damaged_parts ?? '');
@@ -41,17 +53,14 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
       for (let i = 0; i < afterPhotos.length; i++) {
         const label = `ภาพหลังการแก้ไข ${i + 1}`;
         swalUpdateLoading(`กำลังอัปโหลด${label} (${i + 1}/${afterPhotos.length})...`);
-        const fd = new FormData();
-        fd.append('file', afterPhotos[i]);
-        fd.append('label', label);
-        fd.append('dealerId', record.dealer_id);
-        fd.append('jobId', record.job_id);
-        const upJson = await fetchJson<{ ok: boolean; error?: string; url: string }>('/api/upload', {
-          method: 'POST',
-          body: fd,
-        });
-        if (!upJson.ok) throw new Error(upJson.error || 'อัปโหลดรูปไม่สำเร็จ');
-        addPhotoLinks.push({ category: 'after_repair', label, url: upJson.url });
+        // Size-routed upload (same shared helper the report form uses) -
+        // a large "after repair" photo now gets the >4MB chunked-relay
+        // treatment too, instead of always proxying directly through
+        // /api/upload and risking Vercel's 4.5MB body cap.
+        const url = await uploadFileSmart(afterPhotos[i], label, record.dealer_id, (pct) =>
+          swalUpdateLoading(`กำลังอัปโหลด${label} (${i + 1}/${afterPhotos.length}) ${pct}%...`)
+        );
+        addPhotoLinks.push({ category: 'after_repair', label, url });
       }
 
       const keptUrls = new Set(photos.map((p) => p.url));
@@ -102,7 +111,7 @@ export default function UpdateForm({ record }: { record: MqrRecord }) {
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            {STATUS_VALUES.map((s) => (
+            {selectableStatuses.map((s) => (
               <option key={s} value={s}>
                 {STATUS_LABELS[s as StatusValue]}
               </option>

@@ -1,8 +1,11 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
-import { fetchPmRecord } from '@/features/pm-record/fetchPmRecord';
-import PmRecordForm from '@/features/pm-record/pm-record-form';
+import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
+import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanceLock';
+import MaintenanceForm from '@/features/maintenance/components/maintenance-form';
+import { t } from '@/lib/i18n/server';
+import PageHeader from '@/components/shared/layout/PageHeader';
 
 interface RouteParams {
   params: {
@@ -16,23 +19,23 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
   const session = await getSession();
   if (!session) return null;
 
-  const result = await fetchPmRecord(params.id);
+  const result = await fetchMaintenance(params.id);
 
   if ('notFound' in result && result.notFound) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-            <p className="text-sm text-gray-500">Record ID: {params.id}</p>
-          </div>
-          <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            Back to List
-          </Link>
-        </div>
+        <PageHeader
+          title={t('pmEdit.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
 
         <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p>Record not found.</p>
+          <p>{t('pmDetail.notFound')}</p>
         </div>
       </div>
     );
@@ -41,18 +44,18 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
   if ('error' in result) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-            <p className="text-sm text-gray-500">Record ID: {params.id}</p>
-          </div>
-          <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            Back to List
-          </Link>
-        </div>
+        <PageHeader
+          title={t('pmEdit.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
 
         <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>Error: {result.error}</p>
+          <p>{t('pmDetail.errorPrefix', { error: result.error })}</p>
         </div>
       </div>
     );
@@ -61,53 +64,74 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
   if (!('record' in result)) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-            <p className="text-sm text-gray-500">Record ID: {params.id}</p>
-          </div>
-          <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-            Back to List
-          </Link>
-        </div>
+        <PageHeader
+          title={t('pmEdit.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
 
         <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>Unexpected error loading record.</p>
+          <p>{t('pmDetail.unexpectedError')}</p>
         </div>
       </div>
     );
   }
 
   const record = result.record;
+  const lock = evaluateMaintenanceLock(record);
 
   return (
     <div className="max-w-2xl space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-brand-dark">Edit PM Record</h1>
-          <p className="text-sm text-gray-500">Record ID: {record.id}</p>
-        </div>
-        <Link
-          href={`/pm-records/${encodeURIComponent(record.id)}`}
-          className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
-        >
-          Back to Detail
-        </Link>
-      </div>
+      <PageHeader
+        title={t('pmEdit.title')}
+        subtitle={t('pmDetail.recordIdLabel', { id: record.id })}
+        actions={
+          <Link
+            href={`/pm-records/${encodeURIComponent(record.id)}`}
+            className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+          >
+            {t('pmEdit.backToDetail')}
+          </Link>
+        }
+      />
 
-      <PmRecordForm
+      {lock.locked && (
+        <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          🔒 {t('pmDetail.lockedBannerPrefix', { reason: t(`lockReason.${lock.reason}`) })}
+          {t('pmEdit.lockedBannerSuffix')}
+        </div>
+      )}
+
+      <MaintenanceForm
         mode="edit"
         recordId={record.id}
         showDealerField={seesAllDealers(session.role)}
+        locked={lock.locked}
         initial={{
           dealer_id: record.dealer_id,
           branch_id: record.branch_id,
           serial: record.serial,
+          model: record.model,
           technician_id: record.technician_id,
           scheduled_date: record.scheduled_date,
           performed_date: record.performed_date,
           status: record.status,
           notes: record.notes,
+          customer_name: record.customer_name,
+          customer_phone: record.customer_phone,
+          hour_meter: record.hour_meter,
+          pm_interval_id: record.pm_interval_id,
+          meter_photo_url: record.meter_photo_url,
+          nameplate_photo_url: record.nameplate_photo_url,
+          report_photo_url: record.report_photo_url,
+          latitude: record.latitude,
+          longitude: record.longitude,
+          gps_accuracy: record.gps_accuracy,
+          google_maps_url: record.google_maps_url,
         }}
       />
     </div>
