@@ -13,6 +13,29 @@
 
 export type NtrCustomerType = 'Individual' | 'Company';
 
+/** Standardized attachment categories - future modules (PM, Warranty,
+ *  Campaign) reuse these same keys/labels rather than inventing their own
+ *  (see docs/standards/DOMAIN_LANGUAGE_STANDARD.md). Stored via the
+ *  existing `additional_photos: {url,label}[]` array for the categories
+ *  with no dedicated column (Customer ID, Tax Invoice, CRM Lead, Other) -
+ *  the four with a dedicated required column
+ *  (photo_customer_tractor_url/photo_serial_plate_url/
+ *  photo_hour_meter_url/photo_signed_document_url) map onto
+ *  CUSTOMER_TRACTOR/SERIAL_PLATE/HOUR_METER/DELIVERY_SHEET. No schema
+ *  change was needed to standardize this taxonomy. */
+export const NTR_ATTACHMENT_TYPES = [
+  'CUSTOMER_ID',
+  'CUSTOMER_TRACTOR',
+  'SERIAL_PLATE',
+  'ENGINE_PLATE',
+  'HOUR_METER',
+  'DELIVERY_SHEET',
+  'TAX_INVOICE',
+  'CRM_LEAD',
+  'OTHER',
+] as const;
+export type NtrAttachmentType = (typeof NTR_ATTACHMENT_TYPES)[number];
+
 /** Provenance of the record, independent of `import_session_id` (which is
  *  only ever set for 'legacy_import') - lets a future API integration
  *  mark its own records distinctly from manual dealer entry. */
@@ -33,15 +56,25 @@ export interface NtrRecord {
   engine_number: string | null;
   salesperson: string | null;
   receiving_person: string | null;
+  customer_title: string | null;
+  customer_first_name: string | null;
+  customer_last_name: string | null;
   customer_name: string;
   customer_phone: string;
   customer_address: string | null;
+  customer_subdistrict: string | null;
   customer_district: string | null;
   customer_province: string | null;
   customer_postal_code: string | null;
   customer_type: NtrCustomerType | null;
+  /** References product_families.id - resolved (never duplicated as a
+   *  free-text name) whenever the tractor's Product Family is known. */
+  product_family_id: string | null;
+  variant: string | null;
   retail_date: string | null;
   delivery_date: string;
+  pdi_date: string | null;
+  manufacturing_year: number | null;
   hour_meter: number | null;
   latitude: number | null;
   longitude: number | null;
@@ -82,15 +115,23 @@ export type NtrRecordCreateInput = Pick<
   | 'engine_number'
   | 'salesperson'
   | 'receiving_person'
+  | 'customer_title'
+  | 'customer_first_name'
+  | 'customer_last_name'
   | 'customer_name'
   | 'customer_phone'
   | 'customer_address'
+  | 'customer_subdistrict'
   | 'customer_district'
   | 'customer_province'
   | 'customer_postal_code'
   | 'customer_type'
+  | 'product_family_id'
+  | 'variant'
   | 'retail_date'
   | 'delivery_date'
+  | 'pdi_date'
+  | 'manufacturing_year'
   | 'hour_meter'
   | 'photo_customer_tractor_url'
   | 'photo_serial_plate_url'
@@ -121,15 +162,23 @@ export type NtrRecordUpdateInput = Partial<
     | 'branch_id'
     | 'salesperson'
     | 'receiving_person'
+    | 'customer_title'
+    | 'customer_first_name'
+    | 'customer_last_name'
     | 'customer_name'
     | 'customer_phone'
     | 'customer_address'
+    | 'customer_subdistrict'
     | 'customer_district'
     | 'customer_province'
     | 'customer_postal_code'
     | 'customer_type'
+    | 'product_family_id'
+    | 'variant'
     | 'retail_date'
     | 'delivery_date'
+    | 'pdi_date'
+    | 'manufacturing_year'
     | 'hour_meter'
     | 'latitude'
     | 'longitude'
@@ -219,15 +268,23 @@ export interface NtrImportRow {
   serial: string;
   model: string | null;
   engine_number: string | null;
+  customer_title: string | null;
+  customer_first_name: string | null;
+  customer_last_name: string | null;
   customer_name: string;
   customer_phone: string;
   customer_address: string | null;
+  customer_subdistrict: string | null;
   customer_district: string | null;
   customer_province: string | null;
   customer_postal_code: string | null;
   customer_type: NtrCustomerType | null;
+  product_family_id: string | null;
+  variant: string | null;
   retail_date: string | null;
   delivery_date: string;
+  pdi_date: string | null;
+  manufacturing_year: number | null;
   salesperson: string | null;
   receiving_person: string | null;
   hour_meter: number | null;

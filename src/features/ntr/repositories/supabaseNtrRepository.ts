@@ -80,15 +80,23 @@ export class SupabaseNtrRepository implements NtrRepository {
       engine_number: input.engine_number,
       salesperson: input.salesperson,
       receiving_person: input.receiving_person,
+      customer_title: input.customer_title,
+      customer_first_name: input.customer_first_name,
+      customer_last_name: input.customer_last_name,
       customer_name: input.customer_name,
       customer_phone: input.customer_phone,
       customer_address: input.customer_address,
+      customer_subdistrict: input.customer_subdistrict,
       customer_district: input.customer_district,
       customer_province: input.customer_province,
       customer_postal_code: input.customer_postal_code,
       customer_type: input.customer_type,
+      product_family_id: input.product_family_id,
+      variant: input.variant,
       retail_date: input.retail_date,
       delivery_date: input.delivery_date,
+      pdi_date: input.pdi_date,
+      manufacturing_year: input.manufacturing_year,
       hour_meter: input.hour_meter,
       latitude: input.latitude ?? null,
       longitude: input.longitude ?? null,
@@ -125,13 +133,21 @@ export class SupabaseNtrRepository implements NtrRepository {
     if (input.branch_id !== undefined) updatePayload.branch_id = input.branch_id;
     if (input.salesperson !== undefined) updatePayload.salesperson = input.salesperson;
     if (input.receiving_person !== undefined) updatePayload.receiving_person = input.receiving_person;
+    if (input.customer_title !== undefined) updatePayload.customer_title = input.customer_title;
+    if (input.customer_first_name !== undefined) updatePayload.customer_first_name = input.customer_first_name;
+    if (input.customer_last_name !== undefined) updatePayload.customer_last_name = input.customer_last_name;
     if (input.customer_name !== undefined) updatePayload.customer_name = input.customer_name;
     if (input.customer_phone !== undefined) updatePayload.customer_phone = input.customer_phone;
     if (input.customer_address !== undefined) updatePayload.customer_address = input.customer_address;
+    if (input.customer_subdistrict !== undefined) updatePayload.customer_subdistrict = input.customer_subdistrict;
     if (input.customer_district !== undefined) updatePayload.customer_district = input.customer_district;
     if (input.customer_province !== undefined) updatePayload.customer_province = input.customer_province;
     if (input.customer_postal_code !== undefined) updatePayload.customer_postal_code = input.customer_postal_code;
     if (input.customer_type !== undefined) updatePayload.customer_type = input.customer_type;
+    if (input.product_family_id !== undefined) updatePayload.product_family_id = input.product_family_id;
+    if (input.variant !== undefined) updatePayload.variant = input.variant;
+    if (input.pdi_date !== undefined) updatePayload.pdi_date = input.pdi_date;
+    if (input.manufacturing_year !== undefined) updatePayload.manufacturing_year = input.manufacturing_year;
     if (input.retail_date !== undefined) updatePayload.retail_date = input.retail_date;
     if (input.delivery_date !== undefined) updatePayload.delivery_date = input.delivery_date;
     if (input.hour_meter !== undefined) updatePayload.hour_meter = input.hour_meter;

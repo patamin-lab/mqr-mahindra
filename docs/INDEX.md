@@ -35,6 +35,9 @@ actually ship today — not a green-field proposal.
 - [`EVENT_CATALOG.md`](standards/EVENT_CATALOG.md) — the canonical Vehicle
   Life Cycle timeline event codes (`vehicle_events`/`event_definitions`),
   which modules actually publish today, and how a new module wires in.
+- [`NTR_IMPORT_MANUAL.md`](standards/NTR_IMPORT_MANUAL.md) — the Legacy
+  Import template's exact column order, required/optional fields, and
+  how to extend it for a future field.
 - [`TESTING_STANDARD.md`](standards/TESTING_STANDARD.md) — unit,
   integration, security, permission, and regression test expectations;
   coverage bar.

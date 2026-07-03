@@ -31,7 +31,7 @@ function columns(locale: Locale): { header: string; key: string; width: number }
     { header: translate(locale, 'csv.province'), key: 'customer_province', width: 14 },
     { header: translate(locale, 'csv.postalCode'), key: 'customer_postal_code', width: 10 },
     { header: translate(locale, 'csv.retailDate'), key: 'retail_date', width: 14 },
-    { header: translate(locale, 'csv.deliveryDate'), key: 'delivery_date', width: 14 },
+    { header: translate(locale, 'ntr.acceptanceDate'), key: 'delivery_date', width: 14 },
     { header: translate(locale, 'csv.hourMeter'), key: 'hour_meter', width: 12 },
     { header: translate(locale, 'csv.salesperson'), key: 'salesperson', width: 16 },
     { header: translate(locale, 'csv.receivingPerson'), key: 'receiving_person', width: 16 },

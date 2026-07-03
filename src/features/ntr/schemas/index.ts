@@ -37,6 +37,14 @@ const buildOptionalLongitude = (locale: Locale) =>
     .optional();
 const optionalAccuracy = z.union([z.coerce.number().min(0), z.null(), z.undefined()]).optional();
 
+/** Nullable, never undefined (matches every other optional field's
+ *  convention above) - manufacturing year, when given, must be a
+ *  plausible calendar year, not an arbitrary integer. */
+const optionalManufacturingYear = z.preprocess(
+  (val) => (val === undefined || val === null || val === '' ? null : val),
+  z.union([z.coerce.number().int().min(1980).max(new Date().getFullYear() + 1), z.null()])
+);
+
 /** Normalizes an absent/unrecognized value to `null` (never `undefined`),
  *  matching the `nullableTrimmedString` convention above so downstream
  *  types stay `NtrCustomerType | null`, never `| undefined`. */
@@ -62,15 +70,23 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     engine_number: nullableTrimmedString,
     salesperson: nullableTrimmedString,
     receiving_person: nullableTrimmedString,
+    customer_title: nullableTrimmedString,
+    customer_first_name: nullableTrimmedString,
+    customer_last_name: nullableTrimmedString,
     customer_name: requiredTrimmedString(translate(locale, 'validation.enterCustomerName')),
     customer_phone: buildNtrCustomerPhoneSchema(locale),
     customer_address: nullableTrimmedString,
+    customer_subdistrict: nullableTrimmedString,
     customer_district: nullableTrimmedString,
     customer_province: nullableTrimmedString,
     customer_postal_code: nullableTrimmedString,
     customer_type: customerTypeSchema,
+    product_family_id: nullableTrimmedString,
+    variant: nullableTrimmedString,
     retail_date: nullableTrimmedString,
     delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
+    pdi_date: nullableTrimmedString,
+    manufacturing_year: optionalManufacturingYear,
     hour_meter: z.preprocess(
       (val) => (val === undefined || val === null || val === '' ? null : val),
       z.union([z.coerce.number().min(0, translate(locale, 'validation.hourMeterNegative')), z.null()])
@@ -99,15 +115,23 @@ export const buildNtrRecordUpdateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
       branch_id: nullableTrimmedString,
       salesperson: nullableTrimmedString,
       receiving_person: nullableTrimmedString,
+      customer_title: nullableTrimmedString,
+      customer_first_name: nullableTrimmedString,
+      customer_last_name: nullableTrimmedString,
       customer_name: requiredTrimmedString(translate(locale, 'validation.enterCustomerName')),
       customer_phone: buildNtrCustomerPhoneSchema(locale),
       customer_address: nullableTrimmedString,
+      customer_subdistrict: nullableTrimmedString,
       customer_district: nullableTrimmedString,
       customer_province: nullableTrimmedString,
       customer_postal_code: nullableTrimmedString,
       customer_type: customerTypeSchema,
+      product_family_id: nullableTrimmedString,
+      variant: nullableTrimmedString,
       retail_date: nullableTrimmedString,
       delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
+      pdi_date: nullableTrimmedString,
+      manufacturing_year: optionalManufacturingYear,
       hour_meter: z.coerce.number().min(0, translate(locale, 'validation.hourMeterNegative')),
       latitude: buildOptionalLatitude(locale),
       longitude: buildOptionalLongitude(locale),

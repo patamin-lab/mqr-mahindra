@@ -314,6 +314,7 @@ export async function listAllProductFamiliesAdmin(): Promise<ProductFamily[]> {
   return data ?? [];
 }
 
+
 export async function getProductFamily(id: string): Promise<ProductFamily | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase.from('product_families').select('*').eq('id', id).maybeSingle();

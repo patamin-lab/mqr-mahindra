@@ -22,18 +22,43 @@ const NTR_FIELD_LABELS: Record<string, string> = {
   branch_id: 'สาขา',
   salesperson: 'พนักงานขาย',
   receiving_person: 'ผู้รับมอบรถ',
+  customer_title: 'คำนำหน้าชื่อลูกค้า',
+  customer_first_name: 'ชื่อลูกค้า',
+  customer_last_name: 'นามสกุลลูกค้า',
   customer_name: 'ชื่อลูกค้า',
   customer_phone: 'เบอร์โทรลูกค้า',
   customer_address: 'ที่อยู่ลูกค้า',
+  customer_subdistrict: 'ตำบล/แขวง',
   customer_district: 'อำเภอ/เขต',
   customer_province: 'จังหวัด',
   customer_postal_code: 'รหัสไปรษณีย์',
   customer_type: 'ประเภทลูกค้า',
+  product_family_id: 'กลุ่มผลิตภัณฑ์',
+  variant: 'รุ่นย่อย',
   retail_date: 'วันที่ขายปลีก',
   delivery_date: 'วันที่ส่งมอบ',
+  pdi_date: 'วันที่ตรวจสภาพก่อนส่งมอบ',
+  manufacturing_year: 'ปีที่ผลิต',
   hour_meter: 'ชั่วโมงเครื่องยนต์',
   status: 'สถานะ',
 };
+
+/** Composes `customer_name` from title/first/last when any of those are
+ *  present, so a dealer capturing structured name fields never has to
+ *  separately type a duplicate full name too - see
+ *  docs/standards/DATABASE_STANDARD.md's "avoid storing duplicate
+ *  business data" rule. `customer_name` stays the canonical, required,
+ *  always-populated display field (unchanged for company customers or
+ *  legacy-imported rows that only ever had a free-text name). */
+function deriveCustomerName<T extends { customer_title?: string | null; customer_first_name?: string | null; customer_last_name?: string | null; customer_name?: string }>(
+  input: T
+): T {
+  const hasStructuredName = input.customer_first_name || input.customer_last_name;
+  if (!hasStructuredName) return input;
+  const composed = [input.customer_title, input.customer_first_name, input.customer_last_name].filter(Boolean).join(' ').trim();
+  if (!composed) return input;
+  return { ...input, customer_name: composed };
+}
 
 export class NtrService {
   constructor(
@@ -66,7 +91,7 @@ export class NtrService {
       throw new Error(`Tractor serial "${input.serial}" is already registered (${existing.ntr_number})`);
     }
 
-    const created = await this.repository.create(input, actor);
+    const created = await this.repository.create(deriveCustomerName(input), actor);
 
     await logAuditEvent({
       module: 'ntr',
@@ -103,7 +128,7 @@ export class NtrService {
       throw new Error('NTR record not found');
     }
 
-    const updated = await this.repository.update(id, input, actor);
+    const updated = await this.repository.update(id, deriveCustomerName(input), actor);
 
     const events = diffFieldsForAudit(
       { module: 'ntr', recordId: updated.id, recordRef: updated.ntr_number, performedBy: actor.username },

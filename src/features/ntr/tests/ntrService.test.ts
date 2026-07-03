@@ -25,15 +25,23 @@ function makeRecord(overrides: Partial<NtrRecord> = {}): NtrRecord {
     engine_number: 'ENG-1',
     salesperson: null,
     receiving_person: null,
+    customer_title: null,
+    customer_first_name: null,
+    customer_last_name: null,
     customer_name: 'Somchai',
     customer_phone: '081-2345678',
     customer_address: null,
+    customer_subdistrict: null,
     customer_district: null,
     customer_province: null,
     customer_postal_code: null,
     customer_type: null,
+    product_family_id: null,
+    variant: null,
     retail_date: null,
     delivery_date: '2026-01-01',
+    pdi_date: null,
+    manufacturing_year: null,
     hour_meter: null,
     latitude: null,
     longitude: null,
@@ -101,15 +109,23 @@ describe('NtrService', () => {
     engine_number: 'ENG-1',
     salesperson: null,
     receiving_person: null,
+    customer_title: null,
+    customer_first_name: null,
+    customer_last_name: null,
     customer_name: 'Somchai',
     customer_phone: '081-2345678',
     customer_address: null,
+    customer_subdistrict: null,
     customer_district: null,
     customer_province: null,
     customer_postal_code: null,
     customer_type: null,
+    product_family_id: null,
+    variant: null,
     retail_date: null,
     delivery_date: '2026-01-01',
+    pdi_date: null,
+    manufacturing_year: null,
     hour_meter: null,
     photo_customer_tractor_url: 'https://example.com/a.jpg',
     photo_serial_plate_url: 'https://example.com/b.jpg',
@@ -157,6 +173,26 @@ describe('NtrService', () => {
     it('rejects when actor username is empty', async () => {
       await expect(service.create(createInput, { username: '' })).rejects.toThrow('Actor username is required');
       expect(repository.findActiveBySerial).not.toHaveBeenCalled();
+    });
+
+    it('composes customer_name from title/first/last name when structured name fields are provided (avoid duplicate data entry)', async () => {
+      vi.mocked(repository.findActiveBySerial).mockResolvedValue(null);
+      vi.mocked(repository.create).mockImplementation(async (input) => makeRecord({ customer_name: input.customer_name }));
+
+      const structuredInput: NtrRecordCreateInput = {
+        ...createInput,
+        customer_name: '', // deliberately blank - should be derived, not required
+        customer_title: 'นาย',
+        customer_first_name: 'สมชาย',
+        customer_last_name: 'ใจดี',
+      };
+
+      await service.create(structuredInput, actor);
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ customer_name: 'นาย สมชาย ใจดี' }),
+        actor
+      );
     });
   });
 

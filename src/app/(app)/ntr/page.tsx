@@ -168,7 +168,7 @@ export default async function NtrRegistryPage({
           <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3">{t('csv.ntrNumber')}</th>
-              <th className="text-left px-4 py-3">{t('csv.deliveryDate')}</th>
+              <th className="text-left px-4 py-3">{t('ntr.acceptanceDate')}</th>
               <th className="text-left px-4 py-3">{t('csv.serial')} / {t('csv.model')}</th>
               <th className="text-left px-4 py-3">{t('csv.customerName')}</th>
               <th className="text-left px-4 py-3">{t('common.dealer')}</th>

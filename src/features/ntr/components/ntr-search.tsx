@@ -275,17 +275,37 @@ function NtrRegistrationForm({
   const { t } = useTranslation();
   const [salesperson, setSalesperson] = useState('');
   const [receivingPerson, setReceivingPerson] = useState('');
+  const [customerTitle, setCustomerTitle] = useState('');
+  const [customerFirstName, setCustomerFirstName] = useState('');
+  const [customerLastName, setCustomerLastName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [customerSubdistrict, setCustomerSubdistrict] = useState('');
   const [customerDistrict, setCustomerDistrict] = useState('');
   const [customerProvince, setCustomerProvince] = useState('');
   const [customerPostalCode, setCustomerPostalCode] = useState('');
   const [customerType, setCustomerType] = useState<'Individual' | 'Company' | ''>('');
+  const [productFamilyId, setProductFamilyId] = useState('');
+  const [productFamilies, setProductFamilies] = useState<{ id: string; name: string }[]>([]);
+  const [variant, setVariant] = useState('');
   const [retailDate, setRetailDate] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [pdiDate, setPdiDate] = useState('');
+  const [manufacturingYear, setManufacturingYear] = useState('');
   const [hourMeter, setHourMeter] = useState('');
   const [gps, setGps] = useState<GpsLocation>(EMPTY_GPS);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const json = await fetchJson<{ ok: boolean; productFamilies: { id: string; name: string }[] }>('/api/product-families');
+        setProductFamilies(json.productFamilies ?? []);
+      } catch {
+        setProductFamilies([]);
+      }
+    })();
+  }, []);
   const [photos, setPhotos] = useState<Record<RequiredPhotoSlot, string | null>>({
     customer_tractor: null,
     serial_plate: null,
@@ -335,7 +355,8 @@ function NtrRegistrationForm({
   }
 
   function validate(): string | null {
-    if (!customerName.trim()) return t('validation.enterCustomerName');
+    const hasStructuredName = customerFirstName.trim() || customerLastName.trim();
+    if (!customerName.trim() && !hasStructuredName) return t('validation.enterCustomerName');
     if (!/^0\d{9}$/.test(customerPhone.replace(/\D/g, ''))) return t('validation.invalidPhone');
     if (!deliveryDate) return t('validation.specifyDeliveryDate');
     if (!photos.customer_tractor) return t('validation.uploadCustomerTractorPhoto');
@@ -354,6 +375,13 @@ function NtrRegistrationForm({
     const confirmed = await swalConfirm(t('ntr.confirmCompleteRegistrationBody'), { title: t('ntr.confirmCompleteRegistrationTitle'), confirmText: t('common.confirm') });
     if (!confirmed) return;
 
+    // Composed client-side too (not just in NtrService) so the required
+    // customer_name schema field is satisfied even when the operator only
+    // filled Title/First/Last Name and never typed a separate full name -
+    // see NtrService's deriveCustomerName() for the server-side version of
+    // this same rule (defense in depth, and the only path Legacy Import uses).
+    const composedName = customerName.trim() || [customerTitle, customerFirstName, customerLastName].filter(Boolean).join(' ').trim();
+
     setSubmitting(true);
     swalLoading(t('common.saving'));
     try {
@@ -368,15 +396,23 @@ function NtrRegistrationForm({
           engine_number: tractor.engine_number,
           salesperson: salesperson.trim() || null,
           receiving_person: receivingPerson.trim() || null,
-          customer_name: customerName,
+          customer_title: customerTitle.trim() || null,
+          customer_first_name: customerFirstName.trim() || null,
+          customer_last_name: customerLastName.trim() || null,
+          customer_name: composedName,
           customer_phone: customerPhone,
           customer_address: customerAddress.trim() || null,
+          customer_subdistrict: customerSubdistrict.trim() || null,
           customer_district: customerDistrict.trim() || null,
           customer_province: customerProvince.trim() || null,
           customer_postal_code: customerPostalCode.trim() || null,
           customer_type: customerType || null,
+          product_family_id: productFamilyId || null,
+          variant: variant.trim() || null,
           retail_date: retailDate || null,
           delivery_date: deliveryDate,
+          pdi_date: pdiDate || null,
+          manufacturing_year: manufacturingYear.trim() ? Number(manufacturingYear) : null,
           hour_meter: hourMeter.trim() ? Number(hourMeter) : null,
           photo_customer_tractor_url: photos.customer_tractor,
           photo_serial_plate_url: photos.serial_plate,
@@ -435,7 +471,16 @@ function NtrRegistrationForm({
       <div className="space-y-3 rounded border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.customerInfoTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label={`${t('pdf.customerName')} *`} value={customerName} onChange={setCustomerName} disabled={submitting} />
+          <SelectField label={t('csv.customerType')} value={customerType} onChange={(v) => setCustomerType(v as 'Individual' | 'Company' | '')} options={customerTypeOptions} />
+          {customerType === 'Individual' ? (
+            <>
+              <TextField label={t('csv.customerTitle')} value={customerTitle} onChange={setCustomerTitle} placeholder={t('ntr.customerTitlePlaceholder')} disabled={submitting} />
+              <TextField label={t('csv.customerFirstName')} value={customerFirstName} onChange={setCustomerFirstName} disabled={submitting} />
+              <TextField label={t('csv.customerLastName')} value={customerLastName} onChange={setCustomerLastName} disabled={submitting} />
+            </>
+          ) : (
+            <TextField label={`${t('pdf.customerName')} *`} value={customerName} onChange={setCustomerName} disabled={submitting} />
+          )}
           <TextField
             label={`${t('pdf.customerPhone')} *`}
             value={customerPhone}
@@ -443,11 +488,23 @@ function NtrRegistrationForm({
             placeholder="081-2345678"
             disabled={submitting}
           />
-          <SelectField label={t('csv.customerType')} value={customerType} onChange={(v) => setCustomerType(v as 'Individual' | 'Company' | '')} options={customerTypeOptions} />
           <TextField label={t('csv.customerAddress')} value={customerAddress} onChange={setCustomerAddress} disabled={submitting} />
+          <TextField label={t('csv.subdistrict')} value={customerSubdistrict} onChange={setCustomerSubdistrict} disabled={submitting} />
           <TextField label={t('csv.district')} value={customerDistrict} onChange={setCustomerDistrict} disabled={submitting} />
           <TextField label={t('csv.province')} value={customerProvince} onChange={setCustomerProvince} disabled={submitting} />
           <TextField label={t('csv.postalCode')} value={customerPostalCode} onChange={setCustomerPostalCode} disabled={submitting} />
+        </div>
+
+        <h2 className="text-sm font-semibold text-gray-600">{t('ntr.tractorInfoTitle')}</h2>
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          <SelectField
+            label={t('common.productFamily')}
+            value={productFamilyId}
+            onChange={setProductFamilyId}
+            options={[{ value: '', label: t('ntr.selectProductFamily') }, ...productFamilies.map((f) => ({ value: f.id, label: f.name }))]}
+          />
+          <TextField label={t('csv.variant')} value={variant} onChange={setVariant} disabled={submitting} />
+          <TextField label={t('csv.manufacturingYear')} value={manufacturingYear} onChange={setManufacturingYear} placeholder="2026" disabled={submitting} />
         </div>
 
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.deliveryInfoTitle')}</h2>
@@ -457,8 +514,12 @@ function NtrRegistrationForm({
             <input type="date" className="w-full rounded border px-2 py-1.5 text-sm" value={retailDate} onChange={(e) => setRetailDate(e.target.value)} disabled={submitting} />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">{`${t('csv.deliveryDate')} *`}</label>
+            <label className="block text-xs text-gray-500 mb-1">{`${t('ntr.acceptanceDate')} *`}</label>
             <input type="date" className="w-full rounded border px-2 py-1.5 text-sm" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} disabled={submitting} />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t('csv.pdiDate')}</label>
+            <input type="date" className="w-full rounded border px-2 py-1.5 text-sm" value={pdiDate} onChange={(e) => setPdiDate(e.target.value)} disabled={submitting} />
           </div>
           <TextField label={t('pdf.hourMeter')} value={hourMeter} onChange={setHourMeter} disabled={submitting} />
           <TextField label={t('csv.salesperson')} value={salesperson} onChange={setSalesperson} disabled={submitting} />

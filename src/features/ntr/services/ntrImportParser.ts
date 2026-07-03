@@ -32,6 +32,18 @@ export const TEMPLATE_COLUMNS = [
   'salesperson',
   'receiving_person',
   'hour_meter',
+  // Appended, not inserted, so a legacy file exported before these fields
+  // existed still parses correctly - a missing trailing column simply
+  // yields '' -> null for every row, per spec ("if a legacy file does not
+  // contain them, leave them NULL").
+  'customer_title',
+  'customer_first_name',
+  'customer_last_name',
+  'customer_subdistrict',
+  'product_family_id',
+  'variant',
+  'pdi_date',
+  'manufacturing_year',
 ] as const;
 
 function normalizeCustomerType(value: string): NtrCustomerType | null {
@@ -47,6 +59,7 @@ function cellToRow(cells: string[], rowNumber: number): NtrImportRow {
     return (cells[idx] ?? '').trim();
   };
   const hourMeterRaw = get('hour_meter');
+  const manufacturingYearRaw = get('manufacturing_year');
   return {
     row: rowNumber,
     dealer_id: get('dealer_id'),
@@ -54,15 +67,23 @@ function cellToRow(cells: string[], rowNumber: number): NtrImportRow {
     serial: get('serial'),
     model: get('model') || null,
     engine_number: get('engine_number') || null,
+    customer_title: get('customer_title') || null,
+    customer_first_name: get('customer_first_name') || null,
+    customer_last_name: get('customer_last_name') || null,
     customer_name: get('customer_name'),
     customer_phone: get('customer_phone'),
     customer_address: get('customer_address') || null,
+    customer_subdistrict: get('customer_subdistrict') || null,
     customer_district: get('customer_district') || null,
     customer_province: get('customer_province') || null,
     customer_postal_code: get('customer_postal_code') || null,
     customer_type: get('customer_type') ? normalizeCustomerType(get('customer_type')) : null,
+    product_family_id: get('product_family_id') || null,
+    variant: get('variant') || null,
     retail_date: get('retail_date') || null,
     delivery_date: get('delivery_date'),
+    pdi_date: get('pdi_date') || null,
+    manufacturing_year: manufacturingYearRaw ? Number(manufacturingYearRaw) : null,
     salesperson: get('salesperson') || null,
     receiving_person: get('receiving_person') || null,
     hour_meter: hourMeterRaw ? Number(hourMeterRaw) : null,

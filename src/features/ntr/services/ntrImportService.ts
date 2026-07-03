@@ -64,16 +64,17 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository):
       results.push({ row, outcome: 'failed', reason: 'Missing engine_number' });
       continue;
     }
-    if (!row.retail_date) {
-      results.push({ row, outcome: 'failed', reason: 'Missing retail_date' });
-      continue;
-    }
     if (!row.delivery_date) {
       results.push({ row, outcome: 'failed', reason: 'Missing delivery_date' });
       continue;
     }
-    if (!row.customer_name || !row.customer_phone) {
-      results.push({ row, outcome: 'failed', reason: 'Missing customer_name or customer_phone' });
+    // customer_name is required unless a structured name (title/first/
+    // last) is provided instead - NtrService.create() composes it, same
+    // rule the manual registration form uses (see
+    // docs/standards/NTR_IMPORT_MANUAL.md).
+    const hasName = row.customer_name || row.customer_first_name || row.customer_last_name;
+    if (!hasName || !row.customer_phone) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer name (or title/first/last name) or customer_phone' });
       continue;
     }
     const dealer = await getDealer(row.dealer_id);
@@ -194,15 +195,23 @@ export class NtrImportService {
           engine_number: v.row.engine_number ?? vehicle.engine_number ?? null,
           salesperson: v.row.salesperson,
           receiving_person: v.row.receiving_person,
+          customer_title: v.row.customer_title,
+          customer_first_name: v.row.customer_first_name,
+          customer_last_name: v.row.customer_last_name,
           customer_name: v.row.customer_name,
           customer_phone: v.row.customer_phone,
           customer_address: v.row.customer_address,
+          customer_subdistrict: v.row.customer_subdistrict,
           customer_district: v.row.customer_district,
           customer_province: v.row.customer_province,
           customer_postal_code: v.row.customer_postal_code,
           customer_type: v.row.customer_type,
+          product_family_id: v.row.product_family_id,
+          variant: v.row.variant,
           retail_date: v.row.retail_date,
           delivery_date: v.row.delivery_date,
+          pdi_date: v.row.pdi_date,
+          manufacturing_year: v.row.manufacturing_year,
           hour_meter: v.row.hour_meter,
           photo_customer_tractor_url: null,
           photo_serial_plate_url: null,
