@@ -5,15 +5,14 @@
  * requires: an Instructions sheet (human-readable field guide), a Data
  * sheet (the actual header row a dealer fills in), and a `_META` sheet
  * (module/version/generated-date, read back by `ImportTemplateValidator`
- * on upload). Generic over any module's `ImportFieldDefinition[]` - no
- * NTR-specific text lives here.
+ * on upload). Depends only on `ImportContract` - no NTR-specific (or any
+ * module-specific) text lives here.
  */
 import ExcelJS from 'exceljs';
-import { ImportFieldDefinition, ImportTemplateMeta } from './types';
+import { ImportContract } from './ImportContract';
 
 export interface BuildTemplateOptions {
-  meta: ImportTemplateMeta;
-  fields: ImportFieldDefinition[];
+  contract: ImportContract;
   /** One instruction line per field, shown in the Instructions sheet next
    *  to its column header - module-supplied so this file stays
    *  business-content-free. */
@@ -21,6 +20,7 @@ export interface BuildTemplateOptions {
 }
 
 export async function buildImportTemplate(options: BuildTemplateOptions): Promise<Buffer> {
+  const { contract } = options;
   const wb = new ExcelJS.Workbook();
   wb.creator = 'MASP';
   wb.created = new Date();
@@ -32,7 +32,7 @@ export async function buildImportTemplate(options: BuildTemplateOptions): Promis
     { header: 'Notes', key: 'note', width: 80 },
   ];
   instructionsSheet.getRow(1).font = { bold: true };
-  const requiredByKey = new Map(options.fields.map((f) => [f.displayLabel, f.required]));
+  const requiredByKey = new Map(contract.fields.map((f) => [f.displayLabel, f.required]));
   for (const line of options.instructions) {
     instructionsSheet.addRow({
       field: line.field,
@@ -42,7 +42,7 @@ export async function buildImportTemplate(options: BuildTemplateOptions): Promis
   }
 
   const dataSheet = wb.addWorksheet('Data');
-  dataSheet.columns = options.fields.map((f) => ({ header: f.displayLabel, key: f.canonicalKey, width: 22 }));
+  dataSheet.columns = contract.fields.map((f) => ({ header: f.displayLabel, key: f.canonicalKey, width: 22 }));
   dataSheet.getRow(1).font = { bold: true };
 
   const metaSheet = wb.addWorksheet('_META');
@@ -51,9 +51,9 @@ export async function buildImportTemplate(options: BuildTemplateOptions): Promis
     { header: 'Value', key: 'value', width: 40 },
   ];
   metaSheet.addRows([
-    { key: 'Template Name', value: options.meta.templateName },
-    { key: 'Template Version', value: options.meta.templateVersion },
-    { key: 'Module', value: options.meta.module },
+    { key: 'Template Name', value: contract.templateName },
+    { key: 'Template Version', value: contract.templateVersion },
+    { key: 'Module', value: contract.module },
     { key: 'Generated Date', value: new Date().toISOString() },
   ]);
 

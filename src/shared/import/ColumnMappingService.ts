@@ -1,16 +1,18 @@
 /**
  * Universal Import Framework — column mapping.
  *
- * Matches an uploaded file's header row against a module's declared
- * `ImportFieldDefinition[]` by alias, independent of column order - a
- * module's future template revision can reorder/add columns without
- * breaking older uploaded files, and a dealer's spreadsheet can use any
- * recognized synonym for a field ("Dealer", "Dealer_ID", "DealerCode" all
- * resolve to the same canonical `dealer_id`). Never modifies parser
- * logic (row iteration/type coercion) - this only decides which header
- * cell corresponds to which canonical field.
+ * Matches an uploaded file's header row against a module's `ImportContract`
+ * by alias, independent of column order - a module's future template
+ * revision can reorder/add columns without breaking older uploaded files,
+ * and a dealer's spreadsheet can use any recognized synonym for a field
+ * ("Dealer", "Dealer_ID", "DealerCode" all resolve to the same canonical
+ * `dealer_id`). Depends only on `ImportContract` - never modifies parser
+ * logic (row iteration/type coercion) or contains any module-specific
+ * knowledge; this only decides which header cell corresponds to which
+ * canonical field.
  */
 import { normalizeHeader } from './HeaderNormalizer';
+import { ImportContract, requiredFieldsOf } from './ImportContract';
 import { ColumnMappingResult, ImportFieldDefinition } from './types';
 
 /** Every alias a field recognizes, including its own `canonicalKey` and
@@ -20,7 +22,7 @@ function aliasesFor(field: ImportFieldDefinition): string[] {
 }
 
 export class ColumnMappingService {
-  constructor(private readonly fields: ImportFieldDefinition[]) {}
+  constructor(private readonly contract: ImportContract) {}
 
   /** `headerRow` is the raw header cell text, in file order. Returns the
    *  mapping plus every diagnostic Step 3 needs to display - this never
@@ -28,8 +30,9 @@ export class ColumnMappingService {
    *  required field in `missingRequiredColumns`, for the caller to reject
    *  as a business validation failure. */
   mapHeaders(headerRow: string[]): ColumnMappingResult {
+    const fields = this.contract.fields;
     const byNormalizedAlias = new Map<string, ImportFieldDefinition>();
-    for (const field of this.fields) {
+    for (const field of fields) {
       for (const alias of aliasesFor(field)) {
         byNormalizedAlias.set(normalizeHeader(alias), field);
       }
@@ -51,8 +54,10 @@ export class ColumnMappingService {
       }
     }
 
-    const ignoredColumns = this.fields.filter((f) => !f.required && !matchedKeys.has(f.canonicalKey)).map((f) => f.displayLabel);
-    const missingRequiredColumns = this.fields.filter((f) => f.required && !matchedKeys.has(f.canonicalKey)).map((f) => f.displayLabel);
+    const ignoredColumns = fields.filter((f) => !f.required && !matchedKeys.has(f.canonicalKey)).map((f) => f.displayLabel);
+    const missingRequiredColumns = requiredFieldsOf(this.contract)
+      .filter((f) => !matchedKeys.has(f.canonicalKey))
+      .map((f) => f.displayLabel);
 
     return { mapped, ignoredColumns, unknownColumns, missingRequiredColumns };
   }
@@ -62,7 +67,7 @@ export class ColumnMappingService {
    *  the parser to pull the right cell for each row regardless of the
    *  file's actual column order. */
   columnIndexFor(headerRow: string[], canonicalKey: string): number {
-    const field = this.fields.find((f) => f.canonicalKey === canonicalKey);
+    const field = this.contract.fields.find((f) => f.canonicalKey === canonicalKey);
     if (!field) return -1;
     const aliasSet = new Set(aliasesFor(field).map(normalizeHeader));
     return headerRow.findIndex((h) => aliasSet.has(normalizeHeader(h.trim())));

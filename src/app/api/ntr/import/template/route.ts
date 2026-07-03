@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { canManageLegacyImport } from '@/lib/scope';
 import { buildImportTemplate } from '@/shared/import';
-import { NTR_IMPORT_FIELDS, NTR_IMPORT_INSTRUCTIONS, NTR_IMPORT_TEMPLATE_META } from '@/features/ntr/services/ntrImportFields';
+import { NTR_IMPORT_CONTRACT, NTR_IMPORT_INSTRUCTIONS } from '@/features/ntr/services/ntrImportFields';
 
 export const runtime = 'nodejs';
 
@@ -19,8 +19,7 @@ export async function GET() {
   }
 
   const buffer = await buildImportTemplate({
-    meta: NTR_IMPORT_TEMPLATE_META,
-    fields: NTR_IMPORT_FIELDS,
+    contract: NTR_IMPORT_CONTRACT,
     instructions: NTR_IMPORT_INSTRUCTIONS,
   });
 

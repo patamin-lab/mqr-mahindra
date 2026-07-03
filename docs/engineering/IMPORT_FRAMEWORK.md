@@ -1,8 +1,24 @@
 # Universal Import Framework
 
-`src/shared/import/` — the reusable Import Wizard framework every module's bulk/historical-data import is meant to use. NTR Legacy Import is the first, and today only, real consumer; every piece here is generic over a module's own `ImportFieldDefinition[]`, with zero NTR-specific knowledge baked in.
+`src/shared/import/` — the reusable Import Wizard framework every module's bulk/historical-data import is meant to use. NTR Legacy Import is the first, and today only, real consumer; every piece here is generic over a module's own `ImportContract`, with zero NTR-specific knowledge baked in. See `docs/adr/ADR-009-Universal-Import-Framework.md` for the full rationale.
 
 Built in `src/shared/` ahead of a second real consumer existing — a deliberate exception to this repo's own `.claude/rules/01-architecture-boundaries.md` ("shared/ only when at least two modules genuinely need it"), justified because this is framework/infrastructure code, not business logic, and 7 target modules are already named (Vehicle Master, NTR, PM, PDI, MQR, Campaign, Parts). The trade-off: the abstraction is unverified against a second real caller until one of those modules actually adopts it — if it turns out to be the wrong shape, that's the cost of building ahead of evidence.
+
+## Import Contract
+
+`ImportContract.ts` — the single object a module hands the framework, and the *only* thing every generic piece (`ColumnMappingService`, `ImportParser`'s column resolution, `ImportTemplateService`, `ImportTemplateValidator`) depends on:
+
+```ts
+interface ImportContract {
+  module: string;
+  templateName: string;
+  templateVersion: string;
+  fields: ImportFieldDefinition[];
+  validators?: ImportValidator[]; // optional, field-level checks beyond `parse` coercion
+}
+```
+
+`requiredFieldsOf()`/`optionalFieldsOf()`/`aliasesOf()` derive their views from `contract.fields` on demand — there is no separately-stored `requiredFields`/`optionalFields`/`aliases` array to drift out of sync with the field list itself. `NTR_IMPORT_CONTRACT` (`src/features/ntr/services/ntrImportFields.ts`) is NTR's own instance; `NTR_IMPORT_FIELDS`/`NTR_IMPORT_TEMPLATE_META` remain separately exported only because a couple of call sites (the error-label map) need just the field list.
 
 ## Import Wizard (5 steps)
 
@@ -22,7 +38,7 @@ Module-specific type coercion (date/number parsing, enum normalization) is suppl
 
 ## Column Mapping
 
-`ColumnMappingService.ts` matches an uploaded file's header row against a module's `ImportFieldDefinition[]` by alias (`HeaderNormalizer.ts` normalizes case/whitespace/separators before comparing), independent of column order. A module lists genuine synonyms only — its own `canonicalKey` and `displayLabel` are always recognized automatically.
+`ColumnMappingService.ts` matches an uploaded file's header row against a module's `ImportContract` by alias (`HeaderNormalizer.ts` normalizes case/whitespace/separators before comparing), independent of column order. A module lists genuine synonyms only — its own `canonicalKey` and `displayLabel` are always recognized automatically.
 
 ```ts
 { canonicalKey: 'dealer_id', displayLabel: 'Dealer Code', required: true, aliases: ['Dealer', 'Dealer_ID', 'DealerCode', 'dealer_code'] }
@@ -34,9 +50,32 @@ Future modules extend only their own field-definition list — the mapping engin
 
 `ImportTemplateService.buildImportTemplate()` generates one `.xlsx` with three sheets: **Instructions** (per-column guidance), **Data** (the actual header row to fill in), and **`_META`** (Template Name, Template Version, Module, Generated Date). `ImportTemplateValidator.readTemplateMeta()` reads `_META` back on upload (an absent `_META` — a `.csv`, or a hand-built spreadsheet predating the wizard — is expected, not an error); `validateHeader()` then checks required columns are present via `ColumnMappingService`. Only a missing **required** column blocks import; an absent optional column never does.
 
-## Validation Flow
+## Standard Import Result DTO
 
-Upload → generic sheet read → column mapping → per-field coercion → module's own business validation (dealer/master-data lookups, duplicate detection — unchanged, still 100% in `NtrImportService`) → `ImportPreviewBuilder.buildImportSummary()` shapes the counts + per-row outcomes into the `ImportSummary` both Step 3 and Step 5 render. Nothing is written to the database until Step 4's explicit confirmation.
+`ImportResult` (`types.ts`) is the canonical response shape every module's import pipeline is meant to return once it fully adopts the framework:
+
+```ts
+interface ImportResult {
+  totalRows; readyRows; importedRows; skippedRows; duplicateRows; failedRows;
+  warningCount; errorCount; warnings: ImportWarning[]; errors: ImportErrorEntry[];
+  processingTime: number | null; // ms
+}
+```
+
+`ImportPreviewBuilder.buildImportResult(rows, { importedRows, warnings?, processingTimeMs? })` builds it from the same per-row outcomes `buildImportSummary()` already uses for `ImportSummary` (Step 3/5's UI shape). NTR's own routes still return `NtrImportPreview` (predates this DTO) — changing that is a UI-facing/NTR-functionality change, explicitly out of scope for the framework-hardening pass that introduced `ImportResult`. **Future modules should return `ImportResult` directly from day one.**
+
+## Import Lifecycle
+
+1. **Upload** → generic sheet read (`ImportParser.parseImportFile()`)
+2. **Header Validation** → `ImportTemplateValidator.readTemplateMeta()` + `validateHeader()` against the module's `ImportContract` — a file missing all its required columns is rejected here, before a session/row is ever created
+3. **Column Mapping** → `ColumnMappingService.mapHeaders()`/`columnIndexFor()`
+4. **Per-field coercion** → each `ImportFieldDefinition.parse` (or default trimmed-string-or-null)
+5. **Business validation** → 100% inside the module's own service (dealer/master-data lookups, duplicate detection — never in the framework); `ImportContract.validators`, if a module declares any, run here too for field-shape checks that don't need repository access
+6. **Preview** → `ImportPreviewBuilder.buildImportSummary()` (UI) / `buildImportResult()` (standard DTO) — nothing written to the database yet
+7. **Confirm Import** → explicit user confirmation (Step 4)
+8. **Commit** → the module's own repository/service performs the actual writes (for NTR: one atomic Postgres transaction per row via `commit_ntr_legacy_import_row()` — see ADR-008)
+9. **Import Complete** → same DTO shape as Step 6, now reflecting what actually committed
+10. **Archive** (NTR-specific today, not part of the generic framework) → background, retryable, never able to roll back a successful commit — see ADR-008
 
 ## Error Reporting
 
@@ -46,14 +85,27 @@ Upload → generic sheet read → column mapping → per-field coercion → modu
 
 `ImportHistoryService.ts` is a fan-out/merge layer, not a shared table — each module keeps owning its own session storage (NTR's `ntr_import_sessions` today). A module registers an `ImportHistoryProvider { module, list() }`; `listImportHistory()` merges and sorts whatever providers exist. Today there is exactly one provider (NTR), so the "Module" column in the UI is currently a static `'NTR'` label rather than a real per-row field — this becomes a real per-provider value with zero changes to this file once a second module registers.
 
-## Future Module Integration
+`ImportHistoryEntry` also carries `rowsPerSecond`/`averageValidationTimeMs` alongside `durationMs` — informational fields only (`ImportMetrics.ts` computes them from measurements a caller already took; nothing in the framework branches on them). Not yet wired into NTR's live data (would require timing `NtrImportService.preview()`/`commit()`, an NTR-service change out of scope for this pass) — available for any module (or a future NTR follow-up) to populate.
+
+## Performance Metrics
+
+`ImportMetrics.ts` — pure arithmetic, no timers of its own:
+
+- `computeRowsPerSecond(rowCount, durationMs)`
+- `computeAverageValidationTimeMs(totalValidationTimeMs, rowCount)`
+- `computeImportPerformanceMetrics({ rowCount, durationMs, validationTimeMs? })` — combines both into `{ processingTimeMs, rowsPerSecond, averageValidationTimeMs }`
+
+A module measures its own durations (`Date.now()` around `preview()`/`commit()`) and passes them in; this file only does the division/rounding, consistently, once.
+
+## Future Module Adoption
 
 To onboard a new module (e.g. Vehicle Master):
 
-1. Define its `ImportFieldDefinition[]` + `ImportTemplateMeta` + instruction text (mirrors `src/features/ntr/services/ntrImportFields.ts`).
-2. Reuse `parseImportFile()`/`ColumnMappingService` as-is — do not fork or copy them.
+1. Define its `ImportContract` (fields + `templateName`/`templateVersion`/`module`, optional `validators`) + instruction text (mirrors `src/features/ntr/services/ntrImportFields.ts`'s `NTR_IMPORT_CONTRACT`).
+2. Reuse `parseImportFile()`/`ColumnMappingService`/`buildImportTemplate()`/`validateHeader()` as-is — do not fork or copy them.
 3. Keep all business validation (duplicate detection, master-data lookups) in that module's own service, exactly as `NtrImportService` does — the framework never gains module-specific business logic.
 4. Reuse `ImportWizard`/`StepIndicator` for the UI; supply the module's own step content.
-5. Register an `ImportHistoryProvider` so its runs appear in the shared Import History view.
+5. Return `ImportResult` (via `ImportPreviewBuilder.buildImportResult()`) from the module's API from day one, rather than inventing a bespoke response shape the way NTR's (pre-dating this DTO) `NtrImportPreview` did.
+6. Register an `ImportHistoryProvider` so its runs appear in the shared Import History view; populate `ImportMetrics` if per-run performance data is wanted.
 
 Out of scope for this framework (unchanged by this work): NTR's own business rules, Vehicle/NTR record creation, the Timeline/Audit platforms, Google Drive, and the Archive Worker (`NtrImportService.archiveSession()`/`processArchiveQueue()` — see `docs/adr/ADR-008-Google-Drive-Decoupling.md`).

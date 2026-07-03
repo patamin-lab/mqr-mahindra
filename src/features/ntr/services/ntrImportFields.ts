@@ -9,7 +9,7 @@
  * touching the shared framework or the generic parser - only this file
  * and, if the field is genuinely new, `NtrImportRow`/`ntrImportService.ts`.
  */
-import { ImportFieldDefinition, ImportTemplateMeta } from '@/shared/import';
+import { ImportContract, ImportFieldDefinition, ImportTemplateMeta } from '@/shared/import';
 import { NtrCustomerType } from '../types';
 
 export const NTR_IMPORT_TEMPLATE_META: ImportTemplateMeta = {
@@ -94,6 +94,19 @@ export const NTR_IMPORT_FIELDS: ImportFieldDefinition[] = [
     parse: toNumberOrNull,
   },
 ];
+
+/** The single object every generic framework piece (`ColumnMappingService`,
+ *  `ImportParser`'s column resolution, `ImportTemplateService`,
+ *  `ImportTemplateValidator`) actually depends on - `NTR_IMPORT_FIELDS`/
+ *  `NTR_IMPORT_TEMPLATE_META` above are kept separately exported only
+ *  because a couple of call sites (`ntrImportService.ts`'s error-label
+ *  map) need just the field list, not the whole contract. */
+export const NTR_IMPORT_CONTRACT: ImportContract = {
+  module: NTR_IMPORT_TEMPLATE_META.module,
+  templateName: NTR_IMPORT_TEMPLATE_META.templateName,
+  templateVersion: NTR_IMPORT_TEMPLATE_META.templateVersion,
+  fields: NTR_IMPORT_FIELDS,
+};
 
 export const NTR_IMPORT_INSTRUCTIONS = [
   { field: 'Dealer Code', note: 'Must match an existing Dealer Code exactly.' },

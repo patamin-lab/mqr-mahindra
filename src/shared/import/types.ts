@@ -85,7 +85,10 @@ export interface ImportSummary {
 }
 
 /** Import History's module-agnostic row shape - a concrete module's
- *  history service maps its own session type into this. */
+ *  history service maps its own session type into this. Performance
+ *  fields are informational only (see `ImportMetrics.ts`) - nothing in
+ *  the framework branches on them; they exist purely for the Import
+ *  History view to display. */
 export interface ImportHistoryEntry {
   id: string;
   module: string;
@@ -99,4 +102,47 @@ export interface ImportHistoryEntry {
   failedCount: number;
   archiveStatus: string;
   durationMs: number | null;
+  rowsPerSecond: number | null;
+  averageValidationTimeMs: number | null;
+}
+
+/** One non-fatal, business-facing observation about a row - distinct from
+ *  `errors` (which block that row from importing). Reserved for a future
+ *  module whose validation has a "this imported, but you should check it"
+ *  case; no current module produces these yet. */
+export interface ImportWarning {
+  row: number;
+  reference: string | null;
+  message: string;
+}
+
+export interface ImportErrorEntry {
+  row: number;
+  reference: string | null;
+  message: string;
+}
+
+/** Standard Import Result DTO - the shape every module's import pipeline
+ *  is meant to return once it adopts the framework fully (see
+ *  docs/engineering/IMPORT_FRAMEWORK.md's "Import Lifecycle" section).
+ *  NTR's own routes still return `NtrImportPreview` today (its shape
+ *  predates this DTO and changing it is a UI-facing change, out of scope
+ *  for this framework-hardening pass) - `buildImportResult()` is provided
+ *  so a future, explicitly-scoped NTR migration (or any new module from
+ *  day one) can adopt this directly instead of inventing its own. */
+export interface ImportResult {
+  totalRows: number;
+  readyRows: number;
+  importedRows: number;
+  skippedRows: number;
+  duplicateRows: number;
+  failedRows: number;
+  warningCount: number;
+  errorCount: number;
+  warnings: ImportWarning[];
+  errors: ImportErrorEntry[];
+  /** Milliseconds - `null` until the caller supplies a measured duration
+   *  (this DTO can be built for a still-in-progress preview, where there
+   *  is no total processing time yet). */
+  processingTime: number | null;
 }

@@ -10,7 +10,7 @@
  */
 import ExcelJS from 'exceljs';
 import { ColumnMappingService } from './ColumnMappingService';
-import { ImportFieldDefinition, ImportTemplateMeta } from './types';
+import { ImportContract } from './ImportContract';
 
 export interface DetectedTemplateMeta {
   module: string | null;
@@ -60,14 +60,9 @@ export interface HeaderValidationResult {
   isValid: boolean;
 }
 
-export function validateHeader(
-  expected: ImportTemplateMeta,
-  detected: DetectedTemplateMeta,
-  headerRow: string[],
-  fields: ImportFieldDefinition[]
-): HeaderValidationResult {
-  const mapping = new ColumnMappingService(fields).mapHeaders(headerRow);
-  const moduleMatches = detected.module === null ? null : detected.module === expected.module;
+export function validateHeader(contract: ImportContract, detected: DetectedTemplateMeta, headerRow: string[]): HeaderValidationResult {
+  const mapping = new ColumnMappingService(contract).mapHeaders(headerRow);
+  const moduleMatches = detected.module === null ? null : detected.module === contract.module;
   return {
     detected,
     moduleMatches,

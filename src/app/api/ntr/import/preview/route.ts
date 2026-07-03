@@ -4,9 +4,9 @@ import { canManageLegacyImport } from '@/lib/scope';
 import { createNtrImportService } from '@/features/ntr/factory';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
-import { formatUnsupportedTemplateMessage, readTemplateMeta } from '@/shared/import';
-import { mapNtrImportHeaders } from '@/features/ntr/services/ntrImportParser';
-import { NTR_IMPORT_FIELDS, NTR_IMPORT_TEMPLATE_META } from '@/features/ntr/services/ntrImportFields';
+import { formatUnsupportedTemplateMessage, requiredFieldsOf } from '@/shared/import';
+import { validateNtrImportHeader } from '@/features/ntr/services/ntrImportParser';
+import { NTR_IMPORT_CONTRACT } from '@/features/ntr/services/ntrImportFields';
 
 export const runtime = 'nodejs';
 
@@ -47,21 +47,23 @@ export async function POST(req: NextRequest) {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   try {
-    // Header Validation (Step 2/3): a file with none of its required
-    // columns recognized at all isn't a malformed NTR file, it's the
-    // wrong file entirely - reject it with one clear message instead of
-    // a wall of per-row "missing X" failures, and without writing a
-    // session row for it.
-    const columnMapping = await mapNtrImportHeaders(buffer, file.name);
-    const requiredFieldCount = NTR_IMPORT_FIELDS.filter((f) => f.required).length;
-    if (columnMapping.mapped.length === 0 || columnMapping.missingRequiredColumns.length === requiredFieldCount) {
+    // Header Validation (Step 2/3), via the shared framework's
+    // `validateHeader()`. A file with none of its required columns
+    // recognized at all isn't a malformed NTR file, it's the wrong file
+    // entirely - reject it with one clear message instead of a wall of
+    // per-row "missing X" failures, and without writing a session row for
+    // it. (A file missing just one or two required columns still proceeds
+    // to `preview()` - those columns' rows simply fail per-row, which is
+    // more useful than a blanket rejection for an otherwise-valid file.)
+    const headerValidation = await validateNtrImportHeader(buffer, file.name);
+    const requiredFieldCount = requiredFieldsOf(NTR_IMPORT_CONTRACT).length;
+    if (headerValidation.missingRequiredColumns.length === requiredFieldCount) {
       return NextResponse.json(
         { ok: false, error: { code: 'VALIDATION_ERROR', message: formatUnsupportedTemplateMessage() } },
         { status: 400 }
       );
     }
 
-    const templateMeta = await readTemplateMeta(buffer, file.name);
     const importService = createNtrImportService();
     const { session: importSession, preview } = await importService.preview(buffer, file.name, { username: session.username });
 
@@ -75,8 +77,8 @@ export async function POST(req: NextRequest) {
             filename: file.name,
             fileSize: buffer.length,
             rowCount: preview.totalRecords,
-            detectedTemplateVersion: templateMeta.templateVersion,
-            expectedTemplateVersion: NTR_IMPORT_TEMPLATE_META.templateVersion,
+            detectedTemplateVersion: headerValidation.detected.templateVersion,
+            expectedTemplateVersion: NTR_IMPORT_CONTRACT.templateVersion,
           },
         },
       },

@@ -1,4 +1,5 @@
 export * from './types';
+export * from './ImportContract';
 export * from './HeaderNormalizer';
 export * from './ColumnMappingService';
 export * from './ImportParser';
@@ -7,3 +8,4 @@ export * from './ImportTemplateValidator';
 export * from './ImportErrorFormatter';
 export * from './ImportPreviewBuilder';
 export * from './ImportHistoryService';
+export * from './ImportMetrics';

@@ -5,27 +5,31 @@
  * (`src/shared/import/`): the generic `parseImportFile()` reads the
  * uploaded .xlsx/.csv into a header row + raw string cells (structural
  * parsing - never modified per module), `ColumnMappingService` resolves
- * each `NTR_IMPORT_FIELDS` entry to whichever column actually holds it in
- * this particular file (alias/name-based, not positional - a dealer's
+ * each `NTR_IMPORT_CONTRACT` field to whichever column actually holds it
+ * in this particular file (alias/name-based, not positional - a dealer's
  * columns can be reordered or use a recognized synonym), and each field's
  * own `parse` function (or the default trimmed-string-or-null behavior)
  * coerces the raw cell into `NtrImportRow`'s typed shape. No business
  * validation happens here - see `ntrImportService.ts`'s `validateRows()`.
+ * Depends only on `NTR_IMPORT_CONTRACT` - every generic piece it calls
+ * into (`ColumnMappingService`, `parseImportFile`, `validateHeader`,
+ * `readTemplateMeta`) depends only on `ImportContract`.
  */
-import { ColumnMappingService, parseImportFile } from '@/shared/import';
+import { ColumnMappingService, parseImportFile, readTemplateMeta, validateHeader } from '@/shared/import';
+import type { HeaderValidationResult } from '@/shared/import';
 import { NtrImportRow } from '../types';
-import { NTR_IMPORT_FIELDS } from './ntrImportFields';
+import { NTR_IMPORT_CONTRACT } from './ntrImportFields';
 
-const mappingService = new ColumnMappingService(NTR_IMPORT_FIELDS);
-const fieldByKey = new Map(NTR_IMPORT_FIELDS.map((f) => [f.canonicalKey, f]));
+const mappingService = new ColumnMappingService(NTR_IMPORT_CONTRACT);
+const fieldByKey = new Map(NTR_IMPORT_CONTRACT.fields.map((f) => [f.canonicalKey, f]));
 
 /** Column index per canonical field, computed once per file (not once per
- *  row) - `columnIndexFor()` re-derives its alias set from `NTR_IMPORT_FIELDS`
- *  on every call, so calling it inside a per-row loop would redo that work
- *  once per field per row for no reason. */
+ *  row) - `columnIndexFor()` re-derives its alias set from the contract's
+ *  field list on every call, so calling it inside a per-row loop would
+ *  redo that work once per field per row for no reason. */
 function buildColumnIndex(headerRow: string[]): Record<string, number> {
   const index: Record<string, number> = {};
-  for (const field of NTR_IMPORT_FIELDS) {
+  for (const field of NTR_IMPORT_CONTRACT.fields) {
     index[field.canonicalKey] = mappingService.columnIndexFor(headerRow, field.canonicalKey);
   }
   return index;
@@ -83,4 +87,14 @@ export async function parseNtrImportFile(buffer: Buffer, filename: string): Prom
 export async function mapNtrImportHeaders(buffer: Buffer, filename: string) {
   const { headerRow } = await parseImportFile(buffer, filename);
   return mappingService.mapHeaders(headerRow);
+}
+
+/** Header Validation (Step 2/3): detects the file's `_META` (if any) and
+ *  checks required columns are present, via the shared framework's
+ *  `validateHeader()` - the one place this check is implemented, reused
+ *  by `preview/route.ts` instead of a second, ad hoc copy of the same
+ *  "are all required columns missing" logic. */
+export async function validateNtrImportHeader(buffer: Buffer, filename: string): Promise<HeaderValidationResult> {
+  const [{ headerRow }, detected] = await Promise.all([parseImportFile(buffer, filename), readTemplateMeta(buffer, filename)]);
+  return validateHeader(NTR_IMPORT_CONTRACT, detected, headerRow);
 }
