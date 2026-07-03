@@ -86,6 +86,14 @@ actually ship today — not a green-field proposal.
   [`DASHBOARD_MODEL.md`](DASHBOARD_MODEL.md),
   [`OBSERVABILITY.md`](OBSERVABILITY.md),
   [`ADMIN_FRAMEWORK.md`](ADMIN_FRAMEWORK.md)
+- [`engineering/MACHINE_DOMAIN.md`](engineering/MACHINE_DOMAIN.md) —
+  Phase 5B's Machine business entity: the `src/features/machine/` facade,
+  what did/didn't get renamed, and the Product Hierarchy.
+- [`engineering/ATTACHMENT_FRAMEWORK.md`](engineering/ATTACHMENT_FRAMEWORK.md),
+  [`engineering/MEDIA_PLATFORM.md`](engineering/MEDIA_PLATFORM.md) —
+  Phase 5B's shared file-storage platform (`src/shared/attachments/`):
+  data model, provider independence, archive lifecycle, retention policy,
+  and what's deliberately not yet migrated onto it.
 
 ## Design & UI
 
@@ -103,6 +111,8 @@ actually ship today — not a green-field proposal.
 - [`adr/ADR-005-Design-System.md`](adr/ADR-005-Design-System.md)
 - [`adr/ADR-006-Module-Architecture.md`](adr/ADR-006-Module-Architecture.md)
 - [`adr/ADR-007-Scheduler.md`](adr/ADR-007-Scheduler.md)
+- [`adr/ADR-009-Machine-Domain.md`](adr/ADR-009-Machine-Domain.md)
+- [`adr/ADR-010-Attachment-Platform.md`](adr/ADR-010-Attachment-Platform.md)
 
 ## Product & vision
 

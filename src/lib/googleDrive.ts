@@ -221,6 +221,25 @@ export async function finalizeResumableUpload(fileId: string, mimeType: string):
   return { url: fileUrlFor(fileId, mimeType) };
 }
 
+/** Deletes one Drive file outright - used by the Attachment Platform's
+ *  `delete()` when an attachment has already been archived (its bytes no
+ *  longer live in Supabase Storage, only in Drive). */
+export async function deleteFileFromDrive(fileId: string): Promise<void> {
+  const drive = driveClient();
+  await drive.files.delete({ fileId, supportsAllDrives: true });
+}
+
+/** Downloads a Drive file's raw bytes back into a `Buffer` - used by the
+ *  Attachment Platform's `restore()`/`verifyChecksum()` (see
+ *  `docs/engineering/ATTACHMENT_FRAMEWORK.md`), which are the first
+ *  callers that ever need bytes back out of Drive rather than just a
+ *  share link. */
+export async function downloadFileFromDrive(fileId: string): Promise<Buffer> {
+  const drive = driveClient();
+  const res = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
+  return Buffer.from(res.data as ArrayBuffer);
+}
+
 /**
  * After a new record is saved and its job_id is known, moves every file
  * that was uploaded into the dealer's "_pending" folder into the real

@@ -796,6 +796,34 @@ from the M1-M6.5 merge, since this is new, unreviewed, unreleased work).
 
 Legacy Naming (tracked, not yet renamed — pending ADR):
 - SESSION_COOKIE = 'mqr_session' (lib/auth.ts)
-- STORAGE_BUCKET = 'mqr-files' (lib/supabase.ts)
 - MqrRecord interface (lib/types.ts)
 - Sidebar display name 'Market Quality Report' (sidebar.tsx)
+
+Phase 5B (Maintenance Intelligence + Machine Domain + Media Platform) —
+completed this milestone:
+
+- Maintenance Intelligence (Program/Version/Stage/Due Engine/Compliance/
+  Health Engine/Progression/PM Lock) was already fully built as of the
+  Production Stabilization Sprint (see above) — nothing further was
+  needed there beyond the Machine 360 rename below.
+- Machine Domain (ADR-009, `docs/engineering/MACHINE_DOMAIN.md`): new
+  `src/features/machine/` facade (`MachineService`/`MachineRepository`)
+  over the existing `vehicle/`/`vehicle-event`/`vehicle-health` code
+  (untouched — no `VehicleRepository`/`VehicleService` existed to rename).
+  `Vehicle360Page` → `Machine360Page`; UI strings updated in both locales.
+  `docs/standards/DOMAIN_LANGUAGE_STANDARD.md`'s "Tractor, NOT Vehicle"
+  rule explicitly superseded for the aggregation layer — see that doc's
+  own updated Business Domain section and ADR-009.
+- Attachment & Media Platform (ADR-010, `docs/engineering/
+  ATTACHMENT_FRAMEWORK.md`/`MEDIA_PLATFORM.md`): new `src/shared/attachments/`
+  (`AttachmentService`, `StorageProvider` implementations for Supabase
+  Storage (now primary — previously-dead `STORAGE_BUCKET` = 'mqr-files'
+  is now real, with new `SELECT`/`DELETE`/`UPDATE` storage policies added)
+  and Google Drive (archive-only)). New `attachments` +
+  `attachment_retention_policies` tables (migration
+  `create_attachments_platform`). Deliberately deferred: MQR/PM's existing
+  Drive-only upload pipelines are NOT migrated onto this platform yet —
+  that's each module's own future, explicitly-scoped follow-up (see
+  ATTACHMENT_FRAMEWORK.md's "What's deliberately deferred"); Machine 360
+  doesn't render an Attachments section yet for the same reason (no
+  module writes rows into `attachments` today).
