@@ -103,7 +103,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
         <div className="p-4 border-b border-white/10 flex items-start justify-between">
           <div>
             <div className="font-bold text-white">
-              Market <span className="text-brand-red">Quality</span> Report
+              MSEAL <span className="text-brand-red">After-Sales</span> Platform
             </div>
             <div className="text-xs text-white/70 mt-2">{session.fullName}</div>
             <div className="text-xs text-white/40">
