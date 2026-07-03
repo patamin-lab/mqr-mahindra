@@ -27,12 +27,23 @@ governs source code naming only.
 
 MASP is an Agricultural After-Sales Platform.
 
-The primary business asset is **Tractor**, NOT **Vehicle**.
+> **Superseded by ADR-009 (Phase 5B, Machine Domain):** the platform
+> business entity is now **Machine**, not Vehicle and not Tractor. This
+> replaces this section's original "Tractor, NOT Vehicle" rule. See
+> `docs/engineering/MACHINE_DOMAIN.md` for the full rationale and the
+> Product Hierarchy this introduces (`Machine → Product Category →
+> Product Family → Model → Variant → Serial Number`) - "Tractor" survives
+> only one level down, as today's one Product Category (with Harvester,
+> Power Tiller, Implement, Engine planned as future categories).
 
-User-facing UI must never use "Vehicle".
+User-facing UI for the Machine 360 / Machine Registry / Machine Timeline /
+Machine Search / Machine Health aggregation layer uses "Machine". Product
+Category terminology ("Tractor Model", "Tractor Master") is unaffected -
+see the updated Official Business Terminology table below.
 
 Database tables may retain existing names (`vehicles`, `vehicle_id`, etc.)
-for backward compatibility.
+for backward compatibility - the Machine rename is business terminology
+only (repository/service/UI/docs), never a table rename (ADR-009).
 
 ## Dealer Standard
 
@@ -104,12 +115,12 @@ Dealer Code.
 | Icon | Thai | English |
 |---|---|---|
 | 🏠 | แดชบอร์ด | Dashboard |
-| 🚜 | ทะเบียนรถแทรกเตอร์ | Tractor Registry |
+| 🚜 | ทะเบียนเครื่องจักร | Machine Registry |
 | 📦 | ตรวจสภาพก่อนส่งมอบ (PDI) | Pre-Delivery Inspection |
 | 📝 | ลงทะเบียนส่งมอบรถใหม่ (NTR) | New Tractor Registration |
 | 🔧 | งานเช็คระยะ | Preventive Maintenance |
 | ⚠️ | รายงานปัญหาคุณภาพ | Market Quality Report |
-| 📜 | ประวัติรถแทรกเตอร์ | Tractor Profile |
+| 📜 | Machine 360 | Machine 360 |
 | 📢 | แคมเปญบริการ | Service Campaign |
 | 🛡️ | การรับประกัน | Warranty |
 | 📦 | ขอเบิกอะไหล่ | Parts Request |
@@ -122,11 +133,13 @@ Dealer Code.
 
 | English | Thai |
 |---|---|
-| Tractor | รถแทรกเตอร์ |
-| Tractor Registry | ทะเบียนรถแทรกเตอร์ |
-| Tractor Profile | ประวัติรถแทรกเตอร์ |
-| Tractor Life Cycle | วงจรชีวิตรถแทรกเตอร์ |
-| Tractor Health | สุขภาพรถแทรกเตอร์ |
+| Machine (platform entity, ADR-009) | เครื่องจักร |
+| Tractor (today's one Product Category) | รถแทรกเตอร์ |
+| Machine Registry | ทะเบียนเครื่องจักร |
+| Machine 360 | Machine 360 |
+| Machine Timeline | Machine Timeline |
+| Machine Health | Machine Health |
+| Product Category | หมวดหมู่ผลิตภัณฑ์ |
 | Product Family | กลุ่มผลิตภัณฑ์ |
 | Model | รุ่นรถ |
 | Serial Number | หมายเลขตัวรถ |

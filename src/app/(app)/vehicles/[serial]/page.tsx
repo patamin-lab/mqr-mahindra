@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
-import { VehicleEvent } from '@/features/vehicle/types';
+import { MachineService } from '@/features/machine';
+import { MachineEvent } from '@/features/machine/types';
 import type { MaintenanceDueColor } from '@/features/maintenance-due/types';
 import type { HealthStatus } from '@/features/vehicle-health/types';
 import { t } from '@/lib/i18n/server';
@@ -32,14 +32,16 @@ const HEALTH_STATUS_CLASS: Record<HealthStatus, string> = {
   critical: 'bg-red-100 text-red-700',
 };
 
-export default async function Vehicle360Page({ params }: RouteParams) {
+const machineService = new MachineService();
+
+export default async function Machine360Page({ params }: RouteParams) {
   const serial = decodeURIComponent(params.serial);
   const session = await getSession();
   if (!session) return null;
 
   const [summary, timeline] = await Promise.all([
-    getVehicleSummary(serial, session),
-    getVehicleTimeline(serial, session),
+    machineService.getMachine360(serial, session),
+    machineService.getMachineTimeline(serial, session),
   ]);
 
   if (!summary) {
@@ -175,7 +177,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
   );
 }
 
-function TimelineRow({ event }: { event: VehicleEvent }) {
+function TimelineRow({ event }: { event: MachineEvent }) {
   return (
     <TimelineItem
       liClassName="rounded border border-gray-100 p-3 hover:bg-gray-50"
