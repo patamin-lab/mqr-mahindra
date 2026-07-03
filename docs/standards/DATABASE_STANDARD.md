@@ -153,6 +153,47 @@ applied to any environment; a correction is always a new migration.
 `list_migrations` is checked before writing a new one, to confirm the
 next sequence number and that no equivalent migration already exists.
 
+## Avoid storing duplicate business data
+
+Before adding a column, check whether the value can be resolved from
+existing master data instead of persisted as a second copy:
+
+- **Reference master data by foreign key when a master table exists**
+  (e.g. `ntr_records.product_family_id → product_families.id`) — never
+  duplicate the master row's name/label as a free-text column alongside
+  the FK.
+- **Compose a value from more granular fields already being captured
+  rather than asking for it twice** — e.g. NTR's `customer_name` is
+  derived server-side (`NtrService`'s `deriveCustomerName()`) from
+  `customer_title`/`customer_first_name`/`customer_last_name` when those
+  are present, so an operator who fills in structured name fields is
+  never also required to separately type a duplicate full name.
+- **Only add a free-text column when no master table exists yet** for
+  that concept (e.g. NTR's `variant` — no Variant master table exists in
+  MASP today, so free text is the correct fallback, not a reason to
+  invent a master table speculatively).
+
+### Example: NTR's enterprise-detail fields (Release v1.1)
+
+Added as nullable columns, additive migration only, no backfill:
+
+| Column | Required? | Source |
+|---|---|---|
+| `customer_title` | Optional | Manual entry |
+| `customer_first_name` | Optional | Manual entry |
+| `customer_last_name` | Optional | Manual entry |
+| `customer_subdistrict` | Optional | Manual entry (free text, matches existing district/province pattern — no Thai address master-data hierarchy exists yet) |
+| `product_family_id` | Optional | **Resolved from `product_families` master data** — never a duplicated free-text name |
+| `variant` | Optional | Manual entry (no Variant master table exists yet) |
+| `pdi_date` | Optional | Manual entry |
+| `manufacturing_year` | Optional | Manual entry |
+
+`engine_model` was deliberately **not** added — per this rule, a field is
+only persisted when it can't be derived from Tractor/Product master data,
+and no such need was established for it in this pass; it remains
+undisplayed on the redesigned PDF/Detail Page rather than added as a
+speculative column.
+
 ## Verification
 
 Documentation only. Does not create, alter, or apply any migration.

@@ -81,6 +81,9 @@ export async function getVehicleSummary(serial: string, session: SessionUser): P
 
     ownerName: merged.ownerName ?? null,
     ownerPhone: merged.ownerPhone ?? null,
+    // Tractor Lifecycle foundation (MASP v1.1) - defaults to 'Stock' when
+    // no provider contributes a value (e.g. no NTR on file yet).
+    lifecycleStatus: merged.lifecycleStatus ?? 'Stock',
 
     productFamilyId: merged.productFamilyId ?? null,
     productFamilyName: merged.productFamilyName ?? null,

@@ -194,7 +194,7 @@ describe('VehicleEventPublisher', () => {
         expect.objectContaining({
           source_module: 'maintenance',
           reference_id: 'PM-D1-2026-000001',
-          metadata: { hour_meter: 520, interval: '500 Hr', technician: 'John', dealer: 'KTV' },
+          metadata: { event_code: 'MAINTENANCE_COMPLETED', hour_meter: 520, interval: '500 Hr', technician: 'John', dealer: 'KTV' },
         }),
         actor
       );
@@ -223,6 +223,7 @@ describe('VehicleEventPublisher', () => {
           reference_id: 'QIR-2601-0001',
           status: 'Major',
           metadata: {
+            event_code: 'MQR_OPENED',
             problem_system: 'Powertrain',
             problem_code: 'ENGINE_NOISE',
             severity: 'Major',
@@ -252,7 +253,7 @@ describe('VehicleEventPublisher', () => {
         expect.objectContaining({
           source_module: 'mqr',
           reference_id: 'QIR-2601-0001',
-          metadata: { corrective_action: 'Replaced injector', technician: 'John' },
+          metadata: { event_code: 'MQR_CLOSED', corrective_action: 'Replaced injector', technician: 'John' },
         }),
         actor
       );

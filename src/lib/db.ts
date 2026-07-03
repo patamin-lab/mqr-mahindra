@@ -314,6 +314,7 @@ export async function listAllProductFamiliesAdmin(): Promise<ProductFamily[]> {
   return data ?? [];
 }
 
+
 export async function getProductFamily(id: string): Promise<ProductFamily | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase.from('product_families').select('*').eq('id', id).maybeSingle();
@@ -955,6 +956,135 @@ export async function searchVehiclesForPm(filters: PmVehicleSearchFilters): Prom
       next_pm_due: nextPmDue,
     };
   });
+}
+
+export interface NtrTractorSearchFilters {
+  dealerId?: string | null;
+  branchId?: string | null;
+  serial?: string | null;
+  engineNumber?: string | null;
+  model?: string | null;
+  productFamilyId?: string | null;
+  limit?: number;
+}
+
+export interface NtrTractorSearchResult {
+  id: string;
+  serial: string;
+  model: string | null;
+  delivery_date: string | null;
+  engine_number: string | null;
+  dealer_id: string | null;
+  dealer_name: string | null;
+  branch_id: string | null;
+  branch_name: string | null;
+  /** Non-null when this tractor already has an active NTR on file - the
+   *  Tractor Search step uses this to warn "already registered" instead of
+   *  letting a dealer create a duplicate NTR for the same tractor. */
+  existing_ntr_number: string | null;
+}
+
+/**
+ * Tractor Search for the NTR module - searches Vehicle Master (`vehicles`)
+ * only, by serial/engine number/model/Product Family/dealer, and reports
+ * whether each match already has an active NTR. Mirrors
+ * `searchVehiclesForPm()`'s two-query shape (vehicles, then one bulk
+ * `ntr_records` lookup for the matched serials) - never N+1, always capped.
+ */
+export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Promise<NtrTractorSearchResult[]> {
+  const supabase = getSupabase();
+  const limit = Math.min(filters.limit ?? 20, 50);
+
+  let modelsForFamily: string[] | null = null;
+  if (filters.productFamilyId) {
+    const { data, error } = await supabase
+      .from('product_family_models')
+      .select('model')
+      .eq('product_family_id', filters.productFamilyId);
+    if (error) throw error;
+    modelsForFamily = (data ?? []).map((r: any) => r.model as string);
+    if (modelsForFamily.length === 0) return [];
+  }
+
+  let query = supabase
+    .from('vehicles')
+    .select('id, serial, model, delivery_date, engine_number, dealer_id, branch_id, dealers(short_name, full_name), branches(name)')
+    .order('serial')
+    .limit(limit);
+
+  if (filters.dealerId) query = query.eq('dealer_id', filters.dealerId);
+  if (filters.branchId) query = query.eq('branch_id', filters.branchId);
+  if (filters.serial?.trim()) query = query.ilike('serial', `%${filters.serial.trim()}%`);
+  if (filters.engineNumber?.trim()) query = query.ilike('engine_number', `%${filters.engineNumber.trim()}%`);
+  if (filters.model?.trim()) query = query.ilike('model', `%${filters.model.trim()}%`);
+  if (modelsForFamily) query = query.in('model', modelsForFamily);
+
+  const { data: vehicleRows, error } = await query;
+  if (error) throw error;
+  const vehicles = (vehicleRows ?? []) as any[];
+  if (vehicles.length === 0) return [];
+
+  const serials = vehicles.map((v) => v.serial);
+  const { data: ntrRows, error: ntrError } = await supabase
+    .from('ntr_records')
+    .select('serial, ntr_number')
+    .eq('record_status', 'Active')
+    .in('serial', serials);
+  if (ntrError) throw ntrError;
+  const ntrNumberBySerial = new Map((ntrRows ?? []).map((r: any) => [r.serial as string, r.ntr_number as string]));
+
+  return vehicles.map((v): NtrTractorSearchResult => ({
+    id: v.id,
+    serial: v.serial,
+    model: v.model,
+    delivery_date: v.delivery_date,
+    engine_number: v.engine_number,
+    dealer_id: v.dealer_id,
+    dealer_name: v.dealers?.short_name ?? v.dealers?.full_name ?? null,
+    branch_id: v.branch_id,
+    branch_name: v.branches?.name ?? null,
+    existing_ntr_number: ntrNumberBySerial.get(v.serial) ?? null,
+  }));
+}
+
+export interface NtrTractorCreateInput {
+  serial: string;
+  model: string | null;
+  engineNumber: string | null;
+  dealerId: string;
+  branchId: string | null;
+  deliveryDate: string | null;
+  /** Traceability metadata only, not business logic - set only by the
+   *  Legacy Import service (see docs/standards/SECURITY_STANDARD.md). */
+  importSessionId?: string | null;
+}
+
+/**
+ * Registers a tractor that has no `vehicles` row yet (NTR's "Create
+ * Tractor" step - the one new capability this module adds on top of the
+ * otherwise externally-synced `vehicles` table, see root CLAUDE.md §8.6).
+ * `serial` is unique at the database level, so a race against a concurrent
+ * insert (or the Tractor-IN sheet sync) surfaces as a clean constraint
+ * violation rather than a silent duplicate - callers should re-check
+ * `getVehicleBySerial()` on error rather than assume this always succeeds.
+ */
+export async function createVehicleManual(input: NtrTractorCreateInput): Promise<Vehicle> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('vehicles')
+    .insert({
+      serial: input.serial.trim(),
+      model: input.model,
+      engine_number: input.engineNumber,
+      dealer_id: input.dealerId,
+      branch_id: input.branchId,
+      delivery_date: input.deliveryDate,
+      import_session_id: input.importSessionId ?? null,
+    })
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Vehicle;
 }
 
 /**

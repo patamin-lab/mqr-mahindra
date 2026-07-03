@@ -20,6 +20,7 @@ export type VehicleEventType =
   | 'FactoryBuild'
   | 'DealerReceive'
   | 'PdiCompleted'
+  | 'NtrCreated'
   | 'NtrCompleted'
   | 'MaintenanceCompleted'
   | 'MqrOpened'
@@ -64,6 +65,18 @@ export type VehicleEventSource = (serial: string, session: SessionUser) => Promi
 
 export type VehicleOperationalStatus = 'normal' | 'open_job';
 
+/** Tractor Lifecycle foundation (MASP v1.1) - a derived-only field, never
+ *  stored, computed inside this aggregation layer from whatever each
+ *  module's own `VehicleSummaryProvider` contribution implies. Only one
+ *  rule exists today: an active NTR on file means `Delivered`
+ *  (`NtrSummaryProvider`). The remaining values are reserved for future
+ *  modules (PDI -> Stock, Warranty -> WarrantyActive, Campaign ->
+ *  Campaign, a future retirement flow -> Inactive/Scrapped) - adding one
+ *  of those later means a provider contributes `lifecycleStatus`, not a
+ *  database migration. */
+export const TRACTOR_LIFECYCLE_STATUSES = ['Stock', 'Delivered', 'WarrantyActive', 'Campaign', 'Inactive', 'Scrapped'] as const;
+export type TractorLifecycleStatus = (typeof TRACTOR_LIFECYCLE_STATUSES)[number];
+
 export interface MaintenanceProgramStageSummary {
   label: string;
   intervalHours: number | null;
@@ -85,6 +98,10 @@ export interface VehicleSummary {
 
   ownerName: string | null;
   ownerPhone: string | null;
+
+  /** Never null in the final object - `getVehicleSummary()` defaults to
+   *  'Stock' when no provider contributes a value. */
+  lifecycleStatus: TractorLifecycleStatus;
 
   productFamilyId: string | null;
   productFamilyName: string | null;
