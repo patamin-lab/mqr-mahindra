@@ -50,6 +50,40 @@ check from the start, with a test for it (see `TESTING_STANDARD.md`).
   actually matters). Deleting the UI gate must never be the only thing
   standing between a role and an action it shouldn't be able to take.
 
+## Application-layer authorization (why RLS alone is never the gate)
+
+This app has no Supabase Auth. It authenticates with its own JWT
+(`lib/auth.ts`) and always connects to Supabase using a single `anon`
+key/role, regardless of whether the human on the other end is a
+SuperAdmin or a DealerUser — Postgres RLS has no way to see "this request
+is from a SuperAdmin," only "this is the `anon` role." Consequently:
+
+- **Every role-based permission boundary in this codebase is an
+  application-layer control, not an RLS control.** `canDelete()`,
+  `canManageUsers()`, `canExport()`, and — the newest example —
+  `canManageLegacyImport()` (NTR's Legacy Import, restricted to
+  SuperAdmin only per spec) are all enforced exclusively in application
+  code: a role check in the API route before any database access, plus a
+  hidden/absent UI entry for every other role. RLS on the tables these
+  features touch stays permissive for the `anon` role (matching every
+  other table in the app), not narrowed per-feature.
+- **This is an intentional architectural decision for MASP v1.x, not a
+  security omission.** Building true DB-level role enforcement would
+  require either a second, more restricted Supabase key/role this app
+  doesn't have today, or adopting Supabase Auth outright — both are
+  platform-architecture changes, not something a single module (or this
+  standard) introduces unilaterally. A new module's SuperAdmin-only (or
+  any other role-restricted) feature follows this same shape: hide the
+  nav entry, gate the page, gate every route, and do not attempt to
+  invent a stronger DB-level guarantee for just that one feature — a
+  different authorization model for one table, while every other table
+  in the app is permissive-at-RLS, would be inconsistent, not more
+  secure, and would violate `MODULE_DEVELOPMENT_STANDARD.md`'s "reuse the
+  existing platform pattern" rule.
+- If the platform ever adopts Supabase Auth or a scoped service-role key,
+  this section (and the RLS policies on every existing table) need a
+  coordinated revisit — not a per-module patch.
+
 ## Server-side authorization
 
 - Every mutating route calls `getSession()` first and returns 401 if
