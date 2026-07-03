@@ -827,3 +827,52 @@ completed this milestone:
   ATTACHMENT_FRAMEWORK.md's "What's deliberately deferred"); Machine 360
   doesn't render an Attachments section yet for the same reason (no
   module writes rows into `attachments` today).
+
+Phase 5B.1 (Attachment Platform Adoption) — completed this milestone:
+
+- MQR migrated: `report-form.tsx` (new report) and the record-update form
+  both upload via `uploadAttachment()` (`src/components/shared/attachments/`)
+  instead of `uploadFileSmart.ts`/Drive directly; `/api/records` reassigns
+  attachments uploaded against a temporary entity ID to the real `job_id`
+  once created, marks them business-complete when a job transitions to
+  `Repaired`/`Closed` (starts the retention clock), and deletes an
+  attachment for real (`AttachmentService.delete()`) when a photo is
+  removed on update. `records.photo_links[].attachmentId`/
+  `records.video_attachment_id` are new, additive columns — a
+  pre-migration record's raw Drive URL still renders unchanged; a
+  post-migration record's display URL is resolved fresh, server-side, on
+  every page load (`records/[jobId]/page.tsx`), never trusted as a stored
+  value (a Supabase signed URL expires, unlike Drive's permanent share
+  link).
+- PM migrated: `maintenance-form.tsx` (the one shared create+edit
+  component) uploads Meter/Nameplate/Report photos the same way;
+  `/api/pm-records` reassigns to the record's real `id` and marks
+  business-complete immediately (a maintenance visit is a single,
+  already-complete event). `pm_records.*_photo_attachment_id` are new,
+  additive columns (migration `add_pm_records_photo_attachment_ids`).
+  Both the create/edit form and the detail page resolve fresh
+  display URLs the same way MQR's does.
+- Machine 360 now renders a real Attachments section:
+  `MachineService.getMachineAttachments()` aggregates across every module
+  that has adopted the platform (today: MQR + PM) by reusing each
+  module's own existing "records for this serial" utility, then
+  `AttachmentViewer` (new shared component,
+  `src/components/shared/attachments/AttachmentViewer.tsx`) renders
+  images/PDF/video/audio/Excel/other with Open/Download/Delete actions and
+  a click-to-preview overlay — reusable by every module going forward.
+- Large-file uploads (MQR's video attachment, previously Google Drive's
+  resumable-upload dance) now use a Supabase Storage signed-upload-URL
+  flow (`AttachmentService.initDirectUpload()`/`finalizeDirectUpload()`,
+  new `/api/attachments/upload/init`+`/finalize` routes) - the browser
+  PUTs bytes directly to storage, bypassing Vercel's 4.5MB body cap the
+  same way the old Drive resumable flow did.
+- Deliberately deferred: nothing currently triggers
+  `enqueueArchiveEligible()`/`processArchiveQueue()` on a schedule for
+  MQR/PM's now-real attachments - building that periodic trigger is its
+  own, explicitly-scoped follow-up (see `docs/engineering/
+  ATTACHMENT_FRAMEWORK.md`'s "Adopting this for a new module", step 6).
+  PDI has no code in this branch to migrate (a retention-policy row is
+  already seeded for it); NTR's Google-Drive-only archive system lives on
+  a separate sibling branch (`feature/ntr-legacy-import`) not present in
+  this working tree, so reconciling the two systems is future work once
+  both branches merge.

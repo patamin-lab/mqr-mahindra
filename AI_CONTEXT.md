@@ -58,6 +58,15 @@ CRUD, tests, database/RLS migration alignment, CI pipeline, and a
 dependency audit are all done. See `PROJECT_STATE.md` for the
 authoritative, up-to-date milestone log.
 
+Since M6.5, this branch (`feature/pm-record-workflow-redesign`) has moved
+through Phase 5B (Machine Domain rename, ADR-009; Attachment & Media
+Platform infrastructure, ADR-010) and Phase 5B.1 (MQR + PM migrated onto
+that Attachment Platform; Machine 360 now renders a real Attachments
+section). See `PROJECT_STATE.md`'s Phase 5B/5B.1 entries and
+`docs/engineering/MACHINE_DOMAIN.md`/`ATTACHMENT_FRAMEWORK.md` for detail
+— this section (`# Current Sprint` below) is intentionally left
+describing Sprint 10/PM as historical context, not updated per-phase.
+
 ---
 
 # Read Order

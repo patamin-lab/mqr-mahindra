@@ -9,10 +9,10 @@ full rationale; this document is the living reference for how it's built.
 Unlike the Universal Import Framework (`src/shared/import/`, built with
 only NTR as a real consumer), this framework satisfies
 `.claude/rules/01-architecture-boundaries.md`'s "shared/ only when at
-least two modules genuinely need it" from day one in intent (every module
-listed above needs file storage) - though as of this pass, **no existing
-module has been migrated onto it yet**; see "What's deliberately deferred"
-below.
+least two modules genuinely need it" with real evidence, not just intent:
+**MQR and PM were migrated onto it in Phase 5B.1** (see "Module Adoption
+Status" below) - the first framework in this codebase verified against a
+second real caller before this pass, and now a third (Machine 360).
 
 ## Why Attachment, not `media_files`
 
@@ -107,6 +107,43 @@ storage provider or SDK directly:
   deletes the source before a verified success.
 - `restore(id)` — downloads an `ARCHIVED` attachment's bytes back from
   Drive into Supabase Storage, flips it back to `ACTIVE`/`SUPABASE`.
+- `initDirectUpload(input)` / `finalizeDirectUpload(attachmentId)` — for a
+  file too large for a single-shot POST through our own API route (see
+  "Direct (large-file) upload" below).
+- `reassignEntity(ids, entityId)` — re-tags a batch of attachments,
+  uploaded against a temporary client-generated entity ID before their
+  owning record existed, with the record's real ID once saved.
+
+## Direct (large-file) upload
+
+Vercel caps a serverless function's request body at 4.5MB regardless of
+which storage backend the route then forwards to - the same constraint
+that made Google Drive's resumable-upload dance necessary for MQR's video
+attachment before this migration. `SupabaseStorageProvider.createSignedUploadUrl()`
+is the Supabase-Storage equivalent: `initDirectUpload()` returns a signed
+upload URL the browser PUTs bytes to directly (bypassing our API route
+entirely), and `finalizeDirectUpload()` confirms the object actually
+landed in storage (never trusts the client's word alone) before recording
+its real size. Checksum is intentionally left `null` for this path - there
+is no server-side copy of the bytes to hash at upload time;
+`processArchiveQueue()` already treats a `null` checksum as "nothing to
+verify against" rather than a mismatch, so archiving still works, just
+without the extra integrity check for files uploaded this way. See
+`src/components/shared/attachments/uploadAttachment.ts` for the client
+side of this (mirrors the old `uploadFileSmart.ts`'s size-routing).
+
+## Uploading before a record exists
+
+MQR's report form and PM's create form both upload files before their
+owning record (and its real `job_id`/id) exists yet - previously solved
+with Google Drive's per-dealer `_pending` folder + `relocatePendingFiles()`.
+The Attachment Platform's equivalent: the client generates a temporary
+entity ID (`newPendingEntityId()`), uploads against that, and the create
+API route calls `AttachmentService.reassignEntity(attachmentIds, realId)`
+once the record is saved - only the `attachments.entity_id` column
+changes; storage locations never move. PM's edit form (record already
+exists) and MQR's record-update form skip this entirely and upload
+straight against the real ID.
 
 ## Archive Lifecycle
 
@@ -118,32 +155,53 @@ Never delete a file before successful verification - `processArchiveQueue()`
 checks both size and checksum against the original before marking
 `ARCHIVED` or touching the Supabase copy.
 
-## What's deliberately deferred
+## AttachmentViewer
 
-MQR's `report-form.tsx` and PM's create form still upload straight to
-Google Drive via the existing `/api/upload*` routes (see root
-`CLAUDE.md` §8.2) - **not yet migrated onto `AttachmentService`**. That
-migration means changing production-critical upload code (`report-form.tsx`
-is flagged in root `CLAUDE.md` as "the most complex file in the repo") and
-touching two modules' live upload paths; it wasn't requested as part of
-this pass ("build the permanent Attachment & Media Platform", not
-"migrate every existing upload"), and doing it without its own dedicated
-review would be a much larger, unreviewed risk than the platform itself.
-Machine 360 similarly doesn't yet render an Attachments section, since no
-module writes rows into `attachments` yet - once PM/MQR (or a new module)
-adopts `AttachmentService.upload()`, Machine 360 can list them via
-`AttachmentService.list()` with no further platform changes.
+`src/components/shared/attachments/AttachmentViewer.tsx` - the reusable
+display component every module (and Machine 360) renders attachments
+through, given only `{id, filename, mimeType, url}` (never a storage
+provider, bucket, or signed-URL detail). Grid of tiles (image thumbnail or
+a type icon for PDF/video/audio/Excel/other) with Open/Download/Delete
+actions and a click-to-preview overlay (inline `<img>`/`<video>`/`<audio>`/
+`<iframe>` for PDF; a download prompt for Excel/other, which can't be
+previewed inline). Supersedes nothing - `AttachmentGallery.tsx` (the
+older, image-only, URL-string-based component) still renders MQR/PM's
+pre-migration photo grids unchanged; `AttachmentViewer` is what any new
+rendering (Machine 360's Attachments section) uses going forward.
 
-## Adopting this for a new (or existing) module
+## Module Adoption Status
 
-1. Add a `attachment_retention_policies` row for the module (or leave
-   `retention_days` null to never auto-archive).
+| Module | Status |
+|---|---|
+| **MQR** | Migrated (Phase 5B.1). `report-form.tsx` (new report) and the record-update form both upload via `uploadAttachment()`; `/api/records` reassigns pending uploads to the real `job_id` and marks attachments business-complete when a job closes (`Repaired`/`Closed`). `records.photo_links[].attachmentId`/`records.video_attachment_id` are additive columns - a pre-migration record's raw Drive `url` still renders unchanged; a post-migration record's URL is resolved fresh, server-side, on every page load (`records/[jobId]/page.tsx`), since a Supabase signed URL expires and is never trusted as a permanent value the way a Drive share link was. |
+| **PM** | Migrated (Phase 5B.1). `maintenance-form.tsx` (create + edit, one shared component) uploads Meter/Nameplate/Report photos via `uploadAttachment()`; `/api/pm-records` reassigns pending uploads to the record's real `id` and marks them business-complete immediately (a maintenance visit is a single, already-complete event, unlike MQR's Open→Closed lifecycle). `pm_records.*_photo_attachment_id` are additive columns, same backward-compatible pattern as MQR. |
+| **Machine 360** | Reads attachments via `MachineService.getMachineAttachments()` → `AttachmentService.list()`/`getUrl()` only - never a storage provider or module table directly. Aggregates across every module that has adopted the platform (today: MQR + PM) by reusing each module's own existing "records for this serial" utility (`fetchMqrRecords`/`fetchMaintenanceHistoryForSerial` - the same dependency direction the Timeline/Summary aggregations already use), never a raw query of its own. |
+| **PDI** | No PDI module exists in this branch (confirmed - no `src/features/pdi` or similar). Prepared, not implemented: `attachment_retention_policies` already has a `pdi` row (365 days) seeded from this same migration, so a future PDI module needs zero platform-side setup - just call `AttachmentService.upload()` per "Adopting this for a new module" below. |
+| **NTR** | Not present in this branch's `src/` (exists on `feature/ntr-legacy-import`, a sibling branch with its own Google-Drive-only archive system predating this platform - see that branch's ADR-008). Reconciling the two is a future, explicitly-scoped task once both branches merge; not attempted here since NTR's actual source isn't even in this working tree to migrate. |
+| **Campaign / Parts** | No module exists yet in any branch. |
+
+## Adopting this for a new module
+
+1. Add an `attachment_retention_policies` row for the module (or leave
+   `retention_days` null to never auto-archive) - already done for `pdi`.
 2. Call `new AttachmentService().upload({ module, entityType, entityId,
    attachmentType, filename, mimeType, buffer, createdBy })` at the point
-   a file is accepted.
+   a file is accepted - or `initDirectUpload()`/`finalizeDirectUpload()`
+   for a file that might exceed 4MB (see "Direct (large-file) upload").
 3. Call `markBusinessComplete(attachmentId)` once the owning record
    reaches a terminal state.
-4. Run `enqueueArchiveEligible(module)` then `processArchiveQueue()`
+4. If uploads happen before the record exists, generate a temporary ID
+   client-side (`newPendingEntityId()`) and call `reassignEntity()` once
+   the record is saved (see "Uploading before a record exists").
+5. Render attachments through `AttachmentViewer`, given `AttachmentService.list()` +
+   `getUrl()` output - never a raw `<img src>` reading a stored URL column
+   directly (a signed URL expires; resolve fresh, server-side, per request).
+6. Run `enqueueArchiveEligible(module)` then `processArchiveQueue()`
    periodically (a scheduled route, following the existing Scheduler
-   pattern in `docs/SCHEDULER_ARCHITECTURE.md`/ADR-007) - not wired to a
-   route in this pass since no module produces real attachments yet.
+   pattern in `docs/SCHEDULER_ARCHITECTURE.md`/ADR-007) - not yet wired to
+   a route for MQR/PM either; both modules' attachments are eligible for
+   archiving once `markBusinessComplete()`-and-retention-window criteria
+   are met, but nothing currently triggers that periodic run. This is the
+   one deliberately deferred piece of Phase 5B.1: building the scheduled
+   trigger is its own, explicitly-scoped follow-up, not bundled into this
+   migration pass.
