@@ -35,6 +35,12 @@ export class NtrSummaryProvider implements VehicleSummaryProvider {
     return {
       ownerName: data.customer_name ?? null,
       ownerPhone: data.customer_phone ?? null,
+      // Tractor Lifecycle foundation (MASP v1.1) - the one rule that
+      // exists today: an active NTR on file means the tractor has been
+      // delivered. Future modules (PDI, Warranty, Campaign, a retirement
+      // flow) extend this by contributing their own lifecycleStatus from
+      // their own provider - this file does not grow a dependency on them.
+      lifecycleStatus: 'Delivered',
     };
   }
 }

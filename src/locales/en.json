@@ -446,6 +446,14 @@
     "inWarranty": "In Warranty",
     "outOfWarranty": "Out of Warranty"
   },
+  "lifecycleStatus": {
+    "Stock": "Stock",
+    "Delivered": "Delivered",
+    "WarrantyActive": "Warranty Active",
+    "Campaign": "Campaign",
+    "Inactive": "Inactive",
+    "Scrapped": "Scrapped"
+  },
   "pmDetail": {
     "title": "PM Record Detail",
     "recordIdLabel": "Record ID: {id}",

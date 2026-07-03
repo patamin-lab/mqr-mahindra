@@ -92,6 +92,7 @@ export default async function Vehicle360Page({ params }: RouteParams) {
           <DetailRow label={t('common.branch')} value={summary.branchName ?? 'N/A'} />
           <DetailRow label={t('common.owner')} value={summary.ownerName ?? 'N/A'} />
           <DetailRow label={t('pdf.customerPhone')} value={summary.ownerPhone ?? 'N/A'} />
+          <DetailRow label={t('csv.currentLifecycle')} value={t(`lifecycleStatus.${summary.lifecycleStatus}`)} />
         </div>
       </Card>
 

@@ -190,7 +190,16 @@ function NtrDocument({
           <Row2 l1={translate(locale, 'common.productFamily')} v1={productFamilyName} l2={translate(locale, 'csv.model')} v2={record.model} />
           <OptionalRow2 l1={translate(locale, 'csv.variant')} v1={record.variant} l2={translate(locale, 'csv.manufacturingYear')} v2={record.manufacturing_year} />
           <Row2 l1={translate(locale, 'csv.serial')} v1={record.serial} l2={translate(locale, 'common.engineNumber')} v2={record.engine_number} />
-          <Row2 l1={translate(locale, 'csv.warrantyStatus')} v1={warranty.status} l2="" v2={null} />
+          {/* Tractor Lifecycle foundation (MASP v1.1) - always shown
+              ("Hide nothing"); this record's own existence guarantees an
+              NTR is on file, so 'Delivered' is a safe fallback even if
+              summary itself is unexpectedly absent. */}
+          <Row2
+            l1={translate(locale, 'csv.warrantyStatus')}
+            v1={warranty.status}
+            l2={translate(locale, 'csv.currentLifecycle')}
+            v2={translate(locale, `lifecycleStatus.${summary?.lifecycleStatus ?? 'Delivered'}`)}
+          />
         </View>
 
         {/* Section 3: Customer Information */}

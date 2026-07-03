@@ -183,6 +183,11 @@ export default async function NtrDetailPage({ params }: RouteParams) {
           <DetailRow label={t('common.engineNumber')} value={record.engine_number ?? 'N/A'} />
           {record.manufacturing_year && <DetailRow label={t('csv.manufacturingYear')} value={String(record.manufacturing_year)} />}
           <DetailRow label={t('csv.warrantyStatus')} value={warranty.status} />
+          {/* Tractor Lifecycle foundation (MASP v1.1) - always shown, per
+              spec ("Hide nothing"). This page's own record guarantees an
+              NTR exists, so 'Delivered' is a safe fallback even in the
+              unexpected case getVehicleSummary() itself returns null. */}
+          <DetailRow label={t('csv.currentLifecycle')} value={t(`lifecycleStatus.${summary?.lifecycleStatus ?? 'Delivered'}`)} />
         </div>
       </Card>
 
