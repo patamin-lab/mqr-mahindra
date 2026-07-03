@@ -20,6 +20,7 @@ export type VehicleEventType =
   | 'FactoryBuild'
   | 'DealerReceive'
   | 'PdiCompleted'
+  | 'NtrCreated'
   | 'NtrCompleted'
   | 'MaintenanceCompleted'
   | 'MqrOpened'

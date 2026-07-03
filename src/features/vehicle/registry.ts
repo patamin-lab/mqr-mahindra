@@ -9,5 +9,6 @@
 import { VehicleEventSource } from './types';
 import { getMaintenanceEvents } from './eventSources/maintenanceEvents';
 import { getMqrEvents } from './eventSources/mqrEvents';
+import { getPlatformEvents } from './eventSources/platformEvents';
 
-export const VEHICLE_EVENT_SOURCES: VehicleEventSource[] = [getMaintenanceEvents, getMqrEvents];
+export const VEHICLE_EVENT_SOURCES: VehicleEventSource[] = [getMaintenanceEvents, getMqrEvents, getPlatformEvents];

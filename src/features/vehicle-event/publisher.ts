@@ -50,6 +50,10 @@ export interface PublishMaintenanceCompletedInput extends BaseModuleInput {
   dealer?: string | null;
 }
 
+export interface PublishNtrCreatedInput extends BaseModuleInput {
+  customerName?: string | null;
+}
+
 export interface PublishNtrCompletedInput extends BaseModuleInput {
   customerName?: string | null;
 }
@@ -118,11 +122,30 @@ export class VehicleEventPublisher {
         event_datetime: input.eventDatetime ?? new Date().toISOString(),
         title: input.title,
         description: input.description ?? null,
-        metadata: input.metadata ?? {},
+        // `event_code` is echoed into metadata (in addition to the real FK,
+        // event_definition_id) so a generic timeline adapter (see
+        // features/vehicle/eventSources/ntrEvents.ts) can distinguish event
+        // types without a second lookup query - safe to add now since no
+        // module was reading vehicle_events' metadata shape before NTR
+        // became the first real consumer of this platform service.
+        metadata: { ...(input.metadata ?? {}), event_code: input.eventCode },
         status: input.status ?? null,
       },
       input.actor
     );
+  }
+
+  async publishNtrCreated(input: PublishNtrCreatedInput): Promise<VehicleEvent> {
+    return this.publish({
+      eventCode: 'NTR_CREATED',
+      serial: input.serial,
+      sourceModule: 'ntr',
+      referenceId: input.referenceId,
+      eventDatetime: input.eventDatetime,
+      title: 'เริ่มจดทะเบียนรถใหม่ (NTR)',
+      metadata: { customer_name: input.customerName ?? null },
+      actor: input.actor,
+    });
   }
 
   async publishMaintenanceCompleted(input: PublishMaintenanceCompletedInput): Promise<VehicleEvent> {
