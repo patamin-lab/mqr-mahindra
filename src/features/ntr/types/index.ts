@@ -232,7 +232,11 @@ export interface NtrHistoryResult {
 
 // ---------- Legacy Import ----------
 
-export type NtrImportSessionStatus = 'Pending' | 'Completed' | 'Failed';
+/** Pipeline stage, not just done/failed - Drive archiving is a separate,
+ *  retryable stage after a successful import, never a gate on it (see
+ *  docs/adr/ADR-008-Google-Drive-Decoupling.md). 'Archive Failed' loops
+ *  back to 'Archive Pending' on retry. */
+export type NtrImportSessionStatus = 'Pending' | 'Validated' | 'Imported' | 'Archive Pending' | 'Archived' | 'Archive Failed';
 
 export interface NtrImportSession {
   id: string;
@@ -246,6 +250,20 @@ export interface NtrImportSession {
   skipped_count: number;
   failed_count: number;
   errors: NtrImportRowError[];
+  /** Base64 of the originally uploaded file - the only thing preview()/
+   *  commit()/the archive step need, so none of them ever depend on
+   *  Google Drive being reachable. Cleared once archived_at is set. */
+  file_content: string | null;
+  file_checksum: string | null;
+  /** When the DB transaction (commit) finished - distinct from
+   *  archived_at, since archiving now happens later and can fail/retry
+   *  independently of a successful import. */
+  imported_at: string | null;
+  archive_job_id: string | null;
+  archive_attempts: number;
+  last_archive_attempt_at: string | null;
+  archive_error: string | null;
+  archived_at: string | null;
   started_at: string;
   completed_at: string | null;
   created_by: string;

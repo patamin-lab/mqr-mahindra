@@ -8,6 +8,18 @@
  */
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 
+/** The `vehicles` fields the atomic commit needs when a legacy-import row's
+ *  serial has no existing Tractor - a subset of `NtrTractorCreateInput`
+ *  (`@/lib/db`), repeated here rather than imported so this repository
+ *  interface doesn't reach across module boundaries for a 5-field shape. */
+export interface NtrLegacyImportVehicleInput {
+  model: string | null;
+  engineNumber: string | null;
+  dealerId: string;
+  branchId: string | null;
+  deliveryDate: string;
+}
+
 export interface NtrRepository {
   getById(id: string): Promise<NtrRecord | null>;
   /** Active (non-deleted) record already on file for this tractor serial,
@@ -23,4 +35,15 @@ export interface NtrRepository {
    *  Tractor Registry list view and its Excel export - never returns the
    *  full table. */
   listHistory(filter: NtrHistoryFilter): Promise<NtrHistoryResult>;
+  /** Legacy Import's atomic per-row commit: Tractor + NTR + Timeline +
+   *  Audit in one database transaction (the `commit_ntr_legacy_import_row`
+   *  Postgres function - see docs/adr/ADR-008-Google-Drive-Decoupling.md).
+   *  Persistence only, same as every other method here - `NtrImportService`
+   *  still owns validation, duplicate pre-checking, and name composition. */
+  commitLegacyImportRow(
+    sessionId: string,
+    vehicle: NtrLegacyImportVehicleInput,
+    ntr: NtrRecordCreateInput,
+    actor: { username: string }
+  ): Promise<NtrRecord>;
 }

@@ -172,6 +172,10 @@ Do not redesign.
 - No business logic in UI.
 - No Offline-First implementation in Sprint 10.
 - Draft Recovery uses sessionStorage only.
+- Google Drive is never a dependency of a critical business transaction —
+  any module writing to Drive must treat it as an archive/media
+  destination only, never something a commit blocks on or can be undone
+  by (see ADR-008-Google-Drive-Decoupling.md, NTR Legacy Import).
 
 Refer to ADR documents for details.
 

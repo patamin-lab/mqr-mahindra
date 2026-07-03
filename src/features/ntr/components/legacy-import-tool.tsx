@@ -23,6 +23,10 @@ export default function LegacyImportTool() {
   const [preview, setPreview] = useState<NtrImportPreview | null>(null);
   const [sessions, setSessions] = useState<NtrImportSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [archiveQueue, setArchiveQueue] = useState<NtrImportSession[]>([]);
+  const [loadingQueue, setLoadingQueue] = useState(true);
+  const [processingQueue, setProcessingQueue] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   async function loadSessions() {
     setLoadingSessions(true);
@@ -36,10 +40,43 @@ export default function LegacyImportTool() {
     }
   }
 
+  async function loadArchiveQueue() {
+    setLoadingQueue(true);
+    try {
+      const json = await fetchJson<{ ok: boolean; data: NtrImportSession[] }>('/api/ntr/import/archive');
+      setArchiveQueue(json.data ?? []);
+    } catch {
+      setArchiveQueue([]);
+    } finally {
+      setLoadingQueue(false);
+    }
+  }
+
   useEffect(() => {
     loadSessions();
+    loadArchiveQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function onProcessQueue(sessionIdToRetry?: string) {
+    if (sessionIdToRetry) setRetryingId(sessionIdToRetry);
+    else setProcessingQueue(true);
+    try {
+      await fetchJson('/api/ntr/import/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(sessionIdToRetry ? { sessionId: sessionIdToRetry } : {}),
+      });
+      swalSuccessToast(t('ntr.archiveQueueProcessedToast'));
+      await Promise.all([loadArchiveQueue(), loadSessions()]);
+    } catch (err) {
+      await showError(err);
+    } finally {
+      setProcessingQueue(false);
+      setRetryingId(null);
+    }
+  }
 
   async function showError(err: unknown) {
     if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
@@ -96,7 +133,7 @@ export default function LegacyImportTool() {
       setSessionId(null);
       setPreview(null);
       setFile(null);
-      await loadSessions();
+      await Promise.all([loadSessions(), loadArchiveQueue()]);
     } catch (err) {
       swalClose();
       await showError(err);
@@ -229,7 +266,64 @@ export default function LegacyImportTool() {
                     <td className="px-2 py-2">{s.valid_count}</td>
                     <td className="px-2 py-2">{s.skipped_count}</td>
                     <td className="px-2 py-2">{s.failed_count}</td>
-                    <td className="px-2 py-2">{s.status}</td>
+                    <td className="px-2 py-2">{t(`ntr.importStatus_${s.status.replace(/\s/g, '')}`)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-600">{t('ntr.archiveQueueTitle')}</h2>
+          <button
+            type="button"
+            onClick={() => onProcessQueue()}
+            disabled={processingQueue || archiveQueue.length === 0}
+            className="rounded border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50 disabled:opacity-50"
+          >
+            {processingQueue ? t('common.loading') : t('ntr.processQueueButton')}
+          </button>
+        </div>
+        {loadingQueue ? (
+          <p className="text-sm text-gray-400">{t('common.loading')}</p>
+        ) : archiveQueue.length === 0 ? (
+          <p className="text-sm text-gray-400">{t('ntr.archiveQueueEmpty')}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50 text-left uppercase text-gray-500">
+                <tr>
+                  <th className="px-2 py-2">{t('ntr.filename')}</th>
+                  <th className="px-2 py-2">{t('common.status')}</th>
+                  <th className="px-2 py-2">{t('ntr.archiveAttempts')}</th>
+                  <th className="px-2 py-2">{t('ntr.lastArchiveAttempt')}</th>
+                  <th className="px-2 py-2">{t('ntr.archiveErrorLabel')}</th>
+                  <th className="px-2 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {archiveQueue.map((s) => (
+                  <tr key={s.id} className="border-t border-gray-100">
+                    <td className="px-2 py-2">{s.filename}</td>
+                    <td className="px-2 py-2">{t(`ntr.importStatus_${s.status.replace(/\s/g, '')}`)}</td>
+                    <td className="px-2 py-2">{s.archive_attempts}</td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      {s.last_archive_attempt_at ? formatDateTimeLocalized(s.last_archive_attempt_at, locale) : '-'}
+                    </td>
+                    <td className="px-2 py-2 text-red-600">{s.archive_error ?? '-'}</td>
+                    <td className="px-2 py-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => onProcessQueue(s.id)}
+                        disabled={retryingId === s.id || processingQueue}
+                        className="rounded border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {retryingId === s.id ? t('common.loading') : t('ntr.retryArchiveButton')}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

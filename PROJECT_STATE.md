@@ -799,3 +799,41 @@ Legacy Naming (tracked, not yet renamed — pending ADR):
 - STORAGE_BUCKET = 'mqr-files' (lib/supabase.ts)
 - MqrRecord interface (lib/types.ts)
 - Sidebar display name 'Market Quality Report' (sidebar.tsx)
+
+## NTR Legacy Import — Google Drive Decoupling (branch `feature/ntr-legacy-import`, off `feature/ntr-module`)
+
+Google Drive removed from the Legacy Import critical path — see
+ADR-008-Google-Drive-Decoupling.md. Drive is now archive-only: a
+successful import (`ntr_records`/`vehicles`/timeline/audit rows committed)
+no longer depends on Drive being reachable at all.
+
+- Migration `ntr_legacy_import_archive_decouple`: `ntr_import_sessions`
+  gains `file_content` (base64 original file, replaces the old
+  synchronous Drive upload during preview), `file_checksum`,
+  `imported_at`, `archive_job_id`, `archive_attempts`,
+  `last_archive_attempt_at`, `archive_error`, `archived_at`. Status
+  vocabulary replaced (table had 0 rows in every environment):
+  `Pending → Validated → Imported → Archive Pending → Archived |
+  Archive Failed` (retryable).
+- New Postgres function `commit_ntr_legacy_import_row()` (SECURITY
+  DEFINER, pinned search_path) — one RPC call is one transaction:
+  Tractor (`vehicles`) + NTR (`ntr_records`) + Timeline (`vehicle_events`,
+  reusing the existing `NTR_CREATED`/`NTR_COMPLETED` codes — single event
+  vocabulary regardless of ingestion method, provenance recorded in
+  `metadata.source`/`metadata.import_session_id` instead of a forked
+  vocabulary) + Audit (`record_audit_log`), persistence only, no business
+  logic. Exposed to the app via `NtrRepository.commitLegacyImportRow()`.
+- `NtrImportService.commit()` calls this once per valid row instead of
+  the old sequential `createVehicleManual()` + `NtrService.create()` +
+  Drive-upload path; a duplicate-serial race is now a real transactional
+  rollback (nothing partial persists), not just a pre-check.
+- New `archiveSession()`/`processArchiveQueue()` on `NtrImportService`,
+  new `GET/POST /api/ntr/import/archive` routes (SuperAdmin only, same
+  gate as every other Legacy Import route), and an Archive Queue section
+  added to the existing Legacy Import admin page (retry-per-session +
+  process-entire-queue). Upload/Preview/Confirm UI itself is unchanged.
+- Out of scope, unchanged: parser, business validation, duplicate
+  detection, Preview/Upload UI, NTR business rules.
+- Verification: `tsc --noEmit` clean, `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `vitest run` 267/267 passing (was 259 before this
+  branch — 8 new Archive Queue permission tests), `next build` succeeds.

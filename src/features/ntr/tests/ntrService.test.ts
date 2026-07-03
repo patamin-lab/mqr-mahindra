@@ -76,6 +76,7 @@ function makeMockRepository(): NtrRepository {
     update: vi.fn(),
     delete: vi.fn(),
     listHistory: vi.fn(),
+    commitLegacyImportRow: vi.fn(),
   };
 }
 
