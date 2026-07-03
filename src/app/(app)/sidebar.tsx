@@ -74,7 +74,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between bg-brand-dark text-white px-4 py-3 print:hidden sticky top-0 z-30">
         <div className="font-bold text-white text-sm">
-          Market <span className="text-brand-red">Quality</span> Report
+          Mahindra <span className="text-brand-red">After-Sales</span> Platform
         </div>
         <button
           onClick={() => setOpen(true)}
