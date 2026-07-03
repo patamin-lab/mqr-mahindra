@@ -151,6 +151,9 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
       meter_photo_url: input.meter_photo_url,
       nameplate_photo_url: input.nameplate_photo_url,
       report_photo_url: input.report_photo_url,
+      meter_photo_attachment_id: input.meter_photo_attachment_id ?? null,
+      nameplate_photo_attachment_id: input.nameplate_photo_attachment_id ?? null,
+      report_photo_attachment_id: input.report_photo_attachment_id ?? null,
       latitude: input.latitude,
       longitude: input.longitude,
       gps_accuracy: input.gps_accuracy,
@@ -192,6 +195,9 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     if (input.meter_photo_url !== undefined) updatePayload.meter_photo_url = input.meter_photo_url;
     if (input.nameplate_photo_url !== undefined) updatePayload.nameplate_photo_url = input.nameplate_photo_url;
     if (input.report_photo_url !== undefined) updatePayload.report_photo_url = input.report_photo_url;
+    if (input.meter_photo_attachment_id !== undefined) updatePayload.meter_photo_attachment_id = input.meter_photo_attachment_id;
+    if (input.nameplate_photo_attachment_id !== undefined) updatePayload.nameplate_photo_attachment_id = input.nameplate_photo_attachment_id;
+    if (input.report_photo_attachment_id !== undefined) updatePayload.report_photo_attachment_id = input.report_photo_attachment_id;
     if (input.latitude !== undefined) updatePayload.latitude = input.latitude;
     if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
     if (input.gps_accuracy !== undefined) updatePayload.gps_accuracy = input.gps_accuracy;

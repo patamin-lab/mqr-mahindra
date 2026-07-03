@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
-import { getDealer, listActivePmIntervals } from '@/lib/db';
-import { relocatePendingFiles } from '@/lib/googleDrive';
+import { listActivePmIntervals } from '@/lib/db';
+import { AttachmentService } from '@/shared/attachments';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
 import { isNonEmptyString, parseWithSchema, ValidationError } from '@/features/maintenance/utils/validation';
@@ -120,24 +120,24 @@ export async function POST(req: NextRequest) {
   try {
     const record = await service.create(input, { username: session.username });
 
-    // Photos were uploaded into the dealer's "_pending" Drive folder before
-    // this record (and its pm_number) existed - move them into the proper
-    // {dealer}/{pmNumber} folder now, mirroring src/app/api/records/route.ts's
-    // identical pattern for QIR photos. File URLs never change, so this
-    // never needs to touch the DB row, and a relocate failure must never
-    // fail the create (the photos still work from _pending either way).
+    // Photos were uploaded via AttachmentService against a temporary
+    // client-generated entity ID before this record existed - re-tag them
+    // with the record's real id now (mirrors src/app/api/records/route.ts's
+    // identical pattern for MQR photos). A maintenance visit is a single,
+    // already-complete event, so its attachments' retention clock starts
+    // immediately (unlike MQR, which waits for the record to close).
+    // Neither step may fail the create.
     try {
-      const dealer = await getDealer(record.dealer_id);
-      const dealerFolderName = (dealer?.short_name || record.dealer_id).replace(/[^a-zA-Z0-9ก-๙_-]/g, '');
-      if (record.pm_number) {
-        await relocatePendingFiles(dealerFolderName, record.pm_number, [
-          record.meter_photo_url,
-          record.nameplate_photo_url,
-          record.report_photo_url,
-        ]);
+      const attachmentService = new AttachmentService();
+      const attachmentIds = [record.meter_photo_attachment_id, record.nameplate_photo_attachment_id, record.report_photo_attachment_id].filter(
+        (id): id is string => !!id
+      );
+      if (attachmentIds.length > 0) {
+        await attachmentService.reassignEntity(attachmentIds, record.id);
+        await Promise.all(attachmentIds.map((id) => attachmentService.markBusinessComplete(id)));
       }
     } catch (err) {
-      console.error('drive relocate pending files error (pm-record)', err);
+      console.error('attachment reassign/business-complete error (pm-record)', err);
     }
 
     return NextResponse.json({ ok: true, data: record }, { status: 201 });

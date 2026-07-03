@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
@@ -9,6 +9,8 @@ import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { isNonEmptyString } from '../utils/validation';
 import type { MaintenanceRecord } from '../types';
 import type { PmInterval } from '@/lib/types';
+import type { AttachmentType } from '@/shared/attachments';
+import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
@@ -21,6 +23,11 @@ const PHOTO_FIELD: Record<PhotoSlot, 'meter_photo_url' | 'nameplate_photo_url' |
   meter: 'meter_photo_url',
   nameplate: 'nameplate_photo_url',
   report: 'report_photo_url',
+};
+const PHOTO_ATTACHMENT_TYPE: Record<PhotoSlot, AttachmentType> = {
+  meter: 'MeterPhoto',
+  nameplate: 'NameplatePhoto',
+  report: 'ReportPhoto',
 };
 
 export interface MaintenanceFormInitial {
@@ -40,6 +47,9 @@ export interface MaintenanceFormInitial {
   meter_photo_url?: string | null;
   nameplate_photo_url?: string | null;
   report_photo_url?: string | null;
+  meter_photo_attachment_id?: string | null;
+  nameplate_photo_attachment_id?: string | null;
+  report_photo_attachment_id?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   gps_accuracy?: number | null;
@@ -87,10 +97,15 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
   const [hourMeter, setHourMeter] = useState(initial?.hour_meter != null ? String(initial.hour_meter) : '');
   const [pmIntervalId, setPmIntervalId] = useState(initial?.pm_interval_id ?? '');
   const [pmIntervals, setPmIntervals] = useState<PmInterval[]>([]);
-  const [photos, setPhotos] = useState<Record<PhotoSlot, string | null>>({
-    meter: initial?.meter_photo_url ?? null,
-    nameplate: initial?.nameplate_photo_url ?? null,
-    report: initial?.report_photo_url ?? null,
+  // Uploaded via AttachmentService; in 'create' mode the record doesn't
+  // exist yet, so uploads go against this temporary ID and get re-tagged
+  // with the real record id once saved (see /api/pm-records POST route).
+  const pendingEntityId = useRef(newPendingEntityId()).current;
+  const entityId = props.mode === 'edit' ? props.recordId : pendingEntityId;
+  const [photos, setPhotos] = useState<Record<PhotoSlot, { url: string | null; attachmentId: string | null }>>({
+    meter: { url: initial?.meter_photo_url ?? null, attachmentId: initial?.meter_photo_attachment_id ?? null },
+    nameplate: { url: initial?.nameplate_photo_url ?? null, attachmentId: initial?.nameplate_photo_attachment_id ?? null },
+    report: { url: initial?.report_photo_url ?? null, attachmentId: initial?.report_photo_attachment_id ?? null },
   });
   const [uploadingSlot, setUploadingSlot] = useState<PhotoSlot | null>(null);
   const [gps, setGps] = useState<GpsLocation>({
@@ -126,14 +141,14 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
   async function uploadPhoto(slot: PhotoSlot, file: File) {
     setUploadingSlot(slot);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('label', slot);
-      form.append('dealerId', dealerId || initial?.dealer_id || '');
-      const res = await fetch('/api/upload', { method: 'POST', credentials: 'same-origin', body: form });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error ?? t('validation.uploadFailed'));
-      setPhotos((prev) => ({ ...prev, [slot]: json.url as string }));
+      const uploaded = await uploadAttachment(file, {
+        module: 'pm',
+        entityType: 'pm_record',
+        entityId,
+        attachmentType: PHOTO_ATTACHMENT_TYPE[slot],
+        label: slot,
+      });
+      setPhotos((prev) => ({ ...prev, [slot]: { url: uploaded.url, attachmentId: uploaded.attachmentId } }));
     } catch (err) {
       await swalErrorToast(err instanceof Error ? err.message : t('common.error'));
     } finally {
@@ -173,9 +188,12 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
       customer_phone: customerPhone.trim(),
       hour_meter: Number(hourMeter),
       pm_interval_id: pmIntervalId.trim() || null,
-      meter_photo_url: photos.meter,
-      nameplate_photo_url: photos.nameplate,
-      report_photo_url: photos.report,
+      meter_photo_url: photos.meter.url,
+      nameplate_photo_url: photos.nameplate.url,
+      report_photo_url: photos.report.url,
+      meter_photo_attachment_id: photos.meter.attachmentId,
+      nameplate_photo_attachment_id: photos.nameplate.attachmentId,
+      report_photo_attachment_id: photos.report.attachmentId,
       latitude: gps.latitude,
       longitude: gps.longitude,
       gps_accuracy: gps.accuracy,
@@ -331,9 +349,9 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
           {(['meter', 'nameplate', 'report'] as PhotoSlot[]).map((slot) => (
             <div key={slot} className="rounded border border-dashed border-gray-300 p-3 text-center">
               <p className="mb-2 text-xs text-gray-500">{t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)}</p>
-              {photos[slot] ? (
+              {photos[slot].url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photos[slot] as string} alt={t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)} className="mb-2 h-24 w-full rounded object-cover" />
+                <img src={photos[slot].url as string} alt={t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)} className="mb-2 h-24 w-full rounded object-cover" />
               ) : (
                 <div className="mb-2 flex h-24 w-full items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
                   {t('pmEdit.noPhotoYet')}
