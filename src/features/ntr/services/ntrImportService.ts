@@ -22,9 +22,11 @@
  */
 import { getDealer, logAuditEvent } from '@/lib/db';
 import { uploadFileToDrive } from '@/lib/googleDrive';
+import { ColumnMappingResult, formatImportError } from '@/shared/import';
 import { NtrRepository } from '../repositories/ntrRepository';
 import { NtrImportSessionRepository } from '../repositories/ntrImportSessionRepository';
-import { parseNtrImportFile } from './ntrImportParser';
+import { mapNtrImportHeaders, parseNtrImportFile } from './ntrImportParser';
+import { NTR_IMPORT_FIELDS } from './ntrImportFields';
 import {
   NtrImportPreview,
   NtrImportRow,
@@ -33,6 +35,17 @@ import {
   NtrImportSession,
   NtrRecordCreateInput,
 } from '../types';
+
+/** Canonical field key -> business-facing column name, for
+ *  `formatImportError()` to mention in a rewritten message (e.g.
+ *  `dealer_id` -> "Dealer Code"). */
+const NTR_ERROR_FIELD_LABELS: Record<string, string> = Object.fromEntries(
+  NTR_IMPORT_FIELDS.map((f) => [f.canonicalKey, f.displayLabel])
+);
+
+function humanize(reason: string | undefined): string | undefined {
+  return reason === undefined ? undefined : formatImportError(reason, { fieldLabels: NTR_ERROR_FIELD_LABELS });
+}
 
 export interface NtrImportActor {
   username: string;
@@ -95,8 +108,13 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository):
   return results;
 }
 
-function toPreview(validated: ValidatedRow[]): NtrImportPreview {
-  const rows: NtrImportRowResult[] = validated.map((v) => ({ row: v.row.row, serial: v.row.serial || null, outcome: v.outcome, reason: v.reason }));
+function toPreview(validated: ValidatedRow[], columnMapping: ColumnMappingResult): NtrImportPreview {
+  const rows: NtrImportRowResult[] = validated.map((v) => ({
+    row: v.row.row,
+    serial: v.row.serial || null,
+    outcome: v.outcome,
+    reason: humanize(v.reason),
+  }));
   return {
     totalRecords: validated.length,
     validCount: validated.filter((v) => v.outcome === 'valid').length,
@@ -104,6 +122,7 @@ function toPreview(validated: ValidatedRow[]): NtrImportPreview {
     skippedCount: validated.filter((v) => v.outcome === 'skipped').length,
     failedCount: validated.filter((v) => v.outcome === 'failed').length,
     rows,
+    columnMapping,
   };
 }
 
@@ -132,7 +151,8 @@ export class NtrImportService {
   ): Promise<{ session: NtrImportSession; preview: NtrImportPreview }> {
     const rows = await parseNtrImportFile(fileBuffer, filename);
     const validated = await validateRows(rows, this.ntrRepository);
-    const preview = toPreview(validated);
+    const columnMapping = await mapNtrImportHeaders(fileBuffer, filename);
+    const preview = toPreview(validated, columnMapping);
     const checksum = await sha256Hex(fileBuffer);
 
     const session = await this.sessionRepository.create(
@@ -180,7 +200,7 @@ export class NtrImportService {
     let failed = 0;
     const errors: { row: number; serial: string | null; reason: string }[] = validated
       .filter((v) => v.outcome === 'failed')
-      .map((v) => ({ row: v.row.row, serial: v.row.serial || null, reason: v.reason ?? '' }));
+      .map((v) => ({ row: v.row.row, serial: v.row.serial || null, reason: humanize(v.reason) ?? '' }));
 
     for (const v of validated) {
       if (v.outcome !== 'valid') continue;
@@ -235,7 +255,8 @@ export class NtrImportService {
         imported++;
       } catch (err) {
         failed++;
-        errors.push({ row: v.row.row, serial: v.row.serial || null, reason: err instanceof Error ? err.message : 'Import failed' });
+        const reason = err instanceof Error ? err.message : 'Import failed';
+        errors.push({ row: v.row.row, serial: v.row.serial || null, reason: humanize(reason) ?? reason });
       }
     }
 

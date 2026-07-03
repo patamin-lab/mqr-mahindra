@@ -837,3 +837,57 @@ no longer depends on Drive being reachable at all.
 - Verification: `tsc --noEmit` clean, `eslint` 0 errors (9 pre-existing
   warnings, unchanged), `vitest run` 267/267 passing (was 259 before this
   branch — 8 new Archive Queue permission tests), `next build` succeeds.
+
+## Universal Import Wizard Framework (same branch, `feature/ntr-legacy-import`)
+
+Redesigned the Legacy Import UX into a reusable 5-step wizard
+(Download Template → Upload File → Preview & Validation → Confirm Import →
+Import Complete) and extracted a generic framework, `src/shared/import/`,
+so future modules (Vehicle Master, PM, PDI, MQR, Campaign, Parts) reuse it
+without redesigning it — see `docs/engineering/IMPORT_FRAMEWORK.md` for the
+full architecture. NTR is the only real consumer today; this is a
+deliberate, documented exception to `.claude/rules/01-architecture-boundaries.md`'s
+"shared/ only when two modules need it" rule (framework code, not business
+logic — the abstraction is unverified against a second caller until one
+exists).
+
+- **Template generation** (`ImportTemplateService.ts`): downloadable
+  `.xlsx` with Instructions/Data/`_META` sheets (Template Name, Version,
+  Module, Generated Date), generic over any module's field definitions.
+  New `GET /api/ntr/import/template` (SuperAdmin only).
+- **Column mapping** (`ColumnMappingService.ts` + `HeaderNormalizer.ts`):
+  alias-based header matching, order-independent - `NTR_IMPORT_FIELDS`
+  (`src/features/ntr/services/ntrImportFields.ts`) is the one NTR-specific
+  piece; the mapping engine itself has no field knowledge.
+- **Parser rewrite** (`ImportParser.ts`): the old fixed-position
+  `TEMPLATE_COLUMNS` reader is gone. `ntrImportParser.ts` is now a thin
+  adapter over the shared generic sheet reader + `ColumnMappingService` +
+  each field's own `parse` function. Fixes the "[object Object]" cell
+  defect class at the source (rich-text/hyperlink/formula-result cells are
+  now stringified safely, never via a bare `String(cell)`).
+- **Header Validation**: `preview/route.ts` now rejects a file with none
+  of its required columns recognized at all (`formatUnsupportedTemplateMessage()`,
+  "Uploaded file is not a supported import template"), before writing any
+  session row - a genuinely malformed/wrong-template file no longer
+  produces a wall of confusing per-row failures.
+- **Humanized errors** (`ImportErrorFormatter.ts`): technical reasons
+  (`Unknown dealer_id "X"`, `Missing X`, the duplicate/race messages)
+  rewritten into business language for Step 3/5 and the stored session
+  `errors` - falls back to the original text for anything unrecognized.
+- **Import History**: session history table gained a "Module" column
+  (static `'NTR'` today - `ImportHistoryService.ts`'s fan-out design means
+  this becomes real per-provider data with no framework changes once a
+  second module exists).
+- Out of scope, unchanged per this issue: NTR business rules, Vehicle/NTR
+  creation, Timeline, Audit, Google Drive, the Archive Worker.
+- Note on scope: this app has no existing dark-mode support anywhere
+  (`Card`/`globals.css` are light-only) - the spec asked for
+  "dark mode compatible," but adding `dark:` classes to only this one page
+  would have produced invisible white-on-white text rather than a real
+  feature, so the wizard matches the app's actual (light-only) visual
+  system instead. Flagged here rather than silently claimed as done.
+- Verification: `tsc --noEmit` clean, `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `vitest run` 284/284 passing (was 267 - 17 new
+  tests: `ColumnMappingService`, `ImportErrorFormatter`,
+  `ntrImportParser` alias-based regression coverage), `next build`
+  succeeds.
