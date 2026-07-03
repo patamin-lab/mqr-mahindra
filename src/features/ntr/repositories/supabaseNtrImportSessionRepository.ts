@@ -8,6 +8,14 @@ import { NtrImportSession } from '../types';
 
 const IMPORT_SESSION_LIST_MAX = 100;
 
+/** Every column except `file_content` - list views (session history, the
+ *  Archive Queue) never need the base64 original file, only `getById()`
+ *  (preview/commit re-validation, the archive step itself) does. Keeps the
+ *  history/queue responses from shipping a multi-hundred-KB blob per row
+ *  on every page load. */
+const LIST_COLUMNS =
+  'id, importer, filename, original_file_url, status, total_records, valid_count, duplicate_count, skipped_count, failed_count, errors, file_checksum, imported_at, archive_job_id, archive_attempts, last_archive_attempt_at, archive_error, archived_at, started_at, completed_at, created_by, updated_by, updated_at';
+
 export class SupabaseNtrImportSessionRepository implements NtrImportSessionRepository {
   private readonly client = getSupabase();
   private readonly table = 'ntr_import_sessions';
@@ -19,7 +27,8 @@ export class SupabaseNtrImportSessionRepository implements NtrImportSessionRepos
       .insert({
         importer: input.importer,
         filename: input.filename,
-        original_file_url: input.originalFileUrl,
+        file_content: input.fileContent,
+        file_checksum: input.fileChecksum,
         status: 'Pending',
         total_records: input.totalRecords,
         valid_count: 0,
@@ -50,6 +59,14 @@ export class SupabaseNtrImportSessionRepository implements NtrImportSessionRepos
     if (input.failedCount !== undefined) payload.failed_count = input.failedCount;
     if (input.errors !== undefined) payload.errors = input.errors;
     if (input.completedAt !== undefined) payload.completed_at = input.completedAt;
+    if (input.importedAt !== undefined) payload.imported_at = input.importedAt;
+    if (input.fileContent !== undefined) payload.file_content = input.fileContent;
+    if (input.originalFileUrl !== undefined) payload.original_file_url = input.originalFileUrl;
+    if (input.archiveJobId !== undefined) payload.archive_job_id = input.archiveJobId;
+    if (input.archiveAttempts !== undefined) payload.archive_attempts = input.archiveAttempts;
+    if (input.lastArchiveAttemptAt !== undefined) payload.last_archive_attempt_at = input.lastArchiveAttemptAt;
+    if (input.archiveError !== undefined) payload.archive_error = input.archiveError;
+    if (input.archivedAt !== undefined) payload.archived_at = input.archivedAt;
 
     const { data, error } = await this.client.from(this.table).update(payload).eq('id', id).select('*').single();
     if (error) throw error;
@@ -65,10 +82,21 @@ export class SupabaseNtrImportSessionRepository implements NtrImportSessionRepos
   async list(limit = IMPORT_SESSION_LIST_MAX): Promise<NtrImportSession[]> {
     const { data, error } = await this.client
       .from(this.table)
-      .select('*')
+      .select(LIST_COLUMNS)
       .order('started_at', { ascending: false })
       .limit(Math.min(limit, IMPORT_SESSION_LIST_MAX));
     if (error) throw error;
-    return (data ?? []) as NtrImportSession[];
+    return (data ?? []) as unknown as NtrImportSession[];
+  }
+
+  async listArchiveQueue(): Promise<NtrImportSession[]> {
+    const { data, error } = await this.client
+      .from(this.table)
+      .select(LIST_COLUMNS)
+      .in('status', ['Archive Pending', 'Archive Failed'])
+      .order('started_at', { ascending: false })
+      .limit(IMPORT_SESSION_LIST_MAX);
+    if (error) throw error;
+    return (data ?? []) as unknown as NtrImportSession[];
   }
 }
