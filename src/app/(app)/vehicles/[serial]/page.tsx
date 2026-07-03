@@ -11,6 +11,8 @@ import Card from '@/components/shared/layout/Card';
 import Timeline from '@/components/shared/timeline/Timeline';
 import TimelineItem from '@/components/shared/timeline/TimelineItem';
 import DetailRow from '@/components/shared/layout/DetailRow';
+import AttachmentViewer from '@/components/shared/attachments/AttachmentViewer';
+import { AttachmentService } from '@/shared/attachments';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,16 +35,28 @@ const HEALTH_STATUS_CLASS: Record<HealthStatus, string> = {
 };
 
 const machineService = new MachineService();
+const attachmentService = new AttachmentService();
 
 export default async function Machine360Page({ params }: RouteParams) {
   const serial = decodeURIComponent(params.serial);
   const session = await getSession();
   if (!session) return null;
 
-  const [summary, timeline] = await Promise.all([
+  const [summary, timeline, attachments] = await Promise.all([
     machineService.getMachine360(serial, session),
     machineService.getMachineTimeline(serial, session),
+    machineService.getMachineAttachments(serial, session),
   ]);
+  // Machine 360 reads only through AttachmentService (ADR-010) - never a
+  // storage provider or module table directly. Resolved here (server-side,
+  // at request time) rather than persisted, since a Supabase signed URL
+  // expires.
+  const attachmentItems = await Promise.all(
+    attachments.map(async (a) => {
+      const resolved = await attachmentService.getUrl(a.id).catch(() => null);
+      return { id: a.id, filename: a.filename, mimeType: a.mimeType, url: resolved?.url ?? null };
+    })
+  );
 
   if (!summary) {
     return (
@@ -172,6 +186,11 @@ export default async function Machine360Page({ params }: RouteParams) {
             ))}
           </Timeline>
         )}
+      </Card>
+
+      <Card variant="compact" className="p-6">
+        <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('machine360.attachmentsTitle')}</h2>
+        <AttachmentViewer items={attachmentItems} emptyMessage={t('attachmentViewer.noAttachments')} />
       </Card>
     </div>
   );
