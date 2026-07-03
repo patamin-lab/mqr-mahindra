@@ -1,161 +1,86 @@
 /**
  * NTR Legacy Import — file parser.
  *
- * Supports .xlsx (via the existing ExcelJS dependency) and .csv (minimal
- * RFC-4180-ish parsing: quoted fields, escaped quotes, comma delimiter -
- * sufficient for the fixed export-then-reimport template this tool
- * targets, not a general-purpose CSV library). Expects a fixed header row
- * (see `TEMPLATE_COLUMNS`) - this is a known, disclosed scope reduction
- * versus a flexible arbitrary-column-mapping UI, appropriate for a
- * SuperAdmin-only, one-time historical-data tool.
+ * Thin, NTR-specific adapter over the Universal Import Framework
+ * (`src/shared/import/`): the generic `parseImportFile()` reads the
+ * uploaded .xlsx/.csv into a header row + raw string cells (structural
+ * parsing - never modified per module), `ColumnMappingService` resolves
+ * each `NTR_IMPORT_FIELDS` entry to whichever column actually holds it in
+ * this particular file (alias/name-based, not positional - a dealer's
+ * columns can be reordered or use a recognized synonym), and each field's
+ * own `parse` function (or the default trimmed-string-or-null behavior)
+ * coerces the raw cell into `NtrImportRow`'s typed shape. No business
+ * validation happens here - see `ntrImportService.ts`'s `validateRows()`.
  */
-import ExcelJS from 'exceljs';
-import { NtrImportRow, NtrCustomerType } from '../types';
+import { ColumnMappingService, parseImportFile } from '@/shared/import';
+import { NtrImportRow } from '../types';
+import { NTR_IMPORT_FIELDS } from './ntrImportFields';
 
-/** Column order the uploaded file's header row must match exactly
- *  (case-insensitive, whitespace-trimmed). */
-export const TEMPLATE_COLUMNS = [
-  'dealer_id',
-  'branch_id',
-  'serial',
-  'model',
-  'engine_number',
-  'customer_name',
-  'customer_phone',
-  'customer_address',
-  'customer_district',
-  'customer_province',
-  'customer_postal_code',
-  'customer_type',
-  'retail_date',
-  'delivery_date',
-  'salesperson',
-  'receiving_person',
-  'hour_meter',
-  // Appended, not inserted, so a legacy file exported before these fields
-  // existed still parses correctly - a missing trailing column simply
-  // yields '' -> null for every row, per spec ("if a legacy file does not
-  // contain them, leave them NULL").
-  'customer_title',
-  'customer_first_name',
-  'customer_last_name',
-  'customer_subdistrict',
-  'product_family_id',
-  'variant',
-  'pdi_date',
-  'manufacturing_year',
-] as const;
+const mappingService = new ColumnMappingService(NTR_IMPORT_FIELDS);
+const fieldByKey = new Map(NTR_IMPORT_FIELDS.map((f) => [f.canonicalKey, f]));
 
-function normalizeCustomerType(value: string): NtrCustomerType | null {
-  const v = value.trim().toLowerCase();
-  if (v === 'individual' || v === 'บุคคลธรรมดา') return 'Individual';
-  if (v === 'company' || v === 'นิติบุคคล') return 'Company';
-  return null;
+/** Column index per canonical field, computed once per file (not once per
+ *  row) - `columnIndexFor()` re-derives its alias set from `NTR_IMPORT_FIELDS`
+ *  on every call, so calling it inside a per-row loop would redo that work
+ *  once per field per row for no reason. */
+function buildColumnIndex(headerRow: string[]): Record<string, number> {
+  const index: Record<string, number> = {};
+  for (const field of NTR_IMPORT_FIELDS) {
+    index[field.canonicalKey] = mappingService.columnIndexFor(headerRow, field.canonicalKey);
+  }
+  return index;
 }
 
-function cellToRow(cells: string[], rowNumber: number): NtrImportRow {
-  const get = (col: (typeof TEMPLATE_COLUMNS)[number]) => {
-    const idx = TEMPLATE_COLUMNS.indexOf(col);
-    return (cells[idx] ?? '').trim();
+function buildRow(columnIndex: Record<string, number>, cells: string[], rowNumber: number): NtrImportRow {
+  const get = (canonicalKey: string): string => {
+    const idx = columnIndex[canonicalKey];
+    return idx === undefined || idx === -1 ? '' : (cells[idx] ?? '').trim();
   };
-  const hourMeterRaw = get('hour_meter');
-  const manufacturingYearRaw = get('manufacturing_year');
+  const value = (canonicalKey: string): unknown => {
+    const field = fieldByKey.get(canonicalKey)!;
+    const raw = get(canonicalKey);
+    return field.parse ? field.parse(raw) : raw || null;
+  };
+
   return {
     row: rowNumber,
     dealer_id: get('dealer_id'),
-    branch_id: get('branch_id') || null,
+    branch_id: value('branch_id') as string | null,
     serial: get('serial'),
-    model: get('model') || null,
+    model: value('model') as string | null,
     engine_number: get('engine_number') || null,
-    customer_title: get('customer_title') || null,
-    customer_first_name: get('customer_first_name') || null,
-    customer_last_name: get('customer_last_name') || null,
+    customer_title: value('customer_title') as string | null,
+    customer_first_name: value('customer_first_name') as string | null,
+    customer_last_name: value('customer_last_name') as string | null,
     customer_name: get('customer_name'),
     customer_phone: get('customer_phone'),
-    customer_address: get('customer_address') || null,
-    customer_subdistrict: get('customer_subdistrict') || null,
-    customer_district: get('customer_district') || null,
-    customer_province: get('customer_province') || null,
-    customer_postal_code: get('customer_postal_code') || null,
-    customer_type: get('customer_type') ? normalizeCustomerType(get('customer_type')) : null,
-    product_family_id: get('product_family_id') || null,
-    variant: get('variant') || null,
-    retail_date: get('retail_date') || null,
+    customer_address: value('customer_address') as string | null,
+    customer_subdistrict: value('customer_subdistrict') as string | null,
+    customer_district: value('customer_district') as string | null,
+    customer_province: value('customer_province') as string | null,
+    customer_postal_code: value('customer_postal_code') as string | null,
+    customer_type: value('customer_type') as NtrImportRow['customer_type'],
+    product_family_id: value('product_family_id') as string | null,
+    variant: value('variant') as string | null,
+    retail_date: value('retail_date') as string | null,
     delivery_date: get('delivery_date'),
-    pdi_date: get('pdi_date') || null,
-    manufacturing_year: manufacturingYearRaw ? Number(manufacturingYearRaw) : null,
-    salesperson: get('salesperson') || null,
-    receiving_person: get('receiving_person') || null,
-    hour_meter: hourMeterRaw ? Number(hourMeterRaw) : null,
+    pdi_date: value('pdi_date') as string | null,
+    manufacturing_year: value('manufacturing_year') as number | null,
+    salesperson: value('salesperson') as string | null,
+    receiving_person: value('receiving_person') as string | null,
+    hour_meter: value('hour_meter') as number | null,
   };
 }
 
-/** Minimal RFC-4180-ish line splitter: handles quoted fields containing
- *  commas/newlines and doubled-quote escaping - not a general CSV library,
- *  sufficient for this tool's fixed template. */
-function parseCsvLine(line: string): string[] {
-  const cells: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      cells.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  cells.push(current);
-  return cells;
-}
-
-function parseCsv(buffer: Buffer): NtrImportRow[] {
-  const text = buffer.toString('utf-8').replace(/^﻿/, '');
-  const lines = text.split(/\r\n|\n/).filter((l) => l.trim().length > 0);
-  const rows: NtrImportRow[] = [];
-  // Row 1 is the header - data starts at spreadsheet row 2.
-  for (let i = 1; i < lines.length; i++) {
-    rows.push(cellToRow(parseCsvLine(lines[i]), i + 1));
-  }
-  return rows;
-}
-
-async function parseXlsx(buffer: Buffer): Promise<NtrImportRow[]> {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buffer as unknown as ExcelJS.Buffer);
-  const sheet = wb.worksheets[0];
-  if (!sheet) return [];
-  const rows: NtrImportRow[] = [];
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return; // header
-    const cells = TEMPLATE_COLUMNS.map((_, i) => {
-      const cell = row.getCell(i + 1).value;
-      if (cell === null || cell === undefined) return '';
-      if (cell instanceof Date) return cell.toISOString().slice(0, 10);
-      if (typeof cell === 'object' && 'text' in (cell as unknown as Record<string, unknown>)) {
-        return String((cell as unknown as { text: unknown }).text);
-      }
-      return String(cell);
-    });
-    rows.push(cellToRow(cells, rowNumber));
-  });
-  return rows;
-}
-
 export async function parseNtrImportFile(buffer: Buffer, filename: string): Promise<NtrImportRow[]> {
-  const ext = filename.split('.').pop()?.toLowerCase();
-  if (ext === 'csv') return parseCsv(buffer);
-  return parseXlsx(buffer);
+  const { headerRow, dataRows } = await parseImportFile(buffer, filename);
+  const columnIndex = buildColumnIndex(headerRow);
+  return dataRows.map(({ row, cells }) => buildRow(columnIndex, cells, row));
+}
+
+/** Step 3's "Mapped Columns"/"Ignored Columns"/"Unknown Columns"/"Missing
+ *  Required Columns" display - re-reads just the header row, no row data. */
+export async function mapNtrImportHeaders(buffer: Buffer, filename: string) {
+  const { headerRow } = await parseImportFile(buffer, filename);
+  return mappingService.mapHeaders(headerRow);
 }

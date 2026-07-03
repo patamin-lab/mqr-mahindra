@@ -10,6 +10,7 @@
  * stays historically accurate even if the vehicle's master data changes
  * later.
  */
+import type { ColumnMappingResult } from '@/shared/import';
 
 export type NtrCustomerType = 'Individual' | 'Company';
 
@@ -318,7 +319,10 @@ export interface NtrImportRowResult {
 }
 
 /** Nothing is written until the caller confirms - `preview()` only reads
- *  and validates; `commit()` is the only method that writes. */
+ *  and validates; `commit()` is the only method that writes. `columnMapping`
+ *  is the Import Wizard's Step 3 "Mapped Columns"/"Ignored Columns"/
+ *  "Unknown Columns"/"Missing Required Columns" report (see
+ *  `src/shared/import/ColumnMappingService.ts`). */
 export interface NtrImportPreview {
   totalRecords: number;
   validCount: number;
@@ -326,4 +330,5 @@ export interface NtrImportPreview {
   skippedCount: number;
   failedCount: number;
   rows: NtrImportRowResult[];
+  columnMapping: ColumnMappingResult;
 }
