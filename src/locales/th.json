@@ -58,7 +58,44 @@
     "createdAt": "วันที่สร้าง",
     "updatedAt": "วันที่แก้ไขล่าสุด",
     "actions": "การดำเนินการ",
-    "print": "พิมพ์"
+    "print": "พิมพ์",
+    "all": "ทั้งหมด",
+    "allDealers": "ทุกดีลเลอร์",
+    "allBranches": "ทุกสาขา",
+    "select": "เลือก",
+    "optional": "ไม่บังคับ"
+  },
+  "ntr": {
+    "searchTitle": "ค้นหารถแทรกเตอร์",
+    "searchSerialPlaceholder": "พิมพ์อย่างน้อย 3 ตัวอักษร",
+    "noTractorFound": "ไม่พบรถแทรกเตอร์ที่ตรงกับเงื่อนไขค้นหา",
+    "createTractorButton": "สร้างรถแทรกเตอร์ใหม่ในระบบ",
+    "registerTitle": "ลงทะเบียนส่งมอบรถใหม่ (NTR)",
+    "backToSearch": "กลับไปค้นหา",
+    "customerInfoTitle": "ข้อมูลลูกค้า",
+    "deliveryInfoTitle": "ข้อมูลการส่งมอบ",
+    "attachmentsTitle": "เอกสารและรูปถ่าย (บังคับ 4 รายการ)",
+    "noPhotoYet": "ยังไม่มีรูป",
+    "uploading": "กำลังอัปโหลด...",
+    "videoUploaded": "อัปโหลดวิดีโอสำเร็จ",
+    "selectCustomerType": "-- เลือกประเภทลูกค้า --",
+    "customerTypeIndividual": "บุคคลธรรมดา",
+    "customerTypeCompany": "นิติบุคคล",
+    "gpsFoundInPhotoTitle": "พบพิกัด GPS ในรูปภาพ",
+    "useGpsFromPhoto": "ใช้ตำแหน่งจากรูปภาพ",
+    "useCurrentLocation": "ใช้ตำแหน่งปัจจุบัน",
+    "confirmCompleteRegistrationTitle": "ยืนยันการลงทะเบียน",
+    "confirmCompleteRegistrationBody": "ยืนยันการลงทะเบียนส่งมอบรถใหม่นี้? ข้อมูลจะถูกบันทึกและออกเลขที่ NTR ทันที",
+    "completeRegistrationButton": "ยืนยันลงทะเบียน",
+    "registrationCompleteToast": "ลงทะเบียนส่งมอบรถใหม่สำเร็จ",
+    "registryTitle": "ทะเบียนการลงทะเบียนส่งมอบรถใหม่",
+    "detailTitle": "รายละเอียดการลงทะเบียน (NTR)",
+    "recordIdLabel": "รหัสรายการ: {id}",
+    "notFound": "ไม่พบรายการ",
+    "photosTitle": "รูปถ่ายและเอกสาร",
+    "additionalPhotosTitle": "รูปถ่ายเพิ่มเติม",
+    "confirmDeleteTitle": "ลบรายการลงทะเบียน",
+    "confirmDeleteBody": "ยืนยันการลบรายการลงทะเบียน {ntrNumber}? รายการจะถูกซ่อน ไม่สามารถกู้คืนได้เองในระบบ"
   },
   "nav": {
     "dashboard": "แดชบอร์ด",
@@ -66,8 +103,9 @@
     "newReport": "รายงานปัญหาใหม่",
     "pmRecords": "งานเช็คระยะ",
     "newPm": "บันทึกงานเช็คระยะใหม่",
-    "ntrRecords": "จดทะเบียนรถใหม่",
-    "newTractorRegistration": "จดทะเบียนรถใหม่",
+    "ntrRecords": "ลงทะเบียนส่งมอบรถใหม่ (NTR)",
+    "newTractorRegistration": "ลงทะเบียนรถใหม่",
+    "systemSettings": "ตั้งค่าระบบ",
     "legacyImport": "นำเข้าข้อมูลย้อนหลัง",
     "vehicle360": "ทะเบียนรถแทรกเตอร์",
     "admin": "ผู้ดูแลระบบ",
@@ -336,6 +374,10 @@
   "unit": {
     "hours": "ชม.",
     "days": "วัน"
+  },
+  "warranty": {
+    "inWarranty": "อยู่ในประกัน",
+    "outOfWarranty": "พ้นประกัน"
   },
   "pmDetail": {
     "title": "รายละเอียดงานเช็คระยะ",

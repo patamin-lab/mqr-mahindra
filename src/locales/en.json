@@ -58,7 +58,44 @@
     "createdAt": "Created at",
     "updatedAt": "Last updated at",
     "actions": "Actions",
-    "print": "Print"
+    "print": "Print",
+    "all": "All",
+    "allDealers": "All Dealers",
+    "allBranches": "All Branches",
+    "select": "Select",
+    "optional": "optional"
+  },
+  "ntr": {
+    "searchTitle": "Search Tractor",
+    "searchSerialPlaceholder": "Type at least 3 characters",
+    "noTractorFound": "No tractor matches your search.",
+    "createTractorButton": "Create New Tractor",
+    "registerTitle": "New Tractor Registration (NTR)",
+    "backToSearch": "Back to Search",
+    "customerInfoTitle": "Customer Information",
+    "deliveryInfoTitle": "Delivery Information",
+    "attachmentsTitle": "Attachments (4 required)",
+    "noPhotoYet": "No photo yet",
+    "uploading": "Uploading...",
+    "videoUploaded": "Video uploaded",
+    "selectCustomerType": "-- Select Customer Type --",
+    "customerTypeIndividual": "Individual",
+    "customerTypeCompany": "Company",
+    "gpsFoundInPhotoTitle": "GPS coordinates found in photo",
+    "useGpsFromPhoto": "Use photo location",
+    "useCurrentLocation": "Use current location",
+    "confirmCompleteRegistrationTitle": "Confirm Registration",
+    "confirmCompleteRegistrationBody": "Confirm this tractor delivery registration? The NTR number will be issued and saved immediately.",
+    "completeRegistrationButton": "Complete Registration",
+    "registrationCompleteToast": "Tractor registration completed",
+    "registryTitle": "New Tractor Registration Registry",
+    "detailTitle": "NTR Registration Detail",
+    "recordIdLabel": "Record ID: {id}",
+    "notFound": "Record not found.",
+    "photosTitle": "Photos & Documents",
+    "additionalPhotosTitle": "Additional Photos",
+    "confirmDeleteTitle": "Delete Registration",
+    "confirmDeleteBody": "Confirm deleting registration {ntrNumber}? The record will be hidden and cannot be restored by yourself."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -68,6 +105,7 @@
     "newPm": "New PM Record",
     "ntrRecords": "New Tractor Registration",
     "newTractorRegistration": "Register New Tractor",
+    "systemSettings": "System Settings",
     "legacyImport": "Legacy Import",
     "vehicle360": "Tractor Registry",
     "admin": "Administration",
@@ -336,6 +374,10 @@
   "unit": {
     "hours": "hrs",
     "days": "days"
+  },
+  "warranty": {
+    "inWarranty": "In Warranty",
+    "outOfWarranty": "Out of Warranty"
   },
   "pmDetail": {
     "title": "PM Record Detail",
