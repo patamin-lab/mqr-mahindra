@@ -1,0 +1,138 @@
+# Security Standard
+
+Binding security convention for every current and future MASP module.
+Every rule below is written against a real incident or a real pattern
+already in production — not a theoretical best practice list.
+
+## Dealer isolation
+
+Two independent layers, both mandatory for every table and every route
+that touches business data — this is the single rule most likely to
+cause a real cross-tenant data leak if either layer is skipped:
+
+1. **Postgres RLS** on the table.
+2. **Application-level scope check**, in two places:
+   - **List/search queries**: `applyScope()` (or a module's equivalent)
+     adds a `dealer_id`/`created_by` filter to every query, in addition to
+     RLS (`src/lib/db.ts`).
+   - **Single-record read/write/delete routes** (`GET`/`PUT`/`DELETE
+     /api/<module>/[id]`): after loading the record, explicitly compare
+     `record.dealer_id !== session.dealerId` (when `session.dealerId` is
+     set — central roles have `null` and see all dealers) and return 403
+     if it doesn't match, **before** performing the read or mutation.
+
+The second bullet is not automatically covered by having the first —
+this was a real bug found and fixed in Release 1.0: PM's list/export
+routes had the dealer-scope check, but the single-record
+`GET`/`PUT`/`DELETE /api/pm-records/[id]` route did not, letting any
+authenticated user view/edit/delete another dealer's record by guessing
+its UUID. Every new module's single-record CRUD routes must include this
+check from the start, with a test for it (see `TESTING_STANDARD.md`).
+
+## Role-based access control
+
+- Exactly four roles exist today: `SuperAdmin` > `CentralAdmin` >
+  `DealerAdmin` > `DealerUser` (`src/lib/scope.ts`'s `Role` type). A new
+  module does not invent a fifth role or a parallel permission system —
+  if a genuinely new role is needed, that's a decision for `Role` itself
+  (see `docs/PERMISSION_MODEL.md`'s forward-looking `Technician`/`Viewer`
+  proposal), not a module-local workaround.
+- Every role check goes through a named predicate in `src/lib/scope.ts`
+  (`canDelete`, `canExport`, `canUpdateStatus`, `seesAllDealers`,
+  `seesOwnRecordsOnly`, ...) — never an inline
+  `if (session.role === 'DealerAdmin')` scattered through a route or
+  page. A new module adds its own predicates to `scope.ts` if it needs a
+  permission shape none of the existing ones cover (e.g. PM's
+  `canForceDelete` == `SuperAdmin`-only override of a locked record).
+- A permission gate exists twice, independently, for every action: once
+  in the page/component (hides the button — UX only, not enforcement),
+  and once in the API route (rejects the request — the layer that
+  actually matters). Deleting the UI gate must never be the only thing
+  standing between a role and an action it shouldn't be able to take.
+
+## Server-side authorization
+
+- Every mutating route calls `getSession()` first and returns 401 if
+  null, before touching any other logic.
+- Every mutating route re-resolves ownership fields (`dealer_id`,
+  `branch_id`, `technician_id`) from the session/existing record
+  server-side — never trusts a client-sent `dealer_id` in a create/update
+  body, even from an otherwise-authenticated request (the existing
+  "zero-leakage" pattern in `createRecord()`/`updateRecord()`).
+- A lock/state-machine guard (PM's calculation-protection lock, MQR's
+  status-transition graph) is enforced in the Service layer, not the
+  route or the client — the route calls the service and surfaces
+  whatever error type the service throws; it does not duplicate the
+  guard's condition itself.
+
+## Input validation
+
+- Every request body is validated against a zod schema server-side,
+  regardless of what client-side form validation already checked (see
+  `API_STANDARD.md` §Validation). A route that trusts client validation
+  alone is not "faster," it's a bypassable one.
+- Free-text search input is stripped of characters that are meaningful to
+  the query builder (`%`, `,` for `.ilike`/`.or()`) before being
+  interpolated into a filter string (`src/lib/db.ts`'s existing pattern).
+- Numeric/date fields are validated for real range/format constraints
+  server-side (hour meter ≥ 0, valid latitude/longitude ranges, a Thai
+  phone number matching `^0\d{9}$`) — not just "is this present."
+
+## Upload validation
+
+- All attachment upload goes through the existing size-routed pipeline:
+  ≤4MB via `/api/upload` (direct proxy, HEIC→JPEG conversion
+  server-side); >4MB via `/api/upload/init` → chunked
+  `/api/upload/chunk` → `/api/upload/finalize` (server-to-server Drive
+  relay). A new module does not implement a parallel upload path, and
+  does not attempt a direct browser→Drive PUT (Google Drive's resumable
+  endpoint sends no CORS headers; this was tried and fails — see root
+  `CLAUDE.md` §8.2).
+- File type is validated server-side, not by trusting the `accept`
+  attribute or client-declared MIME type alone (client-bypassable).
+- The chunk-relay route validates that the session URL it's asked to
+  relay to actually starts with `https://www.googleapis.com/upload/drive/`
+  before forwarding any data to it.
+
+## Attachment access
+
+- A generated Drive share link is public-viewable-but-not-editable
+  (`finalize`'s permission call), never public-editable, and never
+  requires the viewer to be signed into the app's own Google account.
+- An attachment URL is never guessable from the record id alone in a way
+  that would let someone enumerate a dealer's attachments — Drive file
+  IDs are opaque; a module does not construct a predictable filename/path
+  scheme that defeats that (see `docs/NAMING_STANDARD.md`'s
+  `<record-id>_<category>_<timestamp>.<ext>` convention — descriptive,
+  but the underlying Drive file id, not the filename, is what gates
+  access).
+
+## Google Drive integration
+
+- OAuth2 real-account client (not a service account) is the standing
+  architecture decision (`docs/adr/ADR-002-Google-Drive.md`) — a new
+  module reuses the existing Drive integration (`src/lib/googleDrive.ts`)
+  rather than provisioning a separate Drive credential.
+- Refresh tokens and client secrets are environment variables, never
+  committed, never entered into a command/field/prompt even when
+  explicitly supplied by a user — see `.claude/rules/03-data-access-security.md`.
+
+## Audit logging
+
+- Every create/update/delete/lock-state-change is logged via the shared
+  `logAuditEvent()`/`logAuditEvents()`/`diffFieldsForAudit()` helpers
+  (`src/lib/db.ts`), tagged with the module's own `module` string — a new
+  module does not build its own audit table or logging mechanism.
+- The audit log records *who* (`performedBy`, the session username, never
+  a client-supplied actor name) and *when* (server clock, stored UTC,
+  displayed via `formatThaiDateTime()`), never trusting a client-supplied
+  timestamp or actor identity.
+- A lock/unlock/override event (PM's `Locked`/`Unlocked` events) is
+  logged even when it doesn't change a business field — the audit trail
+  must be able to answer "who unlocked this and when," not just "what
+  fields changed."
+
+## Verification
+
+Documentation only. Does not modify `src/lib/scope.ts`, any RLS policy,
+any route, or any existing permission check.
