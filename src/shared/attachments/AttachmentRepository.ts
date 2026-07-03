@@ -61,7 +61,11 @@ export interface CreateAttachmentRow {
   filename: string;
   mimeType: string;
   sizeBytes: number;
-  checksum: string;
+  /** Null for a direct-upload (large file, browser PUT straight to the
+   *  signed URL) row created before the bytes are confirmed - checksum is
+   *  not computed server-side for that path (see
+   *  `AttachmentService.finalizeDirectUpload()`), only size. */
+  checksum: string | null;
   storagePath: string;
   createdBy: string | null;
 }
@@ -192,6 +196,26 @@ export class AttachmentRepository {
     const supabase = getSupabase();
     const { error } = await supabase.from('attachments').update({ storage_path: null }).eq('id', id);
     if (error) throw new Error(`Failed to clear storage_path for attachment ${id}: ${error.message}`);
+  }
+
+  /** Batch-updates `entity_id` after the owning business record's real ID
+   *  becomes known - the Attachment Platform's equivalent of
+   *  `relocatePendingFiles()` (uploads happen against a temporary
+   *  client-generated entity ID before a new record is saved; this
+   *  re-tags them once the real `job_id`/`pm_number` exists). Only the
+   *  DB row changes - the underlying storage path is untouched, exactly
+   *  like `relocatePendingFiles()` never touching a file's Drive ID. */
+  async reassignEntity(ids: string[], entityId: string): Promise<void> {
+    if (ids.length === 0) return;
+    const supabase = getSupabase();
+    const { error } = await supabase.from('attachments').update({ entity_id: entityId }).in('id', ids);
+    if (error) throw new Error(`Failed to reassign attachments to entity ${entityId}: ${error.message}`);
+  }
+
+  async updateAfterDirectUpload(id: string, sizeBytes: number): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase.from('attachments').update({ size_bytes: sizeBytes }).eq('id', id);
+    if (error) throw new Error(`Failed to finalize direct upload for attachment ${id}: ${error.message}`);
   }
 
   async restoreToActive(id: string, storagePath: string): Promise<void> {

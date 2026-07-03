@@ -306,6 +306,9 @@
     "noTimelineEvents": "No events in this machine's history yet",
     "byUser": "By {user}"
   },
+  "machine360": {
+    "attachmentsTitle": "Attachments"
+  },
   "unit": {
     "hours": "hrs",
     "days": "days"
@@ -345,6 +348,15 @@
     "photosSectionTitle": "Photos",
     "uploading": "Uploading...",
     "noPhotoYet": "No photo yet"
+  },
+  "attachmentViewer": {
+    "open": "Open",
+    "download": "Download",
+    "delete": "Delete",
+    "close": "Close",
+    "unavailable": "Attachment is temporarily unavailable.",
+    "excelPreviewUnsupported": "Excel files can't be previewed inline.",
+    "noAttachments": "No attachments yet"
   },
   "recordDetail": {
     "photosVideosTitle": "Photos / Video",

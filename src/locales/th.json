@@ -306,6 +306,9 @@
     "noTimelineEvents": "ยังไม่มีเหตุการณ์ในประวัติเครื่องจักรนี้",
     "byUser": "โดย {user}"
   },
+  "machine360": {
+    "attachmentsTitle": "ไฟล์แนบ"
+  },
   "unit": {
     "hours": "ชม.",
     "days": "วัน"
@@ -345,6 +348,15 @@
     "photosSectionTitle": "รูปถ่าย",
     "uploading": "กำลังอัปโหลด...",
     "noPhotoYet": "ยังไม่มีรูป"
+  },
+  "attachmentViewer": {
+    "open": "เปิด",
+    "download": "ดาวน์โหลด",
+    "delete": "ลบ",
+    "close": "ปิด",
+    "unavailable": "ไฟล์แนบไม่พร้อมใช้งานชั่วคราว",
+    "excelPreviewUnsupported": "ไม่สามารถแสดงตัวอย่างไฟล์ Excel ได้",
+    "noAttachments": "ยังไม่มีไฟล์แนบ"
   },
   "recordDetail": {
     "photosVideosTitle": "รูปภาพ / วิดีโอ",

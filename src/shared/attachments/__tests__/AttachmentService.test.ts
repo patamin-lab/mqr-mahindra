@@ -48,6 +48,8 @@ function makeRepo(): AttachmentRepository {
     clearStorageAfterArchive: vi.fn(),
     restoreToActive: vi.fn(),
     getRetentionPolicy: vi.fn(),
+    reassignEntity: vi.fn(),
+    updateAfterDirectUpload: vi.fn(),
   } as unknown as AttachmentRepository;
 }
 
@@ -58,6 +60,8 @@ function makeProvider(name: 'SUPABASE' | 'GOOGLE_DRIVE'): StorageProvider {
     delete: vi.fn(),
     download: vi.fn(),
     getUrl: vi.fn(),
+    createSignedUploadUrl: vi.fn(),
+    statObject: vi.fn(),
   };
 }
 
@@ -213,6 +217,62 @@ describe('AttachmentService.processArchiveQueue', () => {
 
     expect(result).toEqual({ archived: 0, failed: 0 });
     expect(primary.download).not.toHaveBeenCalled();
+  });
+});
+
+describe('AttachmentService.initDirectUpload / finalizeDirectUpload', () => {
+  it('creates a placeholder row (size 0, null checksum) and returns a signed upload URL', async () => {
+    const repo = makeRepo();
+    const primary = makeProvider('SUPABASE');
+    (primary.createSignedUploadUrl as any).mockResolvedValue({ signedUrl: 'https://signed/put', token: 'tok' });
+    (repo.create as any).mockResolvedValue(makeAttachment({ id: 'a2', sizeBytes: 0, checksum: null }));
+    const service = new AttachmentService(repo, primary, makeProvider('GOOGLE_DRIVE'));
+
+    const result = await service.initDirectUpload({
+      module: 'mqr',
+      entityType: 'record',
+      entityId: 'temp-1',
+      attachmentType: 'Video',
+      filename: 'clip.mp4',
+      mimeType: 'video/mp4',
+    });
+
+    expect(result).toEqual({ attachmentId: 'a2', uploadUrl: 'https://signed/put', token: 'tok' });
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ sizeBytes: 0, checksum: null }));
+  });
+
+  it('finalizes by confirming the object exists in storage and recording its real size', async () => {
+    const repo = makeRepo();
+    const primary = makeProvider('SUPABASE');
+    (repo.getById as any).mockResolvedValue(makeAttachment({ sizeBytes: 0, checksum: null }));
+    (primary.statObject as any).mockResolvedValue({ sizeBytes: 5_000_000 });
+    const service = new AttachmentService(repo, primary, makeProvider('GOOGLE_DRIVE'));
+
+    await service.finalizeDirectUpload('a1');
+
+    expect(repo.updateAfterDirectUpload).toHaveBeenCalledWith('a1', 5_000_000);
+  });
+
+  it('throws rather than finalize when the object never actually landed in storage', async () => {
+    const repo = makeRepo();
+    const primary = makeProvider('SUPABASE');
+    (repo.getById as any).mockResolvedValue(makeAttachment());
+    (primary.statObject as any).mockResolvedValue(null);
+    const service = new AttachmentService(repo, primary, makeProvider('GOOGLE_DRIVE'));
+
+    await expect(service.finalizeDirectUpload('a1')).rejects.toThrow();
+    expect(repo.updateAfterDirectUpload).not.toHaveBeenCalled();
+  });
+});
+
+describe('AttachmentService.reassignEntity', () => {
+  it('delegates to the repository for a batch entity-id re-tag', async () => {
+    const repo = makeRepo();
+    const service = new AttachmentService(repo, makeProvider('SUPABASE'), makeProvider('GOOGLE_DRIVE'));
+
+    await service.reassignEntity(['a1', 'a2'], 'MQR-KTV-2026-000001');
+
+    expect(repo.reassignEntity).toHaveBeenCalledWith(['a1', 'a2'], 'MQR-KTV-2026-000001');
   });
 });
 

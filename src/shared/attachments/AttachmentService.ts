@@ -54,6 +54,57 @@ export class AttachmentService {
     });
   }
 
+  /** Step 1 of a direct (browser-to-storage) upload - the Attachment
+   *  Platform's equivalent of `initResumableUpload()`, for files large
+   *  enough that a single-shot POST through our own API route would hit
+   *  Vercel's request-body cap. Pre-creates the row (`sizeBytes: 0`,
+   *  `checksum: null`) so callers have an attachment ID to reference
+   *  immediately (e.g. to build a preview list before the upload
+   *  finishes) - `finalizeDirectUpload()` confirms the bytes actually
+   *  landed before anything downstream (archive, display) trusts it. */
+  async initDirectUpload(input: Omit<UploadAttachmentInput, 'buffer'>): Promise<{ attachmentId: string; uploadUrl: string; token: string }> {
+    if (!this.primary.createSignedUploadUrl) throw new Error('Primary storage provider does not support direct upload');
+    const path = buildStoragePath(input.module, input.entityType, input.entityId, input.filename);
+    const { signedUrl, token } = await this.primary.createSignedUploadUrl(path);
+    const attachment = await this.repo.create({
+      module: input.module,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      attachmentType: input.attachmentType,
+      filename: input.filename,
+      mimeType: input.mimeType,
+      sizeBytes: 0,
+      checksum: null,
+      storagePath: path,
+      createdBy: input.createdBy ?? null,
+    });
+    return { attachmentId: attachment.id, uploadUrl: signedUrl, token };
+  }
+
+  /** Step 2: called once the browser's direct PUT to the signed URL
+   *  reports success - confirms the object actually exists in storage
+   *  (never trusts the client's word alone) and records its real size.
+   *  Checksum is intentionally left null for this path (no server-side
+   *  copy of the bytes to hash) - `processArchiveQueue()` already treats
+   *  a null `checksum` as "nothing to verify against" rather than a
+   *  mismatch. */
+  async finalizeDirectUpload(attachmentId: string): Promise<Attachment> {
+    const attachment = await this.repo.getById(attachmentId);
+    if (!attachment || !attachment.storagePath) throw new Error(`Attachment ${attachmentId} not found`);
+    if (!this.primary.statObject) throw new Error('Primary storage provider does not support direct upload finalize');
+    const stat = await this.primary.statObject(attachment.storagePath);
+    if (!stat) throw new Error('Uploaded file was not found in storage - the upload may not have completed');
+    await this.repo.updateAfterDirectUpload(attachmentId, stat.sizeBytes);
+    return (await this.repo.getById(attachmentId))!;
+  }
+
+  /** Re-tags a batch of attachments (uploaded against a temporary,
+   *  client-generated entity ID before their owning record existed) with
+   *  the record's real ID once saved - see `AttachmentRepository.reassignEntity()`. */
+  async reassignEntity(ids: string[], entityId: string): Promise<void> {
+    await this.repo.reassignEntity(ids, entityId);
+  }
+
   async delete(id: string): Promise<void> {
     const attachment = await this.repo.getById(id);
     if (!attachment) return;

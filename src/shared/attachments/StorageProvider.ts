@@ -24,4 +24,8 @@ export interface StorageProvider {
   delete(locator: string): Promise<void>;
   download(locator: string): Promise<Buffer>;
   getUrl(locator: string, mimeType: string, expiresInSeconds?: number): Promise<{ url: string; expiresAt: string | null }>;
+  /** Optional - only `SupabaseStorageProvider` implements this today (see
+   *  its own doc comment for why this isn't a Drive concept too). */
+  createSignedUploadUrl?(path: string): Promise<{ signedUrl: string; token: string }>;
+  statObject?(path: string): Promise<{ sizeBytes: number } | null>;
 }

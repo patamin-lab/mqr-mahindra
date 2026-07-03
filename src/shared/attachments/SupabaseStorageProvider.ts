@@ -44,4 +44,35 @@ export class SupabaseStorageProvider implements StorageProvider {
     if (error || !data) throw new Error(`Supabase Storage signed URL failed: ${error?.message ?? 'no data'}`);
     return { url: data.signedUrl, expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString() };
   }
+
+  /** Supabase-specific: a signed *upload* URL the browser can PUT bytes to
+   *  directly, never through our own Next.js API route. This is the
+   *  Supabase-Storage equivalent of what `googleDrive.ts`'s
+   *  `initResumableUpload()` did for Google Drive - the mechanism large
+   *  files (e.g. MQR's video attachment) need to get past Vercel's 4.5MB
+   *  request-body cap, since a single-shot multipart POST through our own
+   *  route is capped there regardless of which storage backend receives
+   *  it afterward. Not part of the generic `StorageProvider` interface -
+   *  `GoogleDriveStorageProvider` never needs this (it already has its own,
+   *  separate resumable-upload flow used only for archive uploads, which
+   *  are always server-to-server and never this large in one browser PUT). */
+  async createSignedUploadUrl(path: string): Promise<{ signedUrl: string; token: string }> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUploadUrl(path);
+    if (error || !data) throw new Error(`Supabase Storage signed upload URL failed: ${error?.message ?? 'no data'}`);
+    return { signedUrl: data.signedUrl, token: data.token };
+  }
+
+  /** Confirms a direct-PUT upload landed and reports its real size -
+   *  called once the browser reports the PUT succeeded, before the
+   *  attachment row is trusted as complete. */
+  async statObject(path: string): Promise<{ sizeBytes: number } | null> {
+    const supabase = getSupabase();
+    const dir = path.split('/').slice(0, -1).join('/');
+    const name = path.split('/').pop() ?? path;
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).list(dir, { search: name });
+    if (error || !data || data.length === 0) return null;
+    const size = (data[0].metadata as { size?: number } | undefined)?.size;
+    return { sizeBytes: typeof size === 'number' ? size : 0 };
+  }
 }
