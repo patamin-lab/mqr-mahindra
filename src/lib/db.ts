@@ -1059,6 +1059,7 @@ export interface CreateRecordInput {
   googleMapsUrl?: string | null;
   photoLinks: PhotoLink[];
   videoLink: string | null;
+  videoAttachmentId?: string | null;
   /** Only honored when the session role sees all dealers; otherwise forced to session.dealerId. */
   dealerId?: string | null;
   branchId: string | null;
@@ -1134,6 +1135,7 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       google_maps_url: input.googleMapsUrl ?? null,
       photo_links: input.photoLinks,
       video_link: input.videoLink,
+      video_attachment_id: input.videoAttachmentId ?? null,
       branch_id: input.branchId,
       branch_name: branchName,
       technician_id: input.technicianId,

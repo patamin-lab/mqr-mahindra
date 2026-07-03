@@ -5,7 +5,7 @@ import { calcWarranty } from '@/lib/warranty';
 import { seesAllDealers } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
 import { sendRecordNotification } from '@/lib/email';
-import { relocatePendingFiles } from '@/lib/googleDrive';
+import { AttachmentService } from '@/shared/attachments';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
         googleMapsUrl: body.googleMapsUrl ? String(body.googleMapsUrl) : null,
         photoLinks,
         videoLink: body.videoLink ? String(body.videoLink) : null,
+        videoAttachmentId: body.videoAttachmentId ? String(body.videoAttachmentId) : null,
         dealerId: dealerIdForLookup,
         branchId: body.branchId ? String(body.branchId) : null,
         technicianId: body.technicianId ? String(body.technicianId) : null,
@@ -133,18 +134,21 @@ export async function POST(req: NextRequest) {
       console.error('notification email error (create)', err);
     }
 
-    // Photos/video were uploaded into the dealer's "_pending" Drive folder
-    // before this record (and its job_id) existed - move them into the
-    // proper {dealer}/{jobId} folder now. File IDs/URLs never change, so
-    // this never needs to touch the DB row. Never fails the create.
+    // Photos/video were uploaded via AttachmentService against a temporary
+    // client-generated entity ID before this record (and its job_id)
+    // existed - re-tag them with the real job_id now. Only the attachment
+    // rows' entity_id changes; storage locations never move. Never fails
+    // the create (see docs/engineering/ATTACHMENT_FRAMEWORK.md).
     try {
-      const dealerFolderName = (dealer?.short_name || record.dealer_id).replace(/[^a-zA-Z0-9ก-๙_-]/g, '');
-      await relocatePendingFiles(dealerFolderName, record.job_id, [
-        ...(record.photo_links ?? []).map((p) => p.url),
-        record.video_link,
-      ]);
+      const attachmentIds = [
+        ...(record.photo_links ?? []).map((p) => p.attachmentId).filter((id): id is string => !!id),
+        ...(record.video_attachment_id ? [record.video_attachment_id] : []),
+      ];
+      if (attachmentIds.length > 0) {
+        await new AttachmentService().reassignEntity(attachmentIds, record.job_id);
+      }
     } catch (err) {
-      console.error('drive relocate pending files error', err);
+      console.error('attachment reassign error', err);
     }
 
     return NextResponse.json({ ok: true, record, warranty });
