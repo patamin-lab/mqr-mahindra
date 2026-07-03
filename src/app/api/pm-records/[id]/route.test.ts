@@ -43,6 +43,30 @@ const dealerUserSession = {
   branch: null,
 };
 
+const dealerAdminSession = {
+  username: 'bob',
+  fullName: 'Bob',
+  role: 'DealerAdmin' as const,
+  dealerId: 'D1',
+  branch: null,
+};
+
+const otherDealerUserSession = {
+  username: 'carol',
+  fullName: 'Carol',
+  role: 'DealerUser' as const,
+  dealerId: 'D2',
+  branch: null,
+};
+
+const otherDealerAdminSession = {
+  username: 'dave',
+  fullName: 'Dave',
+  role: 'DealerAdmin' as const,
+  dealerId: 'D2',
+  branch: null,
+};
+
 const activeRecord = {
   id: 'rec-1',
   dealer_id: 'D1',
@@ -122,6 +146,18 @@ describe('GET /api/pm-records/[id]', () => {
     expect(res.status).toBe(404);
     expect(json).toEqual({ ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } });
   });
+
+  it("returns 403 when the actor belongs to a different dealer (cross-tenant IDOR guard)", async () => {
+    vi.mocked(getSession).mockResolvedValue(otherDealerUserSession);
+    mockRepository.getById.mockResolvedValue(activeRecord); // activeRecord.dealer_id === 'D1', actor is 'D2'
+
+    const res = await GET(getRequest(), params);
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe('FORBIDDEN');
+  });
 });
 
 describe('PUT /api/pm-records/[id]', () => {
@@ -184,6 +220,19 @@ describe('PUT /api/pm-records/[id]', () => {
     expect(json).toEqual({ ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } });
     expect(mockRepository.update).not.toHaveBeenCalled();
   });
+
+  it("returns 403 when the actor belongs to a different dealer (cross-tenant IDOR guard)", async () => {
+    vi.mocked(getSession).mockResolvedValue(otherDealerUserSession);
+    mockRepository.getById.mockResolvedValue(activeRecord); // activeRecord.dealer_id === 'D1', actor is 'D2'
+
+    const res = await PUT(putRequest({ status: 'Completed' }), params);
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe('FORBIDDEN');
+    expect(mockRepository.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('DELETE /api/pm-records/[id]', () => {
@@ -205,7 +254,7 @@ describe('DELETE /api/pm-records/[id]', () => {
   });
 
   it('deletes a record on success', async () => {
-    vi.mocked(getSession).mockResolvedValue(dealerUserSession);
+    vi.mocked(getSession).mockResolvedValue(dealerAdminSession);
     mockRepository.getById.mockResolvedValue(activeRecord);
     mockRepository.delete.mockResolvedValue(undefined);
 
@@ -214,7 +263,7 @@ describe('DELETE /api/pm-records/[id]', () => {
 
     expect(res.status).toBe(200);
     expect(json).toEqual({ ok: true, data: null });
-    expect(mockRepository.delete).toHaveBeenCalledWith('rec-1', { username: 'alice', role: 'DealerUser' }, null);
+    expect(mockRepository.delete).toHaveBeenCalledWith('rec-1', { username: 'bob', role: 'DealerAdmin' }, null);
   });
 
   it('returns 404 for an already-deleted record', async () => {
@@ -222,7 +271,7 @@ describe('DELETE /api/pm-records/[id]', () => {
     // so a second delete attempt sees the same not-found response as a
     // genuinely nonexistent id - that is the correct, soft-delete-aware
     // behavior, not a separate code path.
-    vi.mocked(getSession).mockResolvedValue(dealerUserSession);
+    vi.mocked(getSession).mockResolvedValue(dealerAdminSession);
     mockRepository.getById.mockResolvedValue(null);
 
     const res = await DELETE(deleteRequest(), params);
@@ -230,6 +279,31 @@ describe('DELETE /api/pm-records/[id]', () => {
 
     expect(res.status).toBe(404);
     expect(json).toEqual({ ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } });
+    expect(mockRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when a DealerUser attempts to delete (canDelete() gate, same as MQR)', async () => {
+    vi.mocked(getSession).mockResolvedValue(dealerUserSession);
+    mockRepository.getById.mockResolvedValue(activeRecord);
+
+    const res = await DELETE(deleteRequest(), params);
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.ok).toBe(false);
+    expect(mockRepository.getById).not.toHaveBeenCalled();
+    expect(mockRepository.delete).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when a DealerAdmin from another dealer attempts to delete (cross-tenant IDOR guard)", async () => {
+    vi.mocked(getSession).mockResolvedValue(otherDealerAdminSession);
+    mockRepository.getById.mockResolvedValue(activeRecord); // activeRecord.dealer_id === 'D1', actor is 'D2'
+
+    const res = await DELETE(deleteRequest(), params);
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.ok).toBe(false);
     expect(mockRepository.delete).not.toHaveBeenCalled();
   });
 });

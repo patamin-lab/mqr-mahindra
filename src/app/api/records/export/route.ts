@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
       q: searchParams.get('q') ?? undefined,
       dealerId: searchParams.get('dealerId') ?? undefined,
       branchId: searchParams.get('branchId') ?? undefined,
+      dateFrom: searchParams.get('dateFrom') ?? undefined,
+      dateTo: searchParams.get('dateTo') ?? undefined,
     });
 
     const filenameBase = `qir-records-${new Date().toISOString().slice(0, 10)}`;

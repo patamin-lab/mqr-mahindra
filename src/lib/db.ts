@@ -1174,6 +1174,9 @@ export interface ListRecordsFilters {
   q?: string;
   dealerId?: string;
   branchId?: string;
+  /** Inclusive `found_date` range, ISO `YYYY-MM-DD`. */
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export async function listRecords(session: SessionUser, filters: ListRecordsFilters = {}): Promise<MqrRecord[]> {
@@ -1193,6 +1196,12 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
   if (filters.status) {
     query = query.eq('status', filters.status);
   }
+  if (filters.dateFrom) {
+    query = query.gte('found_date', filters.dateFrom);
+  }
+  if (filters.dateTo) {
+    query = query.lte('found_date', filters.dateTo);
+  }
   if (filters.q && filters.q.trim()) {
     const term = filters.q.trim().replace(/[%,]/g, '');
     query = query.or(
@@ -1205,9 +1214,6 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
 }
 
 export interface ListRecordsPaginatedFilters extends ListRecordsFilters {
-  /** Inclusive `found_date` range, ISO `YYYY-MM-DD`. */
-  dateFrom?: string;
-  dateTo?: string;
   /** 1-based. */
   page?: number;
   pageSize?: number;

@@ -64,6 +64,8 @@ export default async function RecordsPage({
   if (searchParams.q) exportQuery.set('q', searchParams.q);
   if (searchParams.dealerId) exportQuery.set('dealerId', searchParams.dealerId);
   if (searchParams.branchId) exportQuery.set('branchId', searchParams.branchId);
+  if (searchParams.dateFrom) exportQuery.set('dateFrom', searchParams.dateFrom);
+  if (searchParams.dateTo) exportQuery.set('dateTo', searchParams.dateTo);
   const exportQs = exportQuery.toString();
   const exportHref = (format: 'xlsx' | 'pdf' | 'csv') =>
     `/api/records/export?format=${format}${exportQs ? `&${exportQs}` : ''}`;

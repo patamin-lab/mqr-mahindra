@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
+import { canDelete } from '@/lib/scope';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService, MaintenanceLockError } from '@/features/maintenance/services/maintenanceService';
 import { parseWithSchema, ValidationError } from '@/features/maintenance/utils/validation';
 import { buildMaintenanceRecordUpdateBodySchema, MaintenanceRecordUpdateBody } from '@/features/maintenance/schemas';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
+import { translate } from '@/lib/i18n/translate';
+import type { MaintenanceRecord } from '@/features/maintenance/types';
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+/** Zero-leakage: a non-privileged actor may only act on their own dealer's
+ *  record — same scope check already used by the PM export route. */
+function isOutOfScope(session: { dealerId: string | null }, record: MaintenanceRecord): boolean {
+  return Boolean(session.dealerId) && record.dealer_id !== session.dealerId;
+}
+
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json(
@@ -14,6 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       { status: 401 }
     );
   }
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
 
   const repository = new SupabaseMaintenanceRepository();
   const service = new MaintenanceService(repository);
@@ -24,6 +34,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json(
         { ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } },
         { status: 404 }
+      );
+    }
+    if (isOutOfScope(session, record)) {
+      return NextResponse.json(
+        { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'validation.unauthorizedRecordAccess') } },
+        { status: 403 }
       );
     }
     return NextResponse.json({ ok: true, data: record }, { status: 200 });
@@ -81,6 +97,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         { status: 404 }
       );
     }
+    if (isOutOfScope(session, existing)) {
+      return NextResponse.json(
+        { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'validation.unauthorizedRecordAccess') } },
+        { status: 403 }
+      );
+    }
 
     const record = await service.update(params.id, input, { username: session.username, role: session.role }, locale);
     return NextResponse.json({ ok: true, data: record }, { status: 200 });
@@ -108,6 +130,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       { status: 401 }
     );
   }
+  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
+  // Same role gate as MQR's delete route (`canDelete()` in scope.ts) -
+  // DealerUser cannot delete a PM record, locked or not.
+  if (!canDelete(session.role)) {
+    return NextResponse.json(
+      { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'validation.unauthorizedDelete') } },
+      { status: 403 }
+    );
+  }
 
   // Locked records require a mandatory reason (enforced in the Service
   // layer) - unlocked records ignore a missing/empty body entirely, same
@@ -123,7 +154,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
   const repository = new SupabaseMaintenanceRepository();
   const service = new MaintenanceService(repository);
-  const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
 
   try {
     const existing = await service.getById(params.id);
@@ -131,6 +161,12 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json(
         { ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } },
         { status: 404 }
+      );
+    }
+    if (isOutOfScope(session, existing)) {
+      return NextResponse.json(
+        { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'validation.unauthorizedRecordAccess') } },
+        { status: 403 }
       );
     }
 

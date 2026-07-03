@@ -161,6 +161,7 @@
     "invalidLongitude": "Invalid longitude",
     "pmIntervalNotInProgram": "The selected PM interval is not part of this vehicle's Maintenance Program. Please choose again.",
     "unauthorizedRecordAccess": "You do not have permission to access this record.",
+    "uploadFailed": "Photo upload failed.",
     "exportFailed": "Export failed. Please try again.",
     "userNotLinkedToDealer": "This user is not linked to a dealer.",
     "requiredVehicleFoundDateProblem": "Please complete the vehicle serial number, date found, and problem found.",
@@ -328,7 +329,22 @@
   "pmEdit": {
     "title": "Edit PM Record",
     "backToDetail": "Back to Detail",
-    "lockedBannerSuffix": " Other calculation-affecting fields (Serial, Performed Date) are locked. Please request a temporary unlock from the detail page before editing them."
+    "lockedBannerSuffix": " Other calculation-affecting fields (Serial, Performed Date) are locked. Please request a temporary unlock from the detail page before editing them.",
+    "dealerIdPlaceholder": "Dealer ID",
+    "branchIdPlaceholder": "Branch ID (optional)",
+    "technicianIdPlaceholder": "Technician ID (optional)",
+    "scheduledDatePlaceholder": "YYYY-MM-DD (optional)",
+    "serialPlaceholder": "Vehicle serial (optional)",
+    "performedDatePlaceholder": "YYYY-MM-DD (optional)",
+    "statusPlaceholder": "Status",
+    "notesPlaceholder": "Notes (optional)",
+    "customerPhonePlaceholder": "081-2345678",
+    "lockedFieldSuffix": " (locked)",
+    "selectPmIntervalOption": "-- Select PM Interval --",
+    "gpsSectionTitle": "GPS Location (optional)",
+    "photosSectionTitle": "Photos",
+    "uploading": "Uploading...",
+    "noPhotoYet": "No photo yet"
   },
   "recordDetail": {
     "photosVideosTitle": "Photos / Video",

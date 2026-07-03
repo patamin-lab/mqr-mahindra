@@ -161,6 +161,7 @@
     "invalidLongitude": "ลองจิจูดไม่ถูกต้อง",
     "pmIntervalNotInProgram": "รอบ PM ที่เลือกไม่ได้อยู่ใน Maintenance Program ของรถคันนี้ กรุณาเลือกใหม่",
     "unauthorizedRecordAccess": "ไม่มีสิทธิ์เข้าถึงรายการนี้",
+    "uploadFailed": "อัปโหลดรูปไม่สำเร็จ",
     "exportFailed": "ส่งออกข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
     "userNotLinkedToDealer": "ผู้ใช้นี้ไม่ได้ผูกกับดีลเลอร์",
     "requiredVehicleFoundDateProblem": "กรุณากรอกหมายเลขรถ วันที่พบปัญหา และอาการที่พบ ให้ครบถ้วน",
@@ -328,7 +329,22 @@
   "pmEdit": {
     "title": "แก้ไขงานเช็คระยะ",
     "backToDetail": "กลับไปหน้ารายละเอียด",
-    "lockedBannerSuffix": " ฟิลด์อื่นที่กระทบการคำนวณ (Serial, Performed Date) ถูกปิดการแก้ไข กรุณาปลดล็อกชั่วคราวจากหน้ารายละเอียดก่อนแก้ไขข้อมูลอื่น"
+    "lockedBannerSuffix": " ฟิลด์อื่นที่กระทบการคำนวณ (Serial, Performed Date) ถูกปิดการแก้ไข กรุณาปลดล็อกชั่วคราวจากหน้ารายละเอียดก่อนแก้ไขข้อมูลอื่น",
+    "dealerIdPlaceholder": "รหัสดีลเลอร์",
+    "branchIdPlaceholder": "รหัสสาขา (ไม่บังคับ)",
+    "technicianIdPlaceholder": "รหัสช่าง (ไม่บังคับ)",
+    "scheduledDatePlaceholder": "YYYY-MM-DD (ไม่บังคับ)",
+    "serialPlaceholder": "หมายเลขตัวรถ (ไม่บังคับ)",
+    "performedDatePlaceholder": "YYYY-MM-DD (ไม่บังคับ)",
+    "statusPlaceholder": "สถานะ",
+    "notesPlaceholder": "หมายเหตุ (ไม่บังคับ)",
+    "customerPhonePlaceholder": "081-2345678",
+    "lockedFieldSuffix": " (ล็อกอยู่)",
+    "selectPmIntervalOption": "-- เลือกรอบ PM --",
+    "gpsSectionTitle": "พิกัดตำแหน่ง (ไม่บังคับ)",
+    "photosSectionTitle": "รูปถ่าย",
+    "uploading": "กำลังอัปโหลด...",
+    "noPhotoYet": "ยังไม่มีรูป"
   },
   "recordDetail": {
     "photosVideosTitle": "รูปภาพ / วิดีโอ",

@@ -115,11 +115,23 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
           dealer_id: record.dealer_id,
           branch_id: record.branch_id,
           serial: record.serial,
+          model: record.model,
           technician_id: record.technician_id,
           scheduled_date: record.scheduled_date,
           performed_date: record.performed_date,
           status: record.status,
           notes: record.notes,
+          customer_name: record.customer_name,
+          customer_phone: record.customer_phone,
+          hour_meter: record.hour_meter,
+          pm_interval_id: record.pm_interval_id,
+          meter_photo_url: record.meter_photo_url,
+          nameplate_photo_url: record.nameplate_photo_url,
+          report_photo_url: record.report_photo_url,
+          latitude: record.latitude,
+          longitude: record.longitude,
+          gps_accuracy: record.gps_accuracy,
+          google_maps_url: record.google_maps_url,
         }}
       />
     </div>

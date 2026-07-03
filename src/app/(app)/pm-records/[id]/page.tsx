@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { seesAllDealers } from '@/lib/scope';
+import { seesAllDealers, canDelete } from '@/lib/scope';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
 import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
 import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanceLock';
@@ -89,6 +89,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
   const lock = evaluateMaintenanceLock(record);
   const canManageLock = session ? seesAllDealers(session.role) : false; // SuperAdmin/CentralAdmin
   const canForceDelete = session?.role === 'SuperAdmin';
+  const allowDelete = session ? canDelete(session.role) : false;
   const locale = getServerLocale();
 
   return (
@@ -117,7 +118,9 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
               {t('common.backToList')}
             </Link>
             {lock.locked && canManageLock && <MaintenanceUnlockButton id={record.id} />}
-            <MaintenanceDeleteButton id={record.id} locked={lock.locked} canForceDelete={canForceDelete} />
+            {allowDelete && (
+              <MaintenanceDeleteButton id={record.id} locked={lock.locked} canForceDelete={canForceDelete} />
+            )}
           </>
         }
       />
