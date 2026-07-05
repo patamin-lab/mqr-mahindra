@@ -342,12 +342,12 @@ export const AUDIT_EVENT_LABELS_TH: Record<AuditEventType, string> = {
 };
 
 /** Shared, immutable audit trail (`record_audit_log`) - one system-logged
- *  entry per business event, reused by both MQR (`records`) and PM
- *  (`pm_records`), which is why it lives in the platform-wide `types.ts`/
- *  `db.ts` rather than either module's own feature folder. Never edited or
- *  deleted after insert - see `record_audit_log`'s RLS policies (no
- *  UPDATE/DELETE policy exists at all). */
-export type AuditModule = 'mqr' | 'pm';
+ *  entry per business event, reused by MQR (`records`), PM (`pm_records`),
+ *  and NTR (`ntr_records`), which is why it lives in the platform-wide
+ *  `types.ts`/`db.ts` rather than any one module's own feature folder.
+ *  Never edited or deleted after insert - see `record_audit_log`'s RLS
+ *  policies (no UPDATE/DELETE policy exists at all). */
+export type AuditModule = 'mqr' | 'pm' | 'ntr';
 
 export type AuditEventType =
   | 'Created'

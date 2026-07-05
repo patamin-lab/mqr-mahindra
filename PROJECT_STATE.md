@@ -1018,3 +1018,163 @@ changed).
   vars, a live end-to-end re-verification, and an explicit, separate
   approval to switch `STORAGE_PROVIDER`/`ARCHIVE_PROVIDER`) - none of
   which this acceptance authorizes on its own.
+
+## NTR Legacy Import — Google Drive Decoupling (branch `feature/ntr-legacy-import`, off `feature/ntr-module`)
+
+Google Drive removed from the Legacy Import critical path — see
+ADR-008-Google-Drive-Decoupling.md. Drive is now archive-only: a
+successful import (`ntr_records`/`vehicles`/timeline/audit rows committed)
+no longer depends on Drive being reachable at all.
+
+- Migration `ntr_legacy_import_archive_decouple`: `ntr_import_sessions`
+  gains `file_content` (base64 original file, replaces the old
+  synchronous Drive upload during preview), `file_checksum`,
+  `imported_at`, `archive_job_id`, `archive_attempts`,
+  `last_archive_attempt_at`, `archive_error`, `archived_at`. Status
+  vocabulary replaced (table had 0 rows in every environment):
+  `Pending → Validated → Imported → Archive Pending → Archived |
+  Archive Failed` (retryable).
+- New Postgres function `commit_ntr_legacy_import_row()` (SECURITY
+  DEFINER, pinned search_path) — one RPC call is one transaction:
+  Tractor (`vehicles`) + NTR (`ntr_records`) + Timeline (`vehicle_events`,
+  reusing the existing `NTR_CREATED`/`NTR_COMPLETED` codes — single event
+  vocabulary regardless of ingestion method, provenance recorded in
+  `metadata.source`/`metadata.import_session_id` instead of a forked
+  vocabulary) + Audit (`record_audit_log`), persistence only, no business
+  logic. Exposed to the app via `NtrRepository.commitLegacyImportRow()`.
+- `NtrImportService.commit()` calls this once per valid row instead of
+  the old sequential `createVehicleManual()` + `NtrService.create()` +
+  Drive-upload path; a duplicate-serial race is now a real transactional
+  rollback (nothing partial persists), not just a pre-check.
+- New `archiveSession()`/`processArchiveQueue()` on `NtrImportService`,
+  new `GET/POST /api/ntr/import/archive` routes (SuperAdmin only, same
+  gate as every other Legacy Import route), and an Archive Queue section
+  added to the existing Legacy Import admin page (retry-per-session +
+  process-entire-queue). Upload/Preview/Confirm UI itself is unchanged.
+- Out of scope, unchanged: parser, business validation, duplicate
+  detection, Preview/Upload UI, NTR business rules.
+- Verification: `tsc --noEmit` clean, `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `vitest run` 267/267 passing (was 259 before this
+  branch — 8 new Archive Queue permission tests), `next build` succeeds.
+
+## Universal Import Wizard Framework (same branch, `feature/ntr-legacy-import`)
+
+Redesigned the Legacy Import UX into a reusable 5-step wizard
+(Download Template → Upload File → Preview & Validation → Confirm Import →
+Import Complete) and extracted a generic framework, `src/shared/import/`,
+so future modules (Vehicle Master, PM, PDI, MQR, Campaign, Parts) reuse it
+without redesigning it — see `docs/engineering/IMPORT_FRAMEWORK.md` for the
+full architecture. NTR is the only real consumer today; this is a
+deliberate, documented exception to `.claude/rules/01-architecture-boundaries.md`'s
+"shared/ only when two modules need it" rule (framework code, not business
+logic — the abstraction is unverified against a second caller until one
+exists).
+
+- **Template generation** (`ImportTemplateService.ts`): downloadable
+  `.xlsx` with Instructions/Data/`_META` sheets (Template Name, Version,
+  Module, Generated Date), generic over any module's field definitions.
+  New `GET /api/ntr/import/template` (SuperAdmin only).
+- **Column mapping** (`ColumnMappingService.ts` + `HeaderNormalizer.ts`):
+  alias-based header matching, order-independent - `NTR_IMPORT_FIELDS`
+  (`src/features/ntr/services/ntrImportFields.ts`) is the one NTR-specific
+  piece; the mapping engine itself has no field knowledge.
+- **Parser rewrite** (`ImportParser.ts`): the old fixed-position
+  `TEMPLATE_COLUMNS` reader is gone. `ntrImportParser.ts` is now a thin
+  adapter over the shared generic sheet reader + `ColumnMappingService` +
+  each field's own `parse` function. Fixes the "[object Object]" cell
+  defect class at the source (rich-text/hyperlink/formula-result cells are
+  now stringified safely, never via a bare `String(cell)`).
+- **Header Validation**: `preview/route.ts` now rejects a file with none
+  of its required columns recognized at all (`formatUnsupportedTemplateMessage()`,
+  "Uploaded file is not a supported import template"), before writing any
+  session row - a genuinely malformed/wrong-template file no longer
+  produces a wall of confusing per-row failures.
+- **Humanized errors** (`ImportErrorFormatter.ts`): technical reasons
+  (`Unknown dealer_id "X"`, `Missing X`, the duplicate/race messages)
+  rewritten into business language for Step 3/5 and the stored session
+  `errors` - falls back to the original text for anything unrecognized.
+- **Import History**: session history table gained a "Module" column
+  (static `'NTR'` today - `ImportHistoryService.ts`'s fan-out design means
+  this becomes real per-provider data with no framework changes once a
+  second module exists).
+- Out of scope, unchanged per this issue: NTR business rules, Vehicle/NTR
+  creation, Timeline, Audit, Google Drive, the Archive Worker.
+- Note on scope: this app has no existing dark-mode support anywhere
+  (`Card`/`globals.css` are light-only) - the spec asked for
+  "dark mode compatible," but adding `dark:` classes to only this one page
+  would have produced invisible white-on-white text rather than a real
+  feature, so the wizard matches the app's actual (light-only) visual
+  system instead. Flagged here rather than silently claimed as done.
+- Verification: `tsc --noEmit` clean, `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `vitest run` 284/284 passing (was 267 - 17 new
+  tests: `ColumnMappingService`, `ImportErrorFormatter`,
+  `ntrImportParser` alias-based regression coverage), `next build`
+  succeeds.
+
+## Real-file header aliases and flexible date parsing (same branch, committed - `6d1bcc3`)
+
+Added alias mappings observed in an actual dealer export (serial, model,
+mobile, city/state, NTR date) to `NTR_IMPORT_FIELDS`, and extended
+`parseImportDate()` to normalize `"31 Oct 2025"`/`DD-MM-YYYY` in addition
+to already-ISO dates. 8 new tests (`ntrImportFields.test.ts`). This is
+the last commit currently on `feature/ntr-legacy-import` before the
+uncommitted work below.
+
+## NTR Historical Import Framework Enhancement + Release Candidate UAT (same branch, uncommitted)
+
+Two milestones, run back to back against the already-complete v1.0
+framework above - enhancement, then a full live UAT that found and fixed
+real defects in that enhancement. Not yet committed - see this branch's
+`git status` for the exact file list (21 files: 12 modified, 9 new).
+
+**Enhancement** - added, using the two files uploaded for this milestone
+(an NTR template export and Thailand's real Province/District/Subdistrict/
+Postal Code reference data) as source of truth, never assumed:
+- Address hierarchy validation (Province → District → Subdistrict →
+  Postal Code) against a 7,436-row Thailand address master, loaded once
+  into memory (`thaiAddressMasterData.ts`/`ntrAddressValidation.ts`) -
+  verified against the exact "district doesn't belong to province"
+  example from the milestone brief.
+- Configurable Serial Number validation: **Legacy Mode** (default,
+  unchanged production behavior - unknown serial auto-creates a Tractor,
+  now with an explicit warning) vs. **Strict Mode** (rejects unknown
+  serials outright) - a real behavior fork resolved by explicit user
+  decision, not guessed.
+- In-file duplicate serial detection (previously only cross-file);
+  phone/customer-name duplicates as warnings that never block import.
+- Retail Date validation (future date; before Manufacturing Year).
+- Downloadable `NTR_IMPORT_RESULT.xlsx` (every original column + Status/
+  Error Message/Warning, correctable and re-uploadable) and execution
+  time reporting.
+- No schema changes - `import_mode` is a request parameter, not a stored
+  column (the auto-mode classifier correctly blocked a first attempt to
+  add one, per this app's standing "confirm before shared-resource
+  changes" policy).
+- New docs: `docs/import/NTR_HISTORICAL_IMPORT.md` (full spec); corrected
+  a real, pre-existing inaccuracy in `docs/standards/NTR_IMPORT_MANUAL.md`
+  (claimed positional column parsing - the code has used alias-based
+  mapping since the Universal Import Wizard Framework milestone above).
+
+**Release Candidate UAT** - live testing (local dev server + real
+Supabase DB, 15+ scenarios, full UI-backed flow, negative tests,
+regression checks) found and fixed four genuine defects, none of them
+guessed or hypothetical:
+1. A new "Unknown Province" message collided with an unrelated existing
+   regex in `ImportErrorFormatter.ts`, silently rewritten into a vaguer
+   message - reworded to avoid the collision.
+2. **Critical**: a 10,000-row file took ~10 minutes to validate (per-row
+   sequential `getDealer()`/`getVehicleBySerial()`/`findActiveBySerial()`
+   calls - 30,000+ DB round trips). Fixed by bulk-prefetching all three
+   into in-memory Maps before the validation loop - confirmed live at
+   ~1.3 seconds for the same 10,000 rows.
+3. That fix's own regression: one `.in()` query with 10,000 values hit
+   Cloudflare's "414 Request-URI Too Large" in front of Supabase - fixed
+   by chunking bulk queries into batches of 200, run in parallel.
+4. A corrupt/unreadable file upload leaked a raw `jszip` library error as
+   an unhandled 500 - now caught and returns a clean, localized 400.
+- Verification: `tsc --noEmit` clean, `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `vitest run` 327/327 passing (was 284 - 43 new:
+  address validation, import-service mode/duplicate/date/bulk-prefetch
+  coverage), `next build` succeeds.
+- Final Release Candidate UAT verdict: **PASS - READY TO MERGE**. No
+  architecture redesign, no schema redesign, no new business features.

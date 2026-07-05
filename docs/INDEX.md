@@ -30,7 +30,14 @@ actually ship today — not a green-field proposal.
   migration naming.
 - [`SECURITY_STANDARD.md`](standards/SECURITY_STANDARD.md) — dealer
   isolation, RBAC, server-side authorization, input/upload validation,
-  attachment access, Google Drive integration, audit logging.
+  attachment access, Google Drive integration, audit logging, and why
+  every role boundary here is application-layer (no Supabase Auth).
+- [`EVENT_CATALOG.md`](standards/EVENT_CATALOG.md) — the canonical Vehicle
+  Life Cycle timeline event codes (`vehicle_events`/`event_definitions`),
+  which modules actually publish today, and how a new module wires in.
+- [`NTR_IMPORT_MANUAL.md`](standards/NTR_IMPORT_MANUAL.md) — the Legacy
+  Import template's exact column order, required/optional fields, and
+  how to extend it for a future field.
 - [`TESTING_STANDARD.md`](standards/TESTING_STANDARD.md) — unit,
   integration, security, permission, and regression test expectations;
   coverage bar.

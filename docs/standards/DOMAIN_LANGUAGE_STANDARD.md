@@ -223,6 +223,56 @@ Dealer Code.
 | Photo | รูปภาพ |
 | Document | เอกสาร |
 
+### Retail Date vs. Acceptance Date (do not confuse these two)
+
+**"Retail Date" (วันที่ส่งมอบ) is the canonical business term for when a
+tractor was sold/delivered to its owner** — used everywhere across
+MQR/PM/NTR/Vehicle 360 (`vehicles.delivery_date`, `pm_records`'
+equivalent, `VehicleSummary.retailDate`). **Never label a user-facing
+field "Delivery Date"** — that phrase is retired in favor of "Retail
+Date" precisely because "delivery" is ambiguous between the sale event
+and the physical handover event.
+
+NTR is the one module with a genuinely separate second date: its
+`ntr_records.delivery_date` column records the specific date the
+dealer's representative physically handed the tractor to the customer
+and the customer signed for it — a real business event distinct from
+"Retail Date," not a duplicate of it. This is labeled **"Acceptance
+Date"** in every NTR screen/PDF (never "Delivery Date," to avoid exactly
+the ambiguity this section warns about). A future module with the same
+"sale date vs. physical handover date" distinction should follow the
+same pattern: "Retail Date" for the sale, "Acceptance Date" for the
+handover — not a second "Delivery Date."
+
+### Standardized Attachment Types
+
+Every module's attachment/photo categories use this fixed set of type
+keys and labels — introduced by NTR
+(`src/features/ntr/types/index.ts`'s `NTR_ATTACHMENT_TYPES`), reused
+verbatim by future modules (PM, Warranty, Campaign) rather than each
+inventing its own category names:
+
+| Key | Thai | English |
+|---|---|---|
+| `CUSTOMER_ID` | บัตรประชาชนลูกค้า | Customer ID |
+| `CUSTOMER_TRACTOR` | ลูกค้าคู่กับรถแทรกเตอร์ | Customer + Tractor |
+| `SERIAL_PLATE` | แผ่นป้ายหมายเลขตัวรถ | Serial Plate |
+| `ENGINE_PLATE` | แผ่นป้ายเครื่องยนต์ | Engine Plate |
+| `HOUR_METER` | มิเตอร์ชั่วโมง | Hour Meter |
+| `DELIVERY_SHEET` | ใบส่งมอบรถ | Delivery Sheet |
+| `TAX_INVOICE` | ใบกำกับภาษี | Tax Invoice |
+| `CRM_LEAD` | CRM Lead | CRM Lead |
+| `OTHER` | อื่นๆ | Other |
+
+A module with a dedicated required-photo column (like NTR's
+`photo_customer_tractor_url`, `photo_serial_plate_url`,
+`photo_hour_meter_url`, `photo_signed_document_url`) maps that column to
+the matching type key for display purposes; a module without one stores
+the attachment via the existing `{url, label}[]` array pattern
+(`additional_photos`) using one of these type keys as the label — no new
+dedicated database column is needed just to add a new standardized
+attachment category.
+
 ## Localization Standard
 
 Thai is the default language. English remains fully supported.

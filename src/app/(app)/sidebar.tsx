@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
-import { canManageMasterData, seesAllDealers } from '@/lib/scope';
+import { canManageMasterData, canManageLegacyImport, seesAllDealers } from '@/lib/scope';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 export default function Sidebar({ session }: { session: SessionUser }) {
@@ -21,16 +21,23 @@ export default function Sidebar({ session }: { session: SessionUser }) {
 
   const showMasterData = canManageMasterData(session.role);
   const showDealers = seesAllDealers(session.role);
+  // Legacy Import is hidden completely from every role except Super
+  // Administrator - not just visually de-emphasized. Every route it calls
+  // re-checks this same predicate server-side; hiding the menu entry is
+  // UX only, never the actual enforcement (see
+  // docs/standards/SECURITY_STANDARD.md §Application-layer authorization).
+  const showLegacyImport = canManageLegacyImport(session.role);
 
   // Icons follow docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Official Menu
   // Standard table - only modules that actually exist today get an entry;
-  // PDI/NTR/Campaign/Warranty/Parts/Reports/System Settings are defined by
-  // the standard for future modules and are intentionally not added here.
+  // PDI/Campaign/Warranty/Parts/Reports are defined by the standard for
+  // future modules and are intentionally not added here.
   const NAV = [
     { href: '/dashboard', icon: '🏠', label: t('nav.dashboard') },
     { href: '/report', icon: '⚠️', label: t('nav.newReport') },
     { href: '/records', icon: '⚠️', label: t('nav.mqrRecords') },
     { href: '/pm-records', icon: '🔧', label: t('nav.pmRecords') },
+    { href: '/ntr', icon: '📝', label: t('nav.ntrRecords') },
     { href: '/vehicles', icon: '🚜', label: t('nav.vehicle360') },
   ];
 
@@ -67,7 +74,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
       {/* Mobile top bar */}
       <div className="md:hidden flex items-center justify-between bg-brand-dark text-white px-4 py-3 print:hidden sticky top-0 z-30">
         <div className="font-bold text-white text-sm">
-          Market <span className="text-brand-red">Quality</span> Report
+          Mahindra <span className="text-brand-red">After-Sales</span> Platform
         </div>
         <button
           onClick={() => setOpen(true)}
@@ -96,7 +103,7 @@ export default function Sidebar({ session }: { session: SessionUser }) {
         <div className="p-4 border-b border-white/10 flex items-start justify-between">
           <div>
             <div className="font-bold text-white">
-              Market <span className="text-brand-red">Quality</span> Report
+              MSEAL <span className="text-brand-red">After-Sales</span> Platform
             </div>
             <div className="text-xs text-white/70 mt-2">{session.fullName}</div>
             <div className="text-xs text-white/40">
@@ -124,6 +131,12 @@ export default function Sidebar({ session }: { session: SessionUser }) {
               {adminNav.map((item) => (
                 <NavLink key={item.href} {...item} />
               ))}
+            </>
+          )}
+          {showLegacyImport && (
+            <>
+              <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">🔧 {t('nav.systemSettings')}</div>
+              <NavLink href="/admin/legacy-import" label={t('nav.legacyImport')} />
             </>
           )}
         </nav>

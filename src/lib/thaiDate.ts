@@ -99,3 +99,22 @@ export function formatDateTimeLocalized(value: string | number | Date, locale: '
   }).format(d);
   return `${datePart} ${timePart}`;
 }
+
+/** `YYYYMMDD_HHMM` in Thailand local time - for filenames (e.g.
+ *  `MASP_Tractor_Registry_20260703_1430.xlsx`), never the server's own
+ *  (UTC) clock, same GMT+7 rule as every other displayed/exported
+ *  timestamp in this app. */
+export function formatBangkokFilenameTimestamp(value: string | number | Date = new Date()): string {
+  const d = value instanceof Date ? value : new Date(value);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BANGKOK_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}${get('month')}${get('day')}_${get('hour')}${get('minute')}`;
+}
