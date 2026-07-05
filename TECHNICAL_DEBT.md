@@ -19,37 +19,19 @@ map onto the recommended Phase 6 plan.
   relying on it as a merge gate.
 - **Recommended milestone**: none - just watch the first real CI run.
 
-### 2. Root `CLAUDE.md`'s deployment section is stale
-- **Impact**: `CLAUDE.md` §3 states "There is no git CLI / local clone in
-  this environment... All commits are made by uploading files through
-  the GitHub web UI." This is confirmed incorrect for the actual current
-  environment, which has a working `git` CLI, a real `origin` remote
-  (`github.com/patamin-lab/mqr-mahindra`), and a checked-out working tree
-  - used throughout the Storage Platform's entire build-out (`git
-  status`, `git diff`, `git remote -v`, etc.). A contributor or AI
-  assistant following this section literally would use the wrong,
-  slower, error-prone workflow.
-- **Priority**: Immediate - it's a correctness issue in the most-read
-  document in the repo (`.claude/CLAUDE.md` explicitly lists root
-  `CLAUDE.md` as read first), and the fix is small.
-- **Recommended milestone**: "CLAUDE.md Deployment Section Correction" -
-  a documentation-only fix, out of this freeze's Storage-Platform-scoped
-  remit but worth its own tiny, explicit follow-up.
+### 2. ~~Root `CLAUDE.md`'s deployment section is stale~~ — RESOLVED
+- **Resolution** (Release Completion pass): `CLAUDE.md` §3 rewritten to
+  describe the actual git-CLI-based workflow (real `origin` remote,
+  checked-out working tree) instead of the obsolete GitHub-web-UI-upload
+  description.
 
 ## Short-term
 
-### 3. Two similarly-named, differently-scoped release checklists
-- **Impact**: `docs/releases/RELEASE_CHECKLIST_V1.md` (the original
-  MQR/PM release) and the new root `RELEASE_CHECKLIST.md` (Storage
-  Platform v2.1 only) are not duplicates in content, but similar enough
-  in name/location convention to cause confusion about which one governs
-  a given release.
-- **Priority**: Short-term.
-- **Recommended milestone**: fold into a "Release Checklist Consolidation"
-  pass - likely renaming the root one to
-  `docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_v2.1.md` for a
-  consistent location, or explicitly cross-linking both from
-  `docs/PLATFORM_BASELINE.md`/`docs/INDEX.md`.
+### 3. ~~Two similarly-named, differently-scoped release checklists~~ — RESOLVED
+- **Resolution** (Release Completion pass): the root `RELEASE_CHECKLIST.md`
+  was renamed to `docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_V2.1.md`,
+  alongside `docs/releases/RELEASE_CHECKLIST_V1.md` (the original MQR/PM
+  release) - same directory, no more naming collision.
 
 ### 4. `scripts/architecture-check.ts` only covers Storage Platform rules
 - **Impact**: `docs/architecture/PLATFORM_CONSTITUTION.md` documents

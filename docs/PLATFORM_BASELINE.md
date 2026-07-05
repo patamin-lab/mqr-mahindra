@@ -148,11 +148,12 @@ with no open blocker.
   Flagged here and in `TECHNICAL_DEBT.md`; not corrected as part of this
   freeze since it concerns MQR's general deployment process, outside the
   Storage Platform's own scope.
-- **Two differently-scoped release checklists now exist**:
-  `docs/releases/RELEASE_CHECKLIST_V1.md` (the original MQR/PM release)
-  and the new root `RELEASE_CHECKLIST.md` (Storage Platform v2.1 only).
-  Not a duplicate in content, but similar enough in name to cause
-  confusion later - flagged in `TECHNICAL_DEBT.md`.
+- ~~Two differently-scoped release checklists now exist...~~ **Resolved**:
+  the Storage Platform checklist was renamed to
+  `docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_V2.1.md` (alongside
+  `docs/releases/RELEASE_CHECKLIST_V1.md`, the original MQR/PM release) to
+  remove the naming collision with the root-level file that used to exist
+  here.
 
 ## Roadmap
 

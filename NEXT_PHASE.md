@@ -23,10 +23,12 @@ rule (`CLAUDE.md` §3.5).
    general dependency rules (module-to-module isolation,
    `shared/` never importing from a business module) beyond the Storage
    Platform specifically. Tooling-only, no runtime code touched.
-2. **Documentation Corrections** - fix root `CLAUDE.md`'s stale
-   deployment section (§3, "no git CLI") and resolve the
-   `RELEASE_CHECKLIST.md`/`docs/releases/RELEASE_CHECKLIST_V1.md` naming
-   collision (`TECHNICAL_DEBT.md` #2-3). Trivial, doc-only.
+2. ~~**Documentation Corrections**~~ - **Done** (Release Completion pass):
+   root `CLAUDE.md` §3's stale "no git CLI" deployment section corrected,
+   and the `RELEASE_CHECKLIST.md`/`docs/releases/RELEASE_CHECKLIST_V1.md`
+   naming collision resolved by renaming the former to
+   `docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_V2.1.md`
+   (`TECHNICAL_DEBT.md` #2-3).
 3. **R2 CORS Configuration** - a Cloudflare dashboard action (not a code
    change) to close the one remaining infrastructure blocker
    (`R2_PRODUCTION_READINESS.md`). Unblocks, but does not itself decide,

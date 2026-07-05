@@ -18,15 +18,14 @@ Dealers and their technicians file a "quality incident report" (QIR) whenever a 
 
 ## 3. Deployment workflow — READ THIS BEFORE PUSHING ANYTHING
 
-**There is no git CLI / local clone in this environment.** All commits are made by uploading files through the **GitHub web UI** (`Add file → Upload files`, or the dedicated `/upload/main/<dir>` URL), filling the commit message field, and clicking **Commit changes**. Vercel auto-deploys every push to `main`.
+**A working git CLI and a checked-out local working tree are available in this environment**, with a real `origin` remote (`github.com/patamin-lab/mqr-mahindra`) — use normal `git` commands (`status`/`diff`/`add`/`commit`/`push`) rather than the GitHub web UI. Vercel auto-deploys every push to `main`; use `vercel deploy` (no `--prod`) for a Preview deployment of a feature branch first. This section previously described a no-git-CLI, upload-only workflow — that has not reflected the actual environment since at least the Storage Platform build-out, and is corrected here.
 
 Operational rules that have proven necessary in practice:
 
-- **Click the "Commit changes" button by element reference, never by pixel coordinate.** Pixel-coordinate clicks on this specific button have repeatedly no-op'd (page stays on the unsubmitted upload form). Use a `find`-style ref lookup and click the ref. This has worked reliably every time.
-- **After committing, verify the deploy** on the GitHub *Deployments* tab (`/deployments`) — look for "Deployed (completed)" / "Active" in Production — rather than assuming success.
-- **Screenshot timeouts (~30s) during page-busy states are expected**, not failures — e.g. right after a commit, or right after a form submit. Wait a few seconds (`sleep`) and read the page via text extraction instead of retrying the screenshot.
+- **Never commit, push, merge, tag, rebase, force-push, or rewrite history without explicit user instruction for that specific action** — see `.claude/rules/git.md` for the full, binding git safety rules.
+- **After pushing, verify the deploy** on Vercel (Preview URL status, or the GitHub *Deployments* tab for production) — look for a `READY`/"Deployed (completed)" state rather than assuming success.
 - **Never put credentials, tokens, or passwords into any command, field, or URL**, even if explicitly supplied/authorized by the user. If a step requires manual credential entry, stop and ask the user to do it. (Narrow, pre-established exceptions: GitHub's own auto-generated raw-content URL token encountered while *browsing* in an authenticated session is a navigation artifact, not something being "entered"; the Google Drive resumable-upload session URL is passed server→client via the custom header `X-Drive-Session-Url`, never as a query string or exposed token.)
-- This repo's git history is **upload-commit only** — there is no local working tree to `git diff` against. Always re-fetch the current file from GitHub (or this session's last-known state) before editing, to avoid clobbering changes.
+- Always run `git status`/`git diff` before editing to confirm the working tree's actual current state — don't assume it matches a prior session's memory.
 
 ## 3.5 Engineering Working Agreement
 
