@@ -1,0 +1,229 @@
+# MASP Platform Constitution
+
+The permanent architecture policy for the Mahindra After Sales Platform
+(MASP), effective from the Storage Platform freeze. This document does
+not replace `docs/ARCHITECTURE.md`, `docs/ARCHITECTURE_PRINCIPLES.md`,
+`docs/standards/DOMAIN_LANGUAGE_STANDARD.md`, or any ADR - it consolidates
+the binding rules those documents already established, adds the rules the
+Storage Platform build-out (Phase 5B onward) proved out in practice, and
+is the one place future work should check first before introducing a new
+module, service, or dependency. Where this document and an older one
+disagree, the newer, more specific decision governs (see ADR-009's
+explicit supersession of the original "Tractor, NOT Vehicle" rule as the
+precedent for how that works) - and the disagreement itself should be
+resolved with a new ADR, not by silently picking one.
+
+## Layer definitions
+
+MASP is one Next.js application with four layers, in strict dependency
+order:
+
+| Layer | Lives under | Owns |
+|---|---|---|
+| **Business modules** | `src/features/*`, `src/app/(app)/*`, `src/app/api/*` | Module-specific routes, pages, domain logic, repositories, services. MQR (the original `records`/`report` code), Maintenance/PM, Machine (Machine 360), Vehicle Event, Vehicle Health, Maintenance Due. |
+| **Platform services** | `src/shared/*` | Cross-cutting capabilities every module consumes through a defined interface: the Attachment/Storage Platform (`shared/attachments/`), the Platform Event framework (`vehicle-event`'s `VehicleEventPublisher`), and (per ADR-004, not yet built) auth/upload/pdf/scheduler/notification/audit/logging/monitoring/cache/search. |
+| **Infrastructure** | `src/lib/*` | Direct integration with an external system: Supabase (`lib/supabase.ts`, `lib/db.ts`), Google Drive (`lib/googleDrive.ts`), Resend (`lib/email.ts`), JWT/session (`lib/auth.ts`). A business module or platform service calls infrastructure through a service/repository, never an SDK directly, except where the platform service itself *is* the thin wrapper (e.g. `SupabaseStorageProvider` wrapping Supabase Storage). |
+| **Database** | Supabase Postgres, RLS enabled on every table | The one source of truth (`docs/adr/ADR-001-Supabase.md`). Google Sheets/Drive are downstream consumers, never alternative stores of record. |
+
+`modules/`, `shared/`, and `templates/` (the Sprint-1-era scaffolding
+referenced in `.claude/CLAUDE.md`) remain placeholder-only as of this
+constitution - all working code stays under `src/` until an explicit,
+approved sprint task moves it, per that file's own standing rule.
+
+## Dependency rules
+
+1. **One direction only**: business modules depend on platform services;
+   platform services depend on infrastructure; infrastructure depends on
+   external SDKs. Nothing depends upward. A platform service (`shared/`)
+   never imports from a business module (`src/features/*`,
+   `src/app/(app)/*`) - this is the single rule most likely to reintroduce
+   coupling if violated (`.claude/rules/01-architecture-boundaries.md`).
+2. **A module may not import another module's internals directly.** If
+   two modules need the same logic, it moves to a platform service - it
+   is never cross-imported module-to-module. (Today's one narrow,
+   documented exception: `features/mqr/providers/MqrSummaryProvider`
+   reads through MQR's existing, unmodified `getVehicleHistory()` to
+   register with Vehicle 360's provider registry - a read-only adapter at
+   an explicit extension point, not a general license to reach into
+   another module.)
+3. **A business module reaches infrastructure only through its own
+   repository/service, or through a platform service** - never a raw
+   Supabase query, Drive API call, or SDK client constructed inline in a
+   route handler or page component.
+4. **Every table has RLS and is filtered through application-layer scope
+   checks** (`lib/scope.ts`'s predicates today) - both layers, always;
+   neither alone is sufficient (`.claude/rules/03-data-access-security.md`).
+5. **A dependency direction violation is a defect, not a style
+   preference** - flag it in review the same way a security or
+   correctness bug would be flagged, per the same weight this
+   constitution gives dependency rules as it gives to RLS/soft-delete
+   rules.
+
+## Platform service boundaries
+
+A platform service is consumed through its public interface only - never
+copy-pasted into a module, never reached into for its internals (ADR-004,
+Architecture Principle 7: "Services are boundaries, not libraries to
+inline").
+
+The Storage Platform is the reference implementation of this boundary:
+`AttachmentService` is the *entire* public surface business modules use.
+`AttachmentRepository`, every `StorageProvider` implementation, and
+`StorageProviderFactory` are internal to the service - a business module
+that imports any of them directly is a boundary violation, full stop,
+regardless of whether the resulting code happens to work. (Verified
+clean for every current consumer as of the Storage Platform freeze - see
+`docs/engineering/STORAGE_PLATFORM_FINAL.md`.)
+
+The one documented exception pattern: an **operational/maintenance
+surface** (this platform's `OrphanCleanupService`,
+`StorageHealthService`, `StorageMetricsService`, `StorageAuditService`,
+`StorageScheduler`) may read a service's repository/provider directly,
+because its job is specifically to detect when the service's own
+invariants have already broken - something the service's normal
+abstraction cannot see past by design. This exception is narrow: it
+applies to genuinely operational code (hygiene, health, metrics,
+scheduling), gated to admin/SuperAdmin routes, never to a business
+module's normal read/write path.
+
+Every future platform service (the remaining ADR-004 list: auth, upload,
+pdf, scheduler, notification, audit, logging, monitoring, cache, search)
+follows the same shape: one public service class/interface a module
+calls, internals not exposed, an equivalent "operational surface"
+exception only if that service's own maintenance genuinely needs it.
+
+## Infrastructure rules
+
+- Infrastructure code (`lib/*`) never contains business logic - no dealer
+  scoping, no status transitions, no validation beyond what's needed to
+  talk to the external system correctly. That belongs in the
+  repository/service layer above it.
+- A new infrastructure integration (a new external SDK, a new third-party
+  API) is wrapped in exactly one place under `lib/` (or a platform
+  service's own provider, for a swappable capability like storage) -
+  never called directly from two different call sites with two different
+  wrapping conventions.
+- Credentials/tokens are read from environment variables lazily (at call
+  time, not module load), matching `getSupabase()`/`getR2Config()`'s
+  existing pattern - so importing the file never throws in an environment
+  that hasn't configured that integration yet (tests, a fresh clone
+  before secrets are set).
+- Infrastructure failures are translated into a small, fixed,
+  business-friendly vocabulary at the platform-service boundary (see
+  `AttachmentErrors.ts`'s `AttachmentErrorContext` for the pattern) -
+  a raw SDK/HTTP/bucket-name error never reaches a business module or the
+  UI.
+
+## Domain language
+
+Business terminology is governed by
+`docs/standards/DOMAIN_LANGUAGE_STANDARD.md` - this constitution does not
+duplicate it, only points to it as binding. Current state (as of ADR-009):
+the platform business entity is **Machine** (Machine 360/Registry/
+Timeline/Search/Health), with "Tractor" surviving one level down as
+today's one Product Category. Database table names (`vehicles`,
+`vehicle_id`, `vehicle_events`) are unaffected by business-terminology
+renames - a rename is business terminology only (repository/service/UI/
+docs), never a table rename, unless a dedicated migration ADR says
+otherwise.
+
+Every new module's user-facing strings, PDF/CSV headers, and status names
+must be checked against `DOMAIN_LANGUAGE_STANDARD.md` before shipping -
+"Documentation Precedes Implementation for Shared Surfaces"
+(Architecture Principle 9) applies to business vocabulary exactly as it
+does to shared services.
+
+## Event rules
+
+Vehicle Event (Phase 4.5, `src/features/vehicle-event/`) is the platform's
+one event backbone: `Module -> Domain Service -> VehicleEventPublisher ->
+VehicleEventService -> VehicleEventRepository -> Supabase`. No module may
+write directly into `vehicle_events` - the Publisher is the only entry
+point, including the platform's own `/api/platform/events` POST route
+(it calls `publisher.publish()`, not `VehicleEventService.createEvent()`
+directly, for the same reason a business module can't).
+
+Current, explicitly-tracked state: the Publisher is fully built and unit
+tested, but **no real module call-site invokes it yet** - MQR's and PM's
+`create()`/status-transition code do not call
+`publishMqrOpened()`/`publishMaintenanceCompleted()`/etc., and Vehicle
+360's Timeline still reads via its own provider-registry aggregation
+(`src/features/vehicle/registry.ts`), not from `vehicle_events`. Wiring
+real call-sites and migrating the Timeline to read from `vehicle_events`
+are two separate, explicit, not-yet-scheduled decisions - not implied by
+anything in this constitution.
+
+Every event row always stores `event_definition_id` (an FK), never the
+`event_code` string directly (Reference Integrity - `event_definitions`
+is the Event Definition Master). `vehicle_events` has no `dealer_id`
+column; dealer scope is enforced via a `vehicles!inner(dealer_id)` join
+at query time, the same "every query enforces scope, never relies on a
+denormalized column alone" discipline every other table follows.
+
+## Storage rules
+
+The Storage Platform (`src/shared/attachments/`) is frozen per
+`docs/engineering/STORAGE_PLATFORM_FINAL.md`/`STORAGE_PLATFORM_DECISION.md`.
+Binding rules, restated here as permanent policy (not just this
+milestone's finding):
+
+1. `AttachmentService` is the only door a business module uses for file
+   storage - never a `StorageProvider`, the repository, or a storage SDK
+   directly.
+2. Every storage backend implements the same `StorageProvider` interface;
+   swapping the active primary/archive provider is a `StorageProviderFactory`
+   configuration change (`STORAGE_PROVIDER`/`ARCHIVE_PROVIDER`), never a
+   code change to `AttachmentService` or any caller.
+3. A provider never returns a permanent/public object URL as part of
+   `upload()`'s result - the only way to get a renderable URL is
+   `AttachmentService.getUrl()` -> a provider's `getSignedUrl()`, resolved
+   fresh, never stored and trusted long-term (the one exception being
+   Google Drive's genuinely-permanent share link, which is inherent to
+   that backend, not a shortcut taken by this platform).
+4. `AttachmentRepository` never assumes or hardcodes which provider
+   stored an object's bytes - the actual provider name is always passed
+   in explicitly by `AttachmentService`.
+5. The maintenance layer (hygiene/health/metrics/audit/scheduling) may
+   read providers/repository directly (the operational-surface exception
+   above) but must never perform a destructive action automatically -
+   every cleanup defaults to dry-run, and nothing in this platform is
+   wired to a timer or cron trigger.
+6. Object-path segments derived from caller input are always sanitized
+   before becoming part of a storage key (`sanitizePathSegment()`).
+
+## Future extension rules
+
+A future module or platform service must, before writing any code:
+
+1. **Identify its layer** (business module vs. platform service vs.
+   infrastructure) using the Layer Definitions above, and place its files
+   accordingly.
+2. **Check for an existing platform service first** - reuse before
+   create (`docs/PRODUCT_PHILOSOPHY.md`), the same principle that led to
+   the Attachment Platform being one shared thing MQR/PM/Machine 360 all
+   consume instead of three separate upload implementations.
+3. **Extend, don't fork, an existing platform service's interface** when
+   the need is close to what already exists (e.g. a fourth
+   `StorageProvider` implementation) rather than building a parallel,
+   competing mechanism.
+4. **Register at the one designated extension point**, if the platform
+   service has one (Vehicle 360's `registry.ts` for summary providers,
+   `event_definitions` for a new event code) - never by modifying every
+   existing module's code to know about the new one.
+5. **Never enable automatic execution of a new operational capability
+   silently** - scheduling, automatic cleanup, and production rollout of
+   any new capability each require their own explicit, separately-approved
+   milestone, exactly as every Storage Platform milestone from Cloudflare
+   R2 onward required.
+6. **Record the decision** - a new platform service, a new provider, or a
+   change to how modules interact is captured as an ADR (`docs/adr/`)
+   before or alongside the code, per Architecture Principle 10.
+7. **Add or update an architecture-enforcement check** if one exists
+   for the boundary being extended (see `docs/engineering/STORAGE_OPERATIONS.md`'s
+   sibling engineering docs and the Architecture Test findings in
+   `docs/release/STORAGE_PLATFORM_RELEASE.md`) - as of this constitution,
+   no automated architecture-boundary check (`scripts/architecture-check.ts`
+   or equivalent) exists in this repository; boundaries are enforced by
+   convention and code review only. Building that check is itself a
+   future, explicit piece of work this constitution recommends but does
+   not perform.

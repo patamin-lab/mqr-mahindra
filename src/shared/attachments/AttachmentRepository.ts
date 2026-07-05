@@ -68,6 +68,11 @@ export interface CreateAttachmentRow {
   checksum: string | null;
   storagePath: string;
   createdBy: string | null;
+  /** The provider that actually stored the bytes for this row -
+   *  `AttachmentService` passes `this.primary.name`, never assumed or
+   *  defaulted here. See ADR (metadata integrity fix): this repository
+   *  must never hardcode which provider was used. */
+  storageProvider: StorageProviderName;
 }
 
 /** Persistence only - see `.claude/rules/01-architecture-boundaries.md`'s
@@ -88,7 +93,7 @@ export class AttachmentRepository {
         mime_type: input.mimeType,
         size_bytes: input.sizeBytes,
         checksum: input.checksum,
-        storage_provider: 'SUPABASE',
+        storage_provider: input.storageProvider,
         storage_path: input.storagePath,
         status: 'ACTIVE',
         created_by: input.createdBy,
@@ -117,6 +122,17 @@ export class AttachmentRepository {
       .neq('status', 'PURGED')
       .order('created_at', { ascending: true });
     if (error) throw new Error(`Failed to list attachments: ${error.message}`);
+    return (data as AttachmentRow[]).map(toAttachment);
+  }
+
+  /** Every non-purged row for a module, regardless of entity - used by
+   *  `OrphanCleanupService` to cross-check the DB against actual bucket
+   *  contents (an entity-scoped query like `listByEntity()` can't answer
+   *  "does this object in storage have any row at all"). */
+  async listAllForModule(module: string): Promise<Attachment[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('attachments').select().eq('module', module).neq('status', 'PURGED');
+    if (error) throw new Error(`Failed to list attachments for module ${module}: ${error.message}`);
     return (data as AttachmentRow[]).map(toAttachment);
   }
 
@@ -168,13 +184,13 @@ export class AttachmentRepository {
     if (error) throw new Error(`Failed to mark attachment ${id} archiving: ${error.message}`);
   }
 
-  async markArchived(id: string, params: { driveFileId: string; driveUrl: string; archivedAt: string }): Promise<void> {
+  async markArchived(id: string, params: { driveFileId: string; driveUrl: string; archivedAt: string; storageProvider: StorageProviderName }): Promise<void> {
     const supabase = getSupabase();
     const { error } = await supabase
       .from('attachments')
       .update({
         status: 'ARCHIVED',
-        storage_provider: 'GOOGLE_DRIVE',
+        storage_provider: params.storageProvider,
         drive_file_id: params.driveFileId,
         drive_url: params.driveUrl,
         archived_at: params.archivedAt,
@@ -218,11 +234,11 @@ export class AttachmentRepository {
     if (error) throw new Error(`Failed to finalize direct upload for attachment ${id}: ${error.message}`);
   }
 
-  async restoreToActive(id: string, storagePath: string): Promise<void> {
+  async restoreToActive(id: string, storagePath: string, storageProvider: StorageProviderName): Promise<void> {
     const supabase = getSupabase();
     const { error } = await supabase
       .from('attachments')
-      .update({ status: 'ACTIVE', storage_provider: 'SUPABASE', storage_path: storagePath })
+      .update({ status: 'ACTIVE', storage_provider: storageProvider, storage_path: storagePath })
       .eq('id', id);
     if (error) throw new Error(`Failed to restore attachment ${id}: ${error.message}`);
   }

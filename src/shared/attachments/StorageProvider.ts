@@ -21,9 +21,14 @@ export interface StoredObject {
 export interface StorageProvider {
   readonly name: StorageProviderName;
   upload(params: { path: string; buffer: Buffer; mimeType: string }): Promise<StoredObject>;
-  delete(locator: string): Promise<void>;
   download(locator: string): Promise<Buffer>;
-  getUrl(locator: string, mimeType: string, expiresInSeconds?: number): Promise<{ url: string; expiresAt: string | null }>;
+  delete(locator: string): Promise<void>;
+  exists(locator: string): Promise<boolean>;
+  getSignedUrl(locator: string, mimeType: string, expiresInSeconds?: number): Promise<{ url: string; expiresAt: string | null }>;
+  /** Locators of every object under `prefix` (a path prefix for
+   *  path-addressed providers like Supabase/R2; a folder name for
+   *  Drive's archive folder). */
+  list(prefix: string): Promise<string[]>;
   /** Optional - only `SupabaseStorageProvider` implements this today (see
    *  its own doc comment for why this isn't a Drive concept too). */
   createSignedUploadUrl?(path: string): Promise<{ signedUrl: string; token: string }>;

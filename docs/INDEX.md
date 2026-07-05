@@ -94,6 +94,17 @@ actually ship today — not a green-field proposal.
   Phase 5B's shared file-storage platform (`src/shared/attachments/`):
   data model, provider independence, archive lifecycle, retention policy,
   and what's deliberately not yet migrated onto it.
+- [`PLATFORM_BASELINE.md`](PLATFORM_BASELINE.md) — **start here for the
+  Storage Platform's current, frozen state.** Overview, architecture,
+  implemented/operational services, governance, CI enforcement, release
+  status, production prerequisites, known limitations, roadmap.
+  [`architecture/PLATFORM_CONSTITUTION.md`](architecture/PLATFORM_CONSTITUTION.md)
+  is the permanent policy behind it; `engineering/STORAGE_PLATFORM_FINAL.md`/
+  `STORAGE_PLATFORM_DECISION.md` are the detailed architecture/rationale
+  references; `engineering/ARCHITECTURE_ENFORCEMENT.md` documents the
+  automated `npm run architecture` check; `engineering/STORAGE_HYGIENE.md`/
+  `STORAGE_OPERATIONS.md` cover the orphan-cleanup and health/metrics/audit
+  operational layer.
 
 ## Design & UI
 

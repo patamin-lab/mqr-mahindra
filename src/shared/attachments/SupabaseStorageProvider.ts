@@ -38,11 +38,27 @@ export class SupabaseStorageProvider implements StorageProvider {
     return Buffer.from(await data.arrayBuffer());
   }
 
-  async getUrl(locator: string, _mimeType: string, expiresInSeconds = DEFAULT_SIGNED_URL_TTL_SECONDS): Promise<{ url: string; expiresAt: string | null }> {
+  async exists(locator: string): Promise<boolean> {
+    const supabase = getSupabase();
+    const dir = locator.split('/').slice(0, -1).join('/');
+    const name = locator.split('/').pop() ?? locator;
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).list(dir, { search: name });
+    if (error) throw new Error(`Supabase Storage exists check failed: ${error.message}`);
+    return !!data && data.some((f) => f.name === name);
+  }
+
+  async getSignedUrl(locator: string, _mimeType: string, expiresInSeconds = DEFAULT_SIGNED_URL_TTL_SECONDS): Promise<{ url: string; expiresAt: string | null }> {
     const supabase = getSupabase();
     const { data, error } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrl(locator, expiresInSeconds);
     if (error || !data) throw new Error(`Supabase Storage signed URL failed: ${error?.message ?? 'no data'}`);
     return { url: data.signedUrl, expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString() };
+  }
+
+  async list(prefix: string): Promise<string[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.storage.from(STORAGE_BUCKET).list(prefix);
+    if (error) throw new Error(`Supabase Storage list failed: ${error.message}`);
+    return (data ?? []).map((f) => (prefix ? `${prefix}/${f.name}` : f.name));
   }
 
   /** Supabase-specific: a signed *upload* URL the browser can PUT bytes to

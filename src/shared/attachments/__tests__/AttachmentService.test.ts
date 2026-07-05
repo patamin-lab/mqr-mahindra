@@ -53,13 +53,15 @@ function makeRepo(): AttachmentRepository {
   } as unknown as AttachmentRepository;
 }
 
-function makeProvider(name: 'SUPABASE' | 'GOOGLE_DRIVE'): StorageProvider {
+function makeProvider(name: 'SUPABASE' | 'GOOGLE_DRIVE' | 'CLOUDFLARE_R2'): StorageProvider {
   return {
     name,
     upload: vi.fn(),
     delete: vi.fn(),
     download: vi.fn(),
-    getUrl: vi.fn(),
+    exists: vi.fn(),
+    getSignedUrl: vi.fn(),
+    list: vi.fn(),
     createSignedUploadUrl: vi.fn(),
     statObject: vi.fn(),
   };
@@ -84,8 +86,55 @@ describe('AttachmentService.upload', () => {
     });
 
     expect(primary.upload).toHaveBeenCalledTimes(1);
-    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ checksum: 'abc123', sizeBytes: 100 }));
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ checksum: 'abc123', sizeBytes: 100, storageProvider: 'SUPABASE' }));
     expect(result.id).toBe('a1');
+  });
+
+  it('sanitizes module/entityType/entityId before building the storage key - R2 Production Readiness hardening', async () => {
+    const repo = makeRepo();
+    const primary = makeProvider('SUPABASE');
+    (primary.upload as any).mockImplementation(async (params: { path: string }) => ({
+      locator: params.path,
+      checksum: 'abc123',
+      sizeBytes: 100,
+      url: null,
+    }));
+    (repo.create as any).mockResolvedValue(makeAttachment());
+    const service = new AttachmentService(repo, primary, makeProvider('GOOGLE_DRIVE'));
+
+    await service.upload({
+      module: '../../etc',
+      entityType: 'record/../../secrets',
+      entityId: '../../../other-module',
+      attachmentType: 'ReportPhoto',
+      filename: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from('x'),
+    });
+
+    const uploadedPath = (primary.upload as any).mock.calls[0][0].path as string;
+    expect(uploadedPath).not.toContain('..');
+    expect(uploadedPath.split('/')).toHaveLength(4); // module / entityType / entityId / filename - never more segments than intended
+  });
+
+  it('persists the actual primary provider name, not a hardcoded one - metadata integrity fix', async () => {
+    const repo = makeRepo();
+    const primary = makeProvider('CLOUDFLARE_R2');
+    (primary.upload as any).mockResolvedValue({ locator: 'pm/pm_record/rec-1/1-photo.jpg', checksum: 'abc123', sizeBytes: 100, url: 'https://cdn.example/photo.jpg' });
+    (repo.create as any).mockResolvedValue(makeAttachment({ storageProvider: 'CLOUDFLARE_R2' }));
+    const service = new AttachmentService(repo, primary, makeProvider('GOOGLE_DRIVE'));
+
+    await service.upload({
+      module: 'pm',
+      entityType: 'pm_record',
+      entityId: 'rec-1',
+      attachmentType: 'ReportPhoto',
+      filename: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from('x'),
+    });
+
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ storageProvider: 'CLOUDFLARE_R2' }));
   });
 });
 
@@ -128,19 +177,19 @@ describe('AttachmentService.getUrl', () => {
     const result = await service.getUrl('a1');
 
     expect(result).toEqual({ url: 'https://drive.google.com/file/d/drive-1/view', expiresAt: null });
-    expect(primary.getUrl).not.toHaveBeenCalled();
+    expect(primary.getSignedUrl).not.toHaveBeenCalled();
   });
 
   it('requests a signed URL from Supabase for an active attachment', async () => {
     const repo = makeRepo();
     const primary = makeProvider('SUPABASE');
-    (primary.getUrl as any).mockResolvedValue({ url: 'https://signed.example/x', expiresAt: '2026-01-01T01:00:00.000Z' });
+    (primary.getSignedUrl as any).mockResolvedValue({ url: 'https://signed.example/x', expiresAt: '2026-01-01T01:00:00.000Z' });
     (repo.getById as any).mockResolvedValue(makeAttachment());
     const service = new AttachmentService(repo, primary, makeProvider('GOOGLE_DRIVE'));
 
     const result = await service.getUrl('a1');
 
-    expect(primary.getUrl).toHaveBeenCalledWith('pm/pm_record/rec-1/1-photo.jpg', 'image/jpeg');
+    expect(primary.getSignedUrl).toHaveBeenCalledWith('pm/pm_record/rec-1/1-photo.jpg', 'image/jpeg');
     expect(result?.url).toBe('https://signed.example/x');
   });
 });
@@ -192,7 +241,7 @@ describe('AttachmentService.processArchiveQueue', () => {
     const result = await service.processArchiveQueue();
 
     expect(result).toEqual({ archived: 1, failed: 0 });
-    expect(repo.markArchived).toHaveBeenCalledWith('a1', expect.objectContaining({ driveFileId: 'drive-1' }));
+    expect(repo.markArchived).toHaveBeenCalledWith('a1', expect.objectContaining({ driveFileId: 'drive-1', storageProvider: 'GOOGLE_DRIVE' }));
     expect(primary.delete).toHaveBeenCalledWith('pm/pm_record/rec-1/1-photo.jpg');
     expect(repo.recordArchiveFailure).not.toHaveBeenCalled();
   });
@@ -238,7 +287,7 @@ describe('AttachmentService.initDirectUpload / finalizeDirectUpload', () => {
     });
 
     expect(result).toEqual({ attachmentId: 'a2', uploadUrl: 'https://signed/put', token: 'tok' });
-    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ sizeBytes: 0, checksum: null }));
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ sizeBytes: 0, checksum: null, storageProvider: 'SUPABASE' }));
   });
 
   it('finalizes by confirming the object exists in storage and recording its real size', async () => {
@@ -273,6 +322,24 @@ describe('AttachmentService.reassignEntity', () => {
     await service.reassignEntity(['a1', 'a2'], 'MQR-KTV-2026-000001');
 
     expect(repo.reassignEntity).toHaveBeenCalledWith(['a1', 'a2'], 'MQR-KTV-2026-000001');
+  });
+});
+
+describe('AttachmentService.restore', () => {
+  it('restores to the actual primary provider, not a hardcoded one - metadata integrity fix', async () => {
+    const repo = makeRepo();
+    const primary = makeProvider('CLOUDFLARE_R2');
+    const archive = makeProvider('GOOGLE_DRIVE');
+    (repo.getById as any)
+      .mockResolvedValueOnce(makeAttachment({ status: 'ARCHIVED', driveFileId: 'drive-1', storageProvider: 'GOOGLE_DRIVE', storagePath: null }))
+      .mockResolvedValueOnce(makeAttachment({ status: 'ACTIVE', storageProvider: 'CLOUDFLARE_R2' }));
+    (archive.download as any).mockResolvedValue(Buffer.from('bytes'));
+    (primary.upload as any).mockResolvedValue({ locator: 'pm/pm_record/rec-1/2-photo.jpg', checksum: 'abc123', sizeBytes: 100, url: null });
+    const service = new AttachmentService(repo, primary, archive);
+
+    await service.restore('a1');
+
+    expect(repo.restoreToActive).toHaveBeenCalledWith('a1', 'pm/pm_record/rec-1/2-photo.jpg', 'CLOUDFLARE_R2');
   });
 });
 

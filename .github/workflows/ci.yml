@@ -20,6 +20,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify architecture
+        run: npm run architecture
+
       - name: Type check
         run: npx tsc --noEmit
 

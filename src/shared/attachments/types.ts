@@ -22,7 +22,11 @@ export type AttachmentType =
   | 'Excel'
   | 'Other';
 
-export type StorageProviderName = 'SUPABASE' | 'GOOGLE_DRIVE';
+/** `CLOUDFLARE_R2` is implemented (`CloudflareR2Provider`) but not yet
+ *  used by `AttachmentService`'s default wiring - see that provider's own
+ *  doc comment. Adding it here now means the DB CHECK constraint and every
+ *  switch/lookup keyed on this type are ready the moment it's adopted. */
+export type StorageProviderName = 'SUPABASE' | 'GOOGLE_DRIVE' | 'CLOUDFLARE_R2';
 
 /** Archive lifecycle — see `docs/engineering/ATTACHMENT_FRAMEWORK.md`.
  *  ACTIVE -> ARCHIVE_PENDING -> ARCHIVING -> ARCHIVED -> PURGED (future). */

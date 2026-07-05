@@ -1,11 +1,13 @@
 import { createHash } from 'crypto';
 import { AttachmentRepository } from './AttachmentRepository';
-import { SupabaseStorageProvider } from './SupabaseStorageProvider';
-import { GoogleDriveStorageProvider } from './GoogleDriveStorageProvider';
+import { StorageProviderFactory } from './StorageProviderFactory';
 import { StorageProvider } from './StorageProvider';
 import { Attachment, AttachmentUrl, UploadAttachmentInput } from './types';
 
-const MAX_ARCHIVE_ATTEMPTS = 5;
+/** Exported so `OrphanCleanupService` can identify a row stuck past this
+ *  many retries as a "failed archive" finding, without duplicating the
+ *  threshold as a second magic number. */
+export const MAX_ARCHIVE_ATTEMPTS = 5;
 
 /** Whether a successfully-archived attachment's Supabase Storage copy is
  *  deleted once verified against Drive (see ADR-010's Archive Flow: "Delete
@@ -18,23 +20,43 @@ function sha256Hex(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+/** Object-key hardening (R2 Production Readiness Review, Security §7): a
+ *  path-like segment (`module`/`entityType`/`entityId`) must never be able
+ *  to inject a `/` or `..` into the storage key - `/api/attachments`'s
+ *  generic POST route accepts these as plain form-data strings from the
+ *  client with only an empty-string check, so nothing upstream guarantees
+ *  they're safe. Object storage has no real directory traversal (a key
+ *  containing "../" doesn't escape the bucket the way a filesystem path
+ *  would), but an unsanitized segment could still collide with another
+ *  module's key prefix or corrupt `list()`/archive-folder scoping - this
+ *  closes that off at the one place every caller's path is built, rather
+ *  than trusting each caller to have already sanitized its own inputs. */
+function sanitizePathSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 function buildStoragePath(module: string, entityType: string, entityId: string, filename: string): string {
   const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-  return `${module}/${entityType}/${entityId}/${Date.now()}-${safeName}`;
+  return `${sanitizePathSegment(module)}/${sanitizePathSegment(entityType)}/${sanitizePathSegment(entityId)}/${Date.now()}-${safeName}`;
 }
 
 /**
  * The one door every module goes through for file storage (ADR-010,
  * "Why Provider Independence") - Machine360 and every business module call
- * only these methods, never `SupabaseStorageProvider`/
- * `GoogleDriveStorageProvider` (or the Supabase Storage/Google Drive SDKs)
- * directly. See `docs/engineering/ATTACHMENT_FRAMEWORK.md`.
+ * only these methods, never a `StorageProvider` implementation (or the
+ * Supabase Storage/Google Drive/R2 SDKs) directly. `primary`/`archiveProvider`
+ * are constructed via `StorageProviderFactory` (config-driven -
+ * `STORAGE_PROVIDER`/`ARCHIVE_PROVIDER`), never hardcoded to a specific
+ * class here - see `docs/architecture/STORAGE_PLATFORM.md`. Callers that
+ * need a specific provider (tests, mainly) still just pass it in - this
+ * class never cared which concrete provider it got, only that it
+ * implements `StorageProvider`.
  */
 export class AttachmentService {
   constructor(
     private readonly repo: AttachmentRepository = new AttachmentRepository(),
-    private readonly primary: StorageProvider = new SupabaseStorageProvider(),
-    private readonly archiveProvider: StorageProvider = new GoogleDriveStorageProvider()
+    private readonly primary: StorageProvider = StorageProviderFactory.createPrimaryProvider(),
+    private readonly archiveProvider: StorageProvider = StorageProviderFactory.createArchiveProvider()
   ) {}
 
   async upload(input: UploadAttachmentInput): Promise<Attachment> {
@@ -51,6 +73,7 @@ export class AttachmentService {
       checksum: stored.checksum,
       storagePath: stored.locator,
       createdBy: input.createdBy ?? null,
+      storageProvider: this.primary.name,
     });
   }
 
@@ -77,6 +100,7 @@ export class AttachmentService {
       checksum: null,
       storagePath: path,
       createdBy: input.createdBy ?? null,
+      storageProvider: this.primary.name,
     });
     return { attachmentId: attachment.id, uploadUrl: signedUrl, token };
   }
@@ -126,7 +150,7 @@ export class AttachmentService {
       return { url: attachment.driveUrl, expiresAt: null };
     }
     if (!attachment.storagePath) return null;
-    const { url, expiresAt } = await this.primary.getUrl(attachment.storagePath, attachment.mimeType);
+    const { url, expiresAt } = await this.primary.getSignedUrl(attachment.storagePath, attachment.mimeType);
     return { url, expiresAt };
   }
 
@@ -189,6 +213,7 @@ export class AttachmentService {
           driveFileId: stored.locator,
           driveUrl: stored.url ?? '',
           archivedAt: new Date().toISOString(),
+          storageProvider: this.archiveProvider.name,
         });
         if (DELETE_SOURCE_AFTER_VERIFIED_ARCHIVE) {
           await this.primary.delete(attachment.storagePath);
@@ -218,7 +243,7 @@ export class AttachmentService {
     const buffer = await this.archiveProvider.download(attachment.driveFileId);
     const path = buildStoragePath(attachment.module, attachment.entityType, attachment.entityId, attachment.filename);
     const stored = await this.primary.upload({ path, buffer, mimeType: attachment.mimeType });
-    await this.repo.restoreToActive(id, stored.locator);
+    await this.repo.restoreToActive(id, stored.locator, this.primary.name);
     return (await this.repo.getById(id))!;
   }
 }

@@ -122,6 +122,42 @@ export function driveFileIdFromUrl(url: string): string | null {
   return null;
 }
 
+/** Whether a file ID still exists (and isn't trashed) on Drive - used by
+ *  the Attachment Platform's `exists()` (see `GoogleDriveStorageProvider`). */
+export async function fileExistsOnDrive(fileId: string): Promise<boolean> {
+  const drive = driveClient();
+  try {
+    const res = await drive.files.get({ fileId, fields: 'id,trashed', supportsAllDrives: true });
+    return res.data.trashed !== true;
+  } catch (err: any) {
+    if (err?.code === 404 || err?.response?.status === 404) return false;
+    throw err;
+  }
+}
+
+/** Lists every file ID directly under one named folder (created via
+ *  `getOrCreateFolder()` if it doesn't already exist) - used by the
+ *  Attachment Platform's `list()` for the archive folder. */
+export async function listFilesInDriveFolder(folderName: string): Promise<string[]> {
+  const drive = driveClient();
+  const folderId = await getOrCreateFolder(drive, folderName, rootFolderId());
+  const files: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed=false`,
+      fields: 'nextPageToken, files(id)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      spaces: 'drive',
+      pageToken,
+    });
+    files.push(...(res.data.files ?? []).map((f) => f.id).filter((id): id is string => !!id));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return files;
+}
+
 export interface DriveUploadParams {
   buffer: Buffer;
   filename: string;

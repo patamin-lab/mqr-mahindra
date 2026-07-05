@@ -876,3 +876,145 @@ Phase 5B.1 (Attachment Platform Adoption) — completed this milestone:
   a separate sibling branch (`feature/ntr-legacy-import`) not present in
   this working tree, so reconciling the two systems is future work once
   both branches merge.
+
+Storage Infrastructure (post-Phase-5B.1, pre-Phase-5C) — two
+infrastructure-only milestones, no business module touched, no default
+switched:
+
+- **Cloudflare R2 provider**: `CloudflareR2Provider` (S3-compatible API via
+  `@aws-sdk/client-s3`/`@aws-sdk/s3-request-presigner`, new deps) implements
+  `StorageProvider` alongside `SupabaseStorageProvider`/
+  `GoogleDriveStorageProvider` - built and unit-tested standalone, not
+  constructed by anything by default. `StorageProviderName` gained
+  `'CLOUDFLARE_R2'` (additive DB CHECK constraint migration
+  `allow_cloudflare_r2_storage_provider`). The `StorageProvider` interface
+  itself gained `exists()`/`list()` and renamed `getUrl` → `getSignedUrl` -
+  `AttachmentService.getUrl()` (the public method every module calls) is
+  unchanged, so no business-module file needed touching.
+- **StorageProviderFactory**: `AttachmentService` no longer hardcodes
+  `new SupabaseStorageProvider()`/`new GoogleDriveStorageProvider()` in its
+  constructor defaults - it now calls
+  `StorageProviderFactory.createPrimaryProvider()`/`createArchiveProvider()`,
+  which read `STORAGE_PROVIDER`/`ARCHIVE_PROVIDER` (default: Supabase
+  primary, Google Drive archive - unchanged from before the factory
+  existed, since both env vars are unset everywhere today). See
+  `docs/architecture/STORAGE_PLATFORM.md`.
+- Next, explicit decision needed before either lands in production:
+  whether/when to actually set `STORAGE_PROVIDER=CLOUDFLARE_R2` anywhere,
+  and whether/when to migrate MQR/PM's existing attachments onto it - both
+  deliberately not done as part of these two milestones.
+
+========================================================
+Storage Platform — Status: COMPLETE (frozen baseline)
+========================================================
+
+Continuing from "Storage Infrastructure" above, the following milestones
+completed the Storage Platform build-out and froze it as the official
+MASP Storage Platform baseline. No business module (MQR, PM/Maintenance,
+Machine 360) was touched by any milestone in this section; no default
+provider was switched anywhere; no production rollout occurred.
+
+Completed (in order):
+- **Cloudflare R2 enabled in dev, live-verified** - full attachment
+  lifecycle confirmed against a real R2 bucket + Supabase DB.
+- **Metadata integrity fix** - a live-testing-caught regression
+  (`AttachmentRepository.create()` hardcoding `storage_provider:
+  'SUPABASE'` regardless of the actual provider) fixed; the real provider
+  name is now threaded through every repository write call site.
+- **R2 Production Readiness Review** (`docs/engineering/
+  R2_PRODUCTION_READINESS.md`) - 12-category audit; found the bucket was
+  publicly readable (critical).
+- **Final Production Hardening** - removed every permanent/public URL
+  code path from `CloudflareR2Provider`; added object-key sanitization to
+  `AttachmentService.buildStoragePath()`.
+- **Production Gate Review / infrastructure investigation / Production
+  Infrastructure Hardening** - live-reconfirmed the public-URL blocker
+  resolved (dashboard-level fix); Cloudflare R2 CORS confirmed as the one
+  remaining open infrastructure blocker (Cloudflare-dashboard-level, not
+  application code).
+- **Storage Hygiene** (`docs/engineering/STORAGE_HYGIENE.md`) -
+  `OrphanCleanupService` (five detectable orphan-attachment cases),
+  dry-run-by-default cleanup, `/api/attachments/orphan-cleanup`.
+- **Storage Operations** (`docs/engineering/STORAGE_OPERATIONS.md`) -
+  `StorageHealthService`, `StorageMetricsService`, `StorageAuditService`,
+  `StorageScheduler` (callable, not scheduled).
+- **Platform Freeze** - architecture review confirmed no dead code, no
+  legacy Google Drive path inside the platform, every business module
+  depends only on `AttachmentService`, all providers replaceable via
+  `StorageProviderFactory`.
+- **Platform Freeze & Release** - `docs/release/STORAGE_PLATFORM_RELEASE.md`,
+  `docs/architecture/PLATFORM_CONSTITUTION.md`,
+  `CHANGELOG_STORAGE_PLATFORM.md`, and this status update published.
+
+Verification at freeze: `eslint` 0 errors (7 pre-existing unrelated
+warnings), `tsc --noEmit` clean, `vitest run` 308/308 passing, `next
+build` succeeds.
+
+Remaining dashboard tasks (deferred, not part of this platform):
+- Phase 5c (Service Intelligence Dashboard + Global Search) - unstarted,
+  unrelated to storage, tracked separately above under "Not started".
+
+Production prerequisites before any environment sets
+`STORAGE_PROVIDER=CLOUDFLARE_R2`/`ARCHIVE_PROVIDER=CLOUDFLARE_R2`:
+1. Configure CORS on the R2 bucket via the Cloudflare dashboard (the
+   application's own API token cannot read or write bucket CORS config -
+   confirmed via `AccessDenied`).
+2. Re-run a live end-to-end verification against that environment's real
+   bucket.
+3. Explicit, separate approval to switch the default.
+4. For archive-side R2 specifically: implement
+   `AttachmentService.getUrl()`'s missing signed-URL path for a
+   non-Google-Drive archive provider first (`StorageProviderFactory`
+   currently rejects `ARCHIVE_PROVIDER=CLOUDFLARE_R2` because this
+   doesn't exist).
+
+No prerequisite blocks the parts of the platform already live (Supabase
+primary / Google Drive archive) - that path has been in production use
+since Phase 5B.1 with no open blocker.
+
+Recommended next phase (unscheduled, pending explicit direction):
+- Build `scripts/architecture-check.ts` (or an equivalent CI-enforced
+  check) - confirmed not to exist anywhere in this repo during the
+  freeze; dependency-direction/boundary rules are enforced by convention
+  and code review only today.
+- Wire a real cron trigger for `StorageScheduler`/orphan-cleanup, with a
+  service credential distinct from the SuperAdmin session check, once
+  archive/cleanup automation is explicitly approved.
+- Phase 5c (Dashboard + Global Search) or the deferred Phase 4b/4c
+  remainder - both independent of the Storage Platform, listed here only
+  as the next candidate body of work overall.
+
+(`scripts/architecture-check.ts` above was since built and wired into CI
+- see the Architecture Enforcement / Release Preparation / Platform
+Baseline Freeze work later in this log.)
+
+========================================================
+MASP Platform Foundation v1.0 — STATUS: ACCEPTED
+========================================================
+
+Formal acceptance of the Storage Platform baseline, following the
+Vercel Preview deployment + live UAT (upload/preview/download/delete/
+signed-URL/CORS/large-file/error-handling, all VERIFIED against the
+real Preview deployment and independently cross-checked in Supabase -
+see that UAT report for full evidence; no regression found, no code
+changed).
+
+- **Current Storage Platform: Supabase Storage + Google Drive
+  Archive - Production Ready.** This is the path in production use
+  since Phase 5B.1, unchanged by any Storage Platform milestone since,
+  and the one just live-UAT-verified end-to-end on a Preview
+  deployment.
+- **Cloudflare R2: Implementation Complete, Production Cutover
+  Pending (Preview Environment Configuration).** `CloudflareR2Provider`
+  is fully built, unit-tested, and was live-verified against a real R2
+  bucket earlier in this platform's build-out (see "Cloudflare R2
+  enabled in dev, live-verified" above) - but is not the active
+  primary/archive provider anywhere, and the most recent Preview UAT
+  confirmed `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/
+  `R2_BUCKET` are not yet configured as Preview environment variables
+  (so the R2-specific rollback/object-metadata tests were MISSING, not
+  FAIL). Cutover remains gated on the same production prerequisites
+  listed just above (R2 CORS configuration, R2 Preview/Production env
+  vars, a live end-to-end re-verification, and an explicit, separate
+  approval to switch `STORAGE_PROVIDER`/`ARCHIVE_PROVIDER`) - none of
+  which this acceptance authorizes on its own.

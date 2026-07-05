@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { deleteFileFromDrive, downloadFileFromDrive, uploadFileToDrive } from '@/lib/googleDrive';
+import { deleteFileFromDrive, downloadFileFromDrive, fileExistsOnDrive, listFilesInDriveFolder, uploadFileToDrive } from '@/lib/googleDrive';
 import { StorageProvider, StoredObject } from './StorageProvider';
 
 const ARCHIVE_FOLDER_NAME = 'attachment-archive';
@@ -35,9 +35,20 @@ export class GoogleDriveStorageProvider implements StorageProvider {
     return downloadFileFromDrive(locator);
   }
 
-  async getUrl(locator: string, mimeType: string): Promise<{ url: string; expiresAt: string | null }> {
+  async exists(locator: string): Promise<boolean> {
+    return fileExistsOnDrive(locator);
+  }
+
+  async getSignedUrl(locator: string, mimeType: string): Promise<{ url: string; expiresAt: string | null }> {
     const isImage = mimeType.startsWith('image/');
     const url = isImage ? `https://drive.google.com/thumbnail?id=${locator}&sz=w2000` : `https://drive.google.com/file/d/${locator}/view`;
     return { url, expiresAt: null };
+  }
+
+  /** `prefix` is ignored - Drive archives everything into one flat folder
+   *  (see the class doc comment), so every archived attachment is always
+   *  listed regardless of what path prefix a caller passes. */
+  async list(_prefix: string): Promise<string[]> {
+    return listFilesInDriveFolder(ARCHIVE_FOLDER_NAME);
   }
 }
