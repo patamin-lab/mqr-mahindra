@@ -1,5 +1,13 @@
 # Release Summary — Platform Consolidation
 
+> **Status: HISTORICAL — superseded.** Written when both streams below
+> were still unmerged/uncommitted. Since then: the Storage Platform work
+> was committed (`9915f3d`) and `feature/ntr-legacy-import` was merged to
+> `main` (`5dd4b51`, PR #10), then `origin/main` was merged into
+> `feature/pm-record-workflow-redesign` (`0dc13d3`). `PROJECT_STATE.md` is
+> the current source of truth; this file is kept as a dated record of the
+> consolidation decision itself, not current status.
+
 Covers four completed milestone streams across two unmerged branches.
 Nothing in this document has been merged, tagged, or released - it is a
 consolidated summary prepared ahead of that decision, per this

@@ -19,7 +19,8 @@ release notes for that separate, future decision).
       `docs/architecture/PLATFORM_CONSTITUTION.md`,
       `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`,
       `CHANGELOG_STORAGE_PLATFORM.md`, `RELEASE_NOTES_v2.1.md`,
-      `RELEASE_CHECKLIST.md` all published.
+      this checklist (`docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_V2.1.md`,
+      renamed from root `RELEASE_CHECKLIST.md`) all published.
 - [x] `PROJECT_STATE.md` - Storage Platform section marked COMPLETE.
 - [x] `.github/workflows/ci.yml` runs `npm run architecture` before
       typecheck/lint/test/build.

@@ -1178,3 +1178,64 @@ guessed or hypothetical:
   coverage), `next build` succeeds.
 - Final Release Candidate UAT verdict: **PASS - READY TO MERGE**. No
   architecture redesign, no schema redesign, no new business features.
+
+## Merge with `origin/main` + Release Completion Cleanup (this milestone, `feature/pm-record-workflow-redesign`)
+
+Merged `origin/main` (bringing in the NTR Legacy Import work above, by
+then already merged to `main` via PR #10) into this branch - 3 real
+conflicts (`PROJECT_STATE.md`, `src/locales/en.json`, `src/locales/th.json`),
+everything else auto-merged. `PROJECT_STATE.md` resolved by keeping both
+completed-milestone sections in full. Locale files resolved by keeping
+both sides' new keys plus one real value conflict (`vehicle360`-family
+keys: "Machine Registry/Machine 360" vs. an independent "Tractor
+Registry/Tractor Profile" naming done on `main`) - decided in favor of
+"Machine" terminology since that's what the merged, conflict-free
+`docs/standards/DOMAIN_LANGUAGE_STANDARD.md` and the rest of the same
+locale object already consistently use. Verified no localization key
+lost: flattened key-by-key diff against both parents showed the merged
+file's key set exactly equals their union (524 keys each, up from 343/516).
+Merge commit `0dc13d3`.
+
+Followed by a release-readiness cleanup pass:
+- Resolved `TECHNICAL_DEBT.md` #2 (root `CLAUDE.md` §3's stale "no git
+  CLI" deployment section - corrected to describe the real git-CLI-based
+  workflow) and #3 (the `RELEASE_CHECKLIST.md`/
+  `docs/releases/RELEASE_CHECKLIST_V1.md` naming collision - resolved by
+  renaming the former to
+  `docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_V2.1.md`).
+- `RELEASE_SUMMARY.md` marked with a historical-snapshot banner (it
+  described both streams as unmerged/uncommitted, which is no longer
+  current) rather than rewritten, to preserve it as a dated record.
+- Removed two confirmed-unused asset files (`public/fonts/Sarabun-Bold.woff`,
+  `Sarabun-Regular.woff` - only the `.ttf` variants are used, per
+  `CLAUDE.md` §2's documented TTF-only reason).
+- Full repo audit (dead code, obsolete files, unused deps/imports/assets,
+  debug code, TODOs) found: zero unused dependencies, zero
+  console.log/debugger/TODO/FIXME left in `src/`, and ~55 exported
+  types/interfaces with no external importer - the latter deliberately
+  left alone (not deleted) since they're inert type declarations that are
+  either a module's intentionally-declared public type surface or part of
+  the not-yet-wired Platform Event Framework (`vehicle-event/publisher.ts`
+  etc.) already tracked as planned, staged infrastructure elsewhere in
+  this document - removing them would delete real, intentional
+  forward-looking work, not dead code.
+- Noted, not fixed (out of this pass's scope - would need its own
+  reviewed milestone): `.eslintrc.json` only extends `next/core-web-vitals`,
+  which does not enable `@typescript-eslint/no-unused-vars` - a real gap
+  in this repo's ability to catch unused imports/variables going forward.
+- Verification re-run after cleanup: `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `tsc --noEmit` clean, `vitest run` 407/407 passing
+  (unchanged from pre-cleanup), `next build` succeeds,
+  `npm run architecture` 5/5 PASS.
+- Other branches checked: `feature/ntr-legacy-import`, `feature/ntr-module`,
+  `feature/pm-record-types` are all fully merged into `origin/main`
+  already (no outstanding PR work). `backup/8606773` and `origin/sprint11`
+  are unrelated, superseded PM-record exploratory work predating this
+  redesign branch - left untouched, out of scope. Two local branches
+  (`feature/pm-record-types`, `sprint10-followup`) are fully merged and
+  safe to delete, but branch deletion is a hard-restricted destructive
+  action - flagged for the repo owner to delete, not done here.
+- Two Storage Platform stashes (`storage-platform-v1.0-uncommitted`,
+  `-env-example`) remain in the stash list, now fully redundant with
+  commit `9915f3d` - not dropped, since stash drop is an irreversible
+  action outside this pass's authorization; flagged for the repo owner.
