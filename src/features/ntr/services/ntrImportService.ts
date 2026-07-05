@@ -20,14 +20,20 @@
  * Nothing is written to `ntr_records`/`vehicles` until `commit()` is
  * explicitly called - `preview()` only parses and validates.
  */
-import { getDealer, logAuditEvent } from '@/lib/db';
+import type ExcelJS from 'exceljs';
+import { logAuditEvent } from '@/lib/db';
+import { getSupabase } from '@/lib/supabase';
+import { Dealer, Vehicle } from '@/lib/types';
 import { uploadFileToDrive } from '@/lib/googleDrive';
-import { ColumnMappingResult, formatImportError } from '@/shared/import';
+import { ColumnMappingResult, ImportWarning, formatImportError } from '@/shared/import';
 import { NtrRepository } from '../repositories/ntrRepository';
 import { NtrImportSessionRepository } from '../repositories/ntrImportSessionRepository';
 import { mapNtrImportHeaders, parseNtrImportFile } from './ntrImportParser';
+import { buildNtrImportResultWorkbook } from './ntrImportResultExcel';
 import { NTR_IMPORT_FIELDS } from './ntrImportFields';
+import { validateNtrAddress } from './ntrAddressValidation';
 import {
+  NtrImportMode,
   NtrImportPreview,
   NtrImportRow,
   NtrImportRowOutcome,
@@ -55,14 +61,132 @@ function isBlankRow(row: NtrImportRow): boolean {
   return !row.dealer_id && !row.serial && !row.customer_name && !row.customer_phone && !row.delivery_date;
 }
 
+/** Plausibility check only - this is not a lookup, and it never talks to
+ *  the database. Used solely to decide, in Legacy Import Mode, whether an
+ *  unrecognized serial is "a real serial for a pre-system tractor" (passes,
+ *  proceeds with a warning) vs. obvious junk/typo (fails outright, same as
+ *  Strict Mode would). Deliberately permissive - real dealer serials seen
+ *  in this codebase's own sample data include letters, digits, and
+ *  hyphens with no fixed length, so this only rejects what's clearly not
+ *  a serial at all (empty, or containing characters no serial has ever
+ *  used, or unreasonably short/long). */
+function isPlausibleSerialFormat(serial: string): boolean {
+  return /^[A-Za-z0-9-]{3,50}$/.test(serial.trim());
+}
+
+function normalizeForDuplicateCompare(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
+
+/** Retail Date's own validity, independent of duplicate/serial checks:
+ *  never a future date, and never before the tractor's Manufacturing
+ *  Year (only the year is captured on this template, not a full
+ *  manufacturing date - so "before Manufacturing Date" is checked at
+ *  year granularity). There is no Invoice Date field anywhere in this
+ *  schema or template, so "before Invoice Date" has nothing to check
+ *  against - not implemented, not silently faked; see
+ *  docs/import/NTR_HISTORICAL_IMPORT.md's Date Validation section.
+ *  "Duplicate Retail Date for the same tractor" is not a separate check
+ *  here - a second row for the same serial is already caught by the
+ *  duplicate-serial checks below (in-file and against `ntr_records`)
+ *  before this function would ever see two dates for one tractor. */
+function validateNtrDates(row: NtrImportRow): string | null {
+  if (row.retail_date) {
+    if (row.retail_date > TODAY_ISO()) return `Retail Date "${row.retail_date}" cannot be in the future`;
+    if (row.manufacturing_year) {
+      const retailYear = Number(row.retail_date.slice(0, 4));
+      if (retailYear < row.manufacturing_year) {
+        return `Retail Date "${row.retail_date}" is before Manufacturing Year ${row.manufacturing_year}`;
+      }
+    }
+  }
+  return null;
+}
+
 interface ValidatedRow {
   row: NtrImportRow;
   outcome: NtrImportRowOutcome;
   reason?: string;
+  warning?: string;
 }
 
-async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository): Promise<ValidatedRow[]> {
+/** `.in(column, values)` builds a GET request with every value in the URL
+ *  query string - a 10,000-distinct-value file sent as one query hits
+ *  Cloudflare's "414 Request-URI Too Large" in front of Supabase (a real
+ *  regression found via live 10,000-row UAT immediately after the bulk-
+ *  prefetch performance fix below). Chunking keeps each request's URL a
+ *  safe length while still being a small, fixed number of round trips
+ *  (run in parallel), not one per row. */
+const BULK_QUERY_CHUNK_SIZE = 200;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+/** Bulk dealer-existence check, a small fixed number of chunked queries
+ *  for every distinct `dealer_id` in the file - see the module doc
+ *  comment on `findActiveBySerials()` for why this replaces a per-row
+ *  `getDealer()` call. Keyed exactly by the dealer_id string passed in
+ *  (this table's ids aren't case-normalized anywhere else in the app, so
+ *  neither is this). */
+async function fetchDealersByIds(dealerIds: string[]): Promise<Map<string, Dealer>> {
+  if (dealerIds.length === 0) return new Map();
+  const results = await Promise.all(
+    chunk(dealerIds, BULK_QUERY_CHUNK_SIZE).map(async (batch) => {
+      const { data, error } = await getSupabase().from('dealers').select('*').in('id', batch);
+      if (error) throw error;
+      return data as Dealer[];
+    })
+  );
+  return new Map(results.flat().map((d) => [d.id, d]));
+}
+
+/** Bulk Tractor-serial lookup, chunked the same way as
+ *  `fetchDealersByIds()` and for the same reason. */
+async function fetchVehiclesBySerials(serials: string[]): Promise<Map<string, Vehicle>> {
+  if (serials.length === 0) return new Map();
+  const results = await Promise.all(
+    chunk(serials, BULK_QUERY_CHUNK_SIZE).map(async (batch) => {
+      const { data, error } = await getSupabase().from('vehicles').select('*').in('serial', batch);
+      if (error) throw error;
+      return data as Vehicle[];
+    })
+  );
+  return new Map(results.flat().map((v) => [v.serial, v]));
+}
+
+async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, mode: NtrImportMode): Promise<ValidatedRow[]> {
   const results: ValidatedRow[] = [];
+  // In-file duplicate tracking - "Duplicate inside import file" (serial,
+  // hard reject) and the warning-only phone/customer-name duplicates are
+  // both scoped to *this* file only, never a database-wide scan - keeps
+  // the 10,000-row performance target achievable without a per-row query.
+  const seenSerials = new Map<string, number>();
+  const seenPhones = new Map<string, number>();
+  const seenNames = new Map<string, number>();
+
+  // Bulk-prefetch every dealer/vehicle/existing-NTR this file could
+  // possibly reference, ONCE, before the per-row loop below - a
+  // 10,000-row file previously ran 10,000+ sequential single-row Supabase
+  // queries here (one each for dealer, vehicle, and existing-NTR lookups),
+  // taking roughly 10 minutes end to end - a real, confirmed performance
+  // defect found via live UAT, well past any usable request timeout
+  // (Vercel serverless functions cap far below that). Distinct ids/serials
+  // only, and blank values filtered out - a row with a missing dealer_id/
+  // serial already fails earlier in this same function, before ever
+  // needing a lookup.
+  const distinctDealerIds = [...new Set(rows.map((r) => r.dealer_id).filter(Boolean))];
+  const distinctSerials = [...new Set(rows.map((r) => r.serial).filter(Boolean))];
+  const [dealersById, vehiclesBySerial, activeNtrBySerial] = await Promise.all([
+    fetchDealersByIds(distinctDealerIds),
+    fetchVehiclesBySerials(distinctSerials),
+    ntrRepository.findActiveBySerials(distinctSerials),
+  ]);
+
   for (const row of rows) {
     if (isBlankRow(row)) {
       results.push({ row, outcome: 'skipped', reason: 'Empty row' });
@@ -93,28 +217,97 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository):
       results.push({ row, outcome: 'failed', reason: 'Missing customer name (or title/first/last name) or customer_phone' });
       continue;
     }
-    const dealer = await getDealer(row.dealer_id);
+
+    const dateError = validateNtrDates(row);
+    if (dateError) {
+      results.push({ row, outcome: 'failed', reason: dateError });
+      continue;
+    }
+
+    const address = validateNtrAddress({
+      province: row.customer_province,
+      district: row.customer_district,
+      subdistrict: row.customer_subdistrict,
+      postalCode: row.customer_postal_code,
+    });
+    if (!address.ok) {
+      results.push({ row, outcome: 'failed', reason: address.reason });
+      continue;
+    }
+
+    const serialKey = normalizeForDuplicateCompare(row.serial);
+    const priorSerialRow = seenSerials.get(serialKey);
+    if (priorSerialRow !== undefined) {
+      results.push({ row, outcome: 'duplicate', reason: `Duplicate Product Serial Number - already used on row ${priorSerialRow} in this file` });
+      continue;
+    }
+
+    const dealer = dealersById.get(row.dealer_id);
     if (!dealer) {
       results.push({ row, outcome: 'failed', reason: `Unknown dealer_id "${row.dealer_id}"` });
       continue;
     }
-    const existingNtr = await ntrRepository.findActiveBySerial(row.serial);
+    const existingNtr = activeNtrBySerial.get(row.serial);
     if (existingNtr) {
-      results.push({ row, outcome: 'duplicate', reason: `Already registered as ${existingNtr.ntr_number}` });
+      results.push({ row, outcome: 'duplicate', reason: `Duplicate NTR - already registered as ${existingNtr.ntr_number}` });
       continue;
     }
-    results.push({ row, outcome: 'valid' });
+
+    // Serial Number validation - see NtrImportMode's own doc comment.
+    let warning: string | undefined;
+    const existingVehicle = vehiclesBySerial.get(row.serial);
+    if (!existingVehicle) {
+      if (mode === 'strict') {
+        results.push({ row, outcome: 'failed', reason: 'Unknown Product Serial Number' });
+        continue;
+      }
+      if (!isPlausibleSerialFormat(row.serial)) {
+        results.push({ row, outcome: 'failed', reason: `Serial Number "${row.serial}" is not a plausible format` });
+        continue;
+      }
+      warning = 'New Tractor record was created automatically from historical import.';
+    } else if (row.model && existingVehicle.model && normalizeForDuplicateCompare(row.model) !== normalizeForDuplicateCompare(existingVehicle.model)) {
+      warning = `Model "${row.model}" does not match the existing Tractor record's Model "${existingVehicle.model}"`;
+    }
+
+    // Warning-only duplicates - never block import, per the milestone's
+    // own "Warnings must never block import." Checked last so a row that
+    // already failed/duplicated above never also reports a spurious
+    // phone/name warning on top of its real outcome.
+    const phoneKey = normalizeForDuplicateCompare(row.customer_phone);
+    const priorPhoneRow = seenPhones.get(phoneKey);
+    if (priorPhoneRow !== undefined) {
+      warning = warning
+        ? `${warning}; Duplicate Customer Phone (also on row ${priorPhoneRow})`
+        : `Duplicate Customer Phone - also used on row ${priorPhoneRow} in this file`;
+    }
+    const nameKey = normalizeForDuplicateCompare(row.customer_name || `${row.customer_first_name ?? ''} ${row.customer_last_name ?? ''}`);
+    const priorNameRow = seenNames.get(nameKey);
+    if (priorNameRow !== undefined) {
+      warning = warning
+        ? `${warning}; Duplicate Customer Name (also on row ${priorNameRow})`
+        : `Duplicate Customer Name - also used on row ${priorNameRow} in this file`;
+    }
+
+    seenSerials.set(serialKey, row.row);
+    seenPhones.set(phoneKey, row.row);
+    seenNames.set(nameKey, row.row);
+
+    results.push({ row, outcome: 'valid', warning });
   }
   return results;
 }
 
-function toPreview(validated: ValidatedRow[], columnMapping: ColumnMappingResult): NtrImportPreview {
+function toPreview(validated: ValidatedRow[], columnMapping: ColumnMappingResult, importMode: NtrImportMode, executionTimeMs: number): NtrImportPreview {
   const rows: NtrImportRowResult[] = validated.map((v) => ({
     row: v.row.row,
     serial: v.row.serial || null,
     outcome: v.outcome,
     reason: humanize(v.reason),
   }));
+  const warnings: ImportWarning[] = validated
+    .filter((v): v is ValidatedRow & { warning: string } => !!v.warning)
+    .map((v) => ({ row: v.row.row, reference: v.row.serial || null, message: v.warning }));
   return {
     totalRecords: validated.length,
     validCount: validated.filter((v) => v.outcome === 'valid').length,
@@ -123,6 +316,9 @@ function toPreview(validated: ValidatedRow[], columnMapping: ColumnMappingResult
     failedCount: validated.filter((v) => v.outcome === 'failed').length,
     rows,
     columnMapping,
+    warnings,
+    executionTimeMs,
+    importMode,
   };
 }
 
@@ -147,12 +343,14 @@ export class NtrImportService {
   async preview(
     fileBuffer: Buffer,
     filename: string,
-    actor: NtrImportActor
+    actor: NtrImportActor,
+    importMode: NtrImportMode = 'legacy'
   ): Promise<{ session: NtrImportSession; preview: NtrImportPreview }> {
+    const startedAt = Date.now();
     const rows = await parseNtrImportFile(fileBuffer, filename);
-    const validated = await validateRows(rows, this.ntrRepository);
+    const validated = await validateRows(rows, this.ntrRepository, importMode);
     const columnMapping = await mapNtrImportHeaders(fileBuffer, filename);
-    const preview = toPreview(validated, columnMapping);
+    const preview = toPreview(validated, columnMapping, importMode, Date.now() - startedAt);
     const checksum = await sha256Hex(fileBuffer);
 
     const session = await this.sessionRepository.create(
@@ -183,7 +381,7 @@ export class NtrImportService {
    *  registered the same serial in the meantime) is re-classified rather
    *  than blindly imported. On success, queues the session for background
    *  archiving - Drive is never called from this method. */
-  async commit(sessionId: string, actor: NtrImportActor): Promise<NtrImportSession> {
+  async commit(sessionId: string, actor: NtrImportActor, importMode: NtrImportMode = 'legacy'): Promise<NtrImportSession> {
     const session = await this.sessionRepository.getById(sessionId);
     if (!session) {
       throw new Error('Import session not found');
@@ -194,7 +392,7 @@ export class NtrImportService {
 
     const buffer = Buffer.from(session.file_content, 'base64');
     const rows = await parseNtrImportFile(buffer, session.filename);
-    const validated = await validateRows(rows, this.ntrRepository);
+    const validated = await validateRows(rows, this.ntrRepository, importMode);
 
     let imported = 0;
     let failed = 0;
@@ -290,6 +488,37 @@ export class NtrImportService {
     // that already committed above, so this is a separate, best-effort
     // status transition, not part of the transaction that just succeeded.
     return this.sessionRepository.update(session.id, { status: 'Archive Pending' }, actor);
+  }
+
+  /** `NTR_IMPORT_RESULT.xlsx` - re-parses and re-validates from the
+   *  session's stored file (same non-trusting approach as `commit()`),
+   *  never from a client-supplied row list, so the downloaded report
+   *  always reflects a real, reproducible validation pass. `importMode`
+   *  is not persisted on the session (see `NtrImportMode`'s doc comment)
+   *  - the caller must pass whichever mode it wants reflected; defaults
+   *  to 'legacy' so a plain download link (no mode specified) matches
+   *  this module's own default. */
+  async buildResultWorkbook(sessionId: string, importMode: NtrImportMode = 'legacy'): Promise<ExcelJS.Buffer> {
+    const session = await this.sessionRepository.getById(sessionId);
+    if (!session) {
+      throw new Error('Import session not found');
+    }
+    if (!session.file_content) {
+      throw new Error('Import session has no stored file - it may already be archived');
+    }
+    const buffer = Buffer.from(session.file_content, 'base64');
+    const rows = await parseNtrImportFile(buffer, session.filename);
+    const validated = await validateRows(rows, this.ntrRepository, importMode);
+    const results: NtrImportRowResult[] = validated.map((v) => ({
+      row: v.row.row,
+      serial: v.row.serial || null,
+      outcome: v.outcome,
+      reason: humanize(v.reason),
+    }));
+    const warnings: ImportWarning[] = validated
+      .filter((v): v is ValidatedRow & { warning: string } => !!v.warning)
+      .map((v) => ({ row: v.row.row, reference: v.row.serial || null, message: v.warning }));
+    return buildNtrImportResultWorkbook(rows, results, warnings);
   }
 
   async listSessions(): Promise<NtrImportSession[]> {

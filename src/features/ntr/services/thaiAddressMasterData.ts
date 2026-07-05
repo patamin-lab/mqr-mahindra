@@ -1,0 +1,156 @@
+/**
+ * NTR — Thailand Province / District / Subdistrict / Postal Code master
+ * data.
+ *
+ * Source of truth: `src/features/ntr/data/thaiAddressMaster.json`, a
+ * one-time export of the "Thai Province+DIstrict+Tambon.xlsx" reference
+ * file's `TambonDatabase` sheet (7,436 rows - every subdistrict in
+ * Thailand, with its parent district and province, in Thai and English,
+ * full and short forms, plus postal code(s)). This module never re-reads
+ * that spreadsheet at runtime and never queries a database for it -
+ * loaded into memory exactly once (module-level singleton, built lazily
+ * on first use), then reused for every row of every import - satisfying
+ * "load the address master ONCE into memory, never a lookup per row."
+ *
+ * Regenerating the JSON (only needed if Thailand's official province/
+ * district/subdistrict list changes) is a manual, explicit step - not
+ * part of any build script, since the source spreadsheet is an external
+ * reference file, not something this repository tracks changes to
+ * automatically.
+ */
+import thaiAddressData from '../data/thaiAddressMaster.json';
+
+interface TambonRow {
+  tambonId: string;
+  tambonThai: string;
+  tambonEng: string;
+  tambonThaiShort: string;
+  tambonEngShort: string;
+  districtId: string;
+  districtThai: string;
+  districtEng: string;
+  districtThaiShort: string;
+  districtEngShort: string;
+  provinceId: string;
+  provinceThai: string;
+  provinceEng: string;
+  postCodeMain: string | null;
+  postCodeAll: string | null;
+}
+
+export interface ProvinceRef {
+  provinceId: string;
+  provinceThai: string;
+}
+
+export interface DistrictRef {
+  districtId: string;
+  districtThai: string;
+  provinceId: string;
+}
+
+export interface SubdistrictRef {
+  tambonId: string;
+  tambonThai: string;
+  districtId: string;
+  postalCodes: string[];
+}
+
+/** Common Thai administrative-unit prefixes a dealer's spreadsheet might
+ *  or might not include (`อำเภอเมืองบุรีรัมย์` vs `เมืองบุรีรัมย์`) - the
+ *  master data itself already records both the full and short form for
+ *  every row, so normalization only needs to strip these prefixes before
+ *  matching against either form, never invent its own abbreviation
+ *  mapping. Longest-prefix-first so `กิ่งอำเภอ` matches before `อำเภอ`
+ *  would incorrectly strip only part of it. */
+const PREFIXES = ['กิ่งอำเภอ', 'จังหวัด', 'อำเภอ', 'เขต', 'ตำบล', 'แขวง'];
+
+/** Normalizes free-text Thai administrative-unit input for matching only
+ *  - never used to overwrite what a user/import row actually typed.
+ *  Handles: leading/trailing spaces, multiple internal spaces collapsed
+ *  to one, and a leading province/district/subdistrict-type prefix
+ *  stripped so "อำเภอเมืองบุรีรัมย์" and "เมืองบุรีรัมย์" compare equal. */
+export function normalizeThaiAddressValue(raw: string): string {
+  let value = raw.trim().replace(/\s+/g, ' ');
+  for (const prefix of PREFIXES) {
+    if (value.startsWith(prefix)) {
+      value = value.slice(prefix.length).trim();
+      break;
+    }
+  }
+  return value;
+}
+
+interface AddressIndex {
+  provincesByName: Map<string, ProvinceRef>;
+  districtsByProvinceId: Map<string, Map<string, DistrictRef>>;
+  subdistrictsByDistrictId: Map<string, Map<string, SubdistrictRef>>;
+}
+
+let cachedIndex: AddressIndex | null = null;
+
+function splitPostalCodes(postCodeAll: string | null, postCodeMain: string | null): string[] {
+  const raw = postCodeAll ?? postCodeMain ?? '';
+  return raw
+    .split(/[,/]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function buildIndex(): AddressIndex {
+  const provincesByName = new Map<string, ProvinceRef>();
+  const districtsByProvinceId = new Map<string, Map<string, DistrictRef>>();
+  const subdistrictsByDistrictId = new Map<string, Map<string, SubdistrictRef>>();
+
+  for (const row of thaiAddressData as TambonRow[]) {
+    const provinceKey = normalizeThaiAddressValue(row.provinceThai);
+    if (!provincesByName.has(provinceKey)) {
+      provincesByName.set(provinceKey, { provinceId: row.provinceId, provinceThai: row.provinceThai });
+    }
+
+    let districtMap = districtsByProvinceId.get(row.provinceId);
+    if (!districtMap) {
+      districtMap = new Map();
+      districtsByProvinceId.set(row.provinceId, districtMap);
+    }
+    const districtRef: DistrictRef = { districtId: row.districtId, districtThai: row.districtThai, provinceId: row.provinceId };
+    districtMap.set(normalizeThaiAddressValue(row.districtThai), districtRef);
+    districtMap.set(normalizeThaiAddressValue(row.districtThaiShort), districtRef);
+
+    let subdistrictMap = subdistrictsByDistrictId.get(row.districtId);
+    if (!subdistrictMap) {
+      subdistrictMap = new Map();
+      subdistrictsByDistrictId.set(row.districtId, subdistrictMap);
+    }
+    const subdistrictRef: SubdistrictRef = {
+      tambonId: row.tambonId,
+      tambonThai: row.tambonThai,
+      districtId: row.districtId,
+      postalCodes: splitPostalCodes(row.postCodeAll, row.postCodeMain),
+    };
+    subdistrictMap.set(normalizeThaiAddressValue(row.tambonThai), subdistrictRef);
+    subdistrictMap.set(normalizeThaiAddressValue(row.tambonThaiShort), subdistrictRef);
+  }
+
+  return { provincesByName, districtsByProvinceId, subdistrictsByDistrictId };
+}
+
+/** Builds the in-memory index on first call, reused for every subsequent
+ *  call within this process - the "load once" requirement. A serverless
+ *  cold start pays this cost once per instance, not once per row. */
+function getIndex(): AddressIndex {
+  if (!cachedIndex) cachedIndex = buildIndex();
+  return cachedIndex;
+}
+
+export function findProvince(name: string): ProvinceRef | null {
+  return getIndex().provincesByName.get(normalizeThaiAddressValue(name)) ?? null;
+}
+
+export function findDistrict(name: string, provinceId: string): DistrictRef | null {
+  return getIndex().districtsByProvinceId.get(provinceId)?.get(normalizeThaiAddressValue(name)) ?? null;
+}
+
+export function findSubdistrict(name: string, districtId: string): SubdistrictRef | null {
+  return getIndex().subdistrictsByDistrictId.get(districtId)?.get(normalizeThaiAddressValue(name)) ?? null;
+}

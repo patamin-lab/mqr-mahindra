@@ -43,6 +43,12 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  // Legacy Import Mode (default) vs. Strict Import Mode - see
+  // NtrImportMode's doc comment. Any value other than the literal
+  // "strict" is treated as "legacy" - never silently reject an
+  // unrecognized mode string, since the default is the one guaranteed
+  // not to change existing behavior.
+  const importMode = form.get('importMode') === 'strict' ? 'strict' : 'legacy';
 
   const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -55,7 +61,24 @@ export async function POST(req: NextRequest) {
     // it. (A file missing just one or two required columns still proceeds
     // to `preview()` - those columns' rows simply fail per-row, which is
     // more useful than a blanket rejection for an otherwise-valid file.)
-    const headerValidation = await validateNtrImportHeader(buffer, file.name);
+    let headerValidation;
+    try {
+      headerValidation = await validateNtrImportHeader(buffer, file.name);
+    } catch (parseError) {
+      // A genuinely unreadable file (corrupt bytes, wrong format despite
+      // the .xlsx/.csv extension) throws from inside ExcelJS/the CSV
+      // reader with a raw, implementation-specific message (e.g. jszip's
+      // "Can't find end of central directory") - found via live UAT
+      // surfacing as an unhandled 500 with a leaked library error. Same
+      // "wrong file, not a malformed NTR file" handling as an
+      // unrecognized-columns file, just one step earlier - a 400 with a
+      // clear, business-facing message instead.
+      console.error('NTR legacy import - file could not be read', parseError);
+      return NextResponse.json(
+        { ok: false, error: { code: 'VALIDATION_ERROR', message: translate(locale, 'validation.importFileUnreadable') } },
+        { status: 400 }
+      );
+    }
     const requiredFieldCount = requiredFieldsOf(NTR_IMPORT_CONTRACT).length;
     if (headerValidation.missingRequiredColumns.length === requiredFieldCount) {
       return NextResponse.json(
@@ -65,7 +88,7 @@ export async function POST(req: NextRequest) {
     }
 
     const importService = createNtrImportService();
-    const { session: importSession, preview } = await importService.preview(buffer, file.name, { username: session.username });
+    const { session: importSession, preview } = await importService.preview(buffer, file.name, { username: session.username }, importMode);
 
     return NextResponse.json(
       {

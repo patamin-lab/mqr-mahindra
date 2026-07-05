@@ -152,7 +152,14 @@
     "missingRequiredColumns": "คอลัมน์ที่จำเป็นซึ่งขาดหายไป",
     "wizardStep5Title": "ขั้นตอนที่ 5: นำเข้าข้อมูลเสร็จสิ้น",
     "downloadImportResultButton": "ดาวน์โหลดผลการนำเข้า",
+    "downloadImportResultXlsxButton": "ดาวน์โหลด NTR_IMPORT_RESULT.xlsx",
     "downloadErrorReportButton": "ดาวน์โหลดรายงานข้อผิดพลาด",
+    "importModeLabel": "โหมดการนำเข้า",
+    "importModeLegacyTitle": "โหมดนำเข้าข้อมูลย้อนหลัง (ค่าเริ่มต้น)",
+    "importModeLegacyBody": "หมายเลขเครื่องจักรที่ไม่พบในระบบจะสร้างรถแทรกเตอร์ใหม่โดยอัตโนมัติ พร้อมคำเตือน ใช้สำหรับข้อมูลย้อนหลังก่อนมีระบบนี้",
+    "importModeStrictTitle": "โหมดนำเข้าข้อมูลแบบเข้มงวด",
+    "importModeStrictBody": "หมายเลขเครื่องจักรที่ไม่พบในระบบจะถูกปฏิเสธ ไม่มีการสร้างรถแทรกเตอร์ใหม่ ใช้เฉพาะเมื่อคาดว่ารถแทรกเตอร์ทุกคันมีอยู่ในระบบแล้ว",
+    "warningsTitle": "คำเตือน",
     "startNewImportButton": "เริ่มการนำเข้าใหม่",
     "customerTitlePlaceholder": "นาย / นาง / นางสาว",
     "tractorInfoTitle": "ข้อมูลรถแทรกเตอร์",
@@ -313,6 +320,7 @@
     "tractorAlreadyRegistered": "รถแทรกเตอร์คันนี้จดทะเบียนแล้ว (เลขที่ {ntrNumber})",
     "unauthorizedLegacyImport": "ไม่มีสิทธิ์ใช้งานเครื่องมือนำเข้าข้อมูลย้อนหลัง",
     "importFileRequired": "กรุณาอัปโหลดไฟล์นำเข้า",
+    "importFileUnreadable": "ไม่สามารถอ่านไฟล์นี้ได้ กรุณาตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv ที่ถูกต้องแล้วลองใหม่อีกครั้ง",
     "importSessionNotFound": "ไม่พบรายการนำเข้านี้"
   },
   "pdf": {

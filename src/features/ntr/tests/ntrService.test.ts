@@ -72,6 +72,7 @@ function makeMockRepository(): NtrRepository {
   return {
     getById: vi.fn(),
     findActiveBySerial: vi.fn(),
+    findActiveBySerials: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),

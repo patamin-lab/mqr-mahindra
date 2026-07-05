@@ -48,6 +48,27 @@ export class SupabaseNtrRepository implements NtrRepository {
     return (data as NtrRecord) ?? null;
   }
 
+  /** Chunked - `.in('serial', [...])` with thousands of distinct serials
+   *  in one request builds a URL long enough to hit "414 Request-URI Too
+   *  Large" in front of Supabase (confirmed via a live 10,000-row Legacy
+   *  Import UAT run). A small, fixed number of parallel chunked requests
+   *  instead of one per row (the defect this method was added to fix)
+   *  or one unbounded request (the regression this chunking then fixed). */
+  async findActiveBySerials(serials: string[]): Promise<Map<string, NtrRecord>> {
+    if (serials.length === 0) return new Map();
+    const chunkSize = 200;
+    const batches: string[][] = [];
+    for (let i = 0; i < serials.length; i += chunkSize) batches.push(serials.slice(i, i + chunkSize));
+    const results = await Promise.all(
+      batches.map(async (batch) => {
+        const { data, error } = await this.client.from(this.table).select('*').eq('record_status', 'Active').in('serial', batch);
+        if (error) throw error;
+        return data as NtrRecord[];
+      })
+    );
+    return new Map(results.flat().map((r) => [r.serial, r]));
+  }
+
   /** Generates the business-facing NTR number NTR-[DealerCode]-[Year]-[Running]
    *  via the existing job_seq table / next_job_seq() RPC - the same
    *  generic (bucket_key, year) -> atomic increment counter MQR's job_id and

@@ -26,6 +26,13 @@ export interface NtrRepository {
    *  if any - powers "never create duplicate NTR" for both the search-first
    *  UI warning and the Legacy Import duplicate check. */
   findActiveBySerial(serial: string): Promise<NtrRecord | null>;
+  /** Bulk form of `findActiveBySerial()` - one query for every serial in a
+   *  Legacy Import file, instead of one query per row. Exists purely for
+   *  `NtrImportService.validateRows()`'s performance (a 10,000-row file
+   *  doing 10,000 sequential single-row queries was a real, confirmed
+   *  defect found via live UAT - see `docs/import/NTR_HISTORICAL_IMPORT.md`'s
+   *  Performance section). Keyed by the exact serial string passed in. */
+  findActiveBySerials(serials: string[]): Promise<Map<string, NtrRecord>>;
   create(input: NtrRecordCreateInput, actor: { username: string }): Promise<NtrRecord>;
   update(id: string, input: NtrRecordUpdateInput, actor: { username: string }): Promise<NtrRecord>;
   /** Soft delete only - never a hard delete (record_status=Deleted, matches

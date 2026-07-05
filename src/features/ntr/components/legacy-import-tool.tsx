@@ -16,7 +16,7 @@ import { swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
 import ImportWizard from '@/shared/import/components/ImportWizard';
-import type { NtrImportPreview, NtrImportSession } from '../types';
+import type { NtrImportMode, NtrImportPreview, NtrImportSession } from '../types';
 
 interface FileInfo {
   filename: string;
@@ -50,6 +50,7 @@ export default function LegacyImportTool() {
   const { t, locale } = useTranslation();
   const [wizardStep, setWizardStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
+  const [importMode, setImportMode] = useState<NtrImportMode>('legacy');
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -128,6 +129,7 @@ export default function LegacyImportTool() {
     try {
       const form = new FormData();
       form.append('file', file);
+      form.append('importMode', importMode);
       const res = await fetch('/api/ntr/import/preview', { method: 'POST', credentials: 'same-origin', body: form });
       const json = await res.json();
       swalClose();
@@ -154,7 +156,7 @@ export default function LegacyImportTool() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId, importMode }),
       });
       swalClose();
       swalSuccessToast(t('ntr.importCompleteToast', { count: result.data.valid_count }));
@@ -263,6 +265,23 @@ export default function LegacyImportTool() {
                 </p>
               )}
             </div>
+            <fieldset className="rounded border border-gray-200 p-3 text-sm">
+              <legend className="px-1 text-xs font-semibold text-gray-600">{t('ntr.importModeLabel')}</legend>
+              <label className="flex items-start gap-2 py-1">
+                <input type="radio" name="importMode" checked={importMode === 'legacy'} onChange={() => setImportMode('legacy')} className="mt-1" />
+                <span>
+                  <span className="font-medium">{t('ntr.importModeLegacyTitle')}</span>
+                  <span className="block text-xs text-gray-500">{t('ntr.importModeLegacyBody')}</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 py-1">
+                <input type="radio" name="importMode" checked={importMode === 'strict'} onChange={() => setImportMode('strict')} className="mt-1" />
+                <span>
+                  <span className="font-medium">{t('ntr.importModeStrictTitle')}</span>
+                  <span className="block text-xs text-gray-500">{t('ntr.importModeStrictBody')}</span>
+                </span>
+              </label>
+            </fieldset>
             <div className="flex justify-between">
               <button type="button" onClick={() => setWizardStep(1)} className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
                 {t('common.back')}
@@ -346,6 +365,22 @@ export default function LegacyImportTool() {
                 )}
               </div>
             </details>
+
+            {preview.warnings.length > 0 && (
+              <details className="rounded border border-amber-100 bg-amber-50 p-3 text-xs" open>
+                <summary className="cursor-pointer font-semibold text-amber-700">
+                  {t('ntr.warningsTitle')} ({preview.warnings.length})
+                </summary>
+                <ul className="mt-2 space-y-1 text-amber-800">
+                  {preview.warnings.map((w, i) => (
+                    <li key={i}>
+                      {t('ntr.rowNumber')} {w.row}
+                      {w.reference ? ` (${w.reference})` : ''}: {w.message}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
 
             {preview.rows.filter((r) => r.outcome !== 'valid').length > 0 && (
               <div className="overflow-x-auto">
@@ -435,6 +470,14 @@ export default function LegacyImportTool() {
               {t('common.status')}: {t(`ntr.importStatus_${commitResult.status.replace(/\s/g, '')}`)}
             </p>
             <div className="flex flex-wrap gap-3">
+              {sessionId && (
+                <a
+                  href={`/api/ntr/import/sessions/${sessionId}/result?importMode=${importMode}`}
+                  className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50"
+                >
+                  {t('ntr.downloadImportResultXlsxButton')}
+                </a>
+              )}
               <button type="button" onClick={downloadImportResult} className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
                 {t('ntr.downloadImportResultButton')}
               </button>
