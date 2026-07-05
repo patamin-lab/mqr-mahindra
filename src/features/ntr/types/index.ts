@@ -10,7 +10,7 @@
  * stays historically accurate even if the vehicle's master data changes
  * later.
  */
-import type { ColumnMappingResult } from '@/shared/import';
+import type { ColumnMappingResult, ImportWarning } from '@/shared/import';
 
 export type NtrCustomerType = 'Individual' | 'Company';
 
@@ -318,11 +318,25 @@ export interface NtrImportRowResult {
   reason?: string;
 }
 
+/** Legacy Import Mode (default): an unknown Product Serial Number
+ *  auto-creates a Tractor (today's existing, working behavior for
+ *  genuinely pre-system tractors) and raises a WARNING rather than
+ *  blocking the row. Strict Import Mode: an unknown Product Serial
+ *  Number is rejected outright (FAILED), no Tractor is created. Not
+ *  persisted on `ntr_import_sessions` (no schema change) - the caller
+ *  (import UI) is responsible for passing the same mode to `commit()`
+ *  that it used for `preview()`; see `ntrImportService.ts`'s class doc
+ *  comment. */
+export type NtrImportMode = 'legacy' | 'strict';
+
 /** Nothing is written until the caller confirms - `preview()` only reads
  *  and validates; `commit()` is the only method that writes. `columnMapping`
  *  is the Import Wizard's Step 3 "Mapped Columns"/"Ignored Columns"/
  *  "Unknown Columns"/"Missing Required Columns" report (see
- *  `src/shared/import/ColumnMappingService.ts`). */
+ *  `src/shared/import/ColumnMappingService.ts`). `warnings` never affects
+ *  `validCount`/whether a row imports - see
+ *  `docs/import/NTR_HISTORICAL_IMPORT.md`'s Duplicate Detection section
+ *  for exactly which conditions are warnings vs. hard failures. */
 export interface NtrImportPreview {
   totalRecords: number;
   validCount: number;
@@ -331,4 +345,11 @@ export interface NtrImportPreview {
   failedCount: number;
   rows: NtrImportRowResult[];
   columnMapping: ColumnMappingResult;
+  warnings: ImportWarning[];
+  /** Milliseconds this preview/commit pass took end to end - `null` is
+   *  never returned here (only the shared framework's still-in-progress
+   *  `ImportResult.processingTime` can be null); always measured after
+   *  the fact. */
+  executionTimeMs: number;
+  importMode: NtrImportMode;
 }

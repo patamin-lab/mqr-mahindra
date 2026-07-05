@@ -1,16 +1,26 @@
 # NTR Legacy Import — Template Manual
 
 How to prepare a historical-data file for the NTR Legacy Import tool
-(`/admin/legacy-import`, Super Administrator only). Read alongside
+(`/admin/legacy-import`, Super Administrator only). This is the short
+operator-facing quick reference - see
+`docs/import/NTR_HISTORICAL_IMPORT.md` for full detail (address
+validation, Serial Number modes, duplicate detection, date validation,
+transaction strategy, audit log, error messages). Read alongside
 `docs/standards/MODULE_DEVELOPMENT_STANDARD.md` and the tool's own code
-(`src/features/ntr/services/ntrImportParser.ts`), which is the actual
-source of truth for column order if this document ever drifts from it.
+(`src/features/ntr/services/ntrImportFields.ts`), which is the actual
+source of truth for the field/alias list if this document ever drifts
+from it.
 
 ## File format
 
 `.xlsx` or `.csv`. The first row is the header row and is not itself
-imported — data starts on row 2. Columns must appear **in this exact
-order** (the parser reads by position, not by matching header text):
+imported — data starts on row 2. **Columns are matched by header
+name/alias, not position** - a file with reordered columns or a
+recognized synonym header (e.g. "Zip Code" for Postal Code) still parses
+correctly, via `ColumnMappingService`. The table below still reflects
+the template's own default column order (and is what the downloadable
+template ships with), but a dealer's existing export does not need to
+match it exactly:
 
 | # | Column | Required? | Notes |
 |---|---|---|---|
@@ -91,5 +101,9 @@ just without a resolved Product Family until corrected manually.
 
 ## Verification
 
-Documentation only. Does not modify the import tool, its parser, or any
-template.
+This document was updated (parsing-method description corrected;
+pointer to `docs/import/NTR_HISTORICAL_IMPORT.md` added) as part of the
+NTR Historical Import Framework enhancement, which did modify the
+import tool - see that document for exactly what changed (address
+validation, Serial Number import modes, duplicate detection, date
+validation, `NTR_IMPORT_RESULT.xlsx`).

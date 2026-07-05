@@ -891,3 +891,71 @@ exists).
   tests: `ColumnMappingService`, `ImportErrorFormatter`,
   `ntrImportParser` alias-based regression coverage), `next build`
   succeeds.
+
+## Real-file header aliases and flexible date parsing (same branch, committed - `6d1bcc3`)
+
+Added alias mappings observed in an actual dealer export (serial, model,
+mobile, city/state, NTR date) to `NTR_IMPORT_FIELDS`, and extended
+`parseImportDate()` to normalize `"31 Oct 2025"`/`DD-MM-YYYY` in addition
+to already-ISO dates. 8 new tests (`ntrImportFields.test.ts`). This is
+the last commit currently on `feature/ntr-legacy-import` before the
+uncommitted work below.
+
+## NTR Historical Import Framework Enhancement + Release Candidate UAT (same branch, uncommitted)
+
+Two milestones, run back to back against the already-complete v1.0
+framework above - enhancement, then a full live UAT that found and fixed
+real defects in that enhancement. Not yet committed - see this branch's
+`git status` for the exact file list (21 files: 12 modified, 9 new).
+
+**Enhancement** - added, using the two files uploaded for this milestone
+(an NTR template export and Thailand's real Province/District/Subdistrict/
+Postal Code reference data) as source of truth, never assumed:
+- Address hierarchy validation (Province → District → Subdistrict →
+  Postal Code) against a 7,436-row Thailand address master, loaded once
+  into memory (`thaiAddressMasterData.ts`/`ntrAddressValidation.ts`) -
+  verified against the exact "district doesn't belong to province"
+  example from the milestone brief.
+- Configurable Serial Number validation: **Legacy Mode** (default,
+  unchanged production behavior - unknown serial auto-creates a Tractor,
+  now with an explicit warning) vs. **Strict Mode** (rejects unknown
+  serials outright) - a real behavior fork resolved by explicit user
+  decision, not guessed.
+- In-file duplicate serial detection (previously only cross-file);
+  phone/customer-name duplicates as warnings that never block import.
+- Retail Date validation (future date; before Manufacturing Year).
+- Downloadable `NTR_IMPORT_RESULT.xlsx` (every original column + Status/
+  Error Message/Warning, correctable and re-uploadable) and execution
+  time reporting.
+- No schema changes - `import_mode` is a request parameter, not a stored
+  column (the auto-mode classifier correctly blocked a first attempt to
+  add one, per this app's standing "confirm before shared-resource
+  changes" policy).
+- New docs: `docs/import/NTR_HISTORICAL_IMPORT.md` (full spec); corrected
+  a real, pre-existing inaccuracy in `docs/standards/NTR_IMPORT_MANUAL.md`
+  (claimed positional column parsing - the code has used alias-based
+  mapping since the Universal Import Wizard Framework milestone above).
+
+**Release Candidate UAT** - live testing (local dev server + real
+Supabase DB, 15+ scenarios, full UI-backed flow, negative tests,
+regression checks) found and fixed four genuine defects, none of them
+guessed or hypothetical:
+1. A new "Unknown Province" message collided with an unrelated existing
+   regex in `ImportErrorFormatter.ts`, silently rewritten into a vaguer
+   message - reworded to avoid the collision.
+2. **Critical**: a 10,000-row file took ~10 minutes to validate (per-row
+   sequential `getDealer()`/`getVehicleBySerial()`/`findActiveBySerial()`
+   calls - 30,000+ DB round trips). Fixed by bulk-prefetching all three
+   into in-memory Maps before the validation loop - confirmed live at
+   ~1.3 seconds for the same 10,000 rows.
+3. That fix's own regression: one `.in()` query with 10,000 values hit
+   Cloudflare's "414 Request-URI Too Large" in front of Supabase - fixed
+   by chunking bulk queries into batches of 200, run in parallel.
+4. A corrupt/unreadable file upload leaked a raw `jszip` library error as
+   an unhandled 500 - now caught and returns a clean, localized 400.
+- Verification: `tsc --noEmit` clean, `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `vitest run` 327/327 passing (was 284 - 43 new:
+  address validation, import-service mode/duplicate/date/bulk-prefetch
+  coverage), `next build` succeeds.
+- Final Release Candidate UAT verdict: **PASS - READY TO MERGE**. No
+  architecture redesign, no schema redesign, no new business features.

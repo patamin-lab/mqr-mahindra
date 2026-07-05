@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { sessionId?: string };
+  let body: { sessionId?: string; importMode?: string };
   try {
     body = await req.json();
   } catch {
@@ -35,9 +35,13 @@ export async function POST(req: NextRequest) {
   if (!body.sessionId) {
     return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'sessionId is required' } }, { status: 400 });
   }
+  // Not persisted on the session row (no schema change) - the caller
+  // must resend the same mode it used for /preview. See NtrImportMode's
+  // doc comment.
+  const importMode = body.importMode === 'strict' ? 'strict' : 'legacy';
 
   try {
-    const result = await createNtrImportService().commit(body.sessionId, { username: session.username });
+    const result = await createNtrImportService().commit(body.sessionId, { username: session.username }, importMode);
     return NextResponse.json({ ok: true, data: result }, { status: 200 });
   } catch (error) {
     console.error('NTR legacy import commit error', error);

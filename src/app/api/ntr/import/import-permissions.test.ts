@@ -109,7 +109,7 @@ describe('Legacy Import route permissions', () => {
       const req = new NextRequest('http://localhost/api/ntr/import/commit', { method: 'POST', body: JSON.stringify({ sessionId: 'sess-1' }) });
       const res = await commitPOST(req);
       expect(res.status).toBe(200);
-      expect(mockImportService.commit).toHaveBeenCalledWith('sess-1', { username: 'root' });
+      expect(mockImportService.commit).toHaveBeenCalledWith('sess-1', { username: 'root' }, 'legacy');
     });
   });
 
