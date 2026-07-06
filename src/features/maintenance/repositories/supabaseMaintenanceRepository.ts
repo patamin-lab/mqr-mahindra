@@ -214,18 +214,25 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     return data as MaintenanceRecord;
   }
 
+  /** Calls `soft_delete_pm_record()` (SECURITY DEFINER RPC) instead of a
+   *  direct `.update()` - see `supabaseNtrRepository.ts`'s `delete()` for
+   *  the full explanation: a confirmed, unexplained Postgres/Supabase-level
+   *  anomaly rejects the `anon` role's UPDATE transitioning
+   *  `record_status` away from 'Active' on this table (same shape as
+   *  `ntr_records`), even under a fully-permissive RLS policy. Narrow,
+   *  single-purpose bypass for exactly this write - every authorization
+   *  check still happens in application code before this is called. */
   async delete(id: string, actor: { username: string }, reason?: string | null): Promise<void> {
-    const { error } = await this.client
-      .from(this.table)
-      .update({
-        record_status: 'Deleted',
-        deleted_by: actor.username,
-        deleted_at: new Date().toISOString(),
-        deleted_reason: reason ?? null,
-      })
-      .eq('id', id)
-      .eq('record_status', 'Active');
-    if (error) throw error;
+    const { error } = await this.client.rpc('soft_delete_pm_record', {
+      p_id: id,
+      p_actor: actor.username,
+      p_reason: reason ?? null,
+    });
+    if (error) {
+      if (error.message.includes('PM_NOT_FOUND')) throw new Error('Maintenance record not found');
+      if (error.message.includes('PM_ALREADY_DELETED')) throw new Error('Maintenance record is already deleted');
+      throw error;
+    }
   }
 
   async lockRecord(id: string, reason: MaintenanceLockReason, actor: { username: string }): Promise<MaintenanceRecord> {

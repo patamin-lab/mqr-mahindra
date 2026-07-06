@@ -351,38 +351,46 @@ describe('SupabaseMaintenanceRepository', () => {
     });
   });
 
-  describe('delete (soft delete invariant)', () => {
+  describe('delete (soft delete via soft_delete_pm_record RPC)', () => {
     const actor = { username: 'alice' };
 
-    it('sets record_status=Deleted with deleted_by/deleted_at, scoped by record_status=Active, and never hard-deletes', async () => {
-      const { calls } = setupClient({ data: null, error: null });
+    it('calls the soft_delete_pm_record RPC with id/actor/reason, never a direct update', async () => {
+      const { calls, rpc } = setupClient({ data: null, error: null }, { data: {}, error: null });
       const repository = new SupabaseMaintenanceRepository();
 
-      await repository.delete('rec-1', actor);
+      await repository.delete('rec-1', actor, 'customer request');
 
-      const updateCall = calls.find((c) => c.method === 'update');
-      const payload = updateCall?.args[0] as Record<string, unknown>;
-      expect(payload.record_status).toBe('Deleted');
-      expect(payload.deleted_by).toBe('alice');
-      expect(typeof payload.deleted_at).toBe('string');
-
-      const eqCalls = calls.filter((c) => c.method === 'eq').map((c) => c.args);
-      expect(eqCalls).toEqual([
-        ['id', 'rec-1'],
-        ['record_status', 'Active'],
-      ]);
-
-      // No chain method other than update/eq was used - in particular no
-      // hard-delete call, since the mock builder has no `.delete` method at all.
+      expect(rpc).toHaveBeenCalledWith('soft_delete_pm_record', {
+        p_id: 'rec-1',
+        p_actor: 'alice',
+        p_reason: 'customer request',
+      });
+      // No direct update/hard-delete call was made - the RPC is the only
+      // write path for this operation.
       const methodsUsed = new Set(calls.map((c) => c.method));
-      expect(methodsUsed).toEqual(new Set(['update', 'eq']));
+      expect(methodsUsed.has('update')).toBe(false);
+      expect(methodsUsed.has('delete')).toBe(false);
     });
 
-    it('throws when Supabase returns an error', async () => {
-      setupClient({ data: null, error: new Error('delete failed') });
+    it('throws a clean "not found" error when the RPC reports PM_NOT_FOUND', async () => {
+      setupClient({ data: null, error: null }, { data: null, error: new Error('PM_NOT_FOUND: record rec-1 not found') });
       const repository = new SupabaseMaintenanceRepository();
 
-      await expect(repository.delete('rec-1', actor)).rejects.toThrow('delete failed');
+      await expect(repository.delete('rec-1', actor)).rejects.toThrow('Maintenance record not found');
+    });
+
+    it('throws a clean "already deleted" error when the RPC reports PM_ALREADY_DELETED', async () => {
+      setupClient({ data: null, error: null }, { data: null, error: new Error('PM_ALREADY_DELETED: record rec-1 is already deleted') });
+      const repository = new SupabaseMaintenanceRepository();
+
+      await expect(repository.delete('rec-1', actor)).rejects.toThrow('Maintenance record is already deleted');
+    });
+
+    it('propagates any other RPC error unchanged', async () => {
+      setupClient({ data: null, error: null }, { data: null, error: new Error('connection reset') });
+      const repository = new SupabaseMaintenanceRepository();
+
+      await expect(repository.delete('rec-1', actor)).rejects.toThrow('connection reset');
     });
   });
 

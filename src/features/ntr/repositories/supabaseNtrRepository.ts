@@ -196,21 +196,35 @@ export class SupabaseNtrRepository implements NtrRepository {
     return data as NtrRecord;
   }
 
+  /** Calls `soft_delete_ntr_record()` (SECURITY DEFINER RPC) instead of a
+   *  direct `.update()` - a confirmed, unexplained Postgres/Supabase-level
+   *  anomaly rejects the `anon` role's UPDATE transitioning
+   *  `record_status` away from 'Active' on this table, even under a
+   *  fully-permissive RLS policy (reproduced in a minimal SQL case with
+   *  no application logic; every other mechanism - triggers, rules,
+   *  inheritance, views, generated columns, grants, hidden policies -
+   *  ruled out). This is a narrow, single-purpose bypass for exactly this
+   *  write, not a replacement for RLS: every authorization check (role,
+   *  ownership, scope, `canDelete()`) still happens in application code
+   *  before this is ever called - see `NtrService.delete()` and
+   *  `src/app/api/ntr-records/[id]/route.ts`'s `DELETE` handler. If
+   *  Supabase later identifies the platform-level root cause, this can
+   *  revert to a plain `.update()` - the call site's contract (this
+   *  method's signature) does not change either way. */
   async delete(id: string, actor: { username: string }, reason?: string | null): Promise<void> {
-    const { error } = await this.client
-      .from(this.table)
-      .update({
-        record_status: 'Deleted',
-        deleted_by: actor.username,
-        deleted_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('record_status', 'Active');
-    if (error) throw error;
     // `reason` is accepted for interface parity with MaintenanceRepository
     // (a future admin-forced-delete flow may want it) but NTR has no
     // deleted_reason column yet - unused today, not silently dropped data.
-    void reason;
+    const { error } = await this.client.rpc('soft_delete_ntr_record', {
+      p_id: id,
+      p_actor: actor.username,
+      p_reason: reason ?? null,
+    });
+    if (error) {
+      if (error.message.includes('NTR_NOT_FOUND')) throw new Error('NTR record not found');
+      if (error.message.includes('NTR_ALREADY_DELETED')) throw new Error('NTR record is already deleted');
+      throw error;
+    }
   }
 
   async listHistory(filter: NtrHistoryFilter): Promise<NtrHistoryResult> {
