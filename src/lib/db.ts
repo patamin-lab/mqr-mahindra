@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase';
-import { seesAllDealers, seesOwnRecordsOnly, canDelete } from './scope';
+import { seesAllDealers, canDelete } from './scope';
+import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch } from './dealerBranchScope';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 import {
@@ -1289,14 +1290,36 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
   return created;
 }
 
-function applyScope(query: any, session: SessionUser) {
+/**
+ * DealerBranchScope Platform Standard — the one shared dealer/branch (and
+ * soft-delete) scoping function every MQR `records` query goes through.
+ * `requested` is whatever dealer/branch the caller (a privileged role's UI
+ * filter) asked for; a non-privileged role's own session always wins
+ * regardless of what's requested (`resolveDealerScope`/`resolveBranchScope`
+ * enforce this). `DealerUser` visibility is now branch-scoped (every
+ * record in their own branch, not just ones they personally created) — a
+ * service branch is a team, not an individual.
+ */
+export function applyScope(query: any, session: SessionUser, requested: { dealerId?: string | null; branchId?: string | null } = {}) {
   // Soft-deleted records are never visible through normal queries.
   query = query.eq('record_status', 'Active');
-  if (!seesAllDealers(session.role)) {
-    query = query.eq('dealer_id', session.dealerId ?? '__none__');
+
+  const { dealerId } = resolveDealerScope(session, requested.dealerId);
+  if (dealerId) {
+    query = query.eq('dealer_id', dealerId);
+  } else if (!seesAllDealers(session.role)) {
+    query = query.eq('dealer_id', '__none__');
   }
-  if (seesOwnRecordsOnly(session.role)) {
-    query = query.eq('created_by', session.username);
+
+  const { branchId } = resolveBranchScope(session, dealerId, requested.branchId);
+  if (branchId) {
+    query = query.eq('branch_id', branchId);
+  } else if (session.role === 'DealerUser') {
+    // No accessible branch assigned yet — fail closed, never fail open.
+    // `branch_id` is a uuid column, so the sentinel must be a syntactically
+    // valid (but unassignable) uuid, not an arbitrary string like
+    // `dealer_id`'s text-column sentinel above.
+    query = query.eq('branch_id', '00000000-0000-0000-0000-000000000000');
   }
   return query;
 }
@@ -1314,17 +1337,8 @@ export interface ListRecordsFilters {
 export async function listRecords(session: SessionUser, filters: ListRecordsFilters = {}): Promise<MqrRecord[]> {
   const supabase = getSupabase();
   let query = supabase.from('records').select('*').order('created_at', { ascending: false });
-  query = applyScope(query, session);
+  query = applyScope(query, session, { dealerId: filters.dealerId, branchId: filters.branchId });
 
-  // SuperAdmin / CentralAdmin may further narrow to one dealer via the UI.
-  if (filters.dealerId && seesAllDealers(session.role)) {
-    query = query.eq('dealer_id', filters.dealerId);
-  }
-  // Branch filter is independent of role scope — any caller (dealer staff included)
-  // may narrow their own already-scoped record set down to a single branch.
-  if (filters.branchId) {
-    query = query.eq('branch_id', filters.branchId);
-  }
   if (filters.status) {
     query = query.eq('status', filters.status);
   }
@@ -1375,14 +1389,8 @@ export async function listRecordsPaginated(
   const to = from + pageSize - 1;
 
   let query = supabase.from('records').select('*', { count: 'exact' }).order('created_at', { ascending: false });
-  query = applyScope(query, session);
+  query = applyScope(query, session, { dealerId: filters.dealerId, branchId: filters.branchId });
 
-  if (filters.dealerId && seesAllDealers(session.role)) {
-    query = query.eq('dealer_id', filters.dealerId);
-  }
-  if (filters.branchId) {
-    query = query.eq('branch_id', filters.branchId);
-  }
   if (filters.status) {
     query = query.eq('status', filters.status);
   }
@@ -1411,8 +1419,7 @@ export async function getRecordByJobId(jobId: string, session: SessionUser): Pro
   if (error) throw error;
   if (!data) return null;
   if (data.record_status === 'Deleted') return null;
-  if (!seesAllDealers(session.role) && data.dealer_id !== session.dealerId) return null;
-  if (seesOwnRecordsOnly(session.role) && data.created_by !== session.username) return null;
+  if (!canAccessDealerBranch(session, data.dealer_id, data.branch_id ?? null)) return null;
   return data as MqrRecord;
 }
 
@@ -1728,15 +1735,7 @@ export interface DashboardStats {
 }
 
 function applyDealerModelScope(query: any, session: SessionUser, filters: DashboardFilters) {
-  query = applyScope(query, session);
-  if (filters.dealerId && seesAllDealers(session.role)) {
-    query = query.eq('dealer_id', filters.dealerId);
-  }
-  // Branch filter is independent of role scope — dealer-scoped users may also
-  // narrow their own already-scoped record set down to a single branch.
-  if (filters.branchId) {
-    query = query.eq('branch_id', filters.branchId);
-  }
+  query = applyScope(query, session, { dealerId: filters.dealerId, branchId: filters.branchId });
   if (filters.model) {
     query = query.eq('model', filters.model);
   }
@@ -1760,13 +1759,7 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
   // 1. Lightweight query to populate the year/model filter dropdowns —
   // independent of which filters are currently applied.
   let optionsQuery = supabase.from('records').select('found_date, model');
-  optionsQuery = applyScope(optionsQuery, session);
-  if (filters.dealerId && seesAllDealers(session.role)) {
-    optionsQuery = optionsQuery.eq('dealer_id', filters.dealerId);
-  }
-  if (filters.branchId) {
-    optionsQuery = optionsQuery.eq('branch_id', filters.branchId);
-  }
+  optionsQuery = applyScope(optionsQuery, session, { dealerId: filters.dealerId, branchId: filters.branchId });
   const { data: optionsRows, error: optionsErr } = await optionsQuery.limit(5000);
   if (optionsErr) throw optionsErr;
   const years = Array.from(

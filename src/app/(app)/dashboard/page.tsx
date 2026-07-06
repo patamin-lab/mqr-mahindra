@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { dashboardStats, listDealers, listBranches } from '@/lib/db';
+import { dashboardStats, listDealers, getDealer, getBranchById } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
 import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity } from '@/lib/types';
 import { THAI_MONTHS_FULL, formatMonthKeyThai, buildYearOptions, toBuddhistYear } from '@/lib/thaiDate';
@@ -14,7 +14,7 @@ import {
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Card from '@/components/shared/layout/Card';
-import SearchToolbar from '@/components/shared/layout/SearchToolbar';
+import DashboardFilterBar from './DashboardFilterBar';
 
 function KpiCard({ label, value, accent, sub }: { label: string; value: number | string; accent?: string; sub?: string }) {
   return (
@@ -60,12 +60,14 @@ export default async function DashboardPage({
   const branchId = searchParams.branchId || undefined;
 
   const stats = await dashboardStats(session, { year, month, model, dealerId, branchId });
+  // Dealer/Branch Scope Platform Standard: SuperAdmin/CentralAdmin get the
+  // full dealer list to choose from; branches are no longer resolved here
+  // at all - `DashboardFilterBar`'s `useDealerBranchScope` loads them
+  // client-side, only for whichever dealer is actually known, and caches
+  // per dealer (see `components/shared/scope/`).
   const dealers = seesAllDealers(session.role) ? await listDealers() : [];
-  // Central roles (SuperAdmin/CentralAdmin) see branches scoped to whichever dealer is
-  // currently selected (or all branches across all dealers if none is selected yet);
-  // dealer-scoped roles always see only their own dealer's branches.
-  const branchScopeDealerId = seesAllDealers(session.role) ? dealerId ?? null : session.dealerId;
-  const branches = await listBranches(branchScopeDealerId ?? null);
+  const pinnedDealer = !seesAllDealers(session.role) && session.dealerId ? await getDealer(session.dealerId) : null;
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
   const yearOptions = buildYearOptions(stats.filterOptions.years);
 
   const filterQuery = new URLSearchParams();
@@ -101,74 +103,23 @@ export default async function DashboardPage({
       />
 
       {/* ---------- Filter bar ---------- */}
-      <SearchToolbar
-        cardVariant="flat"
-        cardClassName="p-4 flex flex-wrap gap-3 items-end"
-        filterLabel="กรอง"
-        filterButtonClassName="px-4 py-2 rounded border border-gray-300 text-sm bg-gray-50"
-        clearHref={hasFilters ? '/dashboard' : undefined}
-        clearLabel="ล้างตัวกรอง"
-      >
-        <div>
-          <label className="block text-xs font-medium mb-1">ปี (พ.ศ.)</label>
-          <select name="year" defaultValue={searchParams.year ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
-            <option value="">ทั้งหมด (12 เดือนล่าสุด)</option>
-            {yearOptions.map((y) => (
-              <option key={y.value} value={y.value}>
-                {y.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">เดือน</label>
-          <select name="month" defaultValue={searchParams.month ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
-            <option value="">ทุกเดือน</option>
-            {THAI_MONTHS_FULL.map((label, idx) => (
-              <option key={label} value={idx + 1}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">รุ่นรถ</label>
-          <select name="model" defaultValue={searchParams.model ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
-            <option value="">ทุกรุ่น</option>
-            {stats.filterOptions.models.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-        {dealers.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium mb-1">ดีลเลอร์</label>
-            <select name="dealerId" defaultValue={searchParams.dealerId ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
-              <option value="">ทั้งหมด</option>
-              {dealers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.short_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        {branches.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium mb-1">สาขา</label>
-            <select name="branchId" defaultValue={searchParams.branchId ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
-              <option value="">ทั้งหมด</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </SearchToolbar>
+      <DashboardFilterBar
+        role={session.role}
+        sessionDealerId={session.dealerId}
+        sessionBranchId={session.branchId}
+        pinnedDealerName={pinnedDealer?.short_name}
+        pinnedBranchName={pinnedBranch?.name}
+        initialDealers={dealers}
+        initialDealerId={searchParams.dealerId}
+        initialBranchId={searchParams.branchId}
+        hasFilters={hasFilters}
+        yearValue={searchParams.year}
+        yearOptions={yearOptions}
+        monthValue={searchParams.month}
+        monthOptions={THAI_MONTHS_FULL as unknown as string[]}
+        modelValue={searchParams.model}
+        modelOptions={stats.filterOptions.models}
+      />
 
       {/* ---------- Current backlog (always "right now", not affected by year/month filter) ---------- */}
       <div>

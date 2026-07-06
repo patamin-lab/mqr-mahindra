@@ -6,6 +6,9 @@
  * client/connection. Table name `ntr_records` per the migration.
  */
 import { getSupabase } from '@/lib/supabase';
+import { applyScope } from '@/lib/db';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import type { SessionUser } from '@/lib/types';
 import { NtrLegacyImportVehicleInput, NtrRepository } from './ntrRepository';
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 
@@ -30,10 +33,16 @@ export class SupabaseNtrRepository implements NtrRepository {
 
   private readonly table = 'ntr_records';
 
-  async getById(id: string): Promise<NtrRecord | null> {
+  /** `session` is optional for interface back-compat with existing callers
+   *  during the Dealer/Branch Scope Platform Standard rollout (see
+   *  PROJECT_STATE.md/the DealerBranchScope plan) - once NTR's API routes
+   *  are migrated (Phase "NTR"), every caller should pass it so a
+   *  DealerUser can never fetch a record outside their own branch. */
+  async getById(id: string, session?: SessionUser): Promise<NtrRecord | null> {
     const { data, error } = await this.client.from(this.table).select('*').eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data || data.record_status === 'Deleted') return null;
+    if (session && !canAccessDealerBranch(session, data.dealer_id, data.branch_id ?? null)) return null;
     return data as NtrRecord;
   }
 
@@ -241,7 +250,12 @@ export class SupabaseNtrRepository implements NtrRepository {
     }
   }
 
-  async listHistory(filter: NtrHistoryFilter): Promise<NtrHistoryResult> {
+  /** `session`, when passed, resolves dealer/branch scope via the shared
+   *  `applyScope()` (Dealer/Branch Scope Platform Standard) instead of
+   *  trusting `filter.dealerId`/`filter.branchId` as-is - optional only for
+   *  back-compat with callers not yet migrated (NTR API routes/UI, Phase
+   *  "NTR" of the rollout). */
+  async listHistory(filter: NtrHistoryFilter, session?: SessionUser): Promise<NtrHistoryResult> {
     const page = Math.max(filter.page, 1);
     const pageSize = Math.min(Math.max(filter.pageSize, 1), 200);
     const from = (page - 1) * pageSize;
@@ -249,8 +263,14 @@ export class SupabaseNtrRepository implements NtrRepository {
 
     let query = this.client.from(this.table).select('*', { count: 'exact' }).eq('record_status', 'Active');
 
-    if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
-    if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    if (session) {
+      query = applyScope(query, session, { dealerId: filter.dealerId, branchId: filter.branchId });
+      // applyScope() re-applies record_status='Active' (harmless, idempotent)
+      // and dealer_id/branch_id — remove the raw pass-through below for this path.
+    } else {
+      if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
+      if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    }
     if (filter.model?.trim()) query = query.ilike('model', `%${filter.model.trim()}%`);
     if (filter.province?.trim()) query = query.ilike('customer_province', `%${filter.province.trim()}%`);
     if (filter.district?.trim()) query = query.ilike('customer_district', `%${filter.district.trim()}%`);

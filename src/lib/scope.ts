@@ -3,10 +3,6 @@ import { Role } from './types';
 /** SuperAdmin (full system) and CentralAdmin (head-office, all dealers) see every dealer's records. */
 export const seesAllDealers = (role: Role) => role === 'SuperAdmin' || role === 'CentralAdmin';
 
-/** A Dealer User only sees the jobs they personally reported.
- *  (Branch-level "see my whole branch" viewing lands in Phase 3 once records carry a branch field.) */
-export const seesOwnRecordsOnly = (role: Role) => role === 'DealerUser';
-
 /** Who can manage parts stock (not built into the v1 UI, kept for parity). */
 export const canManageParts = (role: Role) =>
   role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';

@@ -33,6 +33,7 @@ const dealerUserSession = {
   role: 'DealerUser' as const,
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 const superAdminSession = {
@@ -41,6 +42,7 @@ const superAdminSession = {
   role: 'SuperAdmin' as const,
   dealerId: null,
   branch: null,
+  branchId: null,
 };
 
 const activeEvent = {

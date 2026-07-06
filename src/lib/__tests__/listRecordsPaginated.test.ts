@@ -29,6 +29,7 @@ const dealerAdmin: SessionUser = {
   role: 'DealerAdmin',
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 describe('listRecordsPaginated', () => {

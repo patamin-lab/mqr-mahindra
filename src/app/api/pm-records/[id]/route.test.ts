@@ -41,6 +41,7 @@ const dealerUserSession = {
   role: 'DealerUser' as const,
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 const dealerAdminSession = {
@@ -49,6 +50,7 @@ const dealerAdminSession = {
   role: 'DealerAdmin' as const,
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 const otherDealerUserSession = {
@@ -57,6 +59,7 @@ const otherDealerUserSession = {
   role: 'DealerUser' as const,
   dealerId: 'D2',
   branch: null,
+  branchId: null,
 };
 
 const otherDealerAdminSession = {
@@ -65,6 +68,7 @@ const otherDealerAdminSession = {
   role: 'DealerAdmin' as const,
   dealerId: 'D2',
   branch: null,
+  branchId: null,
 };
 
 const activeRecord = {

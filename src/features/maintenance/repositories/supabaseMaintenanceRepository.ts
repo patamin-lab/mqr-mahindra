@@ -7,6 +7,9 @@
  * unchanged - Architecture Refactoring's backward-compatibility rule.
  */
 import { getSupabase } from '@/lib/supabase';
+import { applyScope } from '@/lib/db';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import type { SessionUser } from '@/lib/types';
 import { MaintenanceRepository, MaintenanceFilter } from './maintenanceRepository';
 import {
   MaintenanceDuplicateCheckParams,
@@ -37,15 +40,24 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
 
   private readonly table = 'pm_records';
 
-  async list(filter?: MaintenanceFilter): Promise<MaintenanceRecord[]> {
+  /** `session`, when passed, resolves dealer/branch scope via the shared
+   *  `applyScope()` (Dealer/Branch Scope Platform Standard) instead of
+   *  trusting `filter.dealerId`/`filter.branchId` as-is - optional only
+   *  for back-compat with callers not yet migrated (PM API routes/UI,
+   *  Phase "PM" of the rollout). */
+  async list(filter?: MaintenanceFilter, session?: SessionUser): Promise<MaintenanceRecord[]> {
     let query = this.client.from(this.table).select('*').order('created_at', { ascending: false });
-    query = query.eq('record_status', 'Active');
 
-    if (filter?.dealerId !== undefined && filter.dealerId !== null) {
-      query = query.eq('dealer_id', filter.dealerId);
-    }
-    if (filter?.branchId !== undefined && filter.branchId !== null) {
-      query = query.eq('branch_id', filter.branchId);
+    if (session) {
+      query = applyScope(query, session, { dealerId: filter?.dealerId, branchId: filter?.branchId });
+    } else {
+      query = query.eq('record_status', 'Active');
+      if (filter?.dealerId !== undefined && filter.dealerId !== null) {
+        query = query.eq('dealer_id', filter.dealerId);
+      }
+      if (filter?.branchId !== undefined && filter.branchId !== null) {
+        query = query.eq('branch_id', filter.branchId);
+      }
     }
     if (filter?.status !== undefined) {
       query = query.eq('status', filter.status);
@@ -56,7 +68,7 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     return (data ?? []) as MaintenanceRecord[];
   }
 
-  async getById(id: string): Promise<MaintenanceRecord | null> {
+  async getById(id: string, session?: SessionUser): Promise<MaintenanceRecord | null> {
     const { data, error } = await this.client
       .from(this.table)
       .select('*')
@@ -64,6 +76,7 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
       .maybeSingle();
     if (error) throw error;
     if (!data || data.record_status === 'Deleted') return null;
+    if (session && !canAccessDealerBranch(session, data.dealer_id, data.branch_id ?? null)) return null;
     return data as MaintenanceRecord;
   }
 
@@ -311,7 +324,12 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     return (data as MaintenanceRecord) ?? null;
   }
 
-  async listHistory(filter: MaintenanceHistoryFilter): Promise<MaintenanceHistoryResult> {
+  /** `session`, when passed, resolves dealer/branch scope via the shared
+   *  `applyScope()` (Dealer/Branch Scope Platform Standard) instead of
+   *  trusting `filter.dealerId`/`filter.branchId` as-is - optional only
+   *  for back-compat with callers not yet migrated (PM API routes/UI,
+   *  Phase "PM" of the rollout). */
+  async listHistory(filter: MaintenanceHistoryFilter, session?: SessionUser): Promise<MaintenanceHistoryResult> {
     const page = Math.max(filter.page, 1);
     const pageSize = Math.min(Math.max(filter.pageSize, 1), 200);
     const from = (page - 1) * pageSize;
@@ -322,8 +340,12 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
       .select('*', { count: 'exact' })
       .eq('record_status', 'Active');
 
-    if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
-    if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    if (session) {
+      query = applyScope(query, session, { dealerId: filter.dealerId, branchId: filter.branchId });
+    } else {
+      if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
+      if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    }
     if (filter.branchName) query = query.eq('branch_name', filter.branchName);
     if (filter.technicianId) query = query.eq('technician_id', filter.technicianId);
     if (filter.pmIntervalId) query = query.eq('pm_interval_id', filter.pmIntervalId);

@@ -7,7 +7,15 @@ export interface SessionUser {
   fullName: string;
   role: Role;
   dealerId: string | null;
+  /** Legacy free-text branch name — display/back-compat only. Never scope
+   *  a query by this; use `branchId` (see below). */
   branch: string | null;
+  /** Real `branches.id` — the Dealer/Branch Scope Platform Standard's unit
+   *  of authorization for `DealerUser` (a service branch is a team, not an
+   *  individual: every DealerUser account must have this set by an admin
+   *  for branch-scoped access to work — `null` means "no accessible
+   *  branch yet," never "unrestricted"). */
+  branchId: string | null;
 }
 
 export interface Dealer {

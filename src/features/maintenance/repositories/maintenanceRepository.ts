@@ -8,6 +8,7 @@
  * functions. That pattern is left untouched; this interface is scoped to
  * this module only, not a retrofit of legacy code.
  */
+import type { SessionUser } from '@/lib/types';
 import {
   MaintenanceDuplicateCheckParams,
   MaintenanceHistoryFilter,
@@ -25,8 +26,12 @@ export interface MaintenanceFilter {
 }
 
 export interface MaintenanceRepository {
-  list(filter?: MaintenanceFilter): Promise<MaintenanceRecord[]>;
-  getById(id: string): Promise<MaintenanceRecord | null>;
+  list(filter?: MaintenanceFilter, session?: SessionUser): Promise<MaintenanceRecord[]>;
+  /** `session`, when passed, enforces the Dealer/Branch Scope Platform
+   *  Standard (a DealerUser can never fetch a record outside their own
+   *  branch) - optional only for back-compat with callers not yet
+   *  migrated onto it (see `lib/dealerBranchScope.ts`). */
+  getById(id: string, session?: SessionUser): Promise<MaintenanceRecord | null>;
   create(input: MaintenanceRecordCreateInput, actor: { username: string }): Promise<MaintenanceRecord>;
   update(id: string, input: MaintenanceRecordUpdateInput, actor: { username: string }): Promise<MaintenanceRecord>;
   /** `reason` is required by the Service layer when deleting an already-
@@ -38,7 +43,7 @@ export interface MaintenanceRepository {
   findDuplicate(params: MaintenanceDuplicateCheckParams): Promise<MaintenanceRecord | null>;
   /** Server-side paginated/filtered/sorted/searchable query for the
    *  History Center (Phase 4a) - never returns the full table. */
-  listHistory(filter: MaintenanceHistoryFilter): Promise<MaintenanceHistoryResult>;
+  listHistory(filter: MaintenanceHistoryFilter, session?: SessionUser): Promise<MaintenanceHistoryResult>;
 
   /** Sets `locked_at`/`locked_reason` on one record (explicit lock action -
    *  "Administrative Lock", or "Superseded" via

@@ -166,8 +166,9 @@ Always check `list_tables` (Supabase MCP) before assuming a column exists or wri
 
 - **No Supabase Auth.** Login is custom: `username`/`password` checked against `users.password_hash` (SHA-256, legacy-compatible), session is a JWT (via `jose`) signed with `SESSION_SECRET`, stored in cookie `mqr_session`, 180-minute expiry. `getSession()` in `lib/auth.ts` reads it server-side.
 - **Four roles** (`users.role` check constraint): `SuperAdmin` > `CentralAdmin` > `DealerAdmin` > `DealerUser`. All RBAC predicates live in `lib/scope.ts` — do not duplicate role-check logic inline elsewhere; import from there:
-  - `seesAllDealers`, `seesOwnRecordsOnly`, `canUpdateStatus`, `canDelete`, `canExport`, `canManageUsers`, `canDeleteUsers`, `canCreateSuperAdmin`, `canManageMasterData`, `assignableRoles()`, `canManageRoleTarget()`.
+  - `seesAllDealers`, `canUpdateStatus`, `canDelete`, `canExport`, `canManageUsers`, `canDeleteUsers`, `canCreateSuperAdmin`, `canManageMasterData`, `assignableRoles()`, `canManageRoleTarget()`.
 - Every API route must enforce scope at the **query level** (e.g. filter by `dealer_id`), not just hide UI — `scope.ts`'s own comments flag this explicitly for delete/export.
+- **Dealer/Branch Scope Platform Standard** (`lib/dealerBranchScope.ts`): the shared server-side module every module's dealer/branch filtering and authorization goes through — `resolveDealerScope`, `resolveBranchScope`, `assertBranchAccess`, `canAccessDealerBranch`. `DealerUser` visibility is **branch-scoped** (every record in their own `session.branchId`, not just records they personally created — a service branch is a team, not an individual; this replaced the old `seesOwnRecordsOnly` rule). `SessionUser.branchId` is the real `branches.id` used for this; `SessionUser.branch` is a legacy free-text display string only, never used for scoping. The client-side counterpart is `useDealerBranchScope()`/`<DealerBranchSelector>` (`components/shared/scope/`).
 
 ## 7. Coding standards for this project (binding — from the project owner)
 

@@ -45,6 +45,7 @@ const dealerUserSession = {
   role: 'DealerUser' as const,
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 const activeRecord = {

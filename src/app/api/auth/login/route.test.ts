@@ -1,0 +1,73 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextRequest } from 'next/server';
+
+const mockFindUserByUsername = vi.fn();
+const mockInsertLoginLog = vi.fn();
+vi.mock('@/lib/db', () => ({
+  findUserByUsername: mockFindUserByUsername,
+  insertLoginLog: mockInsertLoginLog,
+}));
+
+const mockSignSession = vi.fn().mockResolvedValue('signed-token');
+vi.mock('@/lib/auth', () => ({
+  sha256Hex: vi.fn().mockResolvedValue('HASHED'),
+  signSession: mockSignSession,
+  SESSION_COOKIE: 'mqr_session',
+  SESSION_MINUTES: 180,
+}));
+
+const { POST } = await import('./route');
+
+function loginRequest(username: string, password: string) {
+  return new NextRequest('http://localhost/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+describe('POST /api/auth/login — branchId population', () => {
+  beforeEach(() => {
+    mockFindUserByUsername.mockReset();
+    mockInsertLoginLog.mockReset();
+    mockSignSession.mockClear();
+  });
+
+  it('populates sessionUser.branchId from the user row\'s branch_id', async () => {
+    mockFindUserByUsername.mockResolvedValue({
+      username: 'pong6',
+      password_hash: 'HASHED',
+      full_name: 'Pong',
+      role: 'DealerUser',
+      dealer_id: 'KTV',
+      branch: 'หนองบัวลำภู',
+      branch_id: 'branch-uuid-1',
+      active: true,
+    });
+
+    const res = await POST(loginRequest('pong6', 'whatever'));
+    const json = await res.json();
+
+    expect(json.ok).toBe(true);
+    expect(json.user.branchId).toBe('branch-uuid-1');
+    expect(mockSignSession).toHaveBeenCalledWith(expect.objectContaining({ branchId: 'branch-uuid-1' }));
+  });
+
+  it('resolves to null (not an error) when the user has no branch_id assigned yet', async () => {
+    mockFindUserByUsername.mockResolvedValue({
+      username: 'cust.kpn',
+      password_hash: 'HASHED',
+      full_name: 'Customer KPN',
+      role: 'DealerUser',
+      dealer_id: 'KTV',
+      branch: 'ขอนแก่น',
+      branch_id: null,
+      active: true,
+    });
+
+    const res = await POST(loginRequest('cust.kpn', 'whatever'));
+    const json = await res.json();
+
+    expect(json.ok).toBe(true);
+    expect(json.user.branchId).toBeNull();
+  });
+});
