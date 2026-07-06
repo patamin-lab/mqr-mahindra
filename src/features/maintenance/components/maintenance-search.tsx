@@ -416,6 +416,7 @@ function MaintenanceCreateForm({
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
+          dealer_id: vehicle.dealer_id,
           branch_id: vehicle.branch_id,
           serial: vehicle.serial,
           model: vehicle.model,
