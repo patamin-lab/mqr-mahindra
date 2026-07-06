@@ -7,6 +7,7 @@ import { NtrRecordCreateInput } from '@/features/ntr/types';
 import { createNtrService } from '@/features/ntr/factory';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { AttachmentService } from '@/shared/attachments';
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -50,6 +51,30 @@ export async function POST(req: NextRequest) {
 
   try {
     const record = await service.create(input, { username: session.username, role: session.role });
+
+    // Photos/video were uploaded via AttachmentService against a temporary
+    // client-generated entity ID before this record existed - re-tag them
+    // with the record's real id now (mirrors src/app/api/pm-records/route.ts's
+    // identical pattern). A tractor registration is a single, already-complete
+    // event, so its attachments' retention clock starts immediately. Neither
+    // step may fail the create.
+    try {
+      const attachmentService = new AttachmentService();
+      const attachmentIds = [
+        record.photo_customer_tractor_attachment_id,
+        record.photo_serial_plate_attachment_id,
+        record.photo_hour_meter_attachment_id,
+        record.photo_signed_document_attachment_id,
+        record.video_attachment_id,
+      ].filter((id): id is string => !!id);
+      if (attachmentIds.length > 0) {
+        await attachmentService.reassignEntity(attachmentIds, record.id);
+        await Promise.all(attachmentIds.map((id) => attachmentService.markBusinessComplete(id)));
+      }
+    } catch (err) {
+      console.error('attachment reassign/business-complete error (ntr-record)', err);
+    }
+
     return NextResponse.json({ ok: true, data: record }, { status: 201 });
   } catch (error) {
     console.error('NTR record create error', error);

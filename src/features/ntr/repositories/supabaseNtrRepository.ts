@@ -127,8 +127,13 @@ export class SupabaseNtrRepository implements NtrRepository {
       photo_serial_plate_url: input.photo_serial_plate_url,
       photo_hour_meter_url: input.photo_hour_meter_url,
       photo_signed_document_url: input.photo_signed_document_url,
+      photo_customer_tractor_attachment_id: input.photo_customer_tractor_attachment_id ?? null,
+      photo_serial_plate_attachment_id: input.photo_serial_plate_attachment_id ?? null,
+      photo_hour_meter_attachment_id: input.photo_hour_meter_attachment_id ?? null,
+      photo_signed_document_attachment_id: input.photo_signed_document_attachment_id ?? null,
       additional_photos: input.additional_photos ?? [],
       video_url: input.video_url,
+      video_attachment_id: input.video_attachment_id ?? null,
       audio_url: input.audio_url,
       status: 'Completed',
       record_status: 'Active',
@@ -180,8 +185,13 @@ export class SupabaseNtrRepository implements NtrRepository {
     if (input.photo_serial_plate_url !== undefined) updatePayload.photo_serial_plate_url = input.photo_serial_plate_url;
     if (input.photo_hour_meter_url !== undefined) updatePayload.photo_hour_meter_url = input.photo_hour_meter_url;
     if (input.photo_signed_document_url !== undefined) updatePayload.photo_signed_document_url = input.photo_signed_document_url;
+    if (input.photo_customer_tractor_attachment_id !== undefined) updatePayload.photo_customer_tractor_attachment_id = input.photo_customer_tractor_attachment_id;
+    if (input.photo_serial_plate_attachment_id !== undefined) updatePayload.photo_serial_plate_attachment_id = input.photo_serial_plate_attachment_id;
+    if (input.photo_hour_meter_attachment_id !== undefined) updatePayload.photo_hour_meter_attachment_id = input.photo_hour_meter_attachment_id;
+    if (input.photo_signed_document_attachment_id !== undefined) updatePayload.photo_signed_document_attachment_id = input.photo_signed_document_attachment_id;
     if (input.additional_photos !== undefined) updatePayload.additional_photos = input.additional_photos;
     if (input.video_url !== undefined) updatePayload.video_url = input.video_url;
+    if (input.video_attachment_id !== undefined) updatePayload.video_attachment_id = input.video_attachment_id;
     if (input.audio_url !== undefined) updatePayload.audio_url = input.audio_url;
     if (input.status !== undefined) updatePayload.status = input.status;
 

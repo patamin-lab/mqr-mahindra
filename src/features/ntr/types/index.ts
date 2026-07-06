@@ -85,8 +85,17 @@ export interface NtrRecord {
   photo_serial_plate_url: string | null;
   photo_hour_meter_url: string | null;
   photo_signed_document_url: string | null;
+  /** Set once the corresponding photo/video was uploaded via
+   *  `AttachmentService` (Attachment Platform) - null for any record whose
+   *  attachment predates this migration (its `_url` field still renders
+   *  unchanged; see `photo_customer_tractor_attachment_id`'s migration). */
+  photo_customer_tractor_attachment_id: string | null;
+  photo_serial_plate_attachment_id: string | null;
+  photo_hour_meter_attachment_id: string | null;
+  photo_signed_document_attachment_id: string | null;
   additional_photos: NtrAdditionalPhoto[];
   video_url: string | null;
+  video_attachment_id: string | null;
   audio_url: string | null;
   status: string;
   record_status: 'Active' | 'Deleted';
@@ -141,6 +150,11 @@ export type NtrRecordCreateInput = Pick<
   | 'video_url'
   | 'audio_url'
 > & {
+  photo_customer_tractor_attachment_id?: string | null;
+  photo_serial_plate_attachment_id?: string | null;
+  photo_hour_meter_attachment_id?: string | null;
+  photo_signed_document_attachment_id?: string | null;
+  video_attachment_id?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   gps_accuracy?: number | null;
@@ -189,8 +203,13 @@ export type NtrRecordUpdateInput = Partial<
     | 'photo_serial_plate_url'
     | 'photo_hour_meter_url'
     | 'photo_signed_document_url'
+    | 'photo_customer_tractor_attachment_id'
+    | 'photo_serial_plate_attachment_id'
+    | 'photo_hour_meter_attachment_id'
+    | 'photo_signed_document_attachment_id'
     | 'additional_photos'
     | 'video_url'
+    | 'video_attachment_id'
     | 'audio_url'
     | 'status'
   >

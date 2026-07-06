@@ -20,7 +20,11 @@ export type AttachmentType =
   | 'Audio'
   | 'Pdf'
   | 'Excel'
-  | 'Other';
+  | 'Other'
+  | 'CustomerTractorPhoto'
+  | 'SerialPlatePhoto'
+  | 'HourMeterPhoto'
+  | 'DeliverySheetPhoto';
 
 /** `CLOUDFLARE_R2` is implemented (`CloudflareR2Provider`) but not yet
  *  used by `AttachmentService`'s default wiring - see that provider's own

@@ -19,6 +19,8 @@ import SelectField from '@/components/shared/forms/SelectField';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
+import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
+import type { AttachmentType } from '@/shared/attachments';
 import type { Dealer, Branch } from '@/lib/types';
 import type { NtrTractorSearchResult } from '@/lib/db';
 import type { NtrRecord } from '../types';
@@ -31,6 +33,12 @@ const REQUIRED_PHOTO_FIELD: Record<RequiredPhotoSlot, string> = {
   serial_plate: 'photo_serial_plate_url',
   hour_meter: 'photo_hour_meter_url',
   signed_document: 'photo_signed_document_url',
+};
+const REQUIRED_PHOTO_ATTACHMENT_TYPE: Record<RequiredPhotoSlot, AttachmentType> = {
+  customer_tractor: 'CustomerTractorPhoto',
+  serial_plate: 'SerialPlatePhoto',
+  hour_meter: 'HourMeterPhoto',
+  signed_document: 'DeliverySheetPhoto',
 };
 
 function formatPhoneInput(raw: string): string {
@@ -306,32 +314,32 @@ function NtrRegistrationForm({
       }
     })();
   }, []);
-  const [photos, setPhotos] = useState<Record<RequiredPhotoSlot, string | null>>({
-    customer_tractor: null,
-    serial_plate: null,
-    hour_meter: null,
-    signed_document: null,
+  const pendingEntityId = useRef(newPendingEntityId()).current;
+  const [photos, setPhotos] = useState<Record<RequiredPhotoSlot, { url: string | null; attachmentId: string | null }>>({
+    customer_tractor: { url: null, attachmentId: null },
+    serial_plate: { url: null, attachmentId: null },
+    hour_meter: { url: null, attachmentId: null },
+    signed_document: { url: null, attachmentId: null },
   });
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoAttachmentId, setVideoAttachmentId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function uploadFile(slot: string, file: File, onDone: (url: string) => void) {
+  async function uploadRequiredPhoto(slot: RequiredPhotoSlot, file: File, label: string) {
     setUploadingSlot(slot);
     try {
-      const [uploadJson, photoGps] = await Promise.all([
-        (async () => {
-          const form = new FormData();
-          form.append('file', file);
-          form.append('label', slot);
-          form.append('dealerId', tractor.dealer_id ?? '');
-          const res = await fetch('/api/upload', { method: 'POST', credentials: 'same-origin', body: form });
-          return res.json();
-        })(),
+      const [uploaded, photoGps] = await Promise.all([
+        uploadAttachment(file, {
+          module: 'ntr',
+          entityType: 'ntr_record',
+          entityId: pendingEntityId,
+          attachmentType: REQUIRED_PHOTO_ATTACHMENT_TYPE[slot],
+          label,
+        }),
         file.type.startsWith('image/') ? readGpsFromImageFile(file) : Promise.resolve(null),
       ]);
-      if (!uploadJson.ok) throw new Error(uploadJson.error ?? t('validation.uploadFailed'));
-      onDone(uploadJson.url as string);
+      setPhotos((prev) => ({ ...prev, [slot]: { url: uploaded.url, attachmentId: uploaded.attachmentId } }));
 
       if (photoGps) {
         const usePhotoGps = await swalConfirm(
@@ -354,15 +362,34 @@ function NtrRegistrationForm({
     }
   }
 
+  async function uploadVideo(file: File) {
+    setUploadingSlot('video');
+    try {
+      const uploaded = await uploadAttachment(file, {
+        module: 'ntr',
+        entityType: 'ntr_record',
+        entityId: pendingEntityId,
+        attachmentType: 'Video',
+        label: t('ntr.attachmentsTitle'),
+      });
+      setVideoUrl(uploaded.url);
+      setVideoAttachmentId(uploaded.attachmentId);
+    } catch (err) {
+      await swalErrorToast(err instanceof Error ? err.message : t('validation.uploadFailed'));
+    } finally {
+      setUploadingSlot(null);
+    }
+  }
+
   function validate(): string | null {
     const hasStructuredName = customerFirstName.trim() || customerLastName.trim();
     if (!customerName.trim() && !hasStructuredName) return t('validation.enterCustomerName');
     if (!/^0\d{9}$/.test(customerPhone.replace(/\D/g, ''))) return t('validation.invalidPhone');
     if (!deliveryDate) return t('validation.specifyDeliveryDate');
-    if (!photos.customer_tractor) return t('validation.uploadCustomerTractorPhoto');
-    if (!photos.serial_plate) return t('validation.uploadSerialPlatePhoto');
-    if (!photos.hour_meter) return t('validation.uploadHourMeterPhoto');
-    if (!photos.signed_document) return t('validation.uploadSignedDocumentPhoto');
+    if (!photos.customer_tractor.url) return t('validation.uploadCustomerTractorPhoto');
+    if (!photos.serial_plate.url) return t('validation.uploadSerialPlatePhoto');
+    if (!photos.hour_meter.url) return t('validation.uploadHourMeterPhoto');
+    if (!photos.signed_document.url) return t('validation.uploadSignedDocumentPhoto');
     return null;
   }
 
@@ -414,11 +441,16 @@ function NtrRegistrationForm({
           pdi_date: pdiDate || null,
           manufacturing_year: manufacturingYear.trim() ? Number(manufacturingYear) : null,
           hour_meter: hourMeter.trim() ? Number(hourMeter) : null,
-          photo_customer_tractor_url: photos.customer_tractor,
-          photo_serial_plate_url: photos.serial_plate,
-          photo_hour_meter_url: photos.hour_meter,
-          photo_signed_document_url: photos.signed_document,
+          photo_customer_tractor_url: photos.customer_tractor.url,
+          photo_serial_plate_url: photos.serial_plate.url,
+          photo_hour_meter_url: photos.hour_meter.url,
+          photo_signed_document_url: photos.signed_document.url,
+          photo_customer_tractor_attachment_id: photos.customer_tractor.attachmentId,
+          photo_serial_plate_attachment_id: photos.serial_plate.attachmentId,
+          photo_hour_meter_attachment_id: photos.hour_meter.attachmentId,
+          photo_signed_document_attachment_id: photos.signed_document.attachmentId,
           video_url: videoUrl,
+          video_attachment_id: videoAttachmentId,
           audio_url: null,
           latitude: gps.latitude,
           longitude: gps.longitude,
@@ -534,9 +566,9 @@ function NtrRegistrationForm({
           {(Object.keys(REQUIRED_PHOTO_FIELD) as RequiredPhotoSlot[]).map((slot) => (
             <div key={slot} className="rounded border border-dashed border-gray-300 p-3 text-center">
               <p className="mb-2 text-xs text-gray-500">{requiredPhotoLabels[slot]}</p>
-              {photos[slot] ? (
+              {photos[slot].url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photos[slot] as string} alt={requiredPhotoLabels[slot]} className="mb-2 h-24 w-full rounded object-cover" />
+                <img src={photos[slot].url as string} alt={requiredPhotoLabels[slot]} className="mb-2 h-24 w-full rounded object-cover" />
               ) : (
                 <div className="mb-2 flex h-24 w-full items-center justify-center rounded bg-gray-100 text-xs text-gray-400">{t('ntr.noPhotoYet')}</div>
               )}
@@ -546,7 +578,7 @@ function NtrRegistrationForm({
                 disabled={submitting || uploadingSlot === slot}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) uploadFile(slot, file, (url) => setPhotos((prev) => ({ ...prev, [slot]: url })));
+                  if (file) uploadRequiredPhoto(slot, file, requiredPhotoLabels[slot]);
                 }}
                 className="w-full text-xs"
               />
@@ -563,7 +595,7 @@ function NtrRegistrationForm({
             disabled={submitting || uploadingSlot === 'video'}
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) uploadFile('video', file, (url) => setVideoUrl(url));
+              if (file) uploadVideo(file);
             }}
             className="w-full text-xs"
           />

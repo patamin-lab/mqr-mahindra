@@ -22,6 +22,10 @@ const ATTACHMENT_TYPES = new Set<AttachmentType>([
   'Pdf',
   'Excel',
   'Other',
+  'CustomerTractorPhoto',
+  'SerialPlatePhoto',
+  'HourMeterPhoto',
+  'DeliverySheetPhoto',
 ]);
 
 const attachmentService = new AttachmentService();
