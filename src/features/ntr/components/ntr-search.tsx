@@ -417,6 +417,7 @@ function NtrRegistrationForm({
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify({
+          dealer_id: tractor.dealer_id,
           branch_id: tractor.branch_id,
           serial: tractor.serial,
           model: tractor.model,
