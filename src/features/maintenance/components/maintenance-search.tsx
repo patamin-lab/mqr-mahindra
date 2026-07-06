@@ -9,6 +9,8 @@ import SelectField from '@/components/shared/forms/SelectField';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
+import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
+import type { AttachmentType } from '@/shared/attachments';
 import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
 import type { PmVehicleSearchResult } from '@/lib/db';
 import type { MaintenanceRecord } from '../types';
@@ -44,6 +46,11 @@ function formatPhoneInput(raw: string): string {
 }
 
 type PhotoSlot = 'meter' | 'nameplate' | 'report';
+const PHOTO_ATTACHMENT_TYPE: Record<PhotoSlot, AttachmentType> = {
+  meter: 'MeterPhoto',
+  nameplate: 'NameplatePhoto',
+  report: 'ReportPhoto',
+};
 const PHOTO_LABELS: Record<PhotoSlot, string> = {
   meter: 'รูปมิเตอร์ชั่วโมง',
   nameplate: 'รูป Nameplate / หมายเลขเครื่อง',
@@ -290,10 +297,11 @@ function MaintenanceCreateForm({
   const [notes, setNotes] = useState('');
   const [pmIntervals, setPmIntervals] = useState<PmInterval[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [photos, setPhotos] = useState<Record<PhotoSlot, string | null>>({
-    meter: null,
-    nameplate: null,
-    report: null,
+  const pendingEntityId = useRef(newPendingEntityId()).current;
+  const [photos, setPhotos] = useState<Record<PhotoSlot, { url: string | null; attachmentId: string | null }>>({
+    meter: { url: null, attachmentId: null },
+    nameplate: { url: null, attachmentId: null },
+    report: { url: null, attachmentId: null },
   });
   const [uploadingSlot, setUploadingSlot] = useState<PhotoSlot | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -328,19 +336,17 @@ function MaintenanceCreateForm({
   async function uploadPhoto(slot: PhotoSlot, file: File) {
     setUploadingSlot(slot);
     try {
-      const [uploadJson, photoGps] = await Promise.all([
-        (async () => {
-          const form = new FormData();
-          form.append('file', file);
-          form.append('label', slot);
-          form.append('dealerId', vehicle.dealer_id ?? '');
-          const res = await fetch('/api/upload', { method: 'POST', credentials: 'same-origin', body: form });
-          return res.json();
-        })(),
+      const [uploaded, photoGps] = await Promise.all([
+        uploadAttachment(file, {
+          module: 'pm',
+          entityType: 'pm_record',
+          entityId: pendingEntityId,
+          attachmentType: PHOTO_ATTACHMENT_TYPE[slot],
+          label: PHOTO_LABELS[slot],
+        }),
         readGpsFromImageFile(file),
       ]);
-      if (!uploadJson.ok) throw new Error(uploadJson.error ?? 'อัปโหลดรูปไม่สำเร็จ');
-      setPhotos((prev) => ({ ...prev, [slot]: uploadJson.url as string }));
+      setPhotos((prev) => ({ ...prev, [slot]: { url: uploaded.url, attachmentId: uploaded.attachmentId } }));
 
       // EXIF Photo GPS (Phase 3): if this photo has embedded GPS, offer it
       // as an alternative to whatever location is already captured -
@@ -372,7 +378,7 @@ function MaintenanceCreateForm({
     if (!hourMeter.trim() || Number.isNaN(Number(hourMeter))) return 'กรุณากรอกชั่วโมงเครื่องยนต์';
     if (!pmIntervalId) return 'กรุณาเลือกรอบ PM';
     if (!technicianId) return 'กรุณาเลือกช่างซ่อม';
-    if (!photos.meter || !photos.nameplate || !photos.report) return 'กรุณาอัปโหลดรูปให้ครบทั้ง 3 รูป';
+    if (!photos.meter.url || !photos.nameplate.url || !photos.report.url) return 'กรุณาอัปโหลดรูปให้ครบทั้ง 3 รูป';
     return null;
   }
 
@@ -421,9 +427,12 @@ function MaintenanceCreateForm({
           performed_date: performedDate,
           hour_meter: Number(hourMeter),
           pm_interval_id: pmIntervalId,
-          meter_photo_url: photos.meter,
-          nameplate_photo_url: photos.nameplate,
-          report_photo_url: photos.report,
+          meter_photo_url: photos.meter.url,
+          nameplate_photo_url: photos.nameplate.url,
+          report_photo_url: photos.report.url,
+          meter_photo_attachment_id: photos.meter.attachmentId,
+          nameplate_photo_attachment_id: photos.nameplate.attachmentId,
+          report_photo_attachment_id: photos.report.attachmentId,
           latitude: gps.latitude,
           longitude: gps.longitude,
           gps_accuracy: gps.accuracy,
@@ -520,9 +529,9 @@ function MaintenanceCreateForm({
           {(['meter', 'nameplate', 'report'] as PhotoSlot[]).map((slot) => (
             <div key={slot} className="rounded border border-dashed border-gray-300 p-3 text-center">
               <p className="mb-2 text-xs text-gray-500">{PHOTO_LABELS[slot]}</p>
-              {photos[slot] ? (
+              {photos[slot].url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={photos[slot] as string} alt={PHOTO_LABELS[slot]} className="mb-2 h-24 w-full rounded object-cover" />
+                <img src={photos[slot].url as string} alt={PHOTO_LABELS[slot]} className="mb-2 h-24 w-full rounded object-cover" />
               ) : (
                 <div className="mb-2 flex h-24 w-full items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
                   ยังไม่มีรูป
