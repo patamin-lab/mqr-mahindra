@@ -61,11 +61,13 @@ export async function POST(req: NextRequest) {
     try {
       const attachmentService = new AttachmentService();
       const attachmentIds = [
+        record.photo_customer_id_attachment_id,
         record.photo_customer_tractor_attachment_id,
         record.photo_serial_plate_attachment_id,
         record.photo_hour_meter_attachment_id,
         record.photo_signed_document_attachment_id,
         record.video_attachment_id,
+        ...record.additional_photos.map((p) => p.attachmentId ?? null),
       ].filter((id): id is string => !!id);
       if (attachmentIds.length > 0) {
         await attachmentService.reassignEntity(attachmentIds, record.id);

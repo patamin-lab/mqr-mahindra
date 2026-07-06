@@ -102,6 +102,10 @@ export default async function NtrDetailPage({ params }: RouteParams) {
   // Standardized attachment taxonomy (docs/standards/DOMAIN_LANGUAGE_STANDARD.md) -
   // hide any card with no uploaded file, never show an empty placeholder.
   const attachments: (AttachmentGalleryItem & { type: NtrAttachmentType })[] = [
+    record.photo_customer_id_url && {
+      key: 'customer_id', type: 'CUSTOMER_ID' as const, url: record.photo_customer_id_url,
+      alt: t('ntr.attachmentType_CUSTOMER_ID'), caption: t('ntr.attachmentType_CUSTOMER_ID'),
+    },
     record.photo_customer_tractor_url && {
       key: 'customer_tractor', type: 'CUSTOMER_TRACTOR' as const, url: record.photo_customer_tractor_url,
       alt: t('ntr.attachmentType_CUSTOMER_TRACTOR'), caption: t('ntr.attachmentType_CUSTOMER_TRACTOR'),
@@ -119,7 +123,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
       alt: t('ntr.attachmentType_DELIVERY_SHEET'), caption: t('ntr.attachmentType_DELIVERY_SHEET'),
     },
     ...record.additional_photos.map((p, i) => ({
-      key: `additional_${i}`, type: 'OTHER' as const, url: p.url, alt: p.label, caption: p.label,
+      key: `additional_${i}`, type: (p.type ?? 'OTHER') as NtrAttachmentType, url: p.url, alt: p.label, caption: p.label,
     })),
   ].filter(Boolean) as (AttachmentGalleryItem & { type: NtrAttachmentType })[];
 
@@ -235,7 +239,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
       {attachments.length > 0 && (
         <Card variant="compact" className="p-6">
           <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('ntr.photosTitle')}</h2>
-          <AttachmentGallery className="grid gap-3 sm:grid-cols-2" imgClassName="h-40 w-full rounded border object-cover" items={attachments} linkable />
+          <AttachmentGallery className="grid gap-3 sm:grid-cols-2" imgClassName="aspect-video w-full rounded border bg-gray-100 object-contain" items={attachments} linkable />
         </Card>
       )}
 

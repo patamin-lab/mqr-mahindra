@@ -26,6 +26,10 @@ const ATTACHMENT_TYPES = new Set<AttachmentType>([
   'SerialPlatePhoto',
   'HourMeterPhoto',
   'DeliverySheetPhoto',
+  'CustomerIdCardPhoto',
+  'BookingDocumentPhoto',
+  'TaxInvoicePhoto',
+  'CrmLeadScreenshotPhoto',
 ]);
 
 const attachmentService = new AttachmentService();

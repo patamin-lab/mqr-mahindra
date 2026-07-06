@@ -429,6 +429,7 @@ export class NtrImportService {
           pdi_date: v.row.pdi_date,
           manufacturing_year: v.row.manufacturing_year,
           hour_meter: v.row.hour_meter,
+          photo_customer_id_url: null,
           photo_customer_tractor_url: null,
           photo_serial_plate_url: null,
           photo_hour_meter_url: null,

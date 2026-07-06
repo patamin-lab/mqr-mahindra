@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { translate } from '@/lib/i18n/translate';
 import { Locale, DEFAULT_LOCALE } from '@/lib/i18n/types';
+import { NTR_ATTACHMENT_TYPES } from '../types';
 
 /** Same preprocessors as `src/features/maintenance/schemas/index.ts` -
  *  reused verbatim rather than redefined, so "" / null / undefined all
@@ -53,14 +54,25 @@ const customerTypeSchema = z.preprocess(
   z.union([z.literal('Individual'), z.literal('Company'), z.null()])
 );
 
+/** `additional_photos` entries hold the optional, no-dedicated-column
+ *  attachment categories (Booking Document, Tax Invoice, CRM Lead
+ *  Screenshot, ...) - `type` is optional/nullable only for back-compat,
+ *  every new write always sets it. */
+const additionalPhotoSchema = z.object({
+  url: z.string().min(1),
+  label: z.string().min(1),
+  type: z.enum(NTR_ATTACHMENT_TYPES).optional(),
+  attachmentId: nullableTrimmedString.optional(),
+});
+
 /**
  * Validates the search-first NTR registration body. `dealer_id` is
  * resolved server-side from the session (zero-leakage, same as every
  * other create route), never trusted from the client, so it isn't in this
  * schema. `ntr_number` is server-generated, also not in this schema.
- * The four required attachments (customer-with-tractor, serial plate,
- * hour meter, signed delivery document) are required strings here, per
- * spec; `additional_photos`/video/audio are optional.
+ * The four required attachments (Customer ID Card, Serial Plate, Hour
+ * Meter, Delivery Handover Document) are required strings here, per spec;
+ * Customer with Tractor / `additional_photos` / video / audio are optional.
  */
 export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) =>
   z.object({
@@ -91,18 +103,17 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
       (val) => (val === undefined || val === null || val === '' ? null : val),
       z.union([z.coerce.number().min(0, translate(locale, 'validation.hourMeterNegative')), z.null()])
     ),
-    photo_customer_tractor_url: requiredTrimmedString(translate(locale, 'validation.uploadCustomerTractorPhoto')),
+    photo_customer_id_url: requiredTrimmedString(translate(locale, 'validation.uploadCustomerIdPhoto')),
+    photo_customer_tractor_url: nullableTrimmedString,
     photo_serial_plate_url: requiredTrimmedString(translate(locale, 'validation.uploadSerialPlatePhoto')),
     photo_hour_meter_url: requiredTrimmedString(translate(locale, 'validation.uploadHourMeterPhoto')),
     photo_signed_document_url: requiredTrimmedString(translate(locale, 'validation.uploadSignedDocumentPhoto')),
+    photo_customer_id_attachment_id: nullableTrimmedString.optional(),
     photo_customer_tractor_attachment_id: nullableTrimmedString.optional(),
     photo_serial_plate_attachment_id: nullableTrimmedString.optional(),
     photo_hour_meter_attachment_id: nullableTrimmedString.optional(),
     photo_signed_document_attachment_id: nullableTrimmedString.optional(),
-    additional_photos: z.preprocess(
-      (val) => (Array.isArray(val) ? val : []),
-      z.array(z.object({ url: z.string().min(1), label: z.string().min(1) }))
-    ),
+    additional_photos: z.preprocess((val) => (Array.isArray(val) ? val : []), z.array(additionalPhotoSchema)),
     video_url: nullableTrimmedString,
     video_attachment_id: nullableTrimmedString.optional(),
     audio_url: nullableTrimmedString,
@@ -142,15 +153,17 @@ export const buildNtrRecordUpdateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
       longitude: buildOptionalLongitude(locale),
       gps_accuracy: optionalAccuracy,
       google_maps_url: nullableTrimmedString,
+      photo_customer_id_url: nullableTrimmedString,
       photo_customer_tractor_url: nullableTrimmedString,
       photo_serial_plate_url: nullableTrimmedString,
       photo_hour_meter_url: nullableTrimmedString,
       photo_signed_document_url: nullableTrimmedString,
+      photo_customer_id_attachment_id: nullableTrimmedString,
       photo_customer_tractor_attachment_id: nullableTrimmedString,
       photo_serial_plate_attachment_id: nullableTrimmedString,
       photo_hour_meter_attachment_id: nullableTrimmedString,
       photo_signed_document_attachment_id: nullableTrimmedString,
-      additional_photos: z.array(z.object({ url: z.string().min(1), label: z.string().min(1) })),
+      additional_photos: z.array(additionalPhotoSchema),
       video_url: nullableTrimmedString,
       video_attachment_id: nullableTrimmedString,
       audio_url: nullableTrimmedString,

@@ -16,14 +16,19 @@ export type NtrCustomerType = 'Individual' | 'Company';
 
 /** Standardized attachment categories - future modules (PM, Warranty,
  *  Campaign) reuse these same keys/labels rather than inventing their own
- *  (see docs/standards/DOMAIN_LANGUAGE_STANDARD.md). Stored via the
- *  existing `additional_photos: {url,label}[]` array for the categories
- *  with no dedicated column (Customer ID, Tax Invoice, CRM Lead, Other) -
- *  the four with a dedicated required column
- *  (photo_customer_tractor_url/photo_serial_plate_url/
- *  photo_hour_meter_url/photo_signed_document_url) map onto
- *  CUSTOMER_TRACTOR/SERIAL_PLATE/HOUR_METER/DELIVERY_SHEET. No schema
- *  change was needed to standardize this taxonomy. */
+ *  (see docs/standards/DOMAIN_LANGUAGE_STANDARD.md).
+ *
+ *  Required (each has its own dedicated column - the "Attachment
+ *  Requirements v2" standardization): CUSTOMER_ID
+ *  (photo_customer_id_url), SERIAL_PLATE (photo_serial_plate_url),
+ *  HOUR_METER (photo_hour_meter_url), DELIVERY_SHEET
+ *  (photo_signed_document_url).
+ *
+ *  Optional: CUSTOMER_TRACTOR also has its own dedicated column
+ *  (photo_customer_tractor_url, demoted from required to optional in the
+ *  same standardization); BOOKING_DOCUMENT/TAX_INVOICE/CRM_LEAD/
+ *  ENGINE_PLATE/OTHER have no dedicated column and are stored via the
+ *  `additional_photos: {url,label,type}[]` array instead. */
 export const NTR_ATTACHMENT_TYPES = [
   'CUSTOMER_ID',
   'CUSTOMER_TRACTOR',
@@ -31,11 +36,16 @@ export const NTR_ATTACHMENT_TYPES = [
   'ENGINE_PLATE',
   'HOUR_METER',
   'DELIVERY_SHEET',
+  'BOOKING_DOCUMENT',
   'TAX_INVOICE',
   'CRM_LEAD',
   'OTHER',
 ] as const;
 export type NtrAttachmentType = (typeof NTR_ATTACHMENT_TYPES)[number];
+
+/** The 4 required attachments - each backed by its own dedicated column.
+ *  Every other slot (CUSTOMER_TRACTOR included) is optional. */
+export const NTR_REQUIRED_ATTACHMENT_TYPES: readonly NtrAttachmentType[] = ['CUSTOMER_ID', 'SERIAL_PLATE', 'HOUR_METER', 'DELIVERY_SHEET'];
 
 /** Provenance of the record, independent of `import_session_id` (which is
  *  only ever set for 'legacy_import') - lets a future API integration
@@ -45,6 +55,14 @@ export type NtrSource = 'manual' | 'legacy_import' | 'api';
 export interface NtrAdditionalPhoto {
   url: string;
   label: string;
+  /** Which standardized category this is - optional/nullable only for
+   *  back-compat with any row written before this field existed; every
+   *  new write should always set it. */
+  type?: NtrAttachmentType;
+  /** Set when uploaded via `AttachmentService` - lets the create route
+   *  reassign/mark-business-complete this attachment same as the fixed
+   *  photo slots. Null for anything predating this field. */
+  attachmentId?: string | null;
 }
 
 export interface NtrRecord {
@@ -81,6 +99,7 @@ export interface NtrRecord {
   longitude: number | null;
   gps_accuracy: number | null;
   google_maps_url: string | null;
+  photo_customer_id_url: string | null;
   photo_customer_tractor_url: string | null;
   photo_serial_plate_url: string | null;
   photo_hour_meter_url: string | null;
@@ -89,6 +108,7 @@ export interface NtrRecord {
    *  `AttachmentService` (Attachment Platform) - null for any record whose
    *  attachment predates this migration (its `_url` field still renders
    *  unchanged; see `photo_customer_tractor_attachment_id`'s migration). */
+  photo_customer_id_attachment_id: string | null;
   photo_customer_tractor_attachment_id: string | null;
   photo_serial_plate_attachment_id: string | null;
   photo_hour_meter_attachment_id: string | null;
@@ -143,6 +163,7 @@ export type NtrRecordCreateInput = Pick<
   | 'pdi_date'
   | 'manufacturing_year'
   | 'hour_meter'
+  | 'photo_customer_id_url'
   | 'photo_customer_tractor_url'
   | 'photo_serial_plate_url'
   | 'photo_hour_meter_url'
@@ -150,6 +171,7 @@ export type NtrRecordCreateInput = Pick<
   | 'video_url'
   | 'audio_url'
 > & {
+  photo_customer_id_attachment_id?: string | null;
   photo_customer_tractor_attachment_id?: string | null;
   photo_serial_plate_attachment_id?: string | null;
   photo_hour_meter_attachment_id?: string | null;
@@ -199,10 +221,12 @@ export type NtrRecordUpdateInput = Partial<
     | 'longitude'
     | 'gps_accuracy'
     | 'google_maps_url'
+    | 'photo_customer_id_url'
     | 'photo_customer_tractor_url'
     | 'photo_serial_plate_url'
     | 'photo_hour_meter_url'
     | 'photo_signed_document_url'
+    | 'photo_customer_id_attachment_id'
     | 'photo_customer_tractor_attachment_id'
     | 'photo_serial_plate_attachment_id'
     | 'photo_hour_meter_attachment_id'

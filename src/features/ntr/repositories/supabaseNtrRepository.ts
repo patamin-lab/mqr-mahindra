@@ -123,10 +123,12 @@ export class SupabaseNtrRepository implements NtrRepository {
       longitude: input.longitude ?? null,
       gps_accuracy: input.gps_accuracy ?? null,
       google_maps_url: input.google_maps_url ?? null,
+      photo_customer_id_url: input.photo_customer_id_url,
       photo_customer_tractor_url: input.photo_customer_tractor_url,
       photo_serial_plate_url: input.photo_serial_plate_url,
       photo_hour_meter_url: input.photo_hour_meter_url,
       photo_signed_document_url: input.photo_signed_document_url,
+      photo_customer_id_attachment_id: input.photo_customer_id_attachment_id ?? null,
       photo_customer_tractor_attachment_id: input.photo_customer_tractor_attachment_id ?? null,
       photo_serial_plate_attachment_id: input.photo_serial_plate_attachment_id ?? null,
       photo_hour_meter_attachment_id: input.photo_hour_meter_attachment_id ?? null,
@@ -181,10 +183,12 @@ export class SupabaseNtrRepository implements NtrRepository {
     if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
     if (input.gps_accuracy !== undefined) updatePayload.gps_accuracy = input.gps_accuracy;
     if (input.google_maps_url !== undefined) updatePayload.google_maps_url = input.google_maps_url;
+    if (input.photo_customer_id_url !== undefined) updatePayload.photo_customer_id_url = input.photo_customer_id_url;
     if (input.photo_customer_tractor_url !== undefined) updatePayload.photo_customer_tractor_url = input.photo_customer_tractor_url;
     if (input.photo_serial_plate_url !== undefined) updatePayload.photo_serial_plate_url = input.photo_serial_plate_url;
     if (input.photo_hour_meter_url !== undefined) updatePayload.photo_hour_meter_url = input.photo_hour_meter_url;
     if (input.photo_signed_document_url !== undefined) updatePayload.photo_signed_document_url = input.photo_signed_document_url;
+    if (input.photo_customer_id_attachment_id !== undefined) updatePayload.photo_customer_id_attachment_id = input.photo_customer_id_attachment_id;
     if (input.photo_customer_tractor_attachment_id !== undefined) updatePayload.photo_customer_tractor_attachment_id = input.photo_customer_tractor_attachment_id;
     if (input.photo_serial_plate_attachment_id !== undefined) updatePayload.photo_serial_plate_attachment_id = input.photo_serial_plate_attachment_id;
     if (input.photo_hour_meter_attachment_id !== undefined) updatePayload.photo_hour_meter_attachment_id = input.photo_hour_meter_attachment_id;
