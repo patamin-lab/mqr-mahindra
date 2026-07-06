@@ -5,19 +5,16 @@ vi.mock('@/lib/auth', () => ({
   getSession: vi.fn(),
 }));
 
-// getDealer/relocatePendingFiles are called after a successful create (Drive
-// folder relocation) - mocked so this integration test never touches
-// Supabase or Google Drive for real, per the "mock Repository layer only,
-// never connect to Supabase" constraint. logAuditEvent/logAuditEvents are
-// called by MaintenanceService.create() now too - same reasoning.
+// getDealer is called after a successful create - mocked so this
+// integration test never touches Supabase for real, per the "mock
+// Repository layer only, never connect to Supabase" constraint.
+// logAuditEvent/logAuditEvents are called by MaintenanceService.create()
+// now too - same reasoning.
 vi.mock('@/lib/db', () => ({
   getDealer: vi.fn().mockResolvedValue({ id: 'D1', short_name: 'D1' }),
   logAuditEvent: vi.fn(),
   logAuditEvents: vi.fn(),
   listActivePmIntervals: vi.fn().mockResolvedValue([{ id: 'interval-1', label: '50 Hr', interval_hours: 50, interval_months: null }]),
-}));
-vi.mock('@/lib/googleDrive', () => ({
-  relocatePendingFiles: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockRepository = {
