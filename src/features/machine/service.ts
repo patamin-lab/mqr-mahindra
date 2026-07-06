@@ -14,6 +14,7 @@ import { SessionUser } from '@/lib/types';
 import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
 import { fetchMqrRecords } from '@/features/vehicle/eventSources/mqrEvents';
 import { fetchMaintenanceHistoryForSerial } from '@/features/maintenance/utils/fetchMaintenanceHistory';
+import { fetchNtrRecordsForSerial } from '@/features/ntr/utils/fetchNtrRecordsForSerial';
 import { Attachment, AttachmentService } from '@/shared/attachments';
 import { MachineEvent, MachineSummary } from './types';
 
@@ -32,20 +33,22 @@ export class MachineService {
    *  `AttachmentService`, never a storage provider or module table
    *  directly (ADR-010). Same dependency direction as the Timeline
    *  (`vehicle/eventSources`) and Summary (`VehicleSummaryProvider`)
-   *  aggregations: Machine depends on MQR/Maintenance's own scoped
+   *  aggregations: Machine depends on MQR/Maintenance/NTR's own scoped
    *  "records for this serial" utilities, never the reverse, and never a
-   *  raw Supabase query of its own. A future module (PDI, NTR, Campaign)
-   *  adds its own two-line block here once it adopts the Attachment
-   *  Platform - see docs/engineering/ATTACHMENT_FRAMEWORK.md. */
+   *  raw Supabase query of its own. A future module (PDI, Campaign) adds
+   *  its own two-line block here once it adopts the Attachment Platform -
+   *  see docs/engineering/ATTACHMENT_FRAMEWORK.md. */
   async getMachineAttachments(serial: string, session: SessionUser): Promise<Attachment[]> {
-    const [mqrRecords, pmRecords] = await Promise.all([
+    const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
       fetchMqrRecords(serial, session),
       fetchMaintenanceHistoryForSerial(serial, session),
+      fetchNtrRecordsForSerial(serial, session),
     ]);
 
     const lists = await Promise.all([
       ...mqrRecords.map((r) => this.attachmentService.list('mqr', 'record', r.job_id)),
       ...pmRecords.map((r) => this.attachmentService.list('pm', 'pm_record', r.id)),
+      ...ntrRecords.map((r) => this.attachmentService.list('ntr', 'ntr_record', r.id)),
     ]);
     return lists.flat();
   }
