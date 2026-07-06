@@ -20,7 +20,7 @@ order:
 
 | Layer | Lives under | Owns |
 |---|---|---|
-| **Business modules** | `src/features/*`, `src/app/(app)/*`, `src/app/api/*` | Module-specific routes, pages, domain logic, repositories, services. MQR (the original `records`/`report` code), Maintenance/PM, Machine (Machine 360), Vehicle Event, Vehicle Health, Maintenance Due. |
+| **Business modules** | `src/features/*`, `src/app/(app)/*`, `src/app/api/*` | Module-specific routes, pages, domain logic, repositories, services. MQR (the original `records`/`report` code), Maintenance/PM, NTR (New Tractor Registration), Machine (Machine 360), Vehicle Event, Vehicle Health, Maintenance Due. |
 | **Platform services** | `src/shared/*` | Cross-cutting capabilities every module consumes through a defined interface: the Attachment/Storage Platform (`shared/attachments/`), the Platform Event framework (`vehicle-event`'s `VehicleEventPublisher`), and (per ADR-004, not yet built) auth/upload/pdf/scheduler/notification/audit/logging/monitoring/cache/search. |
 | **Infrastructure** | `src/lib/*` | Direct integration with an external system: Supabase (`lib/supabase.ts`, `lib/db.ts`), Google Drive (`lib/googleDrive.ts`), Resend (`lib/email.ts`), JWT/session (`lib/auth.ts`). A business module or platform service calls infrastructure through a service/repository, never an SDK directly, except where the platform service itself *is* the thin wrapper (e.g. `SupabaseStorageProvider` wrapping Supabase Storage). |
 | **Database** | Supabase Postgres, RLS enabled on every table | The one source of truth (`docs/adr/ADR-001-Supabase.md`). Google Sheets/Drive are downstream consumers, never alternative stores of record. |

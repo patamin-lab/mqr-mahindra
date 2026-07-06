@@ -1239,3 +1239,123 @@ Followed by a release-readiness cleanup pass:
   `-env-example`) remain in the stash list, now fully redundant with
   commit `9915f3d` - not dropped, since stash drop is an irreversible
   action outside this pass's authorization; flagged for the repo owner.
+
+## Phase 5 Final Consolidation — Architecture Completion (this milestone)
+
+Migrated every remaining module onto the Attachment Platform and
+retired the legacy Google Drive direct-upload pipeline, closing out the
+architecture this platform's build-out was working toward. Target
+shape achieved: `NTR / PM / QIR(MQR) / Machine360 → AttachmentService →
+AttachmentRepository → StorageProviderFactory → {Supabase, Cloudflare
+R2}` - no business module accesses a storage provider directly.
+
+**Priority 1 - Release blockers, resolved:**
+- **NTR/PM record delete** - both failed with a 500 "new row violates
+  row-level security policy" error. Root-cause investigation was
+  extensive and evidence-based: reproduced in a minimal SQL case with no
+  application logic (a plain `UPDATE ... SET record_status='Deleted'`
+  as the `anon` role); ruled out with direct evidence every mechanism
+  checked - triggers (only standard internal FK-integrity ones),
+  rules, table inheritance, views, generated columns, column/table
+  grants, hidden/duplicate RLS policies, and the RLS policy's own USING/
+  WITH CHECK content (a first fix aligning the policy with MQR's
+  already-working fully-permissive shape did **not** resolve it,
+  proving policy content wasn't the true cause). The true root cause
+  remains an unexplained Postgres/Supabase-platform-level anomaly.
+  Resolved via a narrow, targeted workaround: two `SECURITY DEFINER`
+  RPCs (`soft_delete_ntr_record()`/`soft_delete_pm_record()`, matching
+  the existing `commit_ntr_legacy_import_row()` pattern) that perform
+  only the intended soft-delete write - all authorization (role,
+  ownership, scope, `canDelete()`) still happens in application code
+  before either RPC is ever called. The original RLS policies were
+  reverted to their non-permissive form (the loosened version fixed
+  nothing and added no value). This is explicitly a workaround for a
+  confirmed platform anomaly, not a replacement for RLS - easy to
+  revert to a plain `.update()` if Supabase ever identifies the root
+  cause (see `supabaseNtrRepository.ts`/`supabaseMaintenanceRepository.ts`'s
+  `delete()` doc comments).
+- **Google OAuth `invalid_grant`** - not refreshed, per explicit
+  instruction; Drive treated as legacy infrastructure to be replaced by
+  the migration below, not patched.
+
+**Priority 2 - Attachment Platform migration, one module at a time:**
+- **NTR**: `ntr-search.tsx`'s photo/video upload (previously raw
+  `fetch('/api/upload')`, completely broken by the OAuth blocker above)
+  migrated to `uploadAttachment()`/`newPendingEntityId()`, the same
+  pipeline PM/MQR already used. New `AttachmentType` values
+  (`CustomerTractorPhoto`/`SerialPlatePhoto`/`HourMeterPhoto`/
+  `DeliverySheetPhoto`) and five new nullable `*_attachment_id` columns
+  on `ntr_records` (additive-only migration, reviewed against seven
+  explicit safety criteria before applying - additive, nullable, no new
+  FKs, CHECK constraint widened not narrowed, rollback-safe - before the
+  user approved it). `POST /api/ntr-records` reassigns + marks
+  business-complete, mirroring PM's exact pattern.
+- **PM** (unplanned but confirmed release blocker, found mid-migration):
+  `maintenance-search.tsx` - the component `pm-records/new` (the *real*
+  "Create PM Record" page) actually renders - still called the legacy
+  `/api/upload` directly. `maintenance-form.tsx` (migrated to
+  AttachmentService in an earlier milestone) is used only by
+  `pm-records/[id]/edit` - that earlier migration never reached the
+  create flow, so PM registration was silently just as broken as NTR's.
+  Migrated to the identical `uploadAttachment()` pattern; no new DB
+  migration needed (the `*_photo_attachment_id` columns and the
+  `reassignEntity`/`markBusinessComplete` block in `POST /api/pm-records`
+  already existed from that earlier milestone - they simply had no real
+  caller sending attachment IDs until now).
+- **QIR/MQR**: already fully migrated (`report-form.tsx`/`update-form.tsx`
+  both already call `uploadAttachment()`) - confirmed, not re-done;
+  live-verified healthy.
+- **Machine 360**: display path already read exclusively through
+  `AttachmentService`/`AttachmentViewer` (ADR-010) - confirmed, not
+  re-done. `MachineService.getMachineAttachments()` only aggregated
+  MQR + PM (NTR wasn't on the platform yet when that was written, per
+  its own doc comment); added `fetchNtrRecordsForSerial()` (mirrors
+  `fetchMaintenanceHistoryForSerial()` exactly) and wired NTR into the
+  same three-way aggregation.
+- Every module verified end-to-end on Preview after its own migration:
+  upload (R2-backed, confirmed via live UAT for every module), download,
+  attachment reassignment + business-complete, and - critically - the
+  Priority 1 delete fix, re-confirmed working on each newly-migrated
+  record type.
+
+**Priority 3 - Legacy removal**, after every module's migration was
+verified:
+- Removed: `uploadFileSmart.ts`, `/api/upload` (+`/init`/`/chunk`/
+  `/finalize`), and `googleDrive.ts`'s `initResumableUpload()`/
+  `finalizeResumableUpload()`/`relocatePendingFiles()`/
+  `driveFileIdFromUrl()` - confirmed via repeated repo-wide search
+  (excluding comments, checking for dynamic imports) that zero real
+  callers remained anywhere.
+- Kept in `googleDrive.ts`: `uploadFileToDrive`/`deleteFileFromDrive`/
+  `downloadFileFromDrive`/`fileExistsOnDrive`/`listFilesInDriveFolder`
+  and their shared folder-resolution helpers -
+  `GoogleDriveStorageProvider` (the Attachment Platform's *archive*
+  tier) still depends on all of them. Drive is not retired, only the
+  legacy direct-upload path is.
+- Cleaned up one stale test mock (`pm-records/route.test.ts` mocked
+  `relocatePendingFiles`, which the route hadn't actually called since
+  its own earlier AttachmentService migration).
+
+**Priority 4 - Verification**: full suite (lint/typecheck/test/build/
+architecture) re-run after every single change in this milestone, not
+just at the end - `vitest run` reached 413/413 (up from 407, +6 new
+repository-level delete tests for the SECURITY DEFINER RPC path).
+Preview redeployed and live E2E UAT re-run after every module's
+migration and again after the legacy removal (regression sweep:
+upload/download/delete confirmed clean across NTR/PM/MQR).
+
+**Priority 5 - Cloudflare R2**: `STORAGE_PROVIDER=CLOUDFLARE_R2` was
+already configured in Preview/Production from the earlier Storage
+Platform milestone - every UAT this entire milestone ran against R2 as
+the live primary provider, which doubles as continuous verification of
+upload/large-upload/preview/signed-URL/delete/metadata. Provider-switch
+code-coupling verified by inspection: `StorageProviderFactory` is the
+sole construction point (enforced by `architecture-check.ts` Rule 4),
+switching `STORAGE_PROVIDER` requires zero business-module changes.
+R2 CORS remains the one open, external blocker (Cloudflare Dashboard
+access required) - unchanged from `R2_PRODUCTION_READINESS.md`,
+confirmed still accurate.
+
+**Commits this milestone**: `3469de0` (RLS→RPC fix), `9b24254` (NTR
+migration), `c1262e3` (PM create-flow fix), `0b6e26e` (Machine 360 NTR
+aggregation), `c18a82b`+`6ece1dc` (legacy removal).
