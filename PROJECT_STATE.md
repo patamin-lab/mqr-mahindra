@@ -1359,3 +1359,28 @@ confirmed still accurate.
 **Commits this milestone**: `3469de0` (RLS→RPC fix), `9b24254` (NTR
 migration), `c1262e3` (PM create-flow fix), `0b6e26e` (Machine 360 NTR
 aggregation), `c18a82b`+`6ece1dc` (legacy removal).
+
+## MASP Platform Foundation v1.0.0 — Release Baseline (this milestone)
+
+Verified and accepted. Full release record:
+**`docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`** - read that
+document for the release date, architecture overview, module/platform
+list, verification table, and known external items; this entry is a
+pointer, not a duplicate.
+
+- Attachment Platform, Storage Platform, and Historical Import
+  Framework are now formally **Foundation status (feature-frozen)** -
+  further work on any of the three is bug fixes and security hardening
+  only, until an explicit future decision reopens them.
+- Two superseded release-candidate documents
+  (`docs/releases/PILOT_v1.0.0.md`, `docs/releases/RC1_RELEASE_NOTES.md`)
+  archived to `docs/releases/archive/` (kept, not deleted, per this
+  repo's historical-record convention) with a superseded-by banner
+  pointing to the new baseline; every cross-reference to their old path
+  updated.
+- Verification re-run fresh at release time: `eslint` 0 errors (9
+  pre-existing warnings), `tsc --noEmit` clean, `vitest run` 413/413,
+  `next build` succeeds, `npm run architecture` 5/5 PASS, Preview UAT
+  live-verified on the exact release commit.
+- Phase 6 has not started - this release closes out the Foundation
+  work only, per explicit instruction.

@@ -1,5 +1,10 @@
 # Attachment Framework
 
+> **Status: Foundation (feature-frozen), as of MASP Platform Foundation
+> v1.0.0** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`). Further
+> work on this framework is bug fixes and security hardening only, not
+> new capability, until an explicit future decision reopens it.
+
 `src/shared/attachments/` — the platform-wide file storage abstraction
 every module (PM, PDI, NTR, MQR, Campaign, Parts, Machine 360, and beyond)
 is meant to depend on for uploading, listing, signing, archiving, and

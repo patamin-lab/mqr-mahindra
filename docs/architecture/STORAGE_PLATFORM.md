@@ -1,5 +1,10 @@
 # Storage Platform
 
+> **Status: Foundation (feature-frozen), as of MASP Platform Foundation
+> v1.0.0** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`). Further
+> work is bug fixes and security hardening only, not new capability,
+> until an explicit future decision reopens it.
+>
 > **Scope note (updated at the Platform Baseline Freeze):**
 > `docs/engineering/STORAGE_PLATFORM_FINAL.md` is now the canonical
 > architecture/component/dependency reference for the Storage Platform,

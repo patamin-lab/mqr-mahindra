@@ -1,5 +1,10 @@
 # NTR Historical Import Framework
 
+> **Status: Foundation (feature-frozen), as of MASP Platform Foundation
+> v1.0.0** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`). Further
+> work on this framework is bug fixes and security hardening only, not
+> new capability, until an explicit future decision reopens it.
+
 Enterprise-grade documentation for `src/features/ntr/`'s Legacy Import
 tool (`/admin/legacy-import`) - importing historical New Tractor
 Registration (NTR) records from legacy dealer systems into MASP. This

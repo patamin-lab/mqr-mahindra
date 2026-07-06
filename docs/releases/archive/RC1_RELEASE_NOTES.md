@@ -1,5 +1,10 @@
 # RC1 — Release Candidate Notes
 
+> **ARCHIVED — superseded by `docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`.**
+> This was the release-candidate snapshot for an earlier, 22-commit
+> scope of this same branch. Kept as a historical record, not current
+> status.
+
 **Branch:** `feature/pm-record-workflow-redesign` → `main`
 **Scope:** 22 commits since diverging from `main` at `32c4e29`. Not yet
 merged — this document accompanies the merge request, pending explicit

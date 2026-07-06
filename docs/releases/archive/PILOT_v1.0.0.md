@@ -1,5 +1,10 @@
 # MASP Pilot Release v1.0.0
 
+> **ARCHIVED — superseded by `docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`.**
+> This was an earlier, narrower-scope (MQR+PM only) pilot release record,
+> written before this branch's Attachment Platform/NTR migration work.
+> Kept as a historical record, not current status.
+
 **Status: PENDING — not yet merged to `main`, not yet deployed.** This
 document is written ahead of the actual merge/deploy so the pilot has a
 release record from the start; the fields marked `TBD` below must be
