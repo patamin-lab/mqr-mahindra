@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, sha256Hex } from '@/lib/auth';
 import { listAllUsersAdmin, createUserAdmin, findUserByUsername } from '@/lib/db';
-import { seesAllDealers, canManageUsers, assignableRoles } from '@/lib/scope';
+import { canManageUsers, assignableRoles } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { Role } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }
   const { searchParams } = new URL(req.url);
-  const dealerId = seesAllDealers(session.role) ? searchParams.get('dealerId') : session.dealerId;
+  const { dealerId } = resolveDealerScope(session, searchParams.get('dealerId'));
   const users = await listAllUsersAdmin(dealerId);
   return NextResponse.json({ ok: true, users, assignableRoles: assignableRoles(session.role) });
 }
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Dealer Admin may only create users inside their own dealer.
-    const dealerId = seesAllDealers(session.role) ? (body.dealer_id ?? null) : session.dealerId;
+    const { dealerId } = resolveDealerScope(session, body.dealer_id ?? null);
 
     const user = await createUserAdmin(
       {

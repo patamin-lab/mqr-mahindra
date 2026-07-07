@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 import { getSession } from '@/lib/auth';
 import { updateTechnician } from '@/lib/db';
-import { seesAllDealers, canManageMasterData } from '@/lib/scope';
+import { canManageMasterData } from '@/lib/scope';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
@@ -11,12 +12,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }
   try {
-    if (!seesAllDealers(session.role)) {
-      const supabase = getSupabase();
-      const { data: existing } = await supabase.from('technicians').select('dealer_id').eq('id', params.id).maybeSingle();
-      if (!existing || existing.dealer_id !== session.dealerId) {
-        return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึงช่างคนนี้' }, { status: 403 });
-      }
+    const supabase = getSupabase();
+    const { data: existing } = await supabase.from('technicians').select('dealer_id').eq('id', params.id).maybeSingle();
+    if (!existing || !canAccessDealerBranch(session, existing.dealer_id, null)) {
+      return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึงช่างคนนี้' }, { status: 403 });
     }
     const body = await req.json();
     const technician = await updateTechnician(

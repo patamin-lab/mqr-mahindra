@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { listAllBranchesAdmin, createBranch } from '@/lib/db';
-import { seesAllDealers, canManageMasterData } from '@/lib/scope';
+import { canManageMasterData } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -10,7 +11,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }
   const { searchParams } = new URL(req.url);
-  const dealerId = seesAllDealers(session.role) ? searchParams.get('dealerId') : session.dealerId;
+  const { dealerId } = resolveDealerScope(session, searchParams.get('dealerId'));
   const branches = await listAllBranchesAdmin(dealerId);
   return NextResponse.json({ ok: true, branches });
 }
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (!name) return NextResponse.json({ ok: false, error: 'กรุณากรอกชื่อสาขา' }, { status: 400 });
 
     // Dealer Admin may only create branches inside their own dealer.
-    const dealerId = seesAllDealers(session.role) ? String(body.dealer_id ?? '').trim() : session.dealerId;
+    const { dealerId } = resolveDealerScope(session, String(body.dealer_id ?? '').trim());
     if (!dealerId) return NextResponse.json({ ok: false, error: 'กรุณาเลือกดีลเลอร์' }, { status: 400 });
 
     const branch = await createBranch(
