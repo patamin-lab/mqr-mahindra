@@ -16,13 +16,15 @@ import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalSuccessToast }
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
+import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
+import DealerBranchSelector from '@/components/shared/scope/DealerBranchSelector';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
 import { processImageForUpload } from '@/components/shared/attachments/imageProcessing';
 import type { AttachmentType } from '@/shared/attachments';
-import type { Dealer, Branch } from '@/lib/types';
+import type { Dealer, Role } from '@/lib/types';
 import type { NtrTractorSearchResult } from '@/lib/db';
 import type { NtrAdditionalPhoto, NtrAttachmentType, NtrRecord } from '../types';
 
@@ -129,18 +131,26 @@ function formatPhoneInput(raw: string): string {
 
 interface Props {
   dealers: Dealer[];
-  showDealerField: boolean;
-  defaultDealerId: string | null;
+  role: Role;
+  sessionDealerId: string | null;
+  sessionBranchId: string | null;
+  pinnedDealerName?: string | null;
+  pinnedBranchName?: string | null;
 }
 
-export default function NtrSearch({ dealers, showDealerField, defaultDealerId }: Props) {
+export default function NtrSearch({ dealers, role, sessionDealerId, sessionBranchId, pinnedDealerName, pinnedBranchName }: Props) {
   const router = useRouter();
   const { t } = useTranslation();
   const [mode, setMode] = useState<'search' | 'form'>('search');
 
-  const [dealerId, setDealerId] = useState(defaultDealerId ?? '');
-  const [branchId, setBranchId] = useState('');
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const scope = useDealerBranchScope({
+    role,
+    sessionDealerId,
+    sessionBranchId,
+    initialDealers: dealers,
+  });
+  const dealerId = scope.currentDealer?.id ?? '';
+  const branchId = scope.currentBranch?.id ?? '';
   const [serial, setSerial] = useState('');
   const [engineNumber, setEngineNumber] = useState('');
   const [model, setModel] = useState('');
@@ -149,25 +159,6 @@ export default function NtrSearch({ dealers, showDealerField, defaultDealerId }:
   const [searched, setSearched] = useState(false);
   const [selectedTractor, setSelectedTractor] = useState<NtrTractorSearchResult | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!dealerId) {
-        setBranches([]);
-        return;
-      }
-      try {
-        const json = await fetchJson<{ ok: boolean; branches: Branch[] }>(`/api/branches?dealerId=${encodeURIComponent(dealerId)}`);
-        if (!cancelled) setBranches(json.branches ?? []);
-      } catch {
-        if (!cancelled) setBranches([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [dealerId]);
 
   async function showError(err: unknown) {
     if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
@@ -269,26 +260,21 @@ export default function NtrSearch({ dealers, showDealerField, defaultDealerId }:
     );
   }
 
-  const dealerOptions = [{ value: '', label: t('common.allDealers') }, ...dealers.map((d) => ({ value: d.id, label: d.short_name }))];
-  const branchOptions = [{ value: '', label: t('common.allBranches') }, ...branches.map((b) => ({ value: b.id, label: b.name }))];
-
   return (
     <div className="space-y-4">
       <div className="rounded border border-gray-200 bg-white p-4 shadow-sm space-y-3">
         <h1 className="text-lg font-bold text-brand-dark">{t('ntr.searchTitle')}</h1>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-5">
-          {showDealerField && (
-            <SelectField
-              label={t('common.dealer')}
-              value={dealerId}
-              onChange={(v) => {
-                setDealerId(v);
-                setBranchId('');
-              }}
-              options={dealerOptions}
-            />
-          )}
-          <SelectField label={t('common.branch')} value={branchId} onChange={setBranchId} options={branchOptions} />
+          <DealerBranchSelector
+            scope={scope}
+            pinnedDealerName={pinnedDealerName}
+            pinnedBranchName={pinnedBranchName}
+            dealerLabel={t('common.dealer')}
+            branchLabel={t('common.branch')}
+            dealerAllLabel={t('common.allDealers')}
+            branchAllLabel={t('common.allBranches')}
+            className="contents"
+          />
           <TextField label={t('csv.serial')} value={serial} onChange={setSerial} placeholder={t('ntr.searchSerialPlaceholder')} />
           <TextField label={t('common.engineNumber')} value={engineNumber} onChange={setEngineNumber} />
           <TextField label={t('csv.model')} value={model} onChange={setModel} />

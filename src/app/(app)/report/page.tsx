@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth';
-import { listProblemCodes, listDealers, listBranches, listTechnicians } from '@/lib/db';
+import { listProblemCodes, listDealers, listTechnicians, getDealer, getBranchById } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
 import ReportForm from './report-form';
 
@@ -8,11 +8,12 @@ export default async function ReportPage() {
   if (!session) return null;
 
   const isCentral = seesAllDealers(session.role);
-  const [problemCodes, dealers, branches, technicians] = await Promise.all([
+  const [problemCodes, dealers, technicians, pinnedDealer, pinnedBranch] = await Promise.all([
     listProblemCodes(),
     isCentral ? listDealers() : Promise.resolve([]),
-    isCentral ? Promise.resolve([]) : listBranches(session.dealerId),
     isCentral ? Promise.resolve([]) : listTechnicians(session.dealerId),
+    !isCentral && session.dealerId ? getDealer(session.dealerId) : Promise.resolve(null),
+    session.role === 'DealerUser' && session.branchId ? getBranchById(session.branchId) : Promise.resolve(null),
   ]);
 
   return (
@@ -22,8 +23,11 @@ export default async function ReportPage() {
       <ReportForm
         problemCodes={problemCodes}
         dealers={dealers}
-        lockedDealerId={isCentral ? null : session.dealerId}
-        initialBranches={branches}
+        role={session.role}
+        sessionDealerId={session.dealerId}
+        sessionBranchId={session.branchId}
+        pinnedDealerName={pinnedDealer?.short_name}
+        pinnedBranchName={pinnedBranch?.name}
         initialTechnicians={technicians}
       />
     </div>

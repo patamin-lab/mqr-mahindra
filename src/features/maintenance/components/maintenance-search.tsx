@@ -6,12 +6,14 @@ import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalUpdateLoading, swalSuccessToast } from '@/lib/swal';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
+import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
+import DealerBranchSelector from '@/components/shared/scope/DealerBranchSelector';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
 import type { AttachmentType } from '@/shared/attachments';
-import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
+import type { Dealer, PmInterval, Technician, Role } from '@/lib/types';
 import type { PmVehicleSearchResult } from '@/lib/db';
 import type { MaintenanceRecord } from '../types';
 
@@ -59,18 +61,26 @@ const PHOTO_LABELS: Record<PhotoSlot, string> = {
 
 interface Props {
   dealers: Dealer[];
-  showDealerField: boolean;
-  defaultDealerId: string | null;
+  role: Role;
+  sessionDealerId: string | null;
+  sessionBranchId: string | null;
+  pinnedDealerName?: string | null;
+  pinnedBranchName?: string | null;
 }
 
-export default function MaintenanceSearch({ dealers, showDealerField, defaultDealerId }: Props) {
+export default function MaintenanceSearch({ dealers, role, sessionDealerId, sessionBranchId, pinnedDealerName, pinnedBranchName }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<'search' | 'form'>('search');
 
   // ---- Search state ----
-  const [dealerId, setDealerId] = useState(defaultDealerId ?? '');
-  const [branchId, setBranchId] = useState('');
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const scope = useDealerBranchScope({
+    role,
+    sessionDealerId,
+    sessionBranchId,
+    initialDealers: dealers,
+  });
+  const dealerId = scope.currentDealer?.id ?? '';
+  const branchId = scope.currentBranch?.id ?? '';
   const [serial, setSerial] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -83,26 +93,6 @@ export default function MaintenanceSearch({ dealers, showDealerField, defaultDea
   useEffect(() => {
     setRecentVehicles(loadRecentVehicles());
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadBranches() {
-      if (!dealerId) {
-        setBranches([]);
-        return;
-      }
-      try {
-        const json = await fetchJson<{ ok: boolean; branches: Branch[] }>(`/api/branches?dealerId=${encodeURIComponent(dealerId)}`);
-        if (!cancelled) setBranches(json.branches ?? []);
-      } catch {
-        if (!cancelled) setBranches([]);
-      }
-    }
-    loadBranches();
-    return () => {
-      cancelled = true;
-    };
-  }, [dealerId]);
 
   const runSearch = useCallback(async () => {
     setSearching(true);
@@ -169,9 +159,6 @@ export default function MaintenanceSearch({ dealers, showDealerField, defaultDea
     );
   }
 
-  const dealerOptions = [{ value: '', label: '-- ทุกดีลเลอร์ --' }, ...dealers.map((d) => ({ value: d.id, label: d.short_name }))];
-  const branchOptions = [{ value: '', label: '-- ทุกสาขา --' }, ...branches.map((b) => ({ value: b.id, label: b.name }))];
-
   return (
     <div className="space-y-4">
       {recentVehicles.length > 0 && (
@@ -196,18 +183,16 @@ export default function MaintenanceSearch({ dealers, showDealerField, defaultDea
       <div className="rounded border border-gray-200 bg-white p-4 shadow-sm space-y-3">
         <h1 className="text-lg font-bold text-brand-dark">ค้นหารถแทรกเตอร์</h1>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-5">
-          {showDealerField && (
-            <SelectField
-              label="ดีลเลอร์"
-              value={dealerId}
-              onChange={(v) => {
-                setDealerId(v);
-                setBranchId('');
-              }}
-              options={dealerOptions}
-            />
-          )}
-          <SelectField label="สาขา" value={branchId} onChange={setBranchId} options={branchOptions} />
+          <DealerBranchSelector
+            scope={scope}
+            pinnedDealerName={pinnedDealerName}
+            pinnedBranchName={pinnedBranchName}
+            dealerLabel="ดีลเลอร์"
+            branchLabel="สาขา"
+            dealerAllLabel="-- ทุกดีลเลอร์ --"
+            branchAllLabel="-- ทุกสาขา --"
+            className="contents"
+          />
           <TextField label="หมายเลขตัวถัง (Serial)" value={serial} onChange={setSerial} placeholder="พิมพ์อย่างน้อย 3 ตัวอักษร" />
           <TextField label="ชื่อลูกค้า" value={customerName} onChange={setCustomerName} placeholder="ค้นหาจากประวัติ PM" />
           <TextField label="เบอร์โทรศัพท์" value={customerPhone} onChange={setCustomerPhone} placeholder="ค้นหาจากประวัติ PM" />
