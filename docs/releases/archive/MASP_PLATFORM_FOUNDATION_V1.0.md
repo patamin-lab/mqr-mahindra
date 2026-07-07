@@ -1,5 +1,12 @@
 # MASP Platform Foundation v1.0.0
 
+> **ARCHIVED — superseded by
+> [`MASP_PLATFORM_FOUNDATION_V1.1.md`](../MASP_PLATFORM_FOUNDATION_V1.1.md)
+> (2026-07-08).** Kept, not deleted, as the accurate historical record of
+> this milestone — its own `v1.0.0` tag and GitHub Release remain
+> published and untouched. Content below is unmodified from the original
+> release.
+
 **Release date:** 2026-07-06
 **Version:** v1.0.0
 **Branch:** `feature/pm-record-workflow-redesign`

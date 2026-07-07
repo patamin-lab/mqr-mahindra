@@ -1384,3 +1384,45 @@ pointer, not a duplicate.
   live-verified on the exact release commit.
 - Phase 6 has not started - this release closes out the Foundation
   work only, per explicit instruction.
+
+## MASP Platform Foundation v1.1.0 — Release Baseline (this milestone)
+
+Verified and accepted. Full release record:
+**`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`** - read that
+document for the release date, architecture overview, module/platform
+list, verification table, breaking changes, known limitations, and
+rollback plan; this entry is a pointer, not a duplicate.
+
+- Rolled out the **Dealer/Branch Scope Platform Standard**
+  (`src/lib/dealerBranchScope.ts` +
+  `src/components/shared/scope/useDealerBranchScope.ts`/
+  `DealerBranchSelector.tsx`) across every module in sequence: Dashboard
+  → NTR → PM → QIR/MQR → Machine360 → Reports (audited, no gap) → Export
+  (audited, no gap) → Historical Import → shared search dialogs
+  (`ntr-search.tsx`/`maintenance-search.tsx`/`report-form.tsx`) →
+  remaining APIs (admin master-data routes, `platform/events`,
+  `technicians`).
+- `DealerUser` visibility changed from "records I personally created"
+  (`seesOwnRecordsOnly`, now fully removed) to "every record in my own
+  branch" - a service branch is a team, not an individual.
+- Found and fixed real, previously-undetected gaps (not just
+  refactoring): NTR/PM's Machine360 fetch-for-serial utilities filtering
+  on the legacy free-text `session.branch` instead of the real
+  `branchId`; a completely unscoped `GET /api/pm-records`; MQR's
+  `createRecord()` validating a submitted `branch_id` only against the
+  dealer, not the DealerUser's own branch; NTR Historical Import
+  validating `dealer_id` but never `branch_id`.
+- **DealerBranchScope** joins Attachment Platform, Storage Platform, and
+  Historical Import Framework as **Foundation status (feature-frozen)** -
+  further work on any of the four is bug fixes and security hardening
+  only, until an explicit future decision reopens them.
+- `docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md` archived to
+  `docs/releases/archive/` with a superseded-by banner (kept, not
+  deleted, not modified - its own `v1.0.0` tag/release remain published
+  and untouched); every live cross-reference to its old path updated.
+- Verification re-run fresh at release time: `eslint` 0 errors
+  (pre-existing warnings only), `tsc --noEmit` clean, `vitest run`
+  453/453, `next build` succeeds, `npm run architecture` 5/5 PASS,
+  Preview UAT live-verified with real create/edit/delete/upload calls
+  across SuperAdmin/DealerAdmin/two DealerUsers in different branches of
+  the same dealer on the exact release commit.

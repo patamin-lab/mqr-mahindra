@@ -80,13 +80,19 @@ the documented allowlist for the operational-surface exception:
 
 ## Release status
 
-**MASP Platform Foundation v1.0 - STATUS: ACCEPTED.** Frozen and
-released (v2.1 - see `CHANGELOG_STORAGE_PLATFORM.md`,
+**MASP Platform Foundation v1.1.0 - STATUS: ACCEPTED.** Originally
+frozen and released as v1.0.0 (v2.1 sub-release for Storage Platform
+specifically - see `CHANGELOG_STORAGE_PLATFORM.md`,
 `RELEASE_NOTES_v2.1.md`, `docs/release/STORAGE_PLATFORM_RELEASE.md`),
 then accepted following a real Vercel Preview deployment + live UAT
 (upload/preview/download/delete/signed-URL/CORS/large-file/error-handling,
 all VERIFIED against the deployed Preview and independently
-cross-checked in Supabase; no regression found, no code changed).
+cross-checked in Supabase; no regression found, no code changed). The
+freeze on this section (Storage Platform) is unchanged and reaffirmed at
+v1.1.0 - see `docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md` for the
+current full-platform release record, which additionally freezes the
+new **DealerBranchScope** authorization standard alongside Attachment
+Platform, Storage Platform, and Historical Import Framework.
 
 - **Current Storage Platform - Supabase Storage + Google Drive
   Archive: Production Ready.** In production use since Phase 5B.1,

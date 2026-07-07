@@ -1,7 +1,8 @@
 # NTR Historical Import Framework
 
-> **Status: Foundation (feature-frozen), as of MASP Platform Foundation
-> v1.0.0** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`). Further
+> **Status: Foundation (feature-frozen), reaffirmed as of MASP Platform
+> Foundation v1.1.0** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`;
+> originally frozen at v1.0.0, see `docs/releases/archive/`). Further
 > work on this framework is bug fixes and security hardening only, not
 > new capability, until an explicit future decision reopens it.
 

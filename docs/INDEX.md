@@ -146,10 +146,13 @@ actually ship today — not a green-field proposal.
   — environment, Google Drive, Supabase, storage/backup/restore,
   deployment, smoke test, rollback checklist for every production
   deployment.
-- [`releases/MASP_PLATFORM_FOUNDATION_V1.0.md`](releases/MASP_PLATFORM_FOUNDATION_V1.0.md)
-  — the official v1.0.0 release baseline: all four modules, all three
-  Foundation platforms (feature-frozen), verification, known external
-  items. **Start here for current release status.**
+- [`releases/MASP_PLATFORM_FOUNDATION_V1.1.md`](releases/MASP_PLATFORM_FOUNDATION_V1.1.md)
+  — the official v1.1.0 release baseline: all four modules, the shared
+  DealerBranchScope authorization standard, all four Foundation platforms
+  (feature-frozen), verification, known limitations. **Start here for
+  current release status.**
+- [`releases/archive/MASP_PLATFORM_FOUNDATION_V1.0.md`](releases/archive/MASP_PLATFORM_FOUNDATION_V1.0.md)
+  — archived: superseded by v1.1.0 above.
 - [`releases/archive/RC1_RELEASE_NOTES.md`](releases/archive/RC1_RELEASE_NOTES.md)
   — archived: Release 1.0 candidate notes for an earlier, narrower
   scope, superseded by the baseline above.
