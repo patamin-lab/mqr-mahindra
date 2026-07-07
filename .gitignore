@@ -5,3 +5,6 @@ node_modules
 tsconfig.tsbuildinfo
 .vercel
 .env*.local
+
+# IDE-generated skill scaffolding not part of this repo's own .claude/skills/*.md set
+.claude/skills/**
