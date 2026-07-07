@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { createRecord, getVehicleBySerial, getDealer } from '@/lib/db';
 import { calcWarranty } from '@/lib/warranty';
 import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { PhotoLink, Severity } from '@/lib/types';
 import { sendRecordNotification } from '@/lib/email';
 import { AttachmentService } from '@/shared/attachments';
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidReporterPhone') }, { status: 400 });
     }
 
-    const dealerIdForLookup = seesAllDealers(session.role) ? (body.dealerId ?? null) : session.dealerId;
+    const { dealerId: dealerIdForLookup } = resolveDealerScope(session, body.dealerId ?? null);
 
     // Zero-leakage: if the vehicle exists but belongs to another dealer, treat it as not found.
     const vehicle = await getVehicleBySerial(serial, dealerIdForLookup);

@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import { seesAllDealers, canDelete } from './scope';
-import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch } from './dealerBranchScope';
+import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch, assertBranchAccess } from './dealerBranchScope';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 import {
@@ -1200,21 +1200,29 @@ export interface CreateRecordInput {
 }
 
 export async function createRecord(input: CreateRecordInput, session: SessionUser): Promise<MqrRecord> {
-  const effectiveDealerId = seesAllDealers(session.role) ? input.dealerId ?? null : session.dealerId;
+  const { dealerId: effectiveDealerId } = resolveDealerScope(session, input.dealerId ?? null);
   if (!effectiveDealerId) {
     throw new Error('กรุณาเลือกดีลเลอร์ ไม่สามารถสร้างรายงานได้');
   }
   const dealer = await getDealer(effectiveDealerId);
   if (!dealer) throw new Error('ไม่พบข้อมูลดีลเลอร์');
 
-  // Resolve branch/technician name snapshots server-side (never trust client-sent text),
-  // re-checking that each belongs to the effective dealer to prevent cross-dealer spoofing.
+  // Dealer/Branch Scope Platform Standard: a DealerUser is always pinned
+  // to their own branch (never whatever the client's report-form selector
+  // sent) - "branch is the ownership boundary." Every other role may pick
+  // any branch within the resolved dealer, validated via the shared
+  // `assertBranchAccess()` (replaces the old inline branches-table query).
   const supabase = getSupabase();
+  const { branchId: effectiveBranchId } = resolveBranchScope(session, effectiveDealerId, input.branchId);
   let branchName: string | null = null;
-  if (input.branchId) {
-    const { data: branch } = await supabase.from('branches').select('id, name, dealer_id').eq('id', input.branchId).maybeSingle();
-    if (!branch || branch.dealer_id !== dealer.id) throw new Error('สาขาที่เลือกไม่ถูกต้อง');
-    branchName = branch.name;
+  if (effectiveBranchId) {
+    try {
+      await assertBranchAccess(effectiveDealerId, effectiveBranchId);
+    } catch {
+      throw new Error('สาขาที่เลือกไม่ถูกต้อง');
+    }
+    const { data: branch } = await supabase.from('branches').select('name').eq('id', effectiveBranchId).maybeSingle();
+    branchName = branch?.name ?? null;
   }
   let technicianName: string | null = null;
   if (input.technicianId) {
@@ -1267,7 +1275,7 @@ export async function createRecord(input: CreateRecordInput, session: SessionUse
       photo_links: input.photoLinks,
       video_link: input.videoLink,
       video_attachment_id: input.videoAttachmentId ?? null,
-      branch_id: input.branchId,
+      branch_id: effectiveBranchId,
       branch_name: branchName,
       technician_id: input.technicianId,
       technician_name: technicianName,
