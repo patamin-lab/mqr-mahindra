@@ -191,6 +191,48 @@ milestone's finding):
 6. Object-path segments derived from caller input are always sanitized
    before becoming part of a storage key (`sanitizePathSegment()`).
 
+## Authorization rules (DealerBranchScope)
+
+The Dealer/Branch Scope Platform Standard (`src/lib/dealerBranchScope.ts`
+and `src/components/shared/scope/`) is frozen as of MASP Platform
+Foundation v1.1.0 (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`).
+Binding rules, restated here as permanent policy:
+
+1. Every module's dealer/branch authorization flows through exactly one
+   path, no exceptions:
+
+   ```text
+   UI -> DealerBranchScope (resolveDealerScope / resolveBranchScope /
+         assertBranchAccess / canAccessDealerBranch)
+       -> Repository scope (applyScope() in lib/db.ts)
+       -> Database
+   ```
+
+2. **No module may implement dealer/branch authorization
+   independently** - a raw `seesAllDealers(role) ? requested :
+   session.dealerId` ternary, a manual `record.dealer_id ===
+   session.dealerId` comparison, or any other re-derivation of scope
+   outside `dealerBranchScope.ts` is a boundary violation, the same
+   weight this constitution gives a Storage Platform boundary violation.
+3. `DealerUser` visibility is **branch-scoped**: every record in the
+   user's own `session.branchId`, never "records I personally created"
+   (`seesOwnRecordsOnly` - removed from `scope.ts` at v1.1.0). A
+   `DealerUser` with `branchId: null` sees zero records - fail-closed,
+   never fail-open.
+4. List/filter reads enforce scope via `applyScope()`'s own dealer+branch
+   `.eq()` pair (a mismatched pair returns zero rows, not an error).
+   Single-record detail/mutate paths additionally call
+   `canAccessDealerBranch()` at the route level - both layers, always,
+   the same defense-in-depth discipline as RLS + `applyScope()`.
+5. The client-side hook/component (`useDealerBranchScope()` /
+   `<DealerBranchSelector>`) is the only dealer/branch filter UI a module
+   builds - never a hand-rolled `dealerId`/`branchId` `useState` pair
+   plus its own `/api/branches` fetch effect.
+6. A new module's dealer/branch filtering is judged the same way a new
+   Storage Platform consumer is judged: does it call the shared
+   resolver, or did it build a parallel mechanism? The latter is always
+   wrong, regardless of whether it happens to produce the same result.
+
 ## Future extension rules
 
 A future module or platform service must, before writing any code:
@@ -218,12 +260,12 @@ A future module or platform service must, before writing any code:
 6. **Record the decision** - a new platform service, a new provider, or a
    change to how modules interact is captured as an ADR (`docs/adr/`)
    before or alongside the code, per Architecture Principle 10.
-7. **Add or update an architecture-enforcement check** if one exists
-   for the boundary being extended (see `docs/engineering/STORAGE_OPERATIONS.md`'s
-   sibling engineering docs and the Architecture Test findings in
-   `docs/release/STORAGE_PLATFORM_RELEASE.md`) - as of this constitution,
-   no automated architecture-boundary check (`scripts/architecture-check.ts`
-   or equivalent) exists in this repository; boundaries are enforced by
-   convention and code review only. Building that check is itself a
-   future, explicit piece of work this constitution recommends but does
-   not perform.
+7. **Add or update an architecture-enforcement check** if one exists for
+   the boundary being extended. **Updated as of v1.1.0**: this is no
+   longer future work - `scripts/architecture-check.ts` exists, is wired
+   into CI (`.github/workflows/ci.yml`) ahead of typecheck/lint/test/
+   build, and currently enforces five Storage Platform boundary rules
+   (see `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`). It does not yet
+   cover the DealerBranchScope authorization rules above or general
+   module-to-module isolation repo-wide - extending it to do so remains
+   explicit, not-yet-scheduled future work.

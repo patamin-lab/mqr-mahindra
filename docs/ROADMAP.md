@@ -1,6 +1,33 @@
 # Roadmap
 
-The roadmap is organized into five phases. Each phase groups one or more sprints; completed sprint history is preserved underneath the phase it belongs to, and not-yet-started proposals are kept (relocated, not deleted) under the phase where they now fit.
+## Next Development Phase (Post v1.1.0) — current
+
+**MASP Platform Foundation v1.1.0 is COMPLETE** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`, tag `v1.1.0`). This supersedes the Sprint/Phase 1-5 planning below as the source of truth for *current* status — that section is historical planning from before any business module existed, preserved as-is per this repo's "archive, don't delete" convention, not an accurate picture of what's built today (see `PROJECT_STATE.md` for the real chronological build log).
+
+**Frozen Foundation** (feature-frozen — bug fixes, security, and performance work only, until an explicit future decision reopens one):
+
+- Attachment Platform
+- Storage Platform
+- DealerBranchScope
+- Historical Import Framework
+
+Do not redesign or rewrite any of the four unless there is a confirmed bug, security issue, or measurable performance problem. Every new feature reuses them; never a parallel implementation — see `docs/architecture/PLATFORM_CONSTITUTION.md`'s Storage rules and Authorization rules sections for the binding detail.
+
+**Priority order for new work**, each integrating with the shared platforms above rather than building new infrastructure:
+
+1. Workflow Engine
+2. Service Management
+3. Customer Experience
+4. Machine Intelligence
+5. Predictive Maintenance
+
+None of these five are scheduled or scoped in detail yet — each requires its own explicit milestone, plan, and approval before implementation starts, the same discipline every milestone through v1.1.0 followed.
+
+---
+
+## Historical planning (Sprint 1-5, pre-dates the shipped platform)
+
+The roadmap below was organized into five phases. Each phase groups one or more sprints; completed sprint history is preserved underneath the phase it belongs to, and not-yet-started proposals are kept (relocated, not deleted) under the phase where they now fit.
 
 ## Phase 1 — Foundation (in progress)
 

@@ -1426,3 +1426,29 @@ rollback plan; this entry is a pointer, not a duplicate.
   Preview UAT live-verified with real create/edit/delete/upload calls
   across SuperAdmin/DealerAdmin/two DealerUsers in different branches of
   the same dealer on the exact release commit.
+- Merged to `main` via PR #11 (merge commit `35153ea`), tagged `v1.1.0`,
+  GitHub Release "MASP Platform Foundation v1.1.0" published. Existing
+  `v1.0.0` tag/release left untouched per explicit instruction.
+
+## Post-v1.1.0 Development Standard (this milestone)
+
+Formalized the governance for all work after v1.1.0 - full detail in
+`CLAUDE.md` §3.6, `docs/architecture/PLATFORM_CONSTITUTION.md`'s new
+Authorization rules section, and `docs/ROADMAP.md`'s new "Next
+Development Phase" section; this entry is a pointer, not a duplicate.
+
+- Attachment Platform, Storage Platform, DealerBranchScope, and
+  Historical Import Framework are the frozen Foundation - reuse
+  mandatory, no parallel implementations, further work on any of them is
+  bug/security/performance fixes only.
+- Next development phase priority order: Workflow Engine → Service
+  Management → Customer Experience → Machine Intelligence → Predictive
+  Maintenance. None scheduled or scoped yet - each requires its own
+  explicit milestone.
+- Fixed a stale claim in `PLATFORM_CONSTITUTION.md`'s Future extension
+  rules #7 ("no automated architecture-boundary check exists in this
+  repository") - `scripts/architecture-check.ts` has existed and been
+  CI-wired since the Storage Platform freeze; corrected to say so and to
+  note it does not yet cover DealerBranchScope or general module-to-
+  module isolation.
+- No code changed this milestone - documentation and governance only.
