@@ -3,11 +3,12 @@ import { getSession } from '@/lib/auth';
 import { createNtrService } from '@/features/ntr/factory';
 import { parseNtrHistoryFilterFromSearchParams } from '@/features/ntr/utils/parseHistoryFilter';
 import { seesAllDealers, canExport } from '@/lib/scope';
-import { listDealers, listBranches } from '@/lib/db';
+import { listDealers, getDealer, getBranchById } from '@/lib/db';
 import { formatDateLocalized } from '@/lib/thaiDate';
 import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
+import NtrFilterBar from './NtrFilterBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,13 +35,16 @@ export default async function NtrRegistryPage({
   const locale = getServerLocale();
 
   const filter = parseNtrHistoryFilterFromSearchParams(new URLSearchParams(searchParams as Record<string, string>), session);
-  const result = await createNtrService().listHistory(filter);
+  const result = await createNtrService().listHistory(filter, session);
   const totalPages = Math.max(Math.ceil(result.total / filter.pageSize), 1);
 
+  // Dealer/Branch Scope Platform Standard: SuperAdmin/CentralAdmin get the
+  // full dealer list; branches are resolved client-side by `NtrFilterBar`'s
+  // `useDealerBranchScope`, only for whichever dealer is actually known.
   const showDealerField = seesAllDealers(session.role);
   const dealers = showDealerField ? await listDealers() : [];
-  const branchScopeDealerId = showDealerField ? searchParams.dealerId ?? null : session.dealerId;
-  const branches = await listBranches(branchScopeDealerId ?? null);
+  const pinnedDealer = !showDealerField && session.dealerId ? await getDealer(session.dealerId) : null;
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
   const allowExport = canExport(session.role);
 
   const exportQuery = new URLSearchParams();
@@ -116,32 +120,20 @@ export default async function NtrRegistryPage({
             className="border border-gray-300 rounded px-3 py-2 text-sm w-64"
           />
         </div>
-        {dealers.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium mb-1">{t('common.dealer')}</label>
-            <select name="dealerId" defaultValue={searchParams.dealerId ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
-              <option value="">{t('common.allDealers')}</option>
-              {dealers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.short_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        {branches.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium mb-1">{t('common.branch')}</label>
-            <select name="branchId" defaultValue={searchParams.branchId ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm">
-              <option value="">{t('common.allBranches')}</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <NtrFilterBar
+          role={session.role}
+          sessionDealerId={session.dealerId}
+          sessionBranchId={session.branchId}
+          pinnedDealerName={pinnedDealer?.short_name}
+          pinnedBranchName={pinnedBranch?.name}
+          initialDealers={dealers}
+          initialDealerId={searchParams.dealerId}
+          initialBranchId={searchParams.branchId}
+          dealerLabel={t('common.dealer')}
+          branchLabel={t('common.branch')}
+          dealerAllLabel={t('common.allDealers')}
+          branchAllLabel={t('common.allBranches')}
+        />
         <div>
           <label className="block text-xs font-medium mb-1">{t('csv.province')}</label>
           <input name="province" defaultValue={searchParams.province ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm" />

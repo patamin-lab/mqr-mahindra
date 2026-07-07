@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { seesAllDealers } from '@/lib/scope';
 import { isNonEmptyString, parseWithSchema, ValidationError } from '@/lib/validation';
+import { resolveDealerScope, assertBranchAccess } from '@/lib/dealerBranchScope';
 import { buildNtrRecordCreateBodySchema, NtrRecordCreateBody } from '@/features/ntr/schemas';
 import { NtrRecordCreateInput } from '@/features/ntr/types';
 import { createNtrService } from '@/features/ntr/factory';
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   // Zero-leakage: only a privileged role may set an arbitrary dealer_id -
   // everyone else is pinned to their own session dealer.
-  const dealerId = seesAllDealers(session.role) ? String(body.dealer_id ?? '').trim() : session.dealerId;
+  const { dealerId } = resolveDealerScope(session, typeof body.dealer_id === 'string' ? body.dealer_id.trim() : undefined);
   if (!isNonEmptyString(dealerId)) {
     return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'dealer_id is required' } }, { status: 400 });
   }
@@ -39,6 +39,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: error.message } }, { status: 400 });
     }
     throw error;
+  }
+
+  // The tractor's own branch_id (from the selected/created Tractor, not a
+  // scope filter) must actually belong to the resolved dealer - closes a
+  // spoofed cross-dealer branch_id from a privileged role's request body.
+  try {
+    await assertBranchAccess(dealerId, parsedBody.branch_id ?? null);
+  } catch {
+    return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'branch_id does not belong to dealer_id' } }, { status: 400 });
   }
 
   const input: NtrRecordCreateInput = {

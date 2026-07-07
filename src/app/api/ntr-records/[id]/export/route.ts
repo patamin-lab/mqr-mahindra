@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getDealer, getBranchById, getProductFamily } from '@/lib/db';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { createNtrService } from '@/features/ntr/factory';
 import { renderNtrRecordPdf } from '@/features/ntr/services/ntrPdf';
 import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
@@ -16,12 +17,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
-  const record = await createNtrService().getById(params.id);
+  const record = await createNtrService().getById(params.id, session);
   if (!record) {
     return NextResponse.json({ ok: false, error: { code: 'NOT_FOUND', message: 'NTR record not found' } }, { status: 404 });
   }
-  // Zero-leakage: a non-privileged actor may only export their own dealer's record.
-  if (session.dealerId && record.dealer_id !== session.dealerId) {
+  // Dealer/Branch Scope Platform Standard: a non-privileged actor may only
+  // export their own dealer's/branch's record - not just dealer-level.
+  if (!canAccessDealerBranch(session, record.dealer_id, record.branch_id)) {
     return NextResponse.json(
       { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'validation.unauthorizedRecordAccess') } },
       { status: 403 }

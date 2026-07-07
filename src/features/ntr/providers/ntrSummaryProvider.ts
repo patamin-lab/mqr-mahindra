@@ -12,7 +12,7 @@
  */
 import { getSupabase } from '@/lib/supabase';
 import { SessionUser } from '@/lib/types';
-import { seesAllDealers } from '@/lib/scope';
+import { applyScope } from '@/lib/db';
 import { VehicleSummary, VehicleSummaryProvider } from '@/features/vehicle/types';
 
 export class NtrSummaryProvider implements VehicleSummaryProvider {
@@ -21,13 +21,12 @@ export class NtrSummaryProvider implements VehicleSummaryProvider {
     let query = client
       .from('ntr_records')
       .select('customer_name, customer_phone, dealer_id')
-      .eq('record_status', 'Active')
       .eq('serial', serial)
       .order('created_at', { ascending: false })
       .limit(1);
-    if (!seesAllDealers(session.role) && session.dealerId) {
-      query = query.eq('dealer_id', session.dealerId);
-    }
+    // Dealer/Branch Scope Platform Standard: a DealerUser only sees the
+    // "current owner" contribution from an NTR record in their own branch.
+    query = applyScope(query, session);
     const { data, error } = await query.maybeSingle();
     if (error) throw error;
     if (!data) return null;

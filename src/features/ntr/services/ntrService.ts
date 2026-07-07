@@ -8,7 +8,7 @@
  * publishes to the shared Timeline Platform (`VehicleEventPublisher`).
  */
 import { logAuditEvent, logAuditEvents, diffFieldsForAudit } from '@/lib/db';
-import { Role } from '@/lib/types';
+import { Role, SessionUser } from '@/lib/types';
 import { NtrRepository } from '../repositories/ntrRepository';
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 import { VehicleEventPublisher } from '@/features/vehicle-event/publisher';
@@ -66,12 +66,17 @@ export class NtrService {
     private readonly eventPublisher: VehicleEventPublisher
   ) {}
 
-  async getById(id: string): Promise<NtrRecord | null> {
-    return this.repository.getById(id);
+  /** `session`, when passed, enforces the Dealer/Branch Scope Platform
+   *  Standard (a DealerUser can never fetch a record outside their own
+   *  branch) - forward it from every caller (routes, pages); optional only
+   *  for the few internal callers (e.g. `update()`/`delete()`'s own
+   *  existence checks below) that already re-validate scope elsewhere. */
+  async getById(id: string, session?: SessionUser): Promise<NtrRecord | null> {
+    return this.repository.getById(id, session);
   }
 
-  async listHistory(filter: NtrHistoryFilter): Promise<NtrHistoryResult> {
-    return this.repository.listHistory(filter);
+  async listHistory(filter: NtrHistoryFilter, session?: SessionUser): Promise<NtrHistoryResult> {
+    return this.repository.listHistory(filter, session);
   }
 
   /** Registers a tractor delivery. Enforces "never create duplicate NTR"

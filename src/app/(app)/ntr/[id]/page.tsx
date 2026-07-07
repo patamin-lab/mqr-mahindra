@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { canDelete } from '@/lib/scope';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { getBranchById, getProductFamily } from '@/lib/db';
 import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
 import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
@@ -51,7 +52,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
   if (!session) return null;
   const locale = getServerLocale();
 
-  const record = await createNtrService().getById(params.id);
+  const record = await createNtrService().getById(params.id, session);
 
   if (!record) {
     return (
@@ -72,8 +73,9 @@ export default async function NtrDetailPage({ params }: RouteParams) {
     );
   }
 
-  // Zero-leakage: a non-privileged actor may only view their own dealer's record.
-  if (session.dealerId && record.dealer_id !== session.dealerId) {
+  // Dealer/Branch Scope Platform Standard: a non-privileged actor may only
+  // view their own dealer's/branch's record - not just dealer-level.
+  if (!canAccessDealerBranch(session, record.dealer_id, record.branch_id)) {
     return (
       <div className="space-y-4">
         <PageHeader title={t('ntr.detailTitle')} />
