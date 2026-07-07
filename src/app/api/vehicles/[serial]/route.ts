@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getVehicleBySerial, getVehicleHistory } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { lookupTractorBySerial } from '@/lib/tractorSheet';
 
 export async function GET(req: NextRequest, { params }: { params: { serial: string } }) {
@@ -11,8 +11,11 @@ export async function GET(req: NextRequest, { params }: { params: { serial: stri
   }
   const serial = decodeURIComponent(params.serial);
 
+  // Vehicles are dealer-level master data - scoped to dealer only, not
+  // branch (see api/vehicles/list/route.ts's comment).
+  const { dealerId } = resolveDealerScope(session, null);
   const [vehicle, tractor] = await Promise.all([
-    getVehicleBySerial(serial, seesAllDealers(session.role) ? null : session.dealerId),
+    getVehicleBySerial(serial, dealerId),
     lookupTractorBySerial(serial).catch((err) => {
       console.error('tractor sheet lookup error', err);
       return null;

@@ -12,7 +12,7 @@
  * something this generic mapping can't express.
  */
 import { getVehicleBySerial } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { SessionUser } from '@/lib/types';
 import { createVehicleEventService } from '@/features/vehicle-event/factory';
 import { VehicleEvent as PlatformEvent } from '@/features/vehicle-event/types';
@@ -57,7 +57,16 @@ function mapPlatformEvent(event: PlatformEvent): VehicleEvent {
 }
 
 export async function getPlatformEvents(serial: string, session: SessionUser): Promise<VehicleEvent[]> {
-  const dealerScope = seesAllDealers(session.role) ? null : session.dealerId;
+  // Vehicles are dealer-level master data - scoped to dealer only (see
+  // vehicle/service.ts's comment). `vehicle_events` itself has no
+  // dealer_id/branch_id column (only `reference_id` back to the source
+  // module's own record), so a DealerUser may see a generic timeline
+  // entry (date/title only, no customer PII) for an event whose full
+  // record lives in a sibling branch - clicking through to that record's
+  // detail page is independently blocked by that module's own branch
+  // check. Full per-event branch filtering would require joining back to
+  // each source module's table by reference_id - out of scope here.
+  const { dealerId: dealerScope } = resolveDealerScope(session, null);
   const vehicle = await getVehicleBySerial(serial, dealerScope);
   if (!vehicle) return [];
 
