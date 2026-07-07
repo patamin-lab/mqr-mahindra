@@ -4,8 +4,11 @@ import { getRecordByJobId, updateRecord, softDeleteRecord, getDealer } from '@/l
 import { canUpdateStatus, canDelete } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
 import { sendRecordNotification } from '@/lib/email';
+import { AttachmentService } from '@/shared/attachments';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+
+const attachmentService = new AttachmentService();
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 // Per spec section 8: the second notification email fires when a job is
@@ -76,6 +79,36 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
       } catch (err) {
         console.error('notification email error (closed)', err);
       }
+
+      // Starts the retention clock (see docs/engineering/ATTACHMENT_FRAMEWORK.md
+      // / attachment_retention_policies) - a Market Quality Report's
+      // attachments are "business complete" once the job is closed, not
+      // when the record was first created.
+      try {
+        const attachmentIds = [
+          ...(record.photo_links ?? []).map((p) => p.attachmentId).filter((id): id is string => !!id),
+          ...(record.video_attachment_id ? [record.video_attachment_id] : []),
+        ];
+        await Promise.all(attachmentIds.map((id) => attachmentService.markBusinessComplete(id)));
+      } catch (err) {
+        console.error('attachment business-complete error', err);
+      }
+    }
+
+    // Photos actually removed this update (present before, absent now) -
+    // delete their underlying attachment for real via AttachmentService.
+    // Only applies to photos uploaded through the Attachment Platform
+    // (have an attachmentId); a pre-migration photo with only a raw URL
+    // is just dropped from the list, exactly as before this migration.
+    if (removePhotoUrls && removePhotoUrls.length > 0 && before) {
+      const removedIds = (before.photo_links ?? [])
+        .filter((p) => removePhotoUrls.includes(p.url) && p.attachmentId)
+        .map((p) => p.attachmentId as string);
+      await Promise.all(
+        removedIds.map((id) =>
+          attachmentService.delete(id).catch((err) => console.error('attachment delete error', err))
+        )
+      );
     }
 
     return NextResponse.json({ ok: true, record });

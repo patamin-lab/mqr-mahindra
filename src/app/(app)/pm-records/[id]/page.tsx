@@ -12,6 +12,9 @@ import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import AttachmentGallery, { AttachmentGalleryItem } from '@/components/shared/attachments/AttachmentGallery';
 import DetailRow from '@/components/shared/layout/DetailRow';
+import { AttachmentService } from '@/shared/attachments';
+
+const attachmentService = new AttachmentService();
 
 interface RouteParams {
   params: {
@@ -87,6 +90,23 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
 
   const record = result.record;
   const lock = evaluateMaintenanceLock(record);
+
+  // A photo uploaded via the Attachment Platform stores its display URL
+  // as a Supabase signed URL that expires - resolve a fresh one here,
+  // server-side (see docs/engineering/ATTACHMENT_FRAMEWORK.md).
+  if (record.meter_photo_attachment_id) {
+    const resolved = await attachmentService.getUrl(record.meter_photo_attachment_id).catch(() => null);
+    if (resolved) record.meter_photo_url = resolved.url;
+  }
+  if (record.nameplate_photo_attachment_id) {
+    const resolved = await attachmentService.getUrl(record.nameplate_photo_attachment_id).catch(() => null);
+    if (resolved) record.nameplate_photo_url = resolved.url;
+  }
+  if (record.report_photo_attachment_id) {
+    const resolved = await attachmentService.getUrl(record.report_photo_attachment_id).catch(() => null);
+    if (resolved) record.report_photo_url = resolved.url;
+  }
+
   const canManageLock = session ? seesAllDealers(session.role) : false; // SuperAdmin/CentralAdmin
   const canForceDelete = session?.role === 'SuperAdmin';
   const allowDelete = session ? canDelete(session.role) : false;

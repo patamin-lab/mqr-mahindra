@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { listRecordsPaginated, listDealers, listBranches } from '@/lib/db';
+import { listRecordsPaginated, listDealers, getDealer, getBranchById } from '@/lib/db';
 import { seesAllDealers, canExport } from '@/lib/scope';
 import { STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
+import RecordsFilterBar from './RecordsFilterBar';
 
 /** Colors per docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Status Colors
  *  table - Draft has no entry there (predates the standard's status list),
@@ -51,12 +52,13 @@ export default async function RecordsPage({
   });
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
 
+  // Dealer/Branch Scope Platform Standard: SuperAdmin/CentralAdmin get the
+  // full dealer list; branches are resolved client-side by
+  // `RecordsFilterBar`'s `useDealerBranchScope`, only for whichever dealer
+  // is actually known.
   const dealers = seesAllDealers(session.role) ? await listDealers() : [];
-  // Central roles see branches scoped to whichever dealer is currently selected
-  // (or all branches across all dealers if none is selected yet); dealer-scoped
-  // roles always see only their own dealer's branches.
-  const branchScopeDealerId = seesAllDealers(session.role) ? searchParams.dealerId ?? null : session.dealerId;
-  const branches = await listBranches(branchScopeDealerId ?? null);
+  const pinnedDealer = !seesAllDealers(session.role) && session.dealerId ? await getDealer(session.dealerId) : null;
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
   const allowExport = canExport(session.role);
 
   const exportQuery = new URLSearchParams();
@@ -152,40 +154,20 @@ export default async function RecordsPage({
             ))}
           </select>
         </div>
-        {dealers.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium mb-1">ดีลเลอร์</label>
-            <select
-              name="dealerId"
-              defaultValue={searchParams.dealerId ?? ''}
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-            >
-              <option value="">ทั้งหมด</option>
-              {dealers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.short_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-        {branches.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium mb-1">สาขา</label>
-            <select
-              name="branchId"
-              defaultValue={searchParams.branchId ?? ''}
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-            >
-              <option value="">ทั้งหมด</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <RecordsFilterBar
+          role={session.role}
+          sessionDealerId={session.dealerId}
+          sessionBranchId={session.branchId}
+          pinnedDealerName={pinnedDealer?.short_name}
+          pinnedBranchName={pinnedBranch?.name}
+          initialDealers={dealers}
+          initialDealerId={searchParams.dealerId}
+          initialBranchId={searchParams.branchId}
+          dealerLabel="ดีลเลอร์"
+          branchLabel="สาขา"
+          dealerAllLabel="ทั้งหมด"
+          branchAllLabel="ทั้งหมด"
+        />
         <div>
           <label className="block text-xs font-medium mb-1">วันที่พบปัญหา (จาก)</label>
           <input

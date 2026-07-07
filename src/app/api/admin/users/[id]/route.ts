@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getUserById, updateUserAdmin, deleteUserAdmin } from '@/lib/db';
 import { canManageUsers, canDeleteUsers, canManageRoleTarget, assignableRoles, seesAllDealers } from '@/lib/scope';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { Role } from '@/lib/types';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -16,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (!canManageRoleTarget(session.role, target.role)) {
       return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์แก้ไขผู้ใช้นี้' }, { status: 403 });
     }
-    if (!seesAllDealers(session.role) && target.dealer_id !== session.dealerId) {
+    if (!canAccessDealerBranch(session, target.dealer_id ?? '', null)) {
       return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์แก้ไขผู้ใช้นี้' }, { status: 403 });
     }
 

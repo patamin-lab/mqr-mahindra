@@ -7,7 +7,15 @@ export interface SessionUser {
   fullName: string;
   role: Role;
   dealerId: string | null;
+  /** Legacy free-text branch name — display/back-compat only. Never scope
+   *  a query by this; use `branchId` (see below). */
   branch: string | null;
+  /** Real `branches.id` — the Dealer/Branch Scope Platform Standard's unit
+   *  of authorization for `DealerUser` (a service branch is a team, not an
+   *  individual: every DealerUser account must have this set by an admin
+   *  for branch-scoped access to work — `null` means "no accessible
+   *  branch yet," never "unrestricted"). */
+  branchId: string | null;
 }
 
 export interface Dealer {
@@ -199,7 +207,16 @@ export const PHOTO_CATEGORY_I18N_KEY: Record<PhotoCategory, string> = {
 export interface PhotoLink {
   category: PhotoCategory;
   label: string;
+  /** Legacy direct URL (Google Drive share link) - still populated and
+   *  read as-is for records saved before the Attachment Platform
+   *  migration (Phase 5B.1). A new upload sets this to whatever
+   *  `AttachmentService` resolved at upload time, but display code must
+   *  prefer `attachmentId` (resolve a fresh URL via `AttachmentService`)
+   *  whenever it's present, since a stored signed URL expires. */
   url: string;
+  /** Set for every photo uploaded via the Attachment Platform - null only
+   *  for pre-migration records. See `docs/engineering/ATTACHMENT_FRAMEWORK.md`. */
+  attachmentId?: string | null;
 }
 
 export interface MqrRecord {
@@ -241,6 +258,9 @@ export interface MqrRecord {
   pdf_link: string | null;
   photo_links: PhotoLink[] | null;
   video_link: string | null;
+  /** Set for a video uploaded via the Attachment Platform - null for
+   *  pre-migration records (see `PhotoLink.attachmentId`'s doc comment). */
+  video_attachment_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

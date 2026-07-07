@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       role: user.role,
       dealerId: user.dealer_id,
       branch: user.branch,
+      branchId: user.branch_id ?? null,
     };
     const token = await signSession(sessionUser);
     await insertLoginLog({ username: user.username, role: user.role, action: 'เข้าสู่ระบบ', device, result: 'ok' });

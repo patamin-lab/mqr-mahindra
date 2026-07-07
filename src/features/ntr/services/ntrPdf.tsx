@@ -34,8 +34,11 @@ const styles = StyleSheet.create({
   section: { marginTop: 10, marginBottom: 4 },
   photoBox2col: { width: '48%', marginBottom: 8, borderWidth: 1, borderColor: '#ddd', padding: 3 },
   photoGrid2col: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },
-  photo2col: { width: '100%', height: 110, objectFit: 'cover' },
-  photoPlaceholder2col: { width: '100%', height: 110, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa' },
+  // Fixed 16:9 frame (matches the on-screen preview/gallery convention) -
+  // objectFit 'contain' so a photo is never cropped or stretched; the
+  // light gray background letterboxes anything not natively 16:9.
+  photo2col: { width: '100%', aspectRatio: 16 / 9, objectFit: 'contain', backgroundColor: '#f3f4f6' },
+  photoPlaceholder2col: { width: '100%', aspectRatio: 16 / 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6' },
   photoPlaceholderText: { fontSize: 7, color: '#aaa' },
   timelineRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', paddingVertical: 3 },
   timelineDate: { width: '18%', fontSize: 8, color: '#666' },
@@ -87,12 +90,13 @@ interface NtrAttachmentEntry {
 function ntrAttachmentEntries(record: NtrRecord, locale: Locale): NtrAttachmentEntry[] {
   const label = (type: NtrAttachmentType) => translate(locale, `ntr.attachmentType_${type}`);
   const fixed: NtrAttachmentEntry[] = [
+    record.photo_customer_id_url && { url: record.photo_customer_id_url, type: 'CUSTOMER_ID' as const, label: label('CUSTOMER_ID') },
     record.photo_customer_tractor_url && { url: record.photo_customer_tractor_url, type: 'CUSTOMER_TRACTOR' as const, label: label('CUSTOMER_TRACTOR') },
     record.photo_serial_plate_url && { url: record.photo_serial_plate_url, type: 'SERIAL_PLATE' as const, label: label('SERIAL_PLATE') },
     record.photo_hour_meter_url && { url: record.photo_hour_meter_url, type: 'HOUR_METER' as const, label: label('HOUR_METER') },
     record.photo_signed_document_url && { url: record.photo_signed_document_url, type: 'DELIVERY_SHEET' as const, label: label('DELIVERY_SHEET') },
   ].filter(Boolean) as NtrAttachmentEntry[];
-  const additional: NtrAttachmentEntry[] = record.additional_photos.map((p) => ({ url: p.url, type: 'OTHER', label: p.label }));
+  const additional: NtrAttachmentEntry[] = record.additional_photos.map((p) => ({ url: p.url, type: p.type ?? 'OTHER', label: p.label }));
   return [...fixed, ...additional];
 }
 

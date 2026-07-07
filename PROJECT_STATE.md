@@ -796,9 +796,228 @@ from the M1-M6.5 merge, since this is new, unreviewed, unreleased work).
 
 Legacy Naming (tracked, not yet renamed — pending ADR):
 - SESSION_COOKIE = 'mqr_session' (lib/auth.ts)
-- STORAGE_BUCKET = 'mqr-files' (lib/supabase.ts)
 - MqrRecord interface (lib/types.ts)
 - Sidebar display name 'Market Quality Report' (sidebar.tsx)
+
+Phase 5B (Maintenance Intelligence + Machine Domain + Media Platform) —
+completed this milestone:
+
+- Maintenance Intelligence (Program/Version/Stage/Due Engine/Compliance/
+  Health Engine/Progression/PM Lock) was already fully built as of the
+  Production Stabilization Sprint (see above) — nothing further was
+  needed there beyond the Machine 360 rename below.
+- Machine Domain (ADR-009, `docs/engineering/MACHINE_DOMAIN.md`): new
+  `src/features/machine/` facade (`MachineService`/`MachineRepository`)
+  over the existing `vehicle/`/`vehicle-event`/`vehicle-health` code
+  (untouched — no `VehicleRepository`/`VehicleService` existed to rename).
+  `Vehicle360Page` → `Machine360Page`; UI strings updated in both locales.
+  `docs/standards/DOMAIN_LANGUAGE_STANDARD.md`'s "Tractor, NOT Vehicle"
+  rule explicitly superseded for the aggregation layer — see that doc's
+  own updated Business Domain section and ADR-009.
+- Attachment & Media Platform (ADR-010, `docs/engineering/
+  ATTACHMENT_FRAMEWORK.md`/`MEDIA_PLATFORM.md`): new `src/shared/attachments/`
+  (`AttachmentService`, `StorageProvider` implementations for Supabase
+  Storage (now primary — previously-dead `STORAGE_BUCKET` = 'mqr-files'
+  is now real, with new `SELECT`/`DELETE`/`UPDATE` storage policies added)
+  and Google Drive (archive-only)). New `attachments` +
+  `attachment_retention_policies` tables (migration
+  `create_attachments_platform`). Deliberately deferred: MQR/PM's existing
+  Drive-only upload pipelines are NOT migrated onto this platform yet —
+  that's each module's own future, explicitly-scoped follow-up (see
+  ATTACHMENT_FRAMEWORK.md's "What's deliberately deferred"); Machine 360
+  doesn't render an Attachments section yet for the same reason (no
+  module writes rows into `attachments` today).
+
+Phase 5B.1 (Attachment Platform Adoption) — completed this milestone:
+
+- MQR migrated: `report-form.tsx` (new report) and the record-update form
+  both upload via `uploadAttachment()` (`src/components/shared/attachments/`)
+  instead of `uploadFileSmart.ts`/Drive directly; `/api/records` reassigns
+  attachments uploaded against a temporary entity ID to the real `job_id`
+  once created, marks them business-complete when a job transitions to
+  `Repaired`/`Closed` (starts the retention clock), and deletes an
+  attachment for real (`AttachmentService.delete()`) when a photo is
+  removed on update. `records.photo_links[].attachmentId`/
+  `records.video_attachment_id` are new, additive columns — a
+  pre-migration record's raw Drive URL still renders unchanged; a
+  post-migration record's display URL is resolved fresh, server-side, on
+  every page load (`records/[jobId]/page.tsx`), never trusted as a stored
+  value (a Supabase signed URL expires, unlike Drive's permanent share
+  link).
+- PM migrated: `maintenance-form.tsx` (the one shared create+edit
+  component) uploads Meter/Nameplate/Report photos the same way;
+  `/api/pm-records` reassigns to the record's real `id` and marks
+  business-complete immediately (a maintenance visit is a single,
+  already-complete event). `pm_records.*_photo_attachment_id` are new,
+  additive columns (migration `add_pm_records_photo_attachment_ids`).
+  Both the create/edit form and the detail page resolve fresh
+  display URLs the same way MQR's does.
+- Machine 360 now renders a real Attachments section:
+  `MachineService.getMachineAttachments()` aggregates across every module
+  that has adopted the platform (today: MQR + PM) by reusing each
+  module's own existing "records for this serial" utility, then
+  `AttachmentViewer` (new shared component,
+  `src/components/shared/attachments/AttachmentViewer.tsx`) renders
+  images/PDF/video/audio/Excel/other with Open/Download/Delete actions and
+  a click-to-preview overlay — reusable by every module going forward.
+- Large-file uploads (MQR's video attachment, previously Google Drive's
+  resumable-upload dance) now use a Supabase Storage signed-upload-URL
+  flow (`AttachmentService.initDirectUpload()`/`finalizeDirectUpload()`,
+  new `/api/attachments/upload/init`+`/finalize` routes) - the browser
+  PUTs bytes directly to storage, bypassing Vercel's 4.5MB body cap the
+  same way the old Drive resumable flow did.
+- Deliberately deferred: nothing currently triggers
+  `enqueueArchiveEligible()`/`processArchiveQueue()` on a schedule for
+  MQR/PM's now-real attachments - building that periodic trigger is its
+  own, explicitly-scoped follow-up (see `docs/engineering/
+  ATTACHMENT_FRAMEWORK.md`'s "Adopting this for a new module", step 6).
+  PDI has no code in this branch to migrate (a retention-policy row is
+  already seeded for it); NTR's Google-Drive-only archive system lives on
+  a separate sibling branch (`feature/ntr-legacy-import`) not present in
+  this working tree, so reconciling the two systems is future work once
+  both branches merge.
+
+Storage Infrastructure (post-Phase-5B.1, pre-Phase-5C) — two
+infrastructure-only milestones, no business module touched, no default
+switched:
+
+- **Cloudflare R2 provider**: `CloudflareR2Provider` (S3-compatible API via
+  `@aws-sdk/client-s3`/`@aws-sdk/s3-request-presigner`, new deps) implements
+  `StorageProvider` alongside `SupabaseStorageProvider`/
+  `GoogleDriveStorageProvider` - built and unit-tested standalone, not
+  constructed by anything by default. `StorageProviderName` gained
+  `'CLOUDFLARE_R2'` (additive DB CHECK constraint migration
+  `allow_cloudflare_r2_storage_provider`). The `StorageProvider` interface
+  itself gained `exists()`/`list()` and renamed `getUrl` → `getSignedUrl` -
+  `AttachmentService.getUrl()` (the public method every module calls) is
+  unchanged, so no business-module file needed touching.
+- **StorageProviderFactory**: `AttachmentService` no longer hardcodes
+  `new SupabaseStorageProvider()`/`new GoogleDriveStorageProvider()` in its
+  constructor defaults - it now calls
+  `StorageProviderFactory.createPrimaryProvider()`/`createArchiveProvider()`,
+  which read `STORAGE_PROVIDER`/`ARCHIVE_PROVIDER` (default: Supabase
+  primary, Google Drive archive - unchanged from before the factory
+  existed, since both env vars are unset everywhere today). See
+  `docs/architecture/STORAGE_PLATFORM.md`.
+- Next, explicit decision needed before either lands in production:
+  whether/when to actually set `STORAGE_PROVIDER=CLOUDFLARE_R2` anywhere,
+  and whether/when to migrate MQR/PM's existing attachments onto it - both
+  deliberately not done as part of these two milestones.
+
+========================================================
+Storage Platform — Status: COMPLETE (frozen baseline)
+========================================================
+
+Continuing from "Storage Infrastructure" above, the following milestones
+completed the Storage Platform build-out and froze it as the official
+MASP Storage Platform baseline. No business module (MQR, PM/Maintenance,
+Machine 360) was touched by any milestone in this section; no default
+provider was switched anywhere; no production rollout occurred.
+
+Completed (in order):
+- **Cloudflare R2 enabled in dev, live-verified** - full attachment
+  lifecycle confirmed against a real R2 bucket + Supabase DB.
+- **Metadata integrity fix** - a live-testing-caught regression
+  (`AttachmentRepository.create()` hardcoding `storage_provider:
+  'SUPABASE'` regardless of the actual provider) fixed; the real provider
+  name is now threaded through every repository write call site.
+- **R2 Production Readiness Review** (`docs/engineering/
+  R2_PRODUCTION_READINESS.md`) - 12-category audit; found the bucket was
+  publicly readable (critical).
+- **Final Production Hardening** - removed every permanent/public URL
+  code path from `CloudflareR2Provider`; added object-key sanitization to
+  `AttachmentService.buildStoragePath()`.
+- **Production Gate Review / infrastructure investigation / Production
+  Infrastructure Hardening** - live-reconfirmed the public-URL blocker
+  resolved (dashboard-level fix); Cloudflare R2 CORS confirmed as the one
+  remaining open infrastructure blocker (Cloudflare-dashboard-level, not
+  application code).
+- **Storage Hygiene** (`docs/engineering/STORAGE_HYGIENE.md`) -
+  `OrphanCleanupService` (five detectable orphan-attachment cases),
+  dry-run-by-default cleanup, `/api/attachments/orphan-cleanup`.
+- **Storage Operations** (`docs/engineering/STORAGE_OPERATIONS.md`) -
+  `StorageHealthService`, `StorageMetricsService`, `StorageAuditService`,
+  `StorageScheduler` (callable, not scheduled).
+- **Platform Freeze** - architecture review confirmed no dead code, no
+  legacy Google Drive path inside the platform, every business module
+  depends only on `AttachmentService`, all providers replaceable via
+  `StorageProviderFactory`.
+- **Platform Freeze & Release** - `docs/release/STORAGE_PLATFORM_RELEASE.md`,
+  `docs/architecture/PLATFORM_CONSTITUTION.md`,
+  `CHANGELOG_STORAGE_PLATFORM.md`, and this status update published.
+
+Verification at freeze: `eslint` 0 errors (7 pre-existing unrelated
+warnings), `tsc --noEmit` clean, `vitest run` 308/308 passing, `next
+build` succeeds.
+
+Remaining dashboard tasks (deferred, not part of this platform):
+- Phase 5c (Service Intelligence Dashboard + Global Search) - unstarted,
+  unrelated to storage, tracked separately above under "Not started".
+
+Production prerequisites before any environment sets
+`STORAGE_PROVIDER=CLOUDFLARE_R2`/`ARCHIVE_PROVIDER=CLOUDFLARE_R2`:
+1. Configure CORS on the R2 bucket via the Cloudflare dashboard (the
+   application's own API token cannot read or write bucket CORS config -
+   confirmed via `AccessDenied`).
+2. Re-run a live end-to-end verification against that environment's real
+   bucket.
+3. Explicit, separate approval to switch the default.
+4. For archive-side R2 specifically: implement
+   `AttachmentService.getUrl()`'s missing signed-URL path for a
+   non-Google-Drive archive provider first (`StorageProviderFactory`
+   currently rejects `ARCHIVE_PROVIDER=CLOUDFLARE_R2` because this
+   doesn't exist).
+
+No prerequisite blocks the parts of the platform already live (Supabase
+primary / Google Drive archive) - that path has been in production use
+since Phase 5B.1 with no open blocker.
+
+Recommended next phase (unscheduled, pending explicit direction):
+- Build `scripts/architecture-check.ts` (or an equivalent CI-enforced
+  check) - confirmed not to exist anywhere in this repo during the
+  freeze; dependency-direction/boundary rules are enforced by convention
+  and code review only today.
+- Wire a real cron trigger for `StorageScheduler`/orphan-cleanup, with a
+  service credential distinct from the SuperAdmin session check, once
+  archive/cleanup automation is explicitly approved.
+- Phase 5c (Dashboard + Global Search) or the deferred Phase 4b/4c
+  remainder - both independent of the Storage Platform, listed here only
+  as the next candidate body of work overall.
+
+(`scripts/architecture-check.ts` above was since built and wired into CI
+- see the Architecture Enforcement / Release Preparation / Platform
+Baseline Freeze work later in this log.)
+
+========================================================
+MASP Platform Foundation v1.0 — STATUS: ACCEPTED
+========================================================
+
+Formal acceptance of the Storage Platform baseline, following the
+Vercel Preview deployment + live UAT (upload/preview/download/delete/
+signed-URL/CORS/large-file/error-handling, all VERIFIED against the
+real Preview deployment and independently cross-checked in Supabase -
+see that UAT report for full evidence; no regression found, no code
+changed).
+
+- **Current Storage Platform: Supabase Storage + Google Drive
+  Archive - Production Ready.** This is the path in production use
+  since Phase 5B.1, unchanged by any Storage Platform milestone since,
+  and the one just live-UAT-verified end-to-end on a Preview
+  deployment.
+- **Cloudflare R2: Implementation Complete, Production Cutover
+  Pending (Preview Environment Configuration).** `CloudflareR2Provider`
+  is fully built, unit-tested, and was live-verified against a real R2
+  bucket earlier in this platform's build-out (see "Cloudflare R2
+  enabled in dev, live-verified" above) - but is not the active
+  primary/archive provider anywhere, and the most recent Preview UAT
+  confirmed `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`/
+  `R2_BUCKET` are not yet configured as Preview environment variables
+  (so the R2-specific rollback/object-metadata tests were MISSING, not
+  FAIL). Cutover remains gated on the same production prerequisites
+  listed just above (R2 CORS configuration, R2 Preview/Production env
+  vars, a live end-to-end re-verification, and an explicit, separate
+  approval to switch `STORAGE_PROVIDER`/`ARCHIVE_PROVIDER`) - none of
+  which this acceptance authorizes on its own.
 
 ## NTR Legacy Import — Google Drive Decoupling (branch `feature/ntr-legacy-import`, off `feature/ntr-module`)
 
@@ -959,3 +1178,251 @@ guessed or hypothetical:
   coverage), `next build` succeeds.
 - Final Release Candidate UAT verdict: **PASS - READY TO MERGE**. No
   architecture redesign, no schema redesign, no new business features.
+
+## Merge with `origin/main` + Release Completion Cleanup (this milestone, `feature/pm-record-workflow-redesign`)
+
+Merged `origin/main` (bringing in the NTR Legacy Import work above, by
+then already merged to `main` via PR #10) into this branch - 3 real
+conflicts (`PROJECT_STATE.md`, `src/locales/en.json`, `src/locales/th.json`),
+everything else auto-merged. `PROJECT_STATE.md` resolved by keeping both
+completed-milestone sections in full. Locale files resolved by keeping
+both sides' new keys plus one real value conflict (`vehicle360`-family
+keys: "Machine Registry/Machine 360" vs. an independent "Tractor
+Registry/Tractor Profile" naming done on `main`) - decided in favor of
+"Machine" terminology since that's what the merged, conflict-free
+`docs/standards/DOMAIN_LANGUAGE_STANDARD.md` and the rest of the same
+locale object already consistently use. Verified no localization key
+lost: flattened key-by-key diff against both parents showed the merged
+file's key set exactly equals their union (524 keys each, up from 343/516).
+Merge commit `0dc13d3`.
+
+Followed by a release-readiness cleanup pass:
+- Resolved `TECHNICAL_DEBT.md` #2 (root `CLAUDE.md` §3's stale "no git
+  CLI" deployment section - corrected to describe the real git-CLI-based
+  workflow) and #3 (the `RELEASE_CHECKLIST.md`/
+  `docs/releases/RELEASE_CHECKLIST_V1.md` naming collision - resolved by
+  renaming the former to
+  `docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_V2.1.md`).
+- `RELEASE_SUMMARY.md` marked with a historical-snapshot banner (it
+  described both streams as unmerged/uncommitted, which is no longer
+  current) rather than rewritten, to preserve it as a dated record.
+- Removed two confirmed-unused asset files (`public/fonts/Sarabun-Bold.woff`,
+  `Sarabun-Regular.woff` - only the `.ttf` variants are used, per
+  `CLAUDE.md` §2's documented TTF-only reason).
+- Full repo audit (dead code, obsolete files, unused deps/imports/assets,
+  debug code, TODOs) found: zero unused dependencies, zero
+  console.log/debugger/TODO/FIXME left in `src/`, and ~55 exported
+  types/interfaces with no external importer - the latter deliberately
+  left alone (not deleted) since they're inert type declarations that are
+  either a module's intentionally-declared public type surface or part of
+  the not-yet-wired Platform Event Framework (`vehicle-event/publisher.ts`
+  etc.) already tracked as planned, staged infrastructure elsewhere in
+  this document - removing them would delete real, intentional
+  forward-looking work, not dead code.
+- Noted, not fixed (out of this pass's scope - would need its own
+  reviewed milestone): `.eslintrc.json` only extends `next/core-web-vitals`,
+  which does not enable `@typescript-eslint/no-unused-vars` - a real gap
+  in this repo's ability to catch unused imports/variables going forward.
+- Verification re-run after cleanup: `eslint` 0 errors (9 pre-existing
+  warnings, unchanged), `tsc --noEmit` clean, `vitest run` 407/407 passing
+  (unchanged from pre-cleanup), `next build` succeeds,
+  `npm run architecture` 5/5 PASS.
+- Other branches checked: `feature/ntr-legacy-import`, `feature/ntr-module`,
+  `feature/pm-record-types` are all fully merged into `origin/main`
+  already (no outstanding PR work). `backup/8606773` and `origin/sprint11`
+  are unrelated, superseded PM-record exploratory work predating this
+  redesign branch - left untouched, out of scope. Two local branches
+  (`feature/pm-record-types`, `sprint10-followup`) are fully merged and
+  safe to delete, but branch deletion is a hard-restricted destructive
+  action - flagged for the repo owner to delete, not done here.
+- Two Storage Platform stashes (`storage-platform-v1.0-uncommitted`,
+  `-env-example`) remain in the stash list, now fully redundant with
+  commit `9915f3d` - not dropped, since stash drop is an irreversible
+  action outside this pass's authorization; flagged for the repo owner.
+
+## Phase 5 Final Consolidation — Architecture Completion (this milestone)
+
+Migrated every remaining module onto the Attachment Platform and
+retired the legacy Google Drive direct-upload pipeline, closing out the
+architecture this platform's build-out was working toward. Target
+shape achieved: `NTR / PM / QIR(MQR) / Machine360 → AttachmentService →
+AttachmentRepository → StorageProviderFactory → {Supabase, Cloudflare
+R2}` - no business module accesses a storage provider directly.
+
+**Priority 1 - Release blockers, resolved:**
+- **NTR/PM record delete** - both failed with a 500 "new row violates
+  row-level security policy" error. Root-cause investigation was
+  extensive and evidence-based: reproduced in a minimal SQL case with no
+  application logic (a plain `UPDATE ... SET record_status='Deleted'`
+  as the `anon` role); ruled out with direct evidence every mechanism
+  checked - triggers (only standard internal FK-integrity ones),
+  rules, table inheritance, views, generated columns, column/table
+  grants, hidden/duplicate RLS policies, and the RLS policy's own USING/
+  WITH CHECK content (a first fix aligning the policy with MQR's
+  already-working fully-permissive shape did **not** resolve it,
+  proving policy content wasn't the true cause). The true root cause
+  remains an unexplained Postgres/Supabase-platform-level anomaly.
+  Resolved via a narrow, targeted workaround: two `SECURITY DEFINER`
+  RPCs (`soft_delete_ntr_record()`/`soft_delete_pm_record()`, matching
+  the existing `commit_ntr_legacy_import_row()` pattern) that perform
+  only the intended soft-delete write - all authorization (role,
+  ownership, scope, `canDelete()`) still happens in application code
+  before either RPC is ever called. The original RLS policies were
+  reverted to their non-permissive form (the loosened version fixed
+  nothing and added no value). This is explicitly a workaround for a
+  confirmed platform anomaly, not a replacement for RLS - easy to
+  revert to a plain `.update()` if Supabase ever identifies the root
+  cause (see `supabaseNtrRepository.ts`/`supabaseMaintenanceRepository.ts`'s
+  `delete()` doc comments).
+- **Google OAuth `invalid_grant`** - not refreshed, per explicit
+  instruction; Drive treated as legacy infrastructure to be replaced by
+  the migration below, not patched.
+
+**Priority 2 - Attachment Platform migration, one module at a time:**
+- **NTR**: `ntr-search.tsx`'s photo/video upload (previously raw
+  `fetch('/api/upload')`, completely broken by the OAuth blocker above)
+  migrated to `uploadAttachment()`/`newPendingEntityId()`, the same
+  pipeline PM/MQR already used. New `AttachmentType` values
+  (`CustomerTractorPhoto`/`SerialPlatePhoto`/`HourMeterPhoto`/
+  `DeliverySheetPhoto`) and five new nullable `*_attachment_id` columns
+  on `ntr_records` (additive-only migration, reviewed against seven
+  explicit safety criteria before applying - additive, nullable, no new
+  FKs, CHECK constraint widened not narrowed, rollback-safe - before the
+  user approved it). `POST /api/ntr-records` reassigns + marks
+  business-complete, mirroring PM's exact pattern.
+- **PM** (unplanned but confirmed release blocker, found mid-migration):
+  `maintenance-search.tsx` - the component `pm-records/new` (the *real*
+  "Create PM Record" page) actually renders - still called the legacy
+  `/api/upload` directly. `maintenance-form.tsx` (migrated to
+  AttachmentService in an earlier milestone) is used only by
+  `pm-records/[id]/edit` - that earlier migration never reached the
+  create flow, so PM registration was silently just as broken as NTR's.
+  Migrated to the identical `uploadAttachment()` pattern; no new DB
+  migration needed (the `*_photo_attachment_id` columns and the
+  `reassignEntity`/`markBusinessComplete` block in `POST /api/pm-records`
+  already existed from that earlier milestone - they simply had no real
+  caller sending attachment IDs until now).
+- **QIR/MQR**: already fully migrated (`report-form.tsx`/`update-form.tsx`
+  both already call `uploadAttachment()`) - confirmed, not re-done;
+  live-verified healthy.
+- **Machine 360**: display path already read exclusively through
+  `AttachmentService`/`AttachmentViewer` (ADR-010) - confirmed, not
+  re-done. `MachineService.getMachineAttachments()` only aggregated
+  MQR + PM (NTR wasn't on the platform yet when that was written, per
+  its own doc comment); added `fetchNtrRecordsForSerial()` (mirrors
+  `fetchMaintenanceHistoryForSerial()` exactly) and wired NTR into the
+  same three-way aggregation.
+- Every module verified end-to-end on Preview after its own migration:
+  upload (R2-backed, confirmed via live UAT for every module), download,
+  attachment reassignment + business-complete, and - critically - the
+  Priority 1 delete fix, re-confirmed working on each newly-migrated
+  record type.
+
+**Priority 3 - Legacy removal**, after every module's migration was
+verified:
+- Removed: `uploadFileSmart.ts`, `/api/upload` (+`/init`/`/chunk`/
+  `/finalize`), and `googleDrive.ts`'s `initResumableUpload()`/
+  `finalizeResumableUpload()`/`relocatePendingFiles()`/
+  `driveFileIdFromUrl()` - confirmed via repeated repo-wide search
+  (excluding comments, checking for dynamic imports) that zero real
+  callers remained anywhere.
+- Kept in `googleDrive.ts`: `uploadFileToDrive`/`deleteFileFromDrive`/
+  `downloadFileFromDrive`/`fileExistsOnDrive`/`listFilesInDriveFolder`
+  and their shared folder-resolution helpers -
+  `GoogleDriveStorageProvider` (the Attachment Platform's *archive*
+  tier) still depends on all of them. Drive is not retired, only the
+  legacy direct-upload path is.
+- Cleaned up one stale test mock (`pm-records/route.test.ts` mocked
+  `relocatePendingFiles`, which the route hadn't actually called since
+  its own earlier AttachmentService migration).
+
+**Priority 4 - Verification**: full suite (lint/typecheck/test/build/
+architecture) re-run after every single change in this milestone, not
+just at the end - `vitest run` reached 413/413 (up from 407, +6 new
+repository-level delete tests for the SECURITY DEFINER RPC path).
+Preview redeployed and live E2E UAT re-run after every module's
+migration and again after the legacy removal (regression sweep:
+upload/download/delete confirmed clean across NTR/PM/MQR).
+
+**Priority 5 - Cloudflare R2**: `STORAGE_PROVIDER=CLOUDFLARE_R2` was
+already configured in Preview/Production from the earlier Storage
+Platform milestone - every UAT this entire milestone ran against R2 as
+the live primary provider, which doubles as continuous verification of
+upload/large-upload/preview/signed-URL/delete/metadata. Provider-switch
+code-coupling verified by inspection: `StorageProviderFactory` is the
+sole construction point (enforced by `architecture-check.ts` Rule 4),
+switching `STORAGE_PROVIDER` requires zero business-module changes.
+R2 CORS remains the one open, external blocker (Cloudflare Dashboard
+access required) - unchanged from `R2_PRODUCTION_READINESS.md`,
+confirmed still accurate.
+
+**Commits this milestone**: `3469de0` (RLS→RPC fix), `9b24254` (NTR
+migration), `c1262e3` (PM create-flow fix), `0b6e26e` (Machine 360 NTR
+aggregation), `c18a82b`+`6ece1dc` (legacy removal).
+
+## MASP Platform Foundation v1.0.0 — Release Baseline (this milestone)
+
+Verified and accepted. Full release record:
+**`docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md`** - read that
+document for the release date, architecture overview, module/platform
+list, verification table, and known external items; this entry is a
+pointer, not a duplicate.
+
+- Attachment Platform, Storage Platform, and Historical Import
+  Framework are now formally **Foundation status (feature-frozen)** -
+  further work on any of the three is bug fixes and security hardening
+  only, until an explicit future decision reopens them.
+- Two superseded release-candidate documents
+  (`docs/releases/PILOT_v1.0.0.md`, `docs/releases/RC1_RELEASE_NOTES.md`)
+  archived to `docs/releases/archive/` (kept, not deleted, per this
+  repo's historical-record convention) with a superseded-by banner
+  pointing to the new baseline; every cross-reference to their old path
+  updated.
+- Verification re-run fresh at release time: `eslint` 0 errors (9
+  pre-existing warnings), `tsc --noEmit` clean, `vitest run` 413/413,
+  `next build` succeeds, `npm run architecture` 5/5 PASS, Preview UAT
+  live-verified on the exact release commit.
+- Phase 6 has not started - this release closes out the Foundation
+  work only, per explicit instruction.
+
+## MASP Platform Foundation v1.1.0 — Release Baseline (this milestone)
+
+Verified and accepted. Full release record:
+**`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`** - read that
+document for the release date, architecture overview, module/platform
+list, verification table, breaking changes, known limitations, and
+rollback plan; this entry is a pointer, not a duplicate.
+
+- Rolled out the **Dealer/Branch Scope Platform Standard**
+  (`src/lib/dealerBranchScope.ts` +
+  `src/components/shared/scope/useDealerBranchScope.ts`/
+  `DealerBranchSelector.tsx`) across every module in sequence: Dashboard
+  → NTR → PM → QIR/MQR → Machine360 → Reports (audited, no gap) → Export
+  (audited, no gap) → Historical Import → shared search dialogs
+  (`ntr-search.tsx`/`maintenance-search.tsx`/`report-form.tsx`) →
+  remaining APIs (admin master-data routes, `platform/events`,
+  `technicians`).
+- `DealerUser` visibility changed from "records I personally created"
+  (`seesOwnRecordsOnly`, now fully removed) to "every record in my own
+  branch" - a service branch is a team, not an individual.
+- Found and fixed real, previously-undetected gaps (not just
+  refactoring): NTR/PM's Machine360 fetch-for-serial utilities filtering
+  on the legacy free-text `session.branch` instead of the real
+  `branchId`; a completely unscoped `GET /api/pm-records`; MQR's
+  `createRecord()` validating a submitted `branch_id` only against the
+  dealer, not the DealerUser's own branch; NTR Historical Import
+  validating `dealer_id` but never `branch_id`.
+- **DealerBranchScope** joins Attachment Platform, Storage Platform, and
+  Historical Import Framework as **Foundation status (feature-frozen)** -
+  further work on any of the four is bug fixes and security hardening
+  only, until an explicit future decision reopens them.
+- `docs/releases/MASP_PLATFORM_FOUNDATION_V1.0.md` archived to
+  `docs/releases/archive/` with a superseded-by banner (kept, not
+  deleted, not modified - its own `v1.0.0` tag/release remain published
+  and untouched); every live cross-reference to its old path updated.
+- Verification re-run fresh at release time: `eslint` 0 errors
+  (pre-existing warnings only), `tsc --noEmit` clean, `vitest run`
+  453/453, `next build` succeeds, `npm run architecture` 5/5 PASS,
+  Preview UAT live-verified with real create/edit/delete/upload calls
+  across SuperAdmin/DealerAdmin/two DealerUsers in different branches of
+  the same dealer on the exact release commit.

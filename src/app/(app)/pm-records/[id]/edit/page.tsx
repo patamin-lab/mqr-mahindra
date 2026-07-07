@@ -6,6 +6,9 @@ import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanc
 import MaintenanceForm from '@/features/maintenance/components/maintenance-form';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
+import { AttachmentService } from '@/shared/attachments';
+
+const attachmentService = new AttachmentService();
 
 interface RouteParams {
   params: {
@@ -84,6 +87,25 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
   const record = result.record;
   const lock = evaluateMaintenanceLock(record);
 
+  // A photo uploaded via the Attachment Platform stores its display URL
+  // as a Supabase signed URL that expires - resolve a fresh one here,
+  // server-side, rather than trust whatever was persisted at upload time
+  // (see docs/engineering/ATTACHMENT_FRAMEWORK.md).
+  const [meterPhotoUrl, nameplatePhotoUrl, reportPhotoUrl] = await Promise.all([
+    record.meter_photo_attachment_id
+      ? attachmentService.getUrl(record.meter_photo_attachment_id).then((r) => r?.url ?? record.meter_photo_url).catch(() => record.meter_photo_url)
+      : record.meter_photo_url,
+    record.nameplate_photo_attachment_id
+      ? attachmentService
+          .getUrl(record.nameplate_photo_attachment_id)
+          .then((r) => r?.url ?? record.nameplate_photo_url)
+          .catch(() => record.nameplate_photo_url)
+      : record.nameplate_photo_url,
+    record.report_photo_attachment_id
+      ? attachmentService.getUrl(record.report_photo_attachment_id).then((r) => r?.url ?? record.report_photo_url).catch(() => record.report_photo_url)
+      : record.report_photo_url,
+  ]);
+
   return (
     <div className="max-w-2xl space-y-4">
       <PageHeader
@@ -125,9 +147,12 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
           customer_phone: record.customer_phone,
           hour_meter: record.hour_meter,
           pm_interval_id: record.pm_interval_id,
-          meter_photo_url: record.meter_photo_url,
-          nameplate_photo_url: record.nameplate_photo_url,
-          report_photo_url: record.report_photo_url,
+          meter_photo_url: meterPhotoUrl,
+          nameplate_photo_url: nameplatePhotoUrl,
+          report_photo_url: reportPhotoUrl,
+          meter_photo_attachment_id: record.meter_photo_attachment_id,
+          nameplate_photo_attachment_id: record.nameplate_photo_attachment_id,
+          report_photo_attachment_id: record.report_photo_attachment_id,
           latitude: record.latitude,
           longitude: record.longitude,
           gps_accuracy: record.gps_accuracy,

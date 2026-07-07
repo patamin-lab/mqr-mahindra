@@ -2,9 +2,9 @@
 # MSEAL SERVICE SYSTEM
 ## AI Engineering Context
 
-**Version:** 1.3
+**Version:** 1.4
 **Status:** Active
-**Last Updated:** 2026-07-01
+**Last Updated:** 2026-07-05
 
 ---
 
@@ -57,6 +57,23 @@ PM Record module complete through M6.5 (Final Release Candidate Review):
 CRUD, tests, database/RLS migration alignment, CI pipeline, and a
 dependency audit are all done. See `PROJECT_STATE.md` for the
 authoritative, up-to-date milestone log.
+
+Since M6.5, this branch (`feature/pm-record-workflow-redesign`) has moved
+through Phase 5B (Machine Domain rename, ADR-009; Attachment & Media
+Platform infrastructure, ADR-010) and Phase 5B.1 (MQR + PM migrated onto
+that Attachment Platform; Machine 360 now renders a real Attachments
+section), then a long Storage Platform build-out (Cloudflare R2
+provider, `StorageProviderFactory`, metadata-integrity fix, R2
+Production Readiness Review + hardening, Storage Hygiene, Storage
+Operations, two architecture-freeze passes, automated architecture
+enforcement via `npm run architecture`, and Release Preparation) that is
+now **frozen and released as the official Storage Platform baseline** -
+no business module or default provider was touched by any of it; primary
+storage is still Supabase, archive still Google Drive, everywhere. See
+`docs/PLATFORM_BASELINE.md` for the authoritative, current-as-of-freeze
+summary of the whole platform (this paragraph is a historical pointer,
+not re-updated per phase - `PROJECT_STATE.md` and `PLATFORM_BASELINE.md`
+are the sources of truth for current status).
 
 ---
 

@@ -17,9 +17,11 @@ Semantic Versioning policy).
 
 ## Tech stack
 
-Next.js 14 (App Router, TypeScript) · Supabase (Postgres, RLS) · Google
-Drive (attachment storage) · Resend (email) · Tailwind CSS · Vitest.
-Full detail: [`CLAUDE.md`](CLAUDE.md), [`docs/TECH_STACK.md`](docs/TECH_STACK.md).
+Next.js 14 (App Router, TypeScript) · Supabase (Postgres, RLS, primary
+attachment storage) · Google Drive (attachment archive) · Resend (email)
+· Tailwind CSS · Vitest. Full detail: [`CLAUDE.md`](CLAUDE.md),
+[`docs/TECH_STACK.md`](docs/TECH_STACK.md),
+[`docs/PLATFORM_BASELINE.md`](docs/PLATFORM_BASELINE.md).
 
 ## Getting started
 

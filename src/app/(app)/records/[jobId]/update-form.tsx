@@ -16,7 +16,7 @@ import {
 } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
-import { uploadFileSmart } from '@/components/shared/upload/uploadFileSmart';
+import { uploadAttachment } from '@/components/shared/attachments/uploadAttachment';
 
 export default function UpdateForm({ record, role }: { record: MqrRecord; role: Role }) {
   const router = useRouter();
@@ -53,14 +53,16 @@ export default function UpdateForm({ record, role }: { record: MqrRecord; role: 
       for (let i = 0; i < afterPhotos.length; i++) {
         const label = `ภาพหลังการแก้ไข ${i + 1}`;
         swalUpdateLoading(`กำลังอัปโหลด${label} (${i + 1}/${afterPhotos.length})...`);
-        // Size-routed upload (same shared helper the report form uses) -
-        // a large "after repair" photo now gets the >4MB chunked-relay
-        // treatment too, instead of always proxying directly through
-        // /api/upload and risking Vercel's 4.5MB body cap.
-        const url = await uploadFileSmart(afterPhotos[i], label, record.dealer_id, (pct) =>
-          swalUpdateLoading(`กำลังอัปโหลด${label} (${i + 1}/${afterPhotos.length}) ${pct}%...`)
+        // Uploaded through AttachmentService (docs/engineering/ATTACHMENT_FRAMEWORK.md)
+        // straight against the record's real job_id - unlike the report
+        // form, this record already exists, so there's no pending/reassign
+        // step needed.
+        const uploaded = await uploadAttachment(
+          afterPhotos[i],
+          { module: 'mqr', entityType: 'record', entityId: record.job_id, attachmentType: 'RepairPhoto', label },
+          (pct) => swalUpdateLoading(`กำลังอัปโหลด${label} (${i + 1}/${afterPhotos.length}) ${pct}%...`)
         );
-        addPhotoLinks.push({ category: 'after_repair', label, url });
+        addPhotoLinks.push({ category: 'after_repair', label, url: uploaded.url ?? '', attachmentId: uploaded.attachmentId });
       }
 
       const keptUrls = new Set(photos.map((p) => p.url));

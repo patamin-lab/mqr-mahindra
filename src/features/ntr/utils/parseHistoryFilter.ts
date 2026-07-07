@@ -1,5 +1,5 @@
 import { SessionUser } from '@/lib/types';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { NtrHistoryFilter } from '../types';
 
 const SORT_FIELDS: NtrHistoryFilter['sortField'][] = ['created_at', 'retail_date', 'ntr_number'];
@@ -14,7 +14,11 @@ const SORT_FIELDS: NtrHistoryFilter['sortField'][] = ['created_at', 'retail_date
  */
 export function parseNtrHistoryFilterFromSearchParams(searchParams: URLSearchParams, session: SessionUser): NtrHistoryFilter {
   const requestedDealerId = searchParams.get('dealerId');
-  const dealerId = seesAllDealers(session.role) ? requestedDealerId : session.dealerId;
+  const { dealerId } = resolveDealerScope(session, requestedDealerId);
+  // Note: DealerUser's branch pin is enforced downstream by
+  // `applyScope()`/`resolveBranchScope()` inside the repository (every
+  // caller of `listHistory()` must pass `session`) - the raw request
+  // param below is only ever a *narrowing* request for privileged roles.
   const branchId = searchParams.get('branchId');
 
   const sortFieldParam = searchParams.get('sortField');

@@ -6,6 +6,7 @@
  * `src/features/maintenance/repositories/maintenanceRepository.ts`'s shape
  * exactly, per docs/standards/MODULE_DEVELOPMENT_STANDARD.md.
  */
+import type { SessionUser } from '@/lib/types';
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 
 /** The `vehicles` fields the atomic commit needs when a legacy-import row's
@@ -21,7 +22,11 @@ export interface NtrLegacyImportVehicleInput {
 }
 
 export interface NtrRepository {
-  getById(id: string): Promise<NtrRecord | null>;
+  /** `session`, when passed, enforces the Dealer/Branch Scope Platform
+   *  Standard (a DealerUser can never fetch a record outside their own
+   *  branch) - optional only for back-compat with callers not yet
+   *  migrated onto it (see `lib/dealerBranchScope.ts`). */
+  getById(id: string, session?: SessionUser): Promise<NtrRecord | null>;
   /** Active (non-deleted) record already on file for this tractor serial,
    *  if any - powers "never create duplicate NTR" for both the search-first
    *  UI warning and the Legacy Import duplicate check. */
@@ -41,7 +46,7 @@ export interface NtrRepository {
   /** Server-side paginated/filtered/sorted/searchable query for the
    *  Tractor Registry list view and its Excel export - never returns the
    *  full table. */
-  listHistory(filter: NtrHistoryFilter): Promise<NtrHistoryResult>;
+  listHistory(filter: NtrHistoryFilter, session?: SessionUser): Promise<NtrHistoryResult>;
   /** Legacy Import's atomic per-row commit: Tractor + NTR + Timeline +
    *  Audit in one database transaction (the `commit_ntr_legacy_import_row`
    *  Postgres function - see docs/adr/ADR-008-Google-Drive-Decoupling.md).

@@ -23,7 +23,7 @@
 import type ExcelJS from 'exceljs';
 import { logAuditEvent } from '@/lib/db';
 import { getSupabase } from '@/lib/supabase';
-import { Dealer, Vehicle } from '@/lib/types';
+import { Dealer, Vehicle, Branch } from '@/lib/types';
 import { uploadFileToDrive } from '@/lib/googleDrive';
 import { ColumnMappingResult, ImportWarning, formatImportError } from '@/shared/import';
 import { NtrRepository } from '../repositories/ntrRepository';
@@ -145,6 +145,28 @@ async function fetchDealersByIds(dealerIds: string[]): Promise<Map<string, Deale
   return new Map(results.flat().map((d) => [d.id, d]));
 }
 
+/** Bulk branch lookup, chunked the same way as `fetchDealersByIds()` -
+ *  Dealer/Branch Scope Platform Standard: a row's `branch_id` (when
+ *  present) must actually belong to that row's `dealer_id`, the same
+ *  dealer-relationship check `assertBranchAccess()` does elsewhere,
+ *  applied here in bulk instead of per-row for the 10,000-row
+ *  performance budget (see `fetchDealersByIds()`'s own comment - this
+ *  file previously had zero validation of `branch_id` at all, letting a
+ *  malformed/cross-dealer branch_id from the uploaded file silently land
+ *  in `ntr_records`, invisible or mis-scoped for a branch-pinned
+ *  DealerUser later). */
+async function fetchBranchesByIds(branchIds: string[]): Promise<Map<string, Branch>> {
+  if (branchIds.length === 0) return new Map();
+  const results = await Promise.all(
+    chunk(branchIds, BULK_QUERY_CHUNK_SIZE).map(async (batch) => {
+      const { data, error } = await getSupabase().from('branches').select('*').in('id', batch);
+      if (error) throw error;
+      return data as Branch[];
+    })
+  );
+  return new Map(results.flat().map((b) => [b.id, b]));
+}
+
 /** Bulk Tractor-serial lookup, chunked the same way as
  *  `fetchDealersByIds()` and for the same reason. */
 async function fetchVehiclesBySerials(serials: string[]): Promise<Map<string, Vehicle>> {
@@ -180,9 +202,11 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, 
   // serial already fails earlier in this same function, before ever
   // needing a lookup.
   const distinctDealerIds = [...new Set(rows.map((r) => r.dealer_id).filter(Boolean))];
+  const distinctBranchIds = [...new Set(rows.map((r) => r.branch_id).filter((v): v is string => !!v))];
   const distinctSerials = [...new Set(rows.map((r) => r.serial).filter(Boolean))];
-  const [dealersById, vehiclesBySerial, activeNtrBySerial] = await Promise.all([
+  const [dealersById, branchesById, vehiclesBySerial, activeNtrBySerial] = await Promise.all([
     fetchDealersByIds(distinctDealerIds),
+    fetchBranchesByIds(distinctBranchIds),
     fetchVehiclesBySerials(distinctSerials),
     ntrRepository.findActiveBySerials(distinctSerials),
   ]);
@@ -246,6 +270,18 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, 
     if (!dealer) {
       results.push({ row, outcome: 'failed', reason: `Unknown dealer_id "${row.dealer_id}"` });
       continue;
+    }
+    // Dealer/Branch Scope Platform Standard: branch_id is optional in the
+    // import file, but when present it must actually belong to this row's
+    // dealer_id - otherwise the imported record would land with a
+    // cross-dealer branch_id, invisible or mis-scoped for a branch-pinned
+    // DealerUser later.
+    if (row.branch_id) {
+      const branch = branchesById.get(row.branch_id);
+      if (!branch || branch.dealer_id !== row.dealer_id) {
+        results.push({ row, outcome: 'failed', reason: `branch_id "${row.branch_id}" does not belong to dealer_id "${row.dealer_id}"` });
+        continue;
+      }
     }
     const existingNtr = activeNtrBySerial.get(row.serial);
     if (existingNtr) {
@@ -429,6 +465,7 @@ export class NtrImportService {
           pdi_date: v.row.pdi_date,
           manufacturing_year: v.row.manufacturing_year,
           hour_meter: v.row.hour_meter,
+          photo_customer_id_url: null,
           photo_customer_tractor_url: null,
           photo_serial_plate_url: null,
           photo_hour_meter_url: null,

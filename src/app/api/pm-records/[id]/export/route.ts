@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getDealer, getPmInterval } from '@/lib/db';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
 import { renderMaintenanceRecordPdf } from '@/features/maintenance/services/maintenancePdf';
@@ -19,12 +20,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const service = new MaintenanceService(repository);
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
 
-  const record = await service.getById(params.id);
+  const record = await service.getById(params.id, session);
   if (!record) {
     return NextResponse.json({ ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } }, { status: 404 });
   }
-  // Zero-leakage: a non-privileged actor may only export their own dealer's record.
-  if (session.dealerId && record.dealer_id !== session.dealerId) {
+  // Dealer/Branch Scope Platform Standard: a non-privileged actor may only
+  // export their own dealer's/branch's record - not just dealer-level.
+  if (!canAccessDealerBranch(session, record.dealer_id, record.branch_id)) {
     return NextResponse.json(
       { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'validation.unauthorizedRecordAccess') } },
       { status: 403 }

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const filter = parseNtrHistoryFilterFromSearchParams(searchParams, session);
 
   try {
-    const result = await createNtrService().listHistory(filter);
+    const result = await createNtrService().listHistory(filter, session);
     return NextResponse.json({ ok: true, data: result.data, total: result.total }, { status: 200 });
   } catch (error) {
     console.error('NTR history API error', error);

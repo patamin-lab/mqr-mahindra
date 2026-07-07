@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { getVehicleBySerial } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { createVehicleEventPublisher, createVehicleEventService } from '@/features/vehicle-event/factory';
 import { parseWithSchema, ValidationError } from '@/features/vehicle-event/validation';
 import { VehicleEventPublishBodySchema, VehicleEventUpdateBodySchema } from '@/features/vehicle-event/schemas';
@@ -29,10 +29,11 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
 
+  const { dealerId: dealerScope } = resolveDealerScope(session, null);
+
   let vehicleId = searchParams.get('vehicleId');
   const serial = searchParams.get('serial');
   if (!vehicleId && serial) {
-    const dealerScope = seesAllDealers(session.role) ? null : session.dealerId;
     const vehicle = await getVehicleBySerial(serial, dealerScope);
     if (!vehicle) {
       return NextResponse.json({ ok: true, data: [], total: 0 }, { status: 200 });
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   const filter: VehicleEventFilter = {
-    dealerId: seesAllDealers(session.role) ? null : session.dealerId,
+    dealerId: dealerScope,
     vehicleId,
     sourceModule: searchParams.get('sourceModule'),
     eventDefinitionId: searchParams.get('eventDefinitionId'),

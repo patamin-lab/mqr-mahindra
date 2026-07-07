@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { seesAllDealers } from '@/lib/scope';
 import { createVehicleManual, getVehicleBySerial } from '@/lib/db';
+import { resolveDealerScope, assertBranchAccess } from '@/lib/dealerBranchScope';
 import { isNonEmptyString, parseWithSchema, ValidationError } from '@/lib/validation';
 import { buildTractorCreateBodySchema, TractorCreateBody } from '@/features/ntr/schemas';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   // Zero-leakage: only a privileged role may set an arbitrary dealer_id -
   // everyone else is pinned to their own session dealer, same rule as
   // every other create route in this app.
-  const dealerId = seesAllDealers(session.role) ? String(body.dealer_id ?? '').trim() : session.dealerId;
+  const { dealerId } = resolveDealerScope(session, typeof body.dealer_id === 'string' ? body.dealer_id.trim() : undefined);
   if (!isNonEmptyString(dealerId)) {
     return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'dealer_id is required' } }, { status: 400 });
   }
@@ -44,6 +44,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: error.message } }, { status: 400 });
     }
     throw error;
+  }
+
+  try {
+    await assertBranchAccess(dealerId, parsed.branch_id ?? null);
+  } catch {
+    return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'branch_id does not belong to dealer_id' } }, { status: 400 });
   }
 
   try {

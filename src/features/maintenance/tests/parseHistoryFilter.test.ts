@@ -3,7 +3,7 @@ import { parseMaintenanceHistoryFilterFromSearchParams } from '../utils/parseHis
 import type { SessionUser } from '@/lib/types';
 
 function session(overrides: Partial<SessionUser> = {}): SessionUser {
-  return { username: 'alice', fullName: 'Alice', role: 'DealerUser', dealerId: 'D1', branch: null, ...overrides };
+  return { username: 'alice', fullName: 'Alice', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: null, ...overrides };
 }
 
 describe('parseMaintenanceHistoryFilterFromSearchParams', () => {
@@ -20,26 +20,26 @@ describe('parseMaintenanceHistoryFilterFromSearchParams', () => {
     expect(filter.dealerId).toBe('D1');
   });
 
-  it('a branch-restricted (session.branch set) non-privileged actor cannot see a sibling branch via an explicit branchId', () => {
+  it('a DealerUser requesting a sibling branch is not blocked by the parser itself - the real pin is enforced downstream by applyScope()/resolveBranchScope() once session is passed to listHistory()', () => {
     const params = new URLSearchParams({ branchId: 'OTHER_BRANCH_SAME_DEALER' });
-    const filter = parseMaintenanceHistoryFilterFromSearchParams(params, session({ branch: 'สาขา A' }));
-    // The real bug this closes: branchId must not pass through for a
-    // branch-restricted session - branchName scoping takes over instead.
-    expect(filter.branchId).toBeNull();
-    expect(filter.branchName).toBe('สาขา A');
+    const filter = parseMaintenanceHistoryFilterFromSearchParams(params, session({ role: 'DealerUser', branchId: 'B1' }));
+    // The parser no longer does branch enforcement (see dealerBranchScope.test.ts /
+    // applyScope.test.ts for the actual DealerUser branch-pin coverage).
+    expect(filter.branchId).toBe('OTHER_BRANCH_SAME_DEALER');
+    expect(filter.branchName).toBeUndefined();
   });
 
-  it('a dealer-wide (not branch-restricted) non-privileged actor may still narrow to one branch within their own dealer', () => {
+  it('a privileged actor may narrow to one branch within a dealer via an explicit branchId', () => {
     const params = new URLSearchParams({ branchId: 'B1' });
-    const filter = parseMaintenanceHistoryFilterFromSearchParams(params, session({ branch: null }));
+    const filter = parseMaintenanceHistoryFilterFromSearchParams(params, session({ role: 'DealerAdmin', branch: null }));
     expect(filter.branchId).toBe('B1');
     expect(filter.branchName).toBeUndefined();
   });
 
-  it('applies branchName session scoping only when no explicit branchId narrows it already', () => {
+  it('never derives branchName from the legacy free-text session.branch display string', () => {
     const params = new URLSearchParams();
     const filter = parseMaintenanceHistoryFilterFromSearchParams(params, session({ branch: 'สาขา A' }));
-    expect(filter.branchName).toBe('สาขา A');
+    expect(filter.branchName).toBeUndefined();
   });
 
   it('parses page/pageSize with sane defaults', () => {

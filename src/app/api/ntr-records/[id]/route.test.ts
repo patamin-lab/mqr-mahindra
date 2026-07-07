@@ -44,6 +44,7 @@ const dealerAdminSessionD1 = {
   role: 'DealerAdmin' as const,
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 const dealerUserSessionD1 = {
@@ -52,6 +53,7 @@ const dealerUserSessionD1 = {
   role: 'DealerUser' as const,
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 const dealerAdminSessionD2 = {
@@ -60,6 +62,7 @@ const dealerAdminSessionD2 = {
   role: 'DealerAdmin' as const,
   dealerId: 'D2',
   branch: null,
+  branchId: null,
 };
 
 const activeRecord = {
@@ -86,10 +89,17 @@ const activeRecord = {
   longitude: null,
   gps_accuracy: null,
   google_maps_url: null,
+  photo_customer_id_url: 'https://example.com/e.jpg',
   photo_customer_tractor_url: 'https://example.com/a.jpg',
   photo_serial_plate_url: 'https://example.com/b.jpg',
   photo_hour_meter_url: 'https://example.com/c.jpg',
   photo_signed_document_url: 'https://example.com/d.jpg',
+  photo_customer_id_attachment_id: null,
+  photo_customer_tractor_attachment_id: null,
+  photo_serial_plate_attachment_id: null,
+  photo_hour_meter_attachment_id: null,
+  photo_signed_document_attachment_id: null,
+  video_attachment_id: null,
   additional_photos: [],
   video_url: null,
   audio_url: null,

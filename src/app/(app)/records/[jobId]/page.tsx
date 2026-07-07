@@ -18,6 +18,9 @@ import Card from '@/components/shared/layout/Card';
 import Timeline from '@/components/shared/timeline/Timeline';
 import TimelineItem from '@/components/shared/timeline/TimelineItem';
 import AttachmentGallery from '@/components/shared/attachments/AttachmentGallery';
+import { AttachmentService } from '@/shared/attachments';
+
+const attachmentService = new AttachmentService();
 
 export default async function RecordDetailPage({ params }: { params: { jobId: string } }) {
   const session = await getSession();
@@ -27,6 +30,24 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
   const jobId = decodeURIComponent(params.jobId);
   const record = await getRecordByJobId(jobId, session);
   if (!record) notFound();
+
+  // A photo/video uploaded via the Attachment Platform stores only
+  // `attachmentId` durably - its `url` may be a Supabase signed URL that
+  // has since expired, so it's never trusted directly. Resolve a fresh
+  // one here, server-side, at request time - a pre-migration entry with
+  // no `attachmentId` keeps using its stored Drive URL unchanged. See
+  // docs/engineering/ATTACHMENT_FRAMEWORK.md.
+  record.photo_links = await Promise.all(
+    (record.photo_links ?? []).map(async (p) => {
+      if (!p.attachmentId) return p;
+      const resolved = await attachmentService.getUrl(p.attachmentId).catch(() => null);
+      return resolved ? { ...p, url: resolved.url } : p;
+    })
+  );
+  if (record.video_attachment_id) {
+    const resolved = await attachmentService.getUrl(record.video_attachment_id).catch(() => null);
+    if (resolved) record.video_link = resolved.url;
+  }
 
   const dealer = await getDealer(record.dealer_id);
   const history = record.serial ? await getVehicleHistory(record.serial, session) : [];

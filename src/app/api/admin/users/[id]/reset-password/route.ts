@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, sha256Hex } from '@/lib/auth';
 import { getUserById, resetUserPassword } from '@/lib/db';
-import { canManageUsers, canManageRoleTarget, seesAllDealers } from '@/lib/scope';
+import { canManageUsers, canManageRoleTarget } from '@/lib/scope';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!canManageRoleTarget(session.role, target.role)) {
       return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์รีเซ็ตรหัสผ่านผู้ใช้นี้' }, { status: 403 });
     }
-    if (!seesAllDealers(session.role) && target.dealer_id !== session.dealerId) {
+    if (!canAccessDealerBranch(session, target.dealer_id ?? '', null)) {
       return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์รีเซ็ตรหัสผ่านผู้ใช้นี้' }, { status: 403 });
     }
     const body = await req.json();

@@ -7,6 +7,7 @@ import { createNtrService } from '@/features/ntr/factory';
 import { parseNtrHistoryFilterFromSearchParams } from '@/features/ntr/utils/parseHistoryFilter';
 import { buildTractorRegistryWorkbook } from '@/features/ntr/services/ntrExcel';
 import type { NtrRecord } from '@/features/ntr/types';
+import type { SessionUser } from '@/lib/types';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 
@@ -17,11 +18,12 @@ const EXPORT_MAX_PAGES = 25; // hard ceiling of 5000 rows per export - narrow fi
 
 async function fetchAllMatchingPages(
   service: ReturnType<typeof createNtrService>,
-  filter: ReturnType<typeof parseNtrHistoryFilterFromSearchParams>
+  filter: ReturnType<typeof parseNtrHistoryFilterFromSearchParams>,
+  session: SessionUser
 ): Promise<NtrRecord[]> {
   const all: NtrRecord[] = [];
   for (let page = 1; page <= EXPORT_MAX_PAGES; page++) {
-    const result = await service.listHistory({ ...filter, page, pageSize: EXPORT_PAGE_SIZE });
+    const result = await service.listHistory({ ...filter, page, pageSize: EXPORT_PAGE_SIZE }, session);
     all.push(...result.data);
     if (result.data.length < EXPORT_PAGE_SIZE) break;
   }
@@ -55,7 +57,7 @@ export async function GET(req: NextRequest) {
   const service = createNtrService();
 
   try {
-    const records = await fetchAllMatchingPages(service, filter);
+    const records = await fetchAllMatchingPages(service, filter, session);
     const filename = `MASP_Tractor_Registry_${formatBangkokFilenameTimestamp()}.xlsx`;
     const buf = await buildTractorRegistryWorkbook(records, locale);
 

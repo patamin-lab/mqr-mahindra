@@ -7,6 +7,9 @@
  * unchanged - Architecture Refactoring's backward-compatibility rule.
  */
 import { getSupabase } from '@/lib/supabase';
+import { applyScope } from '@/lib/db';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import type { SessionUser } from '@/lib/types';
 import { MaintenanceRepository, MaintenanceFilter } from './maintenanceRepository';
 import {
   MaintenanceDuplicateCheckParams,
@@ -37,15 +40,24 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
 
   private readonly table = 'pm_records';
 
-  async list(filter?: MaintenanceFilter): Promise<MaintenanceRecord[]> {
+  /** `session`, when passed, resolves dealer/branch scope via the shared
+   *  `applyScope()` (Dealer/Branch Scope Platform Standard) instead of
+   *  trusting `filter.dealerId`/`filter.branchId` as-is - optional only
+   *  for back-compat with callers not yet migrated (PM API routes/UI,
+   *  Phase "PM" of the rollout). */
+  async list(filter?: MaintenanceFilter, session?: SessionUser): Promise<MaintenanceRecord[]> {
     let query = this.client.from(this.table).select('*').order('created_at', { ascending: false });
-    query = query.eq('record_status', 'Active');
 
-    if (filter?.dealerId !== undefined && filter.dealerId !== null) {
-      query = query.eq('dealer_id', filter.dealerId);
-    }
-    if (filter?.branchId !== undefined && filter.branchId !== null) {
-      query = query.eq('branch_id', filter.branchId);
+    if (session) {
+      query = applyScope(query, session, { dealerId: filter?.dealerId, branchId: filter?.branchId });
+    } else {
+      query = query.eq('record_status', 'Active');
+      if (filter?.dealerId !== undefined && filter.dealerId !== null) {
+        query = query.eq('dealer_id', filter.dealerId);
+      }
+      if (filter?.branchId !== undefined && filter.branchId !== null) {
+        query = query.eq('branch_id', filter.branchId);
+      }
     }
     if (filter?.status !== undefined) {
       query = query.eq('status', filter.status);
@@ -56,7 +68,7 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     return (data ?? []) as MaintenanceRecord[];
   }
 
-  async getById(id: string): Promise<MaintenanceRecord | null> {
+  async getById(id: string, session?: SessionUser): Promise<MaintenanceRecord | null> {
     const { data, error } = await this.client
       .from(this.table)
       .select('*')
@@ -64,6 +76,7 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
       .maybeSingle();
     if (error) throw error;
     if (!data || data.record_status === 'Deleted') return null;
+    if (session && !canAccessDealerBranch(session, data.dealer_id, data.branch_id ?? null)) return null;
     return data as MaintenanceRecord;
   }
 
@@ -151,6 +164,9 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
       meter_photo_url: input.meter_photo_url,
       nameplate_photo_url: input.nameplate_photo_url,
       report_photo_url: input.report_photo_url,
+      meter_photo_attachment_id: input.meter_photo_attachment_id ?? null,
+      nameplate_photo_attachment_id: input.nameplate_photo_attachment_id ?? null,
+      report_photo_attachment_id: input.report_photo_attachment_id ?? null,
       latitude: input.latitude,
       longitude: input.longitude,
       gps_accuracy: input.gps_accuracy,
@@ -192,6 +208,9 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     if (input.meter_photo_url !== undefined) updatePayload.meter_photo_url = input.meter_photo_url;
     if (input.nameplate_photo_url !== undefined) updatePayload.nameplate_photo_url = input.nameplate_photo_url;
     if (input.report_photo_url !== undefined) updatePayload.report_photo_url = input.report_photo_url;
+    if (input.meter_photo_attachment_id !== undefined) updatePayload.meter_photo_attachment_id = input.meter_photo_attachment_id;
+    if (input.nameplate_photo_attachment_id !== undefined) updatePayload.nameplate_photo_attachment_id = input.nameplate_photo_attachment_id;
+    if (input.report_photo_attachment_id !== undefined) updatePayload.report_photo_attachment_id = input.report_photo_attachment_id;
     if (input.latitude !== undefined) updatePayload.latitude = input.latitude;
     if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
     if (input.gps_accuracy !== undefined) updatePayload.gps_accuracy = input.gps_accuracy;
@@ -208,18 +227,25 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     return data as MaintenanceRecord;
   }
 
+  /** Calls `soft_delete_pm_record()` (SECURITY DEFINER RPC) instead of a
+   *  direct `.update()` - see `supabaseNtrRepository.ts`'s `delete()` for
+   *  the full explanation: a confirmed, unexplained Postgres/Supabase-level
+   *  anomaly rejects the `anon` role's UPDATE transitioning
+   *  `record_status` away from 'Active' on this table (same shape as
+   *  `ntr_records`), even under a fully-permissive RLS policy. Narrow,
+   *  single-purpose bypass for exactly this write - every authorization
+   *  check still happens in application code before this is called. */
   async delete(id: string, actor: { username: string }, reason?: string | null): Promise<void> {
-    const { error } = await this.client
-      .from(this.table)
-      .update({
-        record_status: 'Deleted',
-        deleted_by: actor.username,
-        deleted_at: new Date().toISOString(),
-        deleted_reason: reason ?? null,
-      })
-      .eq('id', id)
-      .eq('record_status', 'Active');
-    if (error) throw error;
+    const { error } = await this.client.rpc('soft_delete_pm_record', {
+      p_id: id,
+      p_actor: actor.username,
+      p_reason: reason ?? null,
+    });
+    if (error) {
+      if (error.message.includes('PM_NOT_FOUND')) throw new Error('Maintenance record not found');
+      if (error.message.includes('PM_ALREADY_DELETED')) throw new Error('Maintenance record is already deleted');
+      throw error;
+    }
   }
 
   async lockRecord(id: string, reason: MaintenanceLockReason, actor: { username: string }): Promise<MaintenanceRecord> {
@@ -298,7 +324,12 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
     return (data as MaintenanceRecord) ?? null;
   }
 
-  async listHistory(filter: MaintenanceHistoryFilter): Promise<MaintenanceHistoryResult> {
+  /** `session`, when passed, resolves dealer/branch scope via the shared
+   *  `applyScope()` (Dealer/Branch Scope Platform Standard) instead of
+   *  trusting `filter.dealerId`/`filter.branchId` as-is - optional only
+   *  for back-compat with callers not yet migrated (PM API routes/UI,
+   *  Phase "PM" of the rollout). */
+  async listHistory(filter: MaintenanceHistoryFilter, session?: SessionUser): Promise<MaintenanceHistoryResult> {
     const page = Math.max(filter.page, 1);
     const pageSize = Math.min(Math.max(filter.pageSize, 1), 200);
     const from = (page - 1) * pageSize;
@@ -309,8 +340,12 @@ export class SupabaseMaintenanceRepository implements MaintenanceRepository {
       .select('*', { count: 'exact' })
       .eq('record_status', 'Active');
 
-    if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
-    if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    if (session) {
+      query = applyScope(query, session, { dealerId: filter.dealerId, branchId: filter.branchId });
+    } else {
+      if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
+      if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    }
     if (filter.branchName) query = query.eq('branch_name', filter.branchName);
     if (filter.technicianId) query = query.eq('technician_id', filter.technicianId);
     if (filter.pmIntervalId) query = query.eq('pm_interval_id', filter.pmIntervalId);

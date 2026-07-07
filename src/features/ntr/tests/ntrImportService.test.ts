@@ -8,9 +8,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // per-row getDealer()/getVehicleBySerial() mocks after the 10,000-row
 // performance fix batched those lookups (see
 // docs/import/NTR_HISTORICAL_IMPORT.md's Performance section).
-const fakeTables: { dealers: { id: string }[]; vehicles: { serial: string; model: string | null }[] } = {
+const fakeTables: {
+  dealers: { id: string }[];
+  vehicles: { serial: string; model: string | null }[];
+  branches: { id: string; dealer_id: string }[];
+} = {
   dealers: [],
   vehicles: [],
+  branches: [],
 };
 
 vi.mock('@/lib/supabase', () => ({
@@ -18,7 +23,12 @@ vi.mock('@/lib/supabase', () => ({
     from: (table: string) => ({
       select: () => ({
         in: (_column: string, values: string[]) => {
-          const rows = table === 'dealers' ? fakeTables.dealers.filter((d) => values.includes(d.id)) : fakeTables.vehicles.filter((v) => values.includes(v.serial));
+          const rows =
+            table === 'dealers'
+              ? fakeTables.dealers.filter((d) => values.includes(d.id))
+              : table === 'branches'
+                ? fakeTables.branches.filter((b) => values.includes(b.id))
+                : fakeTables.vehicles.filter((v) => values.includes(v.serial));
           return Promise.resolve({ data: rows, error: null });
         },
       }),
@@ -243,6 +253,63 @@ describe('NtrImportService.preview - address validation', () => {
 
     expect(preview.failedCount).toBe(1);
     expect(preview.rows[0].reason).toContain('does not belong to Province');
+  });
+});
+
+describe('NtrImportService.preview - Dealer/Branch Scope Platform Standard (branch_id validation)', () => {
+  beforeEach(() => {
+    fakeTables.dealers = [{ id: 'D1' }, { id: 'D2' }];
+    fakeTables.vehicles = [];
+    fakeTables.branches = [{ id: 'B1', dealer_id: 'D1' }];
+  });
+
+  function branchCsvBuffer(rows: string[]): Buffer {
+    const header =
+      'Dealer,Serial Number,Engine No,Customer,Phone,Delivery Date,Model,District,Province,Postal Code,Manufacturing Year,Retail Date,Branch';
+    return Buffer.from([header, ...rows].join('\n'), 'utf-8');
+  }
+
+  it('accepts a branch_id that belongs to the row\'s own dealer_id', async () => {
+    const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
+    const buffer = branchCsvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,,B1']);
+
+    const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
+
+    expect(preview.validCount).toBe(1);
+    expect(preview.failedCount).toBe(0);
+  });
+
+  it('rejects a branch_id that belongs to a different dealer than the row\'s dealer_id', async () => {
+    const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
+    // B1 belongs to D1, but this row claims dealer D2 - a cross-dealer
+    // branch_id, exactly the gap this validation closes.
+    const buffer = branchCsvBuffer(['D2,SER-002,ENG-2,Jane Doe,0812345679,2026-01-05,,,,,,,B1']);
+
+    const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
+
+    expect(preview.validCount).toBe(0);
+    expect(preview.failedCount).toBe(1);
+    expect(preview.rows[0].reason).toContain('does not belong to dealer_id');
+  });
+
+  it('rejects a branch_id that does not exist at all', async () => {
+    const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
+    const buffer = branchCsvBuffer(['D1,SER-003,ENG-3,Somchai,0812345680,2026-01-05,,,,,,,UNKNOWN_BRANCH']);
+
+    const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
+
+    expect(preview.failedCount).toBe(1);
+    expect(preview.rows[0].reason).toContain('does not belong to dealer_id');
+  });
+
+  it('a row with no branch_id at all is unaffected (branch is optional)', async () => {
+    const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
+    const buffer = branchCsvBuffer(['D1,SER-004,ENG-4,Somsri,0812345681,2026-01-05,,,,,,,']);
+
+    const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
+
+    expect(preview.validCount).toBe(1);
+    expect(preview.failedCount).toBe(0);
   });
 });
 

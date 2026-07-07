@@ -13,7 +13,7 @@
  * events only.
  */
 import { getVehicleBySerial, getDealer, getBranchById } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { SessionUser } from '@/lib/types';
 import { VehicleHealthService } from '@/features/vehicle-health/service';
 import { VEHICLE_EVENT_SOURCES } from './registry';
@@ -44,7 +44,11 @@ function mergeContribution(base: Partial<VehicleSummary>, contribution: Partial<
 }
 
 export async function getVehicleSummary(serial: string, session: SessionUser): Promise<VehicleSummary | null> {
-  const dealerScope = seesAllDealers(session.role) ? null : session.dealerId;
+  // Vehicles are dealer-level master data (often no branch_id) - scoped to
+  // dealer only. The sensitive per-record data each provider below
+  // contributes (NTR/PM/MQR history, owner name, etc.) is still correctly
+  // branch-scoped by that module's own provider.
+  const { dealerId: dealerScope } = resolveDealerScope(session, null);
   const vehicle = await getVehicleBySerial(serial, dealerScope);
   if (!vehicle) return null;
 

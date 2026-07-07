@@ -149,15 +149,32 @@ interface Props {
   showDealerField: boolean;
   defaultDealerId: string | null;
   username: string;
+  /** Dealer/Branch Scope Platform Standard: a DealerUser is pinned to
+   *  their own branch and must never be offered a branch dropdown that
+   *  could suggest they can see another branch (the server already
+   *  enforces this regardless, but the UI should never imply otherwise). */
+  role?: 'SuperAdmin' | 'CentralAdmin' | 'DealerAdmin' | 'DealerUser';
+  sessionBranchId?: string | null;
+  pinnedBranchName?: string | null;
 }
 
-export default function MaintenanceHistory({ dealers, showDealerField, defaultDealerId, username }: Props) {
+export default function MaintenanceHistory({
+  dealers,
+  showDealerField,
+  defaultDealerId,
+  username,
+  role,
+  sessionBranchId,
+  pinnedBranchName,
+}: Props) {
+  const isBranchPinned = role === 'DealerUser';
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey | null>(null);
   const [search, setSearch] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [filters, setFilters] = useState<AdvancedFilters>({
     ...EMPTY_FILTERS,
     dealerId: defaultDealerId ?? '',
+    branchId: isBranchPinned ? sessionBranchId ?? '' : '',
   });
 
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -183,7 +200,9 @@ export default function MaintenanceHistory({ dealers, showDealerField, defaultDe
       setFilters((prev) => ({
         ...prev,
         dealerId: saved.dealerId || prev.dealerId,
-        branchId: saved.branchId || prev.branchId,
+        // A branch-pinned DealerUser's branch is never overwritten by a
+        // stale saved filter - always their own current session branch.
+        branchId: isBranchPinned ? prev.branchId : saved.branchId || prev.branchId,
         dateFrom: saved.dateFrom || '',
         dateTo: saved.dateTo || '',
       }));
@@ -504,12 +523,19 @@ export default function MaintenanceHistory({ dealers, showDealerField, defaultDe
                 options={dealerOptions}
               />
             )}
-            <SelectField
-              label="สาขา"
-              value={filters.branchId}
-              onChange={(v) => setFilters((f) => ({ ...f, branchId: v }))}
-              options={branchOptions}
-            />
+            {isBranchPinned ? (
+              <div>
+                <label className="block text-xs font-medium mb-1">สาขา</label>
+                <p className="text-sm text-gray-800 py-2">{pinnedBranchName ?? '-'}</p>
+              </div>
+            ) : (
+              <SelectField
+                label="สาขา"
+                value={filters.branchId}
+                onChange={(v) => setFilters((f) => ({ ...f, branchId: v }))}
+                options={branchOptions}
+              />
+            )}
             <SelectField
               label="ช่างซ่อม"
               value={filters.technicianId}

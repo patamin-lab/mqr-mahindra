@@ -93,7 +93,7 @@ against the structure that actually exists in `src/` today.
   the fields a user of that role would reasonably search by, applied
   through the same query the list view already uses — never a second,
   parallel filtering implementation (see `API_STANDARD.md` §Filtering and
-  the MQR export-filter-parity fix in `docs/releases/RC1_RELEASE_NOTES.md`
+  the MQR export-filter-parity fix in `docs/releases/archive/RC1_RELEASE_NOTES.md`
   as the cautionary example of what happens when it drifts).
 - [ ] **History.** A record's lifecycle/status changes and field edits are
   visible as a timeline on the record itself (Audit + Timeline above),
@@ -118,7 +118,7 @@ Dealer Standard format already adopted by MQR/PM:
 `<Module>-<DealerCode>-<Year>-<Running>` (e.g. `NTR-KTV-2026-000001`),
 generated via the shared `next_job_seq()` Postgres RPC with a
 module-prefixed bucket key (the same pattern that resolved the MQR/PM
-counter-collision — see `docs/releases/RC1_RELEASE_NOTES.md`). A module
+counter-collision — see `docs/releases/archive/RC1_RELEASE_NOTES.md`). A module
 does not invent its own numbering scheme or counter table.
 
 ## What "reuse before building" means in practice

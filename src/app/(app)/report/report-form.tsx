@@ -7,18 +7,20 @@ import {
   PHOTO_CATEGORIES,
   PhotoLink,
   Dealer,
-  Branch,
   Technician,
   Severity,
   SEVERITY_VALUES,
   SEVERITY_LABELS,
+  Role,
 } from '@/lib/types';
 import { calcWarranty } from '@/lib/warranty';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
-import { uploadFileSmart } from '@/components/shared/upload/uploadFileSmart';
+import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
+import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
+import DealerBranchSelector from '@/components/shared/scope/DealerBranchSelector';
 
 interface VehicleInfo {
   serial: string;
@@ -51,19 +53,29 @@ const PHONE_RE = /^0[0-9]{9}$/;
 export default function ReportForm({
   problemCodes,
   dealers,
-  lockedDealerId,
-  initialBranches,
+  role,
+  sessionDealerId,
+  sessionBranchId,
+  pinnedDealerName,
+  pinnedBranchName,
   initialTechnicians,
 }: {
   problemCodes: ProblemCode[];
   dealers: Dealer[];
-  lockedDealerId: string | null;
-  initialBranches: Branch[];
+  role: Role;
+  sessionDealerId: string | null;
+  sessionBranchId: string | null;
+  pinnedDealerName?: string | null;
+  pinnedBranchName?: string | null;
   initialTechnicians: Technician[];
 }) {
   const router = useRouter();
 
   // ---- vehicle smart search ----
+  // Uploaded via AttachmentService against this temporary ID (the real
+  // job_id doesn't exist until /api/records creates the record) - see
+  // uploadAttachment.ts / reassignAttachments().
+  const pendingEntityId = useRef(newPendingEntityId()).current;
   const [serial, setSerial] = useState('');
   const [vehicle, setVehicle] = useState<VehicleInfo | null>(null);
   const [vehicleChecked, setVehicleChecked] = useState(false);
@@ -93,10 +105,13 @@ export default function ReportForm({
   });
 
   // ---- repair details (Phase 3) ----
-  const [dealerId, setDealerId] = useState(lockedDealerId ?? '');
-  const [branches, setBranches] = useState<Branch[]>(initialBranches);
+  const scope = useDealerBranchScope({
+    role,
+    sessionDealerId,
+    sessionBranchId,
+    initialDealers: dealers,
+  });
   const [technicians, setTechnicians] = useState<Technician[]>(initialTechnicians);
-  const [branchId, setBranchId] = useState('');
   const [technicianId, setTechnicianId] = useState('');
   const [repairDate, setRepairDate] = useState(todayStr());
   const [hoursInForRepair, setHoursInForRepair] = useState('');
@@ -111,36 +126,24 @@ export default function ReportForm({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ jobId: string; warrantyStatus: string } | null>(null);
 
-  const effectiveDealerId = lockedDealerId ?? dealerId;
+  const effectiveDealerId = scope.currentDealer?.id ?? sessionDealerId ?? '';
+  const branchId = scope.currentBranch?.id ?? '';
 
-  // Refetch branches when an unlocked Dealer selector changes.
-  useEffect(() => {
-    if (lockedDealerId) return;
-    if (!dealerId) {
-      setBranches([]);
-      setBranchId('');
-      return;
-    }
-    fetch(`/api/branches?dealerId=${encodeURIComponent(dealerId)}`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.ok) setBranches(json.branches);
-      })
-      .catch(() => {});
-  }, [dealerId, lockedDealerId]);
-
-  // Refetch technicians whenever the dealer or branch selection changes.
+  // Refetch technicians whenever the dealer or branch selection changes,
+  // and clear the previously-selected technician since it may not belong
+  // to the new dealer/branch's roster.
   const firstTechFetch = useRef(true);
   useEffect(() => {
     if (firstTechFetch.current) {
       firstTechFetch.current = false;
       return; // skip redundant refetch on mount - server already loaded initialTechnicians
     }
+    setTechnicianId('');
     if (!effectiveDealerId) {
       setTechnicians([]);
       return;
     }
-    const branchName = branches.find((b) => b.id === branchId)?.name ?? '';
+    const branchName = scope.currentBranch?.name ?? '';
     const qs = new URLSearchParams({ dealerId: effectiveDealerId });
     if (branchName) qs.set('branch', branchName);
     fetch(`/api/technicians?${qs.toString()}`)
@@ -149,17 +152,7 @@ export default function ReportForm({
         if (json.ok) setTechnicians(json.technicians);
       })
       .catch(() => {});
-  }, [effectiveDealerId, branchId, branches]);
-
-  function onDealerChange(id: string) {
-    setDealerId(id);
-    setBranchId('');
-    setTechnicianId('');
-  }
-  function onBranchChange(id: string) {
-    setBranchId(id);
-    setTechnicianId('');
-  }
+  }, [effectiveDealerId, branchId, scope.currentBranch]);
 
   const selectedCode = useMemo(
     () => problemCodes.find((p) => p.id === problemCodeId) ?? null,
@@ -320,11 +313,11 @@ export default function ReportForm({
     }
   }
 
-  /** Size-routed upload (shared with the record update form via
-   * `uploadFileSmart` - see `src/components/shared/upload/uploadFileSmart.ts`
-   * for why files above 4MB can't just be proxied directly). */
-  async function uploadOne(file: File, label: string, onProgress?: (pct: number) => void): Promise<string> {
-    return uploadFileSmart(file, label, effectiveDealerId, onProgress);
+  /** Uploads through AttachmentService (`src/shared/attachments/`) rather
+   *  than any storage provider directly - see
+   *  `docs/engineering/ATTACHMENT_FRAMEWORK.md`. */
+  async function uploadOne(file: File, label: string, attachmentType: 'ReportPhoto' | 'DefectPhoto' | 'RepairPhoto' | 'Video', onProgress?: (pct: number) => void) {
+    return uploadAttachment(file, { module: 'mqr', entityType: 'record', entityId: pendingEntityId, attachmentType, label }, onProgress);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -345,7 +338,7 @@ export default function ReportForm({
       swalError('ไม่พบหมายเลขรถในระบบ กรุณาระบุที่มาของรถ (สต็อก/อื่นๆ)');
       return;
     }
-    if (!lockedDealerId && !dealerId) {
+    if (!scope.isDealerPinned && !effectiveDealerId) {
       swalError('กรุณาเลือกดีลเลอร์');
       return;
     }
@@ -382,12 +375,13 @@ export default function ReportForm({
         file: File | null;
         category: PhotoLink['category'];
         label: string;
+        attachmentType: 'ReportPhoto' | 'DefectPhoto' | 'RepairPhoto';
       }[] = [
-        { file: odometerPhoto, category: 'odometer', label: 'รูปเรือนไมล์' },
-        { file: serialPhoto, category: 'vehicle_serial', label: 'รูปเลขรถ' },
-        { file: damagePhoto1, category: 'damage_point_1', label: 'รูปจุดที่เสียหาย 1' },
-        { file: damagePhoto2, category: 'damage_point_2', label: 'รูปจุดที่เสียหาย 2' },
-        { file: damagePhoto3, category: 'damage_point_3', label: 'รูปจุดที่เสียหาย 3' },
+        { file: odometerPhoto, category: 'odometer', label: 'รูปเรือนไมล์', attachmentType: 'ReportPhoto' },
+        { file: serialPhoto, category: 'vehicle_serial', label: 'รูปเลขรถ', attachmentType: 'ReportPhoto' },
+        { file: damagePhoto1, category: 'damage_point_1', label: 'รูปจุดที่เสียหาย 1', attachmentType: 'DefectPhoto' },
+        { file: damagePhoto2, category: 'damage_point_2', label: 'รูปจุดที่เสียหาย 2', attachmentType: 'DefectPhoto' },
+        { file: damagePhoto3, category: 'damage_point_3', label: 'รูปจุดที่เสียหาย 3', attachmentType: 'DefectPhoto' },
       ];
       const totalFiles = namedPhotoSlots.filter((s) => s.file).length + (video ? 1 : 0);
       let doneFiles = 0;
@@ -395,18 +389,21 @@ export default function ReportForm({
         if (!slot.file) continue;
         doneFiles += 1;
         swalUpdateLoading(`กำลังอัปโหลด${slot.label} (${doneFiles}/${totalFiles})...`);
-        const url = await uploadOne(slot.file, slot.label, (pct) =>
+        const uploaded = await uploadOne(slot.file, slot.label, slot.attachmentType, (pct) =>
           swalUpdateLoading(`กำลังอัปโหลด${slot.label} (${doneFiles}/${totalFiles}) ${pct}%`),
         );
-        photoLinks.push({ category: slot.category, label: slot.label, url });
+        photoLinks.push({ category: slot.category, label: slot.label, url: uploaded.url ?? '', attachmentId: uploaded.attachmentId });
       }
       let videoLink: string | null = null;
+      let videoAttachmentId: string | null = null;
       if (video) {
         doneFiles += 1;
         swalUpdateLoading(`กำลังอัปโหลดวิดีโอปัญหา (${doneFiles}/${totalFiles})...`);
-        videoLink = await uploadOne(video, 'วิดีโอปัญหา', (pct) =>
+        const uploaded = await uploadOne(video, 'วิดีโอปัญหา', 'Video', (pct) =>
           swalUpdateLoading(`กำลังอัปโหลดวิดีโอปัญหา (${doneFiles}/${totalFiles}) ${pct}%`),
         );
+        videoLink = uploaded.url;
+        videoAttachmentId = uploaded.attachmentId;
       }
 
       swalUpdateLoading('กำลังบันทึกข้อมูลรายงาน...');
@@ -436,7 +433,8 @@ export default function ReportForm({
             googleMapsUrl: gpsLocation.googleMapsUrl,
             photoLinks,
             videoLink,
-            dealerId: lockedDealerId ?? dealerId,
+            videoAttachmentId,
+            dealerId: effectiveDealerId || null,
             branchId: branchId || null,
             technicianId: technicianId || null,
             repairDate,
@@ -445,6 +443,9 @@ export default function ReportForm({
         },
       );
 
+      // Reassigning uploaded attachments from pendingEntityId to the real
+      // job_id happens server-side in /api/records (single source of
+      // truth - see route.ts) rather than a second client round-trip.
       swalClose();
       setSuccess({ jobId: json.record.job_id, warrantyStatus: json.warranty.status });
     } catch (err: any) {
@@ -701,39 +702,16 @@ export default function ReportForm({
         <h2 className="font-semibold text-brand-dark">3. รายละเอียดงานซ่อม</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {!lockedDealerId && (
-            <div>
-              <label className="block text-sm font-medium mb-1">ดีลเลอร์</label>
-              <select
-                className="w-full border border-gray-300 rounded px-3 py-2"
-                value={dealerId}
-                onChange={(e) => onDealerChange(e.target.value)}
-                required
-              >
-                <option value="">-- เลือกดีลเลอร์ --</option>
-                {dealers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.short_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium mb-1">สาขา</label>
-            <select
-              className="w-full border border-gray-300 rounded px-3 py-2"
-              value={branchId}
-              onChange={(e) => onBranchChange(e.target.value)}
-            >
-              <option value="">-- ไม่ระบุ --</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <DealerBranchSelector
+            scope={scope}
+            pinnedDealerName={pinnedDealerName}
+            pinnedBranchName={pinnedBranchName}
+            dealerLabel="ดีลเลอร์"
+            branchLabel="สาขา"
+            dealerAllLabel="-- เลือกดีลเลอร์ --"
+            branchAllLabel="-- ไม่ระบุ --"
+            className="contents"
+          />
           <div>
             <label className="block text-sm font-medium mb-1">ช่างผู้รับผิดชอบ</label>
             <select

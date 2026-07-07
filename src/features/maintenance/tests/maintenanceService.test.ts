@@ -36,6 +36,9 @@ function makeRecord(overrides: Partial<MaintenanceRecord> = {}): MaintenanceReco
     meter_photo_url: null,
     nameplate_photo_url: null,
     report_photo_url: null,
+    meter_photo_attachment_id: null,
+    nameplate_photo_attachment_id: null,
+    report_photo_attachment_id: null,
     latitude: null,
     longitude: null,
     gps_accuracy: null,
@@ -91,7 +94,7 @@ describe('MaintenanceService', () => {
       const filter = { dealerId: 'D1' };
       const result = await service.list(filter);
 
-      expect(repository.list).toHaveBeenCalledWith(filter);
+      expect(repository.list).toHaveBeenCalledWith(filter, undefined);
       expect(result).toBe(records);
     });
 
@@ -100,7 +103,7 @@ describe('MaintenanceService', () => {
 
       await service.list();
 
-      expect(repository.list).toHaveBeenCalledWith(undefined);
+      expect(repository.list).toHaveBeenCalledWith(undefined, undefined);
     });
   });
 
@@ -111,7 +114,7 @@ describe('MaintenanceService', () => {
 
       const result = await service.getById('rec-1');
 
-      expect(repository.getById).toHaveBeenCalledWith('rec-1');
+      expect(repository.getById).toHaveBeenCalledWith('rec-1', undefined);
       expect(result).toBe(record);
     });
 
@@ -352,7 +355,7 @@ describe('MaintenanceService', () => {
       const filter = { page: 1, pageSize: 25, search: 'SN-1' };
       const returned = await service.listHistory(filter);
 
-      expect(repository.listHistory).toHaveBeenCalledWith(filter);
+      expect(repository.listHistory).toHaveBeenCalledWith(filter, undefined);
       expect(returned).toBe(result);
     });
   });

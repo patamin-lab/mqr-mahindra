@@ -93,6 +93,25 @@ actually ship today — not a green-field proposal.
   [`DASHBOARD_MODEL.md`](DASHBOARD_MODEL.md),
   [`OBSERVABILITY.md`](OBSERVABILITY.md),
   [`ADMIN_FRAMEWORK.md`](ADMIN_FRAMEWORK.md)
+- [`engineering/MACHINE_DOMAIN.md`](engineering/MACHINE_DOMAIN.md) —
+  Phase 5B's Machine business entity: the `src/features/machine/` facade,
+  what did/didn't get renamed, and the Product Hierarchy.
+- [`engineering/ATTACHMENT_FRAMEWORK.md`](engineering/ATTACHMENT_FRAMEWORK.md),
+  [`engineering/MEDIA_PLATFORM.md`](engineering/MEDIA_PLATFORM.md) —
+  Phase 5B's shared file-storage platform (`src/shared/attachments/`):
+  data model, provider independence, archive lifecycle, retention policy,
+  and what's deliberately not yet migrated onto it.
+- [`PLATFORM_BASELINE.md`](PLATFORM_BASELINE.md) — **start here for the
+  Storage Platform's current, frozen state.** Overview, architecture,
+  implemented/operational services, governance, CI enforcement, release
+  status, production prerequisites, known limitations, roadmap.
+  [`architecture/PLATFORM_CONSTITUTION.md`](architecture/PLATFORM_CONSTITUTION.md)
+  is the permanent policy behind it; `engineering/STORAGE_PLATFORM_FINAL.md`/
+  `STORAGE_PLATFORM_DECISION.md` are the detailed architecture/rationale
+  references; `engineering/ARCHITECTURE_ENFORCEMENT.md` documents the
+  automated `npm run architecture` check; `engineering/STORAGE_HYGIENE.md`/
+  `STORAGE_OPERATIONS.md` cover the orphan-cleanup and health/metrics/audit
+  operational layer.
 
 ## Design & UI
 
@@ -110,6 +129,8 @@ actually ship today — not a green-field proposal.
 - [`adr/ADR-005-Design-System.md`](adr/ADR-005-Design-System.md)
 - [`adr/ADR-006-Module-Architecture.md`](adr/ADR-006-Module-Architecture.md)
 - [`adr/ADR-007-Scheduler.md`](adr/ADR-007-Scheduler.md)
+- [`adr/ADR-009-Machine-Domain.md`](adr/ADR-009-Machine-Domain.md)
+- [`adr/ADR-010-Attachment-Platform.md`](adr/ADR-010-Attachment-Platform.md)
 
 ## Product & vision
 
@@ -125,8 +146,16 @@ actually ship today — not a green-field proposal.
   — environment, Google Drive, Supabase, storage/backup/restore,
   deployment, smoke test, rollback checklist for every production
   deployment.
-- [`releases/RC1_RELEASE_NOTES.md`](releases/RC1_RELEASE_NOTES.md) —
-  Release 1.0 candidate notes.
+- [`releases/MASP_PLATFORM_FOUNDATION_V1.1.md`](releases/MASP_PLATFORM_FOUNDATION_V1.1.md)
+  — the official v1.1.0 release baseline: all four modules, the shared
+  DealerBranchScope authorization standard, all four Foundation platforms
+  (feature-frozen), verification, known limitations. **Start here for
+  current release status.**
+- [`releases/archive/MASP_PLATFORM_FOUNDATION_V1.0.md`](releases/archive/MASP_PLATFORM_FOUNDATION_V1.0.md)
+  — archived: superseded by v1.1.0 above.
+- [`releases/archive/RC1_RELEASE_NOTES.md`](releases/archive/RC1_RELEASE_NOTES.md)
+  — archived: Release 1.0 candidate notes for an earlier, narrower
+  scope, superseded by the baseline above.
 
 ## How these fit together
 

@@ -2,12 +2,19 @@ import { google } from 'googleapis';
 import { Readable } from 'stream';
 
 /**
- * Google Drive storage for report photos/videos, replacing Supabase Storage
- * per the dealer's request. Files are organized as:
- *   {ROOT_FOLDER}/{dealerShortName}/{jobId}/{filename}
- * New-report uploads happen before a job_id exists, so they land in a
- * per-dealer "_pending" folder first and get re-parented into the real
- * job folder by `relocatePendingFiles` once the record is created.
+ * Google Drive access - now used exclusively as the Attachment Platform's
+ * archive-tier `StorageProvider` (`GoogleDriveStorageProvider`), never
+ * called directly by a business module. Every module's direct-upload
+ * path (formerly `uploadFileSmart.ts`/`/api/upload*`, which called
+ * `uploadFileToDrive()`/`initResumableUpload()`/`relocatePendingFiles()`
+ * below) has migrated onto `AttachmentService`, whose primary storage is
+ * Supabase/R2, not Drive - see `docs/architecture/PLATFORM_CONSTITUTION.md`.
+ * Files are organized as {ROOT_FOLDER}/{dealerFolderName}/{jobId-or-_pending}/
+ * {filename} - the "_pending" fallback and job-folder relocation concept
+ * predate this narrowing and are unused by the archive tier (which always
+ * passes a fixed `dealerFolderName` and no `jobId`), but are harmless,
+ * inert code paths, not removed since `uploadFileToDrive()` still relies
+ * on the same folder-resolution helper.
  *
  * Auth: OAuth2 as a real Google account, NOT a service account. Service
  * accounts have zero Drive storage quota of their own - on a personal
@@ -113,13 +120,40 @@ function fileUrlFor(fileId: string, mimeType: string): string {
     : `https://drive.google.com/file/d/${fileId}/view`;
 }
 
-/** Extracts the Drive file ID back out of either URL shape `fileUrlFor` produces. */
-export function driveFileIdFromUrl(url: string): string | null {
-  const uc = url.match(/[?&]id=([^&]+)/);
-  if (uc) return uc[1];
-  const view = url.match(/\/file\/d\/([^/]+)/);
-  if (view) return view[1];
-  return null;
+/** Whether a file ID still exists (and isn't trashed) on Drive - used by
+ *  the Attachment Platform's `exists()` (see `GoogleDriveStorageProvider`). */
+export async function fileExistsOnDrive(fileId: string): Promise<boolean> {
+  const drive = driveClient();
+  try {
+    const res = await drive.files.get({ fileId, fields: 'id,trashed', supportsAllDrives: true });
+    return res.data.trashed !== true;
+  } catch (err: any) {
+    if (err?.code === 404 || err?.response?.status === 404) return false;
+    throw err;
+  }
+}
+
+/** Lists every file ID directly under one named folder (created via
+ *  `getOrCreateFolder()` if it doesn't already exist) - used by the
+ *  Attachment Platform's `list()` for the archive folder. */
+export async function listFilesInDriveFolder(folderName: string): Promise<string[]> {
+  const drive = driveClient();
+  const folderId = await getOrCreateFolder(drive, folderName, rootFolderId());
+  const files: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await drive.files.list({
+      q: `'${folderId}' in parents and trashed=false`,
+      fields: 'nextPageToken, files(id)',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      spaces: 'drive',
+      pageToken,
+    });
+    files.push(...(res.data.files ?? []).map((f) => f.id).filter((id): id is string => !!id));
+    pageToken = res.data.nextPageToken ?? undefined;
+  } while (pageToken);
+  return files;
 }
 
 export interface DriveUploadParams {
@@ -155,102 +189,21 @@ export async function uploadFileToDrive(params: DriveUploadParams): Promise<{ ur
   return { url: fileUrlFor(fileId, params.mimeType), fileId };
 }
 
-export interface ResumableInitParams {
-  filename: string;
-  mimeType: string;
-  dealerFolderName: string;
-  jobId?: string | null;
-}
-
-/**
- * Starts a Google Drive "resumable" upload session and hands back the bare
- * session URL. The browser then PUTs the raw file bytes straight to Google
- * - never through our own Vercel function - which is what lets large
- * photos/videos (anything over Vercel's hard 4.5MB request-body cap) get
- * uploaded at all. The session URL is single-use and already scoped to
- * this one upload, so no Google credential is ever exposed to the client;
- * only our server (via `driveClient()`'s OAuth2 token) talks to Google
- * directly here.
- */
-export async function initResumableUpload(
-  params: ResumableInitParams
-): Promise<{ sessionUrl: string }> {
-  const auth = oauthClient();
-  const drive = google.drive({ version: 'v3', auth });
-  const targetFolderId = await resolveTargetFolderId(drive, params.dealerFolderName, params.jobId);
-  const { token } = await auth.getAccessToken();
-  if (!token) throw new Error('ไม่สามารถขอ access token จาก Google ได้');
-
-  const res = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json; charset=UTF-8',
-        'X-Upload-Content-Type': params.mimeType,
-      },
-      body: JSON.stringify({ name: params.filename, parents: [targetFolderId] }),
-    }
-  );
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`เริ่มอัปโหลดขึ้น Google Drive ไม่สำเร็จ (${res.status}) ${detail}`.trim());
-  }
-
-  const sessionUrl = res.headers.get('Location') || res.headers.get('location');
-  if (!sessionUrl) throw new Error('ไม่ได้รับ session URL จาก Google Drive');
-  return { sessionUrl };
-}
-
-/**
- * After the browser has PUT the file bytes directly to the resumable
- * session URL and gotten back a Drive file ID, this sets the "anyone with
- * the link can view" permission (which must happen server-side, with our
- * Google credentials) and returns the same URL shape `uploadFileToDrive`
- * produces, so callers can treat both upload paths identically.
- */
-export async function finalizeResumableUpload(fileId: string, mimeType: string): Promise<{ url: string }> {
+/** Deletes one Drive file outright - used by the Attachment Platform's
+ *  `delete()` when an attachment has already been archived (its bytes no
+ *  longer live in Supabase Storage, only in Drive). */
+export async function deleteFileFromDrive(fileId: string): Promise<void> {
   const drive = driveClient();
-  await drive.permissions.create({
-    fileId,
-    requestBody: { role: 'reader', type: 'anyone' },
-    supportsAllDrives: true,
-  });
-  return { url: fileUrlFor(fileId, mimeType) };
+  await drive.files.delete({ fileId, supportsAllDrives: true });
 }
 
-/**
- * After a new record is saved and its job_id is known, moves every file
- * that was uploaded into the dealer's "_pending" folder into the real
- * {dealer}/{jobId} folder. File IDs (and therefore the URLs already saved
- * on the record) never change - only the parent folder does.
- */
-export async function relocatePendingFiles(
-  dealerFolderName: string,
-  jobId: string,
-  urls: (string | null | undefined)[]
-): Promise<void> {
-  const fileIds = urls
-    .filter((u): u is string => !!u && u.includes('drive.google.com'))
-    .map(driveFileIdFromUrl)
-    .filter((id): id is string => !!id);
-  if (fileIds.length === 0) return;
-
+/** Downloads a Drive file's raw bytes back into a `Buffer` - used by the
+ *  Attachment Platform's `restore()`/`verifyChecksum()` (see
+ *  `docs/engineering/ATTACHMENT_FRAMEWORK.md`), which are the first
+ *  callers that ever need bytes back out of Drive rather than just a
+ *  share link. */
+export async function downloadFileFromDrive(fileId: string): Promise<Buffer> {
   const drive = driveClient();
-  const dealerFolderId = await getOrCreateFolder(drive, dealerFolderName, rootFolderId());
-  const pendingFolderId = await getOrCreateFolder(drive, PENDING_FOLDER_NAME, dealerFolderId);
-  const jobFolderId = await getOrCreateFolder(drive, jobId, dealerFolderId);
-
-  await Promise.all(
-    fileIds.map((fileId) =>
-      drive.files.update({
-        fileId,
-        addParents: jobFolderId,
-        removeParents: pendingFolderId,
-        supportsAllDrives: true,
-      })
-    )
-  );
+  const res = await drive.files.get({ fileId, alt: 'media', supportsAllDrives: true }, { responseType: 'arraybuffer' });
+  return Buffer.from(res.data as ArrayBuffer);
 }

@@ -65,6 +65,12 @@ export interface MaintenanceRecord {
   meter_photo_url: string | null;
   nameplate_photo_url: string | null;
   report_photo_url: string | null;
+  /** Set for a photo uploaded via the Attachment Platform (Phase 5B.1) -
+   *  null for a pre-migration record whose `*_photo_url` was a direct
+   *  Google Drive URL. See docs/engineering/ATTACHMENT_FRAMEWORK.md. */
+  meter_photo_attachment_id: string | null;
+  nameplate_photo_attachment_id: string | null;
+  report_photo_attachment_id: string | null;
   latitude: number | null;
   longitude: number | null;
   gps_accuracy: number | null;
@@ -122,6 +128,13 @@ export type MaintenanceRecordCreateInput = Pick<
   longitude?: number | null;
   gps_accuracy?: number | null;
   google_maps_url?: string | null;
+  /** Set when the corresponding photo was uploaded via the Attachment
+   *  Platform (Phase 5B.1) - optional so existing callers/tests
+   *  predating this migration don't need updating. See
+   *  docs/engineering/ATTACHMENT_FRAMEWORK.md. */
+  meter_photo_attachment_id?: string | null;
+  nameplate_photo_attachment_id?: string | null;
+  report_photo_attachment_id?: string | null;
 };
 
 /** Shape accepted when updating a Maintenance Record. All fields optional (partial patch). */
@@ -142,6 +155,9 @@ export type MaintenanceRecordUpdateInput = Partial<
     | 'meter_photo_url'
     | 'nameplate_photo_url'
     | 'report_photo_url'
+    | 'meter_photo_attachment_id'
+    | 'nameplate_photo_attachment_id'
+    | 'report_photo_attachment_id'
     | 'latitude'
     | 'longitude'
     | 'gps_accuracy'

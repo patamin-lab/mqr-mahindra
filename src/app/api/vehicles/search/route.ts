@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { searchVehicles } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -9,7 +9,9 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') ?? '';
-  const dealerId = seesAllDealers(session.role) ? null : session.dealerId;
+  // Vehicles are dealer-level master data - scoped to dealer only, not
+  // branch (see api/vehicles/list/route.ts's comment).
+  const { dealerId } = resolveDealerScope(session, null);
 
   try {
     const results = await searchVehicles(q, dealerId);

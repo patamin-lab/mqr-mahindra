@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { canDelete } from '@/lib/scope';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { parseWithSchema, ValidationError } from '@/lib/validation';
 import { buildNtrRecordUpdateBodySchema, NtrRecordUpdateBody } from '@/features/ntr/schemas';
 import { NtrRecord } from '@/features/ntr/types';
 import { createNtrService } from '@/features/ntr/factory';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import type { SessionUser } from '@/lib/types';
 
-/** Zero-leakage: a non-privileged actor may only act on their own dealer's
- *  record - the exact check found missing on PM's equivalent route during
- *  the Release 1.0 acceptance sprint (see docs/standards/SECURITY_STANDARD.md),
- *  applied here from day one instead of being retrofitted later. */
-function isOutOfScope(session: { dealerId: string | null }, record: NtrRecord): boolean {
-  return Boolean(session.dealerId) && record.dealer_id !== session.dealerId;
+/** Dealer/Branch Scope Platform Standard, two-layer defense in depth
+ *  (matching this app's RLS + `applyScope()` convention elsewhere):
+ *  `service.getById(id, session)` already applies dealer/branch scope
+ *  inside the repository, but every route also independently re-checks
+ *  via the shared `canAccessDealerBranch()` before acting - never trusts
+ *  a single layer alone. */
+function isOutOfScope(session: SessionUser, record: NtrRecord): boolean {
+  return !canAccessDealerBranch(session, record.dealer_id, record.branch_id);
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -24,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
 
   try {
-    const record = await createNtrService().getById(params.id);
+    const record = await createNtrService().getById(params.id, session);
     if (!record) {
       return NextResponse.json({ ok: false, error: { code: 'NOT_FOUND', message: 'NTR record not found' } }, { status: 404 });
     }
@@ -69,7 +73,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const service = createNtrService();
 
   try {
-    const existing = await service.getById(params.id);
+    const existing = await service.getById(params.id, session);
     if (!existing) {
       return NextResponse.json({ ok: false, error: { code: 'NOT_FOUND', message: 'NTR record not found' } }, { status: 404 });
     }
@@ -115,7 +119,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const service = createNtrService();
 
   try {
-    const existing = await service.getById(params.id);
+    const existing = await service.getById(params.id, session);
     if (!existing) {
       return NextResponse.json({ ok: false, error: { code: 'NOT_FOUND', message: 'NTR record not found' } }, { status: 404 });
     }

@@ -6,6 +6,9 @@
  * client/connection. Table name `ntr_records` per the migration.
  */
 import { getSupabase } from '@/lib/supabase';
+import { applyScope } from '@/lib/db';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import type { SessionUser } from '@/lib/types';
 import { NtrLegacyImportVehicleInput, NtrRepository } from './ntrRepository';
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 
@@ -30,10 +33,16 @@ export class SupabaseNtrRepository implements NtrRepository {
 
   private readonly table = 'ntr_records';
 
-  async getById(id: string): Promise<NtrRecord | null> {
+  /** `session` is optional for interface back-compat with existing callers
+   *  during the Dealer/Branch Scope Platform Standard rollout (see
+   *  PROJECT_STATE.md/the DealerBranchScope plan) - once NTR's API routes
+   *  are migrated (Phase "NTR"), every caller should pass it so a
+   *  DealerUser can never fetch a record outside their own branch. */
+  async getById(id: string, session?: SessionUser): Promise<NtrRecord | null> {
     const { data, error } = await this.client.from(this.table).select('*').eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data || data.record_status === 'Deleted') return null;
+    if (session && !canAccessDealerBranch(session, data.dealer_id, data.branch_id ?? null)) return null;
     return data as NtrRecord;
   }
 
@@ -123,12 +132,19 @@ export class SupabaseNtrRepository implements NtrRepository {
       longitude: input.longitude ?? null,
       gps_accuracy: input.gps_accuracy ?? null,
       google_maps_url: input.google_maps_url ?? null,
+      photo_customer_id_url: input.photo_customer_id_url,
       photo_customer_tractor_url: input.photo_customer_tractor_url,
       photo_serial_plate_url: input.photo_serial_plate_url,
       photo_hour_meter_url: input.photo_hour_meter_url,
       photo_signed_document_url: input.photo_signed_document_url,
+      photo_customer_id_attachment_id: input.photo_customer_id_attachment_id ?? null,
+      photo_customer_tractor_attachment_id: input.photo_customer_tractor_attachment_id ?? null,
+      photo_serial_plate_attachment_id: input.photo_serial_plate_attachment_id ?? null,
+      photo_hour_meter_attachment_id: input.photo_hour_meter_attachment_id ?? null,
+      photo_signed_document_attachment_id: input.photo_signed_document_attachment_id ?? null,
       additional_photos: input.additional_photos ?? [],
       video_url: input.video_url,
+      video_attachment_id: input.video_attachment_id ?? null,
       audio_url: input.audio_url,
       status: 'Completed',
       record_status: 'Active',
@@ -176,12 +192,19 @@ export class SupabaseNtrRepository implements NtrRepository {
     if (input.longitude !== undefined) updatePayload.longitude = input.longitude;
     if (input.gps_accuracy !== undefined) updatePayload.gps_accuracy = input.gps_accuracy;
     if (input.google_maps_url !== undefined) updatePayload.google_maps_url = input.google_maps_url;
+    if (input.photo_customer_id_url !== undefined) updatePayload.photo_customer_id_url = input.photo_customer_id_url;
     if (input.photo_customer_tractor_url !== undefined) updatePayload.photo_customer_tractor_url = input.photo_customer_tractor_url;
     if (input.photo_serial_plate_url !== undefined) updatePayload.photo_serial_plate_url = input.photo_serial_plate_url;
     if (input.photo_hour_meter_url !== undefined) updatePayload.photo_hour_meter_url = input.photo_hour_meter_url;
     if (input.photo_signed_document_url !== undefined) updatePayload.photo_signed_document_url = input.photo_signed_document_url;
+    if (input.photo_customer_id_attachment_id !== undefined) updatePayload.photo_customer_id_attachment_id = input.photo_customer_id_attachment_id;
+    if (input.photo_customer_tractor_attachment_id !== undefined) updatePayload.photo_customer_tractor_attachment_id = input.photo_customer_tractor_attachment_id;
+    if (input.photo_serial_plate_attachment_id !== undefined) updatePayload.photo_serial_plate_attachment_id = input.photo_serial_plate_attachment_id;
+    if (input.photo_hour_meter_attachment_id !== undefined) updatePayload.photo_hour_meter_attachment_id = input.photo_hour_meter_attachment_id;
+    if (input.photo_signed_document_attachment_id !== undefined) updatePayload.photo_signed_document_attachment_id = input.photo_signed_document_attachment_id;
     if (input.additional_photos !== undefined) updatePayload.additional_photos = input.additional_photos;
     if (input.video_url !== undefined) updatePayload.video_url = input.video_url;
+    if (input.video_attachment_id !== undefined) updatePayload.video_attachment_id = input.video_attachment_id;
     if (input.audio_url !== undefined) updatePayload.audio_url = input.audio_url;
     if (input.status !== undefined) updatePayload.status = input.status;
 
@@ -196,24 +219,43 @@ export class SupabaseNtrRepository implements NtrRepository {
     return data as NtrRecord;
   }
 
+  /** Calls `soft_delete_ntr_record()` (SECURITY DEFINER RPC) instead of a
+   *  direct `.update()` - a confirmed, unexplained Postgres/Supabase-level
+   *  anomaly rejects the `anon` role's UPDATE transitioning
+   *  `record_status` away from 'Active' on this table, even under a
+   *  fully-permissive RLS policy (reproduced in a minimal SQL case with
+   *  no application logic; every other mechanism - triggers, rules,
+   *  inheritance, views, generated columns, grants, hidden policies -
+   *  ruled out). This is a narrow, single-purpose bypass for exactly this
+   *  write, not a replacement for RLS: every authorization check (role,
+   *  ownership, scope, `canDelete()`) still happens in application code
+   *  before this is ever called - see `NtrService.delete()` and
+   *  `src/app/api/ntr-records/[id]/route.ts`'s `DELETE` handler. If
+   *  Supabase later identifies the platform-level root cause, this can
+   *  revert to a plain `.update()` - the call site's contract (this
+   *  method's signature) does not change either way. */
   async delete(id: string, actor: { username: string }, reason?: string | null): Promise<void> {
-    const { error } = await this.client
-      .from(this.table)
-      .update({
-        record_status: 'Deleted',
-        deleted_by: actor.username,
-        deleted_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('record_status', 'Active');
-    if (error) throw error;
     // `reason` is accepted for interface parity with MaintenanceRepository
     // (a future admin-forced-delete flow may want it) but NTR has no
     // deleted_reason column yet - unused today, not silently dropped data.
-    void reason;
+    const { error } = await this.client.rpc('soft_delete_ntr_record', {
+      p_id: id,
+      p_actor: actor.username,
+      p_reason: reason ?? null,
+    });
+    if (error) {
+      if (error.message.includes('NTR_NOT_FOUND')) throw new Error('NTR record not found');
+      if (error.message.includes('NTR_ALREADY_DELETED')) throw new Error('NTR record is already deleted');
+      throw error;
+    }
   }
 
-  async listHistory(filter: NtrHistoryFilter): Promise<NtrHistoryResult> {
+  /** `session`, when passed, resolves dealer/branch scope via the shared
+   *  `applyScope()` (Dealer/Branch Scope Platform Standard) instead of
+   *  trusting `filter.dealerId`/`filter.branchId` as-is - optional only for
+   *  back-compat with callers not yet migrated (NTR API routes/UI, Phase
+   *  "NTR" of the rollout). */
+  async listHistory(filter: NtrHistoryFilter, session?: SessionUser): Promise<NtrHistoryResult> {
     const page = Math.max(filter.page, 1);
     const pageSize = Math.min(Math.max(filter.pageSize, 1), 200);
     const from = (page - 1) * pageSize;
@@ -221,8 +263,14 @@ export class SupabaseNtrRepository implements NtrRepository {
 
     let query = this.client.from(this.table).select('*', { count: 'exact' }).eq('record_status', 'Active');
 
-    if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
-    if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    if (session) {
+      query = applyScope(query, session, { dealerId: filter.dealerId, branchId: filter.branchId });
+      // applyScope() re-applies record_status='Active' (harmless, idempotent)
+      // and dealer_id/branch_id — remove the raw pass-through below for this path.
+    } else {
+      if (filter.dealerId) query = query.eq('dealer_id', filter.dealerId);
+      if (filter.branchId) query = query.eq('branch_id', filter.branchId);
+    }
     if (filter.model?.trim()) query = query.ilike('model', `%${filter.model.trim()}%`);
     if (filter.province?.trim()) query = query.ilike('customer_province', `%${filter.province.trim()}%`);
     if (filter.district?.trim()) query = query.ilike('customer_district', `%${filter.district.trim()}%`);

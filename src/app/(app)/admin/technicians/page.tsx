@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { listAllTechniciansAdmin, listAllDealersAdmin } from '@/lib/db';
 import { canManageMasterData, seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import TechniciansTable from './technicians-table';
 
 export default async function TechniciansAdminPage() {
@@ -9,7 +10,8 @@ export default async function TechniciansAdminPage() {
   if (!session) return null;
   if (!canManageMasterData(session.role)) redirect('/dashboard');
 
-  const technicians = await listAllTechniciansAdmin(seesAllDealers(session.role) ? null : session.dealerId);
+  const { dealerId, isPinned } = resolveDealerScope(session, null);
+  const technicians = await listAllTechniciansAdmin(dealerId);
   const dealers = seesAllDealers(session.role) ? await listAllDealersAdmin() : [];
 
   return (
@@ -18,7 +20,7 @@ export default async function TechniciansAdminPage() {
       <TechniciansTable
         initialTechnicians={technicians}
         dealers={dealers}
-        lockedDealerId={seesAllDealers(session.role) ? null : session.dealerId}
+        lockedDealerId={isPinned ? dealerId : null}
       />
     </div>
   );

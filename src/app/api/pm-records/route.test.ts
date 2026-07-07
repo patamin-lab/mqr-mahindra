@@ -5,19 +5,16 @@ vi.mock('@/lib/auth', () => ({
   getSession: vi.fn(),
 }));
 
-// getDealer/relocatePendingFiles are called after a successful create (Drive
-// folder relocation) - mocked so this integration test never touches
-// Supabase or Google Drive for real, per the "mock Repository layer only,
-// never connect to Supabase" constraint. logAuditEvent/logAuditEvents are
-// called by MaintenanceService.create() now too - same reasoning.
+// getDealer is called after a successful create - mocked so this
+// integration test never touches Supabase for real, per the "mock
+// Repository layer only, never connect to Supabase" constraint.
+// logAuditEvent/logAuditEvents are called by MaintenanceService.create()
+// now too - same reasoning.
 vi.mock('@/lib/db', () => ({
   getDealer: vi.fn().mockResolvedValue({ id: 'D1', short_name: 'D1' }),
   logAuditEvent: vi.fn(),
   logAuditEvents: vi.fn(),
   listActivePmIntervals: vi.fn().mockResolvedValue([{ id: 'interval-1', label: '50 Hr', interval_hours: 50, interval_months: null }]),
-}));
-vi.mock('@/lib/googleDrive', () => ({
-  relocatePendingFiles: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockRepository = {
@@ -39,6 +36,12 @@ vi.mock('@/features/maintenance/repositories/supabaseMaintenanceRepository', () 
   }),
 }));
 
+const mockAssertBranchAccess = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/lib/dealerBranchScope', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/dealerBranchScope')>();
+  return { ...actual, assertBranchAccess: mockAssertBranchAccess };
+});
+
 const { getSession } = await import('@/lib/auth');
 const { GET, POST } = await import('./route');
 
@@ -48,6 +51,7 @@ const dealerUserSession = {
   role: 'DealerUser' as const,
   dealerId: 'D1',
   branch: null,
+  branchId: null,
 };
 
 const activeRecord = {
@@ -112,7 +116,7 @@ describe('GET /api/pm-records', () => {
   it('returns 401 when unauthorized', async () => {
     vi.mocked(getSession).mockResolvedValue(null);
 
-    const res = await GET();
+    const res = await GET(new NextRequest('http://localhost/api/pm-records'));
     const json = await res.json();
 
     expect(res.status).toBe(401);
@@ -124,7 +128,7 @@ describe('GET /api/pm-records', () => {
     vi.mocked(getSession).mockResolvedValue(dealerUserSession);
     mockRepository.list.mockResolvedValue([]);
 
-    const res = await GET();
+    const res = await GET(new NextRequest('http://localhost/api/pm-records'));
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -135,7 +139,7 @@ describe('GET /api/pm-records', () => {
     vi.mocked(getSession).mockResolvedValue(dealerUserSession);
     mockRepository.list.mockResolvedValue([activeRecord]);
 
-    const res = await GET();
+    const res = await GET(new NextRequest('http://localhost/api/pm-records'));
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -225,5 +229,30 @@ describe('POST /api/pm-records', () => {
 
     expect(res.status).toBe(201);
     expect(json).toEqual({ ok: true, data: activeRecord });
+  });
+});
+
+describe('POST /api/pm-records — Dealer/Branch Scope authorization', () => {
+  beforeEach(() => {
+    mockRepository.create.mockReset();
+    mockAssertBranchAccess.mockReset().mockResolvedValue(undefined);
+    mockRepository.create.mockResolvedValue(activeRecord);
+  });
+
+  it('DealerUser is pinned to their own session dealer_id, ignoring any dealer_id in the body', async () => {
+    vi.mocked(getSession).mockResolvedValue(dealerUserSession);
+    const res = await POST(postRequest({ ...validCreateBody, dealer_id: 'OTHER_DEALER' }));
+    expect(res.status).toBe(201);
+    expect(mockRepository.create).toHaveBeenCalledWith(expect.objectContaining({ dealer_id: 'D1' }), expect.anything());
+  });
+
+  it('rejects a branch_id that does not belong to the resolved dealer_id', async () => {
+    vi.mocked(getSession).mockResolvedValue(dealerUserSession);
+    mockAssertBranchAccess.mockRejectedValue(new Error('FORBIDDEN_BRANCH'));
+    const res = await POST(postRequest({ ...validCreateBody, branch_id: 'foreign-branch' }));
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error.message).toMatch(/branch_id does not belong/);
+    expect(mockRepository.create).not.toHaveBeenCalled();
   });
 });

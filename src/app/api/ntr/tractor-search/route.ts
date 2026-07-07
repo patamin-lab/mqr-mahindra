@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { searchTractorsForNtr } from '@/lib/db';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope, resolveBranchScope } from '@/lib/dealerBranchScope';
 
 /**
  * Tractor Search for the NTR search-first workflow. Not part of
@@ -17,14 +17,15 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url);
-  const requestedDealerId = searchParams.get('dealerId');
-  // Zero-leakage: a non-privileged actor is always pinned to their own dealer.
-  const dealerId = seesAllDealers(session.role) ? requestedDealerId : session.dealerId;
+  // Zero-leakage: a non-privileged actor is always pinned to their own
+  // dealer/branch (DealerUser additionally pinned to their own branch).
+  const { dealerId } = resolveDealerScope(session, searchParams.get('dealerId'));
+  const { branchId } = resolveBranchScope(session, dealerId, searchParams.get('branchId'));
 
   try {
     const results = await searchTractorsForNtr({
       dealerId,
-      branchId: searchParams.get('branchId'),
+      branchId,
       serial: searchParams.get('serial'),
       engineNumber: searchParams.get('engineNumber'),
       model: searchParams.get('model'),

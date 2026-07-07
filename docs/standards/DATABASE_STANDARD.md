@@ -139,7 +139,7 @@ concurrent inserts). The bucket key is the module-prefixed dealer id
 modules issuing numbers for the same dealer in the same year never share
 a counter — see the Dealer Standard format,
 `<Module>-<DealerCode>-<Year>-<Running>`, and
-`docs/releases/RC1_RELEASE_NOTES.md` for why the module prefix on the
+`docs/releases/archive/RC1_RELEASE_NOTES.md` for why the module prefix on the
 bucket key specifically exists (it was added to prevent MQR and PM from
 colliding on the same counter).
 

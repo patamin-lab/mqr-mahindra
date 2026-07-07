@@ -1,5 +1,5 @@
 import { SessionUser } from '@/lib/types';
-import { seesAllDealers } from '@/lib/scope';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { MaintenanceHistoryFilter, MaintenanceHistorySortDir, MaintenanceHistorySortField } from '../types';
 
 const SORT_FIELDS: MaintenanceHistorySortField[] = ['performed_date', 'pm_number', 'hour_meter', 'created_at'];
@@ -21,24 +21,18 @@ export function parseMaintenanceHistoryFilterFromSearchParams(
   searchParams: URLSearchParams,
   session: SessionUser
 ): MaintenanceHistoryFilter {
-  // Zero-leakage: a non-privileged actor is always pinned to their own
-  // dealer (and, if their session carries a specific branch, their own
-  // branch too - "Dealer users: only their dealer. Branch users: only
-  // their branch." per spec), regardless of what the request asks for.
+  // Dealer/Branch Scope Platform Standard: `dealerId`/`branchId` below are
+  // only ever a *narrowing* request for a privileged role - the real
+  // DealerUser pin (dealer AND branch) is enforced downstream by
+  // `applyScope()`/`resolveBranchScope()` inside the repository, whenever
+  // the caller passes `session` into `listHistory()` (every caller now
+  // does). This replaces the previous hand-rolled `branchName`-based pin
+  // (matching the legacy free-text `session.branch` display string
+  // against the `branch_name` snapshot column), which is no longer needed
+  // now that a real `branch_id` UUID (`session.branchId`) exists.
   const requestedDealerId = searchParams.get('dealerId');
-  const dealerId = seesAllDealers(session.role) ? requestedDealerId : session.dealerId;
-  const requestedBranchId = searchParams.get('branchId');
-  // Fixed a real leak found in the production-stabilization audit: the
-  // previous version passed `requestedBranchId` through unconditionally
-  // for every role, so a branch-restricted DealerUser could see a sibling
-  // branch's rows just by adding `?branchId=<other-branch>` - the
-  // `branchName` fallback below only ever kicked in when branchId was
-  // *absent*, never validated against an explicit one. A branch-restricted
-  // session now always scopes via `branchName` regardless of what's
-  // requested; a dealer-wide (not branch-restricted) non-privileged user
-  // may still narrow to one branch within their own dealer, same as
-  // MQR's listRecords() branch filter.
-  const branchId = seesAllDealers(session.role) ? requestedBranchId : session.branch ? null : requestedBranchId;
+  const { dealerId } = resolveDealerScope(session, requestedDealerId);
+  const branchId = searchParams.get('branchId');
 
   const sortFieldParam = searchParams.get('sortField');
   const sortField = SORT_FIELDS.includes(sortFieldParam as MaintenanceHistorySortField)
@@ -70,9 +64,12 @@ export function parseMaintenanceHistoryFilterFromSearchParams(
     pageSize: numberOrNull(searchParams.get('pageSize')) ?? 25,
     sortField,
     sortDir,
-    // Branch-restricted (non-admin, no explicit branchId) users additionally
-    // never see another branch's rows, using the session's own branch name
-    // (SessionUser.branch) matched against the branch_name snapshot.
-    branchName: !seesAllDealers(session.role) && session.branch && !branchId ? session.branch : undefined,
+    // No longer derived from session - `applyScope()`'s real `branch_id`
+    // pin (see the comment above) replaces the old `branch_name`
+    // text-snapshot matching for DealerUser scoping. `branchName` remains
+    // in the filter shape only for any caller that explicitly wants to
+    // filter by the free-text snapshot name itself (not currently used by
+    // any UI, kept for interface back-compat).
+    branchName: undefined,
   };
 }

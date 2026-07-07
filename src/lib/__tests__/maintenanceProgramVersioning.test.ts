@@ -75,7 +75,7 @@ vi.mock('../supabase', () => ({
 
 import { resolveVehicleProgramVersionStages, syncMaintenanceProgramVersion } from '../db';
 
-const session: SessionUser = { username: 'alice', fullName: 'Alice', role: 'SuperAdmin', dealerId: null, branch: null };
+const session: SessionUser = { username: 'alice', fullName: 'Alice', role: 'SuperAdmin', dealerId: null, branch: null, branchId: null };
 
 describe('resolveVehicleProgramVersionStages', () => {
   beforeEach(() => {
