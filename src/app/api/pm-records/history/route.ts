@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const service = new MaintenanceService(repository);
 
   try {
-    const result = await service.listHistory(filter);
+    const result = await service.listHistory(filter, session);
     return NextResponse.json({ ok: true, data: result.data, total: result.total }, { status: 200 });
   } catch (error) {
     console.error('PM Record history API error', error);

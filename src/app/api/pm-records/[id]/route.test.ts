@@ -41,7 +41,7 @@ const dealerUserSession = {
   role: 'DealerUser' as const,
   dealerId: 'D1',
   branch: null,
-  branchId: null,
+  branchId: 'B1',
 };
 
 const dealerAdminSession = {
@@ -74,7 +74,7 @@ const otherDealerAdminSession = {
 const activeRecord = {
   id: 'rec-1',
   dealer_id: 'D1',
-  branch_id: null,
+  branch_id: 'B1',
   serial: null,
   technician_id: null,
   scheduled_date: null,

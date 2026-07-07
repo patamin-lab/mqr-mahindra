@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { canDelete } from '@/lib/scope';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService, MaintenanceLockError } from '@/features/maintenance/services/maintenanceService';
 import { parseWithSchema, ValidationError } from '@/features/maintenance/utils/validation';
@@ -8,11 +9,15 @@ import { buildMaintenanceRecordUpdateBodySchema, MaintenanceRecordUpdateBody } f
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 import type { MaintenanceRecord } from '@/features/maintenance/types';
+import type { SessionUser } from '@/lib/types';
 
-/** Zero-leakage: a non-privileged actor may only act on their own dealer's
- *  record — same scope check already used by the PM export route. */
-function isOutOfScope(session: { dealerId: string | null }, record: MaintenanceRecord): boolean {
-  return Boolean(session.dealerId) && record.dealer_id !== session.dealerId;
+/** Dealer/Branch Scope Platform Standard, two-layer defense in depth
+ *  (matching this app's RLS + `applyScope()` convention elsewhere):
+ *  `service.getById(id, session)` already applies dealer/branch scope
+ *  inside the repository, but every route also independently re-checks
+ *  via the shared `canAccessDealerBranch()` before acting. */
+function isOutOfScope(session: SessionUser, record: MaintenanceRecord): boolean {
+  return !canAccessDealerBranch(session, record.dealer_id, record.branch_id);
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -29,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const service = new MaintenanceService(repository);
 
   try {
-    const record = await service.getById(params.id);
+    const record = await service.getById(params.id, session);
     if (!record) {
       return NextResponse.json(
         { ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } },
@@ -90,7 +95,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const service = new MaintenanceService(repository);
 
   try {
-    const existing = await service.getById(params.id);
+    const existing = await service.getById(params.id, session);
     if (!existing) {
       return NextResponse.json(
         { ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } },
@@ -156,7 +161,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   const service = new MaintenanceService(repository);
 
   try {
-    const existing = await service.getById(params.id);
+    const existing = await service.getById(params.id, session);
     if (!existing) {
       return NextResponse.json(
         { ok: false, error: { code: 'NOT_FOUND', message: 'PM record not found' } },

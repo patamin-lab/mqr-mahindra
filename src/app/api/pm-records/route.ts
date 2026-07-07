@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { seesAllDealers } from '@/lib/scope';
 import { listActivePmIntervals } from '@/lib/db';
+import { resolveDealerScope, assertBranchAccess } from '@/lib/dealerBranchScope';
 import { AttachmentService } from '@/shared/attachments';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
@@ -11,7 +11,7 @@ import { MaintenanceRecordCreateInput } from '@/features/maintenance/types';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json(
@@ -23,8 +23,19 @@ export async function GET() {
   const repository = new SupabaseMaintenanceRepository();
   const service = new MaintenanceService(repository);
 
+  // Dealer/Branch Scope Platform Standard: this collection route was
+  // previously completely unscoped (returned every dealer's records to
+  // any authenticated user) - `session` now makes `list()` apply the
+  // shared `applyScope()` inside the repository, same as every other
+  // list path in this app.
+  const { searchParams } = new URL(req.url);
+  const filter = {
+    dealerId: searchParams.get('dealerId') ?? undefined,
+    branchId: searchParams.get('branchId') ?? undefined,
+  };
+
   try {
-    const data = await service.list();
+    const data = await service.list(filter, session);
     return NextResponse.json({ ok: true, data }, { status: 200 });
   } catch (error) {
     console.error('PM Record list API error', error);
@@ -61,7 +72,7 @@ export async function POST(req: NextRequest) {
   // mirroring the same rule already enforced in src/app/api/records/route.ts.
   // dealer_id is resolved here, not via the schema below, because schema
   // validation can only check shape - not who is allowed to set what.
-  const dealerId = seesAllDealers(session.role) ? String(body.dealer_id ?? '').trim() : session.dealerId;
+  const { dealerId } = resolveDealerScope(session, typeof body.dealer_id === 'string' ? body.dealer_id.trim() : undefined);
   if (!isNonEmptyString(dealerId)) {
     return NextResponse.json(
       { ok: false, error: { code: 'VALIDATION_ERROR', message: 'dealer_id is required' } },
@@ -80,6 +91,18 @@ export async function POST(req: NextRequest) {
       );
     }
     throw error;
+  }
+
+  // The vehicle's own branch_id (not a scope filter) must actually belong
+  // to the resolved dealer - closes a spoofed cross-dealer branch_id from
+  // a privileged role's request body.
+  try {
+    await assertBranchAccess(dealerId, parsedBody.branch_id ?? null);
+  } catch {
+    return NextResponse.json(
+      { ok: false, error: { code: 'VALIDATION_ERROR', message: 'branch_id does not belong to dealer_id' } },
+      { status: 400 }
+    );
   }
 
   // Server-side re-validation: the create form only ever offers intervals

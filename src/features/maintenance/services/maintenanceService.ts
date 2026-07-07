@@ -11,7 +11,7 @@
  * are trusted to actually block a write. See `utils/maintenanceLock.ts`.
  */
 import { logAuditEvent, logAuditEvents, diffFieldsForAudit } from '@/lib/db';
-import { Role } from '@/lib/types';
+import { Role, SessionUser } from '@/lib/types';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 import { MaintenanceRepository, MaintenanceFilter } from '../repositories/maintenanceRepository';
@@ -55,12 +55,15 @@ const PM_FIELD_LABELS: Record<string, string> = {
 export class MaintenanceService {
   constructor(private readonly repository: MaintenanceRepository) {}
 
-  async list(filter?: MaintenanceFilter): Promise<MaintenanceRecord[]> {
-    return this.repository.list(filter);
+  /** `session`, when passed, enforces the Dealer/Branch Scope Platform
+   *  Standard via the repository's own `applyScope()`/`canAccessDealerBranch()` -
+   *  forward it from every caller (routes, pages). */
+  async list(filter?: MaintenanceFilter, session?: SessionUser): Promise<MaintenanceRecord[]> {
+    return this.repository.list(filter, session);
   }
 
-  async getById(id: string): Promise<MaintenanceRecord | null> {
-    return this.repository.getById(id);
+  async getById(id: string, session?: SessionUser): Promise<MaintenanceRecord | null> {
+    return this.repository.getById(id, session);
   }
 
   async create(input: MaintenanceRecordCreateInput, actor: MaintenanceActor): Promise<MaintenanceRecord> {
@@ -226,7 +229,7 @@ export class MaintenanceService {
     return this.repository.findDuplicate(params);
   }
 
-  async listHistory(filter: MaintenanceHistoryFilter): Promise<MaintenanceHistoryResult> {
-    return this.repository.listHistory(filter);
+  async listHistory(filter: MaintenanceHistoryFilter, session?: SessionUser): Promise<MaintenanceHistoryResult> {
+    return this.repository.listHistory(filter, session);
   }
 }

@@ -6,6 +6,7 @@ import { parseMaintenanceHistoryFilterFromSearchParams } from '@/features/mainte
 import { renderMaintenanceListPdf } from '@/features/maintenance/services/maintenancePdf';
 import { buildMaintenanceRecordsCsv } from '@/features/maintenance/services/maintenanceCsv';
 import type { MaintenanceRecord } from '@/features/maintenance/types';
+import type { SessionUser } from '@/lib/types';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 
@@ -19,11 +20,12 @@ const EXPORT_MAX_PAGES = 10; // hard ceiling of 2000 records per export - a deli
  *  safety limit, not meant to also be the export ceiling). */
 async function fetchAllMatchingPages(
   service: MaintenanceService,
-  filter: ReturnType<typeof parseMaintenanceHistoryFilterFromSearchParams>
+  filter: ReturnType<typeof parseMaintenanceHistoryFilterFromSearchParams>,
+  session: SessionUser
 ): Promise<MaintenanceRecord[]> {
   const all: MaintenanceRecord[] = [];
   for (let page = 1; page <= EXPORT_MAX_PAGES; page++) {
-    const result = await service.listHistory({ ...filter, page, pageSize: EXPORT_PAGE_SIZE });
+    const result = await service.listHistory({ ...filter, page, pageSize: EXPORT_PAGE_SIZE }, session);
     all.push(...result.data);
     if (result.data.length < EXPORT_PAGE_SIZE) break;
   }
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
 
   try {
-    const records = await fetchAllMatchingPages(service, filter);
+    const records = await fetchAllMatchingPages(service, filter, session);
     const filenameBase = `pm-history-${new Date().toISOString().slice(0, 10)}`;
 
     if (format === 'pdf') {
