@@ -12,6 +12,7 @@ import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
+import AttachmentPhotoTile from '@/components/shared/attachments/AttachmentPhotoTile';
 import type { AttachmentType } from '@/shared/attachments';
 import type { Dealer, PmInterval, Technician, Role } from '@/lib/types';
 import type { PmVehicleSearchResult } from '@/lib/db';
@@ -363,7 +364,7 @@ function MaintenanceCreateForm({
     if (!hourMeter.trim() || Number.isNaN(Number(hourMeter))) return 'กรุณากรอกชั่วโมงเครื่องยนต์';
     if (!pmIntervalId) return 'กรุณาเลือกรอบ PM';
     if (!technicianId) return 'กรุณาเลือกช่างซ่อม';
-    if (!photos.meter.url || !photos.nameplate.url || !photos.report.url) return 'กรุณาอัปโหลดรูปให้ครบทั้ง 3 รูป';
+    if (!photos.report.url) return 'กรุณาอัปโหลดรูปใบรายงาน PM';
     return null;
   }
 
@@ -510,31 +511,21 @@ function MaintenanceCreateForm({
         <h2 className="text-sm font-semibold text-gray-600">พิกัดตำแหน่ง (ไม่บังคับ)</h2>
         <GpsLocationPicker value={gps} onChange={setGps} />
 
-        <h2 className="text-sm font-semibold text-gray-600">รูปถ่าย (บังคับ 3 รูป)</h2>
+        <h2 className="text-sm font-semibold text-gray-600">รูปถ่าย (บังคับเฉพาะใบรายงาน PM)</h2>
         <div className="grid gap-3 sm:grid-cols-3">
-          {(['meter', 'nameplate', 'report'] as PhotoSlot[]).map((slot) => (
-            <div key={slot} className="rounded border border-dashed border-gray-300 p-3 text-center">
-              <p className="mb-2 text-xs text-gray-500">{PHOTO_LABELS[slot]}</p>
-              {photos[slot].url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photos[slot].url as string} alt={PHOTO_LABELS[slot]} className="mb-2 h-24 w-full rounded object-cover" />
-              ) : (
-                <div className="mb-2 flex h-24 w-full items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
-                  ยังไม่มีรูป
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                disabled={submitting || uploadingSlot === slot}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadPhoto(slot, file);
-                }}
-                className="w-full text-xs"
-              />
-              {uploadingSlot === slot && <p className="mt-1 text-xs text-gray-400">กำลังอัปโหลด...</p>}
-            </div>
+          {(['report', 'meter', 'nameplate'] as PhotoSlot[]).map((slot) => (
+            <AttachmentPhotoTile
+              key={slot}
+              label={PHOTO_LABELS[slot]}
+              required={slot === 'report'}
+              url={photos[slot].url}
+              uploading={uploadingSlot === slot}
+              disabled={submitting || uploadingSlot === slot}
+              noPhotoYetText="ยังไม่มีรูป"
+              uploadingText="กำลังอัปโหลด..."
+              optionalText="ไม่บังคับ"
+              onSelect={(file) => uploadPhoto(slot, file)}
+            />
           ))}
         </div>
 

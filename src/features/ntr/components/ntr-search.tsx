@@ -23,6 +23,7 @@ import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
 import { processImageForUpload } from '@/components/shared/attachments/imageProcessing';
+import AttachmentPhotoTile from '@/components/shared/attachments/AttachmentPhotoTile';
 import type { AttachmentType } from '@/shared/attachments';
 import type { Dealer, Role } from '@/lib/types';
 import type { NtrTractorSearchResult } from '@/lib/db';
@@ -30,21 +31,23 @@ import type { NtrAdditionalPhoto, NtrAttachmentType, NtrRecord } from '../types'
 
 const EMPTY_GPS: GpsLocation = { latitude: null, longitude: null, accuracy: null, googleMapsUrl: null };
 
-/** The 4 required attachments (Attachment Requirements v2) - each backed
- *  by its own dedicated column. */
-type RequiredPhotoSlot = 'customer_id' | 'serial_plate' | 'hour_meter' | 'signed_document';
+/** The 3 required attachments (Enterprise UI/UX Standardization -
+ *  Attachment Standard) - each backed by its own dedicated column.
+ *  `CustomerTractorPhoto` ("Customer with Tractor") is fully removed
+ *  from this form per that standard - no longer offered on create,
+ *  though the column/existing data on older records is untouched. */
+type RequiredPhotoSlot = 'customer_id' | 'serial_plate' | 'signed_document';
 const REQUIRED_PHOTO_ATTACHMENT_TYPE: Record<RequiredPhotoSlot, AttachmentType> = {
   customer_id: 'CustomerIdCardPhoto',
   serial_plate: 'SerialPlatePhoto',
-  hour_meter: 'HourMeterPhoto',
   signed_document: 'DeliverySheetPhoto',
 };
 
 /** Optional, but still with its own dedicated column (demoted from
- *  required in the same standardization). */
-type OptionalDedicatedSlot = 'customer_tractor';
+ *  required by the Attachment Standard). */
+type OptionalDedicatedSlot = 'hour_meter';
 const OPTIONAL_DEDICATED_ATTACHMENT_TYPE: Record<OptionalDedicatedSlot, AttachmentType> = {
-  customer_tractor: 'CustomerTractorPhoto',
+  hour_meter: 'HourMeterPhoto',
 };
 
 /** Optional, no dedicated column - stored as a tagged entry in
@@ -62,66 +65,10 @@ const OPTIONAL_TAGGED_NTR_TYPE: Record<OptionalTaggedSlot, NtrAttachmentType> = 
 };
 
 type PhotoSlot = RequiredPhotoSlot | OptionalDedicatedSlot | OptionalTaggedSlot;
-const REQUIRED_PHOTO_SLOTS: RequiredPhotoSlot[] = ['customer_id', 'serial_plate', 'hour_meter', 'signed_document'];
-const OPTIONAL_DEDICATED_SLOTS: OptionalDedicatedSlot[] = ['customer_tractor'];
+const REQUIRED_PHOTO_SLOTS: RequiredPhotoSlot[] = ['customer_id', 'serial_plate', 'signed_document'];
+const OPTIONAL_DEDICATED_SLOTS: OptionalDedicatedSlot[] = ['hour_meter'];
 const OPTIONAL_TAGGED_SLOTS: OptionalTaggedSlot[] = ['booking_document', 'tax_invoice', 'crm_lead'];
 
-/** Fixed 16:9 preview frame - object-contain, centered, light gray
- *  background, rounded corners; never crop or stretch, so a portrait
- *  photo (before this session's auto-rotate-to-landscape processing
- *  reaches it, or for anything uploaded before that existed) still
- *  displays whole rather than cut off. */
-const PHOTO_PREVIEW_CLASS = 'aspect-video w-full rounded bg-gray-100 object-contain';
-
-/** Module-level (not a nested closure) so it isn't recreated - and thus
- *  never remounted, losing its `<input type="file">`'s pending selection -
- *  on every keystroke elsewhere in the parent form. */
-function PhotoTile({
-  label,
-  required,
-  url,
-  uploading,
-  disabled,
-  noPhotoYetText,
-  uploadingText,
-  optionalText,
-  onSelect,
-}: {
-  label: string;
-  required: boolean;
-  url: string | null;
-  uploading: boolean;
-  disabled: boolean;
-  noPhotoYetText: string;
-  uploadingText: string;
-  optionalText: string;
-  onSelect: (file: File) => void;
-}) {
-  return (
-    <div className="rounded border border-dashed border-gray-300 p-3 text-center">
-      <p className="mb-2 text-xs text-gray-500">
-        {label} {required ? <span className="text-brand-red">*</span> : `(${optionalText})`}
-      </p>
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={label} className={`mb-2 ${PHOTO_PREVIEW_CLASS}`} />
-      ) : (
-        <div className={`mb-2 flex items-center justify-center text-xs text-gray-400 ${PHOTO_PREVIEW_CLASS}`}>{noPhotoYetText}</div>
-      )}
-      <input
-        type="file"
-        accept="image/*"
-        disabled={disabled}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onSelect(file);
-        }}
-        className="w-full text-xs"
-      />
-      {uploading && <p className="mt-1 text-xs text-gray-400">{uploadingText}</p>}
-    </div>
-  );
-}
 
 function formatPhoneInput(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 10);
@@ -386,7 +333,6 @@ function NtrRegistrationForm({
     serial_plate: { url: null, attachmentId: null },
     hour_meter: { url: null, attachmentId: null },
     signed_document: { url: null, attachmentId: null },
-    customer_tractor: { url: null, attachmentId: null },
     booking_document: { url: null, attachmentId: null },
     tax_invoice: { url: null, attachmentId: null },
     crm_lead: { url: null, attachmentId: null },
@@ -459,7 +405,6 @@ function NtrRegistrationForm({
     if (!deliveryDate) return t('validation.specifyDeliveryDate');
     if (!photos.customer_id.url) return t('validation.uploadCustomerIdPhoto');
     if (!photos.serial_plate.url) return t('validation.uploadSerialPlatePhoto');
-    if (!photos.hour_meter.url) return t('validation.uploadHourMeterPhoto');
     if (!photos.signed_document.url) return t('validation.uploadSignedDocumentPhoto');
     return null;
   }
@@ -525,12 +470,12 @@ function NtrRegistrationForm({
           manufacturing_year: manufacturingYear.trim() ? Number(manufacturingYear) : null,
           hour_meter: hourMeter.trim() ? Number(hourMeter) : null,
           photo_customer_id_url: photos.customer_id.url,
-          photo_customer_tractor_url: photos.customer_tractor.url,
+          photo_customer_tractor_url: null,
           photo_serial_plate_url: photos.serial_plate.url,
           photo_hour_meter_url: photos.hour_meter.url,
           photo_signed_document_url: photos.signed_document.url,
           photo_customer_id_attachment_id: photos.customer_id.attachmentId,
-          photo_customer_tractor_attachment_id: photos.customer_tractor.attachmentId,
+          photo_customer_tractor_attachment_id: null,
           photo_serial_plate_attachment_id: photos.serial_plate.attachmentId,
           photo_hour_meter_attachment_id: photos.hour_meter.attachmentId,
           photo_signed_document_attachment_id: photos.signed_document.attachmentId,
@@ -568,11 +513,10 @@ function NtrRegistrationForm({
   const requiredPhotoLabels: Record<RequiredPhotoSlot, string> = {
     customer_id: t('pdf.photoCustomerId'),
     serial_plate: t('pdf.photoSerialPlate'),
-    hour_meter: t('pdf.photoHourMeterNtr'),
     signed_document: t('pdf.photoSignedDocument'),
   };
   const optionalDedicatedPhotoLabels: Record<OptionalDedicatedSlot, string> = {
-    customer_tractor: t('pdf.photoCustomerTractor'),
+    hour_meter: t('pdf.photoHourMeterNtr'),
   };
   const optionalTaggedPhotoLabels: Record<OptionalTaggedSlot, string> = {
     booking_document: t('ntr.attachmentType_BOOKING_DOCUMENT'),
@@ -667,7 +611,7 @@ function NtrRegistrationForm({
         <p className="text-xs text-gray-500">{t('ntr.requiredAttachmentsTitle')}</p>
         <div className="grid gap-3 sm:grid-cols-4">
           {REQUIRED_PHOTO_SLOTS.map((slot) => (
-            <PhotoTile
+            <AttachmentPhotoTile
               key={slot}
               label={requiredPhotoLabels[slot]}
               required
@@ -685,7 +629,7 @@ function NtrRegistrationForm({
         <p className="text-xs text-gray-500">{t('ntr.optionalAttachmentsTitle')}</p>
         <div className="grid gap-3 sm:grid-cols-4">
           {OPTIONAL_DEDICATED_SLOTS.map((slot) => (
-            <PhotoTile
+            <AttachmentPhotoTile
               key={slot}
               label={optionalDedicatedPhotoLabels[slot]}
               required={false}
@@ -699,7 +643,7 @@ function NtrRegistrationForm({
             />
           ))}
           {OPTIONAL_TAGGED_SLOTS.map((slot) => (
-            <PhotoTile
+            <AttachmentPhotoTile
               key={slot}
               label={optionalTaggedPhotoLabels[slot]}
               required={false}
