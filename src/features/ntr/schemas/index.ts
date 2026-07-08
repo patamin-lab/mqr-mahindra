@@ -107,7 +107,7 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     photo_customer_id_url: requiredTrimmedString(translate(locale, 'validation.uploadCustomerIdPhoto')),
     photo_customer_tractor_url: nullableTrimmedString,
     photo_serial_plate_url: requiredTrimmedString(translate(locale, 'validation.uploadSerialPlatePhoto')),
-    photo_hour_meter_url: requiredTrimmedString(translate(locale, 'validation.uploadHourMeterPhoto')),
+    photo_hour_meter_url: nullableTrimmedString,
     photo_signed_document_url: requiredTrimmedString(translate(locale, 'validation.uploadSignedDocumentPhoto')),
     photo_customer_id_attachment_id: nullableTrimmedString.optional(),
     photo_customer_tractor_attachment_id: nullableTrimmedString.optional(),
