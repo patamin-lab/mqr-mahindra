@@ -15,6 +15,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import LanguageSelector from '@/components/shared/i18n/LanguageSelector';
+import NotificationBell from '@/components/shared/layout/NotificationBell';
 import { getPrimaryNav, getAdminNav, findActiveNavItem } from '@/app/(app)/navConfig';
 
 export interface PlatformHeaderProps {
@@ -75,17 +76,11 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <LanguageSelector variant="header" />
 
-        <button
-          type="button"
-          aria-label={t('common.notifications')}
-          disabled
-          title={t('common.notificationsComingSoon')}
-          className="p-2 rounded-full text-white/50 cursor-not-allowed hidden sm:inline-flex"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .53-.21 1.04-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-        </button>
+        <NotificationBell
+          label={t('common.notifications')}
+          comingSoonLabel={t('common.notificationsComingSoon')}
+          className="hidden sm:inline-flex"
+        />
 
         <div ref={menuRef} className="relative">
           <button

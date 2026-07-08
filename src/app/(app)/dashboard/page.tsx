@@ -14,17 +14,8 @@ import {
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Card from '@/components/shared/layout/Card';
+import KpiCard from '@/components/shared/dashboard/KpiCard';
 import DashboardFilterBar from './DashboardFilterBar';
-
-function KpiCard({ label, value, accent, sub }: { label: string; value: number | string; accent?: string; sub?: string }) {
-  return (
-    <Card variant="flat" className="p-5">
-      <div className="text-sm text-gray-500">{label}</div>
-      <div className={`text-3xl font-bold mt-1 ${accent ?? 'text-brand-dark'}`}>{value}</div>
-      {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
-    </Card>
-  );
-}
 
 function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (

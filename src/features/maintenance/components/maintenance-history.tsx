@@ -26,6 +26,8 @@ import { fetchJson } from '@/lib/fetchJson';
 import { swalErrorToast } from '@/lib/swal';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
+import LoadingState from '@/components/shared/admin/LoadingState';
+import EmptyState from '@/components/shared/admin/EmptyState';
 import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
 import type { MaintenanceRecord, MaintenanceHistorySortField, MaintenanceHistorySortDir } from '../types';
 
@@ -683,20 +685,8 @@ export default function MaintenanceHistory({
             ))}
           </thead>
           <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={columns.length} className="px-3 py-6 text-center text-sm text-gray-400">
-                  กำลังโหลด...
-                </td>
-              </tr>
-            )}
-            {!loading && data.length === 0 && (
-              <tr>
-                <td colSpan={columns.length} className="px-3 py-6 text-center text-sm text-gray-400">
-                  ไม่พบข้อมูล
-                </td>
-              </tr>
-            )}
+            {loading && <LoadingState colSpan={columns.length} />}
+            {!loading && data.length === 0 && <EmptyState colSpan={columns.length} />}
             {!loading &&
               table.getRowModel().rows.map((row) => (
                 <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
