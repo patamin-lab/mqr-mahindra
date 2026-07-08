@@ -83,7 +83,8 @@ input:focus, select:focus, textarea:focus {
 
 /* Google Translate widget (TH/EN toggle) — keep Google's own banner/tooltip
    UI fully hidden since we drive translation ourselves via the googtrans
-   cookie and a custom pill toggle (see language-toggle.tsx). */
+   cookie and a custom pill toggle (see
+   components/shared/i18n/LanguageSelector.tsx). */
 #google_translate_element {
   display: none !important;
 }

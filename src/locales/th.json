@@ -1,5 +1,7 @@
 {
   "common": {
+    "notifications": "การแจ้งเตือน",
+    "notificationsComingSoon": "เร็วๆ นี้",
     "vehicle": "รถแทรกเตอร์",
     "owner": "เจ้าของรถ",
     "maintenance": "การบำรุงรักษา",

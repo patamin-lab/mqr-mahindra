@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalLoading, swalError, swalClose } from '@/lib/swal';
+import LanguageSelector from '@/components/shared/i18n/LanguageSelector';
 
 export default function LoginPage() {
 const router = useRouter();
@@ -42,7 +43,10 @@ setLoading(false);
 
 return (
 <div className="min-h-screen flex items-center justify-center bg-gradient-dark px-4">
-<form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-card-hover w-full max-w-sm p-8">
+<form onSubmit={onSubmit} className="bg-white rounded-2xl shadow-card-hover w-full max-w-sm p-8 relative">
+<div className="absolute top-4 right-4">
+  <LanguageSelector variant="card" />
+</div>
 <h1 className="text-xl font-bold text-brand-red mb-1">Market Quality Report</h1>
 <p className="text-sm text-gray-500 mb-6">เข้าสู่ระบบเพื่อใช้งาน</p>
 

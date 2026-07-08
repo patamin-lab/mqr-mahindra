@@ -1,5 +1,7 @@
 {
   "common": {
+    "notifications": "Notifications",
+    "notificationsComingSoon": "Coming soon",
     "vehicle": "Tractor",
     "owner": "Owner",
     "maintenance": "Maintenance",
