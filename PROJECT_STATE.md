@@ -1651,11 +1651,20 @@ two real mismatches. Full record: `docs/adr/ADR-011-Address-Platform.md`.
 
 ## Address Platform Migration — v2, Supabase Canonical (v1.2.1, this milestone)
 
-**STATUS: COMPLETE.** Full record: `docs/adr/ADR-011-Address-
-Platform.md`'s v2 Supersession section, `docs/architecture/
-ADDRESS_PLATFORM.md` (current architecture/schema/API reference),
-`docs/architecture/MASTER_DATA_PLATFORM.md` (Master Data Platform
-inventory).
+**STATUS: COMPLETE - merged, tagged, released.** Merged via PR #16
+(`b351b424c2d3fa62d9b693dd8192fdb7ed19d54b`) and PR #18
+(`c45c3ab584b0709e87cbdcd2fd98940aa3bfd0c0`, PR #17's replacement after
+GitHub would not allow reopening it once PR #16's base branch was
+deleted - same commits, same content, new PR number). Tagged and
+published as GitHub Release **`v1.2.1`** on `c45c3ab...`. CI on `main`
+green post-merge; production re-confirmed healthy
+(`https://masp-mseal.vercel.app`, 200 on `/login`, 77 provinces served
+live from the canonical Supabase table). Full record: `docs/adr/
+ADR-011-Address-Platform.md`'s v2 Supersession section (data-quality
+migration summary included), `docs/architecture/ADDRESS_PLATFORM.md`
+(current architecture/schema/API reference), `docs/architecture/
+MASTER_DATA_PLATFORM.md` (Master Data Platform inventory),
+`RELEASE_NOTES_v1.2.1.md`.
 
 The Thailand Address Master Data was imported into Supabase, superseding
 ADR-011's v1 decision to keep an in-memory JSON index. Before building

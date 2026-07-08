@@ -1,6 +1,6 @@
 # MASP Enterprise Development Standard
 
-Version: v1.2.1
+Version: v1.2.1 (tagged and released - merge commits `b351b424c2d3fa62d9b693dd8192fdb7ed19d54b` and `c45c3ab584b0709e87cbdcd2fd98940aa3bfd0c0`)
 Status: Platform Foundation Complete (Frozen); Address Platform on its v2 architecture
 
 Adopted as this repository's canonical architecture document on

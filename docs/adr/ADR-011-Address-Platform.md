@@ -1,5 +1,11 @@
 # ADR-011: Address Platform
 
+> **Status: v2 (Supabase canonical tables) is RELEASED as v1.2.1.**
+> Merged via PR #16 (`b351b424c2d3fa62d9b693dd8192fdb7ed19d54b`) and
+> PR #18 (`c45c3ab584b0709e87cbdcd2fd98940aa3bfd0c0`), tagged and
+> published as GitHub Release `v1.2.1` on the latter commit. Production
+> re-confirmed healthy post-merge (`https://masp-mseal.vercel.app`).
+>
 > **Superseded in part by the v2 update below (v1.2.1).** The original
 > decision ("keep the in-memory JSON design; do not migrate to DB
 > tables") is no longer current - Thailand Address Master Data now
@@ -227,15 +233,47 @@ are different claims, and only the first was true without further work.
 Applied as Supabase migration `address_platform_canonical_tables`:
 rename raw tables → create canonical tables (PK/FK) → create the three
 required indexes → populate via `INSERT ... SELECT DISTINCT ON` → enable
-RLS + permissive SELECT policy on all six tables. Verified after
-applying: `provinces` 77 rows, `districts` 928 rows, `subdistricts`
-7,436 rows (matching Thailand's real counts), `*_raw` tables unchanged
-at 7,436 rows each, zero new Supabase security advisories.
+RLS + permissive SELECT policy on all six tables.
+
+**Data quality summary** (raw row count → canonical row count):
+
+| Table | Raw rows | Canonical rows | Duplicates removed | Invalid rows rejected |
+|---|---|---|---|---|
+| Provinces | 7,436 | 77 | 7,359 | 0 |
+| Districts | 7,436 | 928 | 6,508 | 0 |
+| Subdistricts | 7,436 | 7,436 | 0 | 0 |
+
+"Invalid rows rejected" (0 for all three) means every raw row had a
+non-null id/parent-id and was eligible for the dedup pass - the
+migration's `WHERE id IS NOT NULL` guards existed defensively but found
+nothing to exclude in this particular import. Subdistricts needed no
+deduplication (the raw export was already correctly one-row-per-
+subdistrict); Provinces/Districts did, since the raw export repeated
+every province/district's row once per subdistrict.
+
+**Constraints verified post-migration** (`pg_constraint`/`pg_indexes`):
+primary keys on all three canonical tables (`province_id`/`district_id`/
+`subdistrict_id`), foreign keys (`districts.province_id` →
+`provinces`, `subdistricts.district_id` → `districts`,
+`subdistricts.province_id` → `provinces`), and the three required
+indexes (`districts_province_id_idx`, `subdistricts_district_id_idx`,
+`subdistricts_postcode_idx`). The primary keys themselves already are
+"unique constraints on stable codes rather than names" - Thailand's
+official administrative id, not the display name, is the uniqueness
+key - so no additional unique constraint was needed on top of them.
 
 No destructive change to any table another module reads - `ntr_records`
 still stores `customer_province`/`customer_district`/`customer_
 subdistrict`/`customer_postal_code` as free text (unchanged); this
 migration only affects the Address Platform's own reference tables.
+
+**Roadmap note**: migrating `ntr_records`'s (or any future module's)
+customer address fields from free text to resolved
+province_id/district_id/subdistrict_id foreign keys is explicitly
+deferred - it requires its own future ADR once a real business
+requirement for the join exists (e.g. address-based reporting/
+analytics), not a speculative schema change bundled into this one. See
+`docs/ROADMAP.md`.
 
 ### Consequences
 
