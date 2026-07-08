@@ -93,6 +93,7 @@ export interface NtrRecord {
   retail_date: string | null;
   delivery_date: string;
   pdi_date: string | null;
+  pdi_number: string | null;
   manufacturing_year: number | null;
   hour_meter: number | null;
   latitude: number | null;
@@ -161,6 +162,7 @@ export type NtrRecordCreateInput = Pick<
   | 'retail_date'
   | 'delivery_date'
   | 'pdi_date'
+  | 'pdi_number'
   | 'manufacturing_year'
   | 'hour_meter'
   | 'photo_customer_id_url'
@@ -215,6 +217,7 @@ export type NtrRecordUpdateInput = Partial<
     | 'retail_date'
     | 'delivery_date'
     | 'pdi_date'
+    | 'pdi_number'
     | 'manufacturing_year'
     | 'hour_meter'
     | 'latitude'
@@ -346,6 +349,7 @@ export interface NtrImportRow {
   retail_date: string | null;
   delivery_date: string;
   pdi_date: string | null;
+  pdi_number: string | null;
   manufacturing_year: number | null;
   salesperson: string | null;
   receiving_person: string | null;

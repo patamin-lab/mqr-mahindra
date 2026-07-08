@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import LanguageToggle from './language-toggle';
+import GoogleTranslateBridge from '@/components/shared/i18n/GoogleTranslateBridge';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import { getServerLocale } from '@/lib/i18n/server';
 
@@ -15,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang={locale}>
       <body className="bg-gray-100 text-gray-900 antialiased">
         <LocaleProvider initialLocale={locale}>
-          <LanguageToggle />
+          <GoogleTranslateBridge />
           {children}
         </LocaleProvider>
       </body>

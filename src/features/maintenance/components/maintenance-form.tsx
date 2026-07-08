@@ -11,19 +11,13 @@ import type { MaintenanceRecord } from '../types';
 import type { PmInterval } from '@/lib/types';
 import type { AttachmentType } from '@/shared/attachments';
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
+import AttachmentPhotoTile from '@/components/shared/attachments/AttachmentPhotoTile';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
 
-const EMPTY_GPS: GpsLocation = { latitude: null, longitude: null, accuracy: null, googleMapsUrl: null };
-
 type PhotoSlot = 'meter' | 'nameplate' | 'report';
-const PHOTO_FIELD: Record<PhotoSlot, 'meter_photo_url' | 'nameplate_photo_url' | 'report_photo_url'> = {
-  meter: 'meter_photo_url',
-  nameplate: 'nameplate_photo_url',
-  report: 'report_photo_url',
-};
 const PHOTO_ATTACHMENT_TYPE: Record<PhotoSlot, AttachmentType> = {
   meter: 'MeterPhoto',
   nameplate: 'NameplatePhoto',
@@ -346,29 +340,19 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
       <div>
         <h2 className="mb-2 text-sm font-semibold text-gray-600">{t('pmEdit.photosSectionTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-3">
-          {(['meter', 'nameplate', 'report'] as PhotoSlot[]).map((slot) => (
-            <div key={slot} className="rounded border border-dashed border-gray-300 p-3 text-center">
-              <p className="mb-2 text-xs text-gray-500">{t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)}</p>
-              {photos[slot].url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photos[slot].url as string} alt={t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)} className="mb-2 h-24 w-full rounded object-cover" />
-              ) : (
-                <div className="mb-2 flex h-24 w-full items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
-                  {t('pmEdit.noPhotoYet')}
-                </div>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                disabled={submitting || uploadingSlot === slot}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadPhoto(slot, file);
-                }}
-                className="w-full text-xs"
-              />
-              {uploadingSlot === slot && <p className="mt-1 text-xs text-gray-400">{t('pmEdit.uploading')}</p>}
-            </div>
+          {(['report', 'meter', 'nameplate'] as PhotoSlot[]).map((slot) => (
+            <AttachmentPhotoTile
+              key={slot}
+              label={t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)}
+              required={slot === 'report'}
+              url={photos[slot].url}
+              uploading={uploadingSlot === slot}
+              disabled={submitting || uploadingSlot === slot}
+              noPhotoYetText={t('pmEdit.noPhotoYet')}
+              uploadingText={t('pmEdit.uploading')}
+              optionalText={t('common.optional')}
+              onSelect={(file) => uploadPhoto(slot, file)}
+            />
           ))}
         </div>
       </div>

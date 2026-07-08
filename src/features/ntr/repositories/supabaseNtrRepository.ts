@@ -126,6 +126,7 @@ export class SupabaseNtrRepository implements NtrRepository {
       retail_date: input.retail_date,
       delivery_date: input.delivery_date,
       pdi_date: input.pdi_date,
+      pdi_number: input.pdi_number,
       manufacturing_year: input.manufacturing_year,
       hour_meter: input.hour_meter,
       latitude: input.latitude ?? null,
@@ -184,6 +185,7 @@ export class SupabaseNtrRepository implements NtrRepository {
     if (input.product_family_id !== undefined) updatePayload.product_family_id = input.product_family_id;
     if (input.variant !== undefined) updatePayload.variant = input.variant;
     if (input.pdi_date !== undefined) updatePayload.pdi_date = input.pdi_date;
+    if (input.pdi_number !== undefined) updatePayload.pdi_number = input.pdi_number;
     if (input.manufacturing_year !== undefined) updatePayload.manufacturing_year = input.manufacturing_year;
     if (input.retail_date !== undefined) updatePayload.retail_date = input.retail_date;
     if (input.delivery_date !== undefined) updatePayload.delivery_date = input.delivery_date;
@@ -343,6 +345,7 @@ export class SupabaseNtrRepository implements NtrRepository {
         retail_date: ntr.retail_date,
         delivery_date: ntr.delivery_date,
         pdi_date: ntr.pdi_date,
+        pdi_number: ntr.pdi_number,
         manufacturing_year: ntr.manufacturing_year,
         hour_meter: ntr.hour_meter,
       },

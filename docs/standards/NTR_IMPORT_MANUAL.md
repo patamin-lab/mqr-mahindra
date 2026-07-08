@@ -27,53 +27,59 @@ match it exactly:
 | 1 | `dealer_id` | **Required** | Must match an existing Dealer Code exactly |
 | 2 | `branch_id` | Optional | Branch UUID, if known |
 | 3 | `serial` | **Required** | Tractor serial number — if no matching `vehicles` row exists, one is created automatically |
-| 4 | `model` | Optional | |
-| 5 | `engine_number` | **Required** | |
-| 6 | `customer_name` | **Required*** | *Not required if `customer_first_name`/`customer_last_name` (columns 18–19) are filled instead — see below |
+| 4 | `model` | **Required** | Changed from Optional in Release v1.2 |
+| 5 | `engine_number` | Optional | Changed from Required in Release v1.2 |
+| 6 | `customer_name` | Optional* | *Composed automatically from `customer_title`/`customer_first_name`/`customer_last_name` (columns 18–20, all required as of v1.2) — see below |
 | 7 | `customer_phone` | **Required** | Thai mobile format, 10 digits starting with 0 |
-| 8 | `customer_address` | Optional | |
-| 9 | `customer_district` | Optional | |
-| 10 | `customer_province` | Optional | |
+| 8 | `customer_address` | **Required** | Changed from Optional in Release v1.2 |
+| 9 | `customer_district` | **Required** | Changed from Optional in Release v1.2 |
+| 10 | `customer_province` | **Required** | Changed from Optional in Release v1.2 |
 | 11 | `customer_postal_code` | Optional | |
 | 12 | `customer_type` | Optional | `Individual` / `Company` (or Thai `บุคคลธรรมดา` / `นิติบุคคล`) |
-| 13 | `retail_date` | Optional | ISO `YYYY-MM-DD` |
+| 13 | `retail_date` | **Required** | Changed from Optional in Release v1.2. ISO `YYYY-MM-DD` |
 | 14 | `delivery_date` | **Required** | ISO `YYYY-MM-DD` — this is the Acceptance Date (see `docs/standards/DOMAIN_LANGUAGE_STANDARD.md`'s Retail Date vs. Acceptance Date note), not "Retail Date" |
 | 15 | `salesperson` | Optional | |
 | 16 | `receiving_person` | Optional | |
-| 17 | `hour_meter` | Optional | Numeric |
-| 18 | `customer_title` | Optional | Added in Release v1.1 |
-| 19 | `customer_first_name` | Optional | Added in Release v1.1 |
-| 20 | `customer_last_name` | Optional | Added in Release v1.1 |
-| 21 | `customer_subdistrict` | Optional | Added in Release v1.1 |
-| 22 | `product_family_id` | Optional | Added in Release v1.1 — Product Family UUID (must reference an existing, active Product Family) |
-| 23 | `variant` | Optional | Added in Release v1.1 — free text |
-| 24 | `pdi_date` | Optional | Added in Release v1.1 — ISO `YYYY-MM-DD` |
-| 25 | `manufacturing_year` | Optional | Added in Release v1.1 — 4-digit year |
+| 17 | `hour_meter` | **Required** | Changed from Optional in Release v1.2. Numeric |
+| 18 | `customer_title` | **Required** | Changed from Optional in Release v1.2 |
+| 19 | `customer_first_name` | **Required** | Changed from Optional in Release v1.2 |
+| 20 | `customer_last_name` | **Required** | Changed from Optional in Release v1.2 |
+| 21 | `customer_subdistrict` | **Required** | Changed from Optional in Release v1.2 |
+| 22 | `product_family_id` | Optional | Product Family UUID (must reference an existing, active Product Family) |
+| 23 | `variant` | Optional | Free text |
+| 24 | `pdi_date` | Optional | ISO `YYYY-MM-DD` |
+| 25 | `pdi_number` | Optional | Added in Release v1.2 — free text |
+| 26 | `manufacturing_year` | Optional | 4-digit year |
 
-**A legacy file exported before Release v1.1 (only 17 columns) still
-imports correctly** — columns 18–25 are appended at the end, not
-inserted in the middle, specifically so older files don't need their
-existing columns reordered. Missing trailing columns are simply left
-`NULL` on the resulting record, never rejected.
+**A legacy file exported before Release v1.2 (only 25 columns) still
+imports** for any row that already happens to fill the columns promoted
+to Required above — `pdi_number` (column 25) is appended at the end, not
+inserted in the middle, so an older file's existing columns never need
+reordering. A row missing a newly-Required column (Model/Retail Date/
+Hour Meter/Customer Title/First Name/Last Name/Address/Province/
+District/Sub-District) now fails validation where it previously
+imported with that field left `NULL` — this is the intended, documented
+behavior change for Release v1.2, not a bug.
 
 ## Customer name: two ways to provide it
 
-Either fill column 6 (`customer_name`) directly, or fill columns 18–20
-(`customer_title`/`customer_first_name`/`customer_last_name`) and leave
-column 6 blank — the import composes `customer_name` from the
-structured fields automatically (same rule the manual registration form
-uses, see `docs/standards/DATABASE_STANDARD.md`'s "avoid storing
-duplicate business data"). Do not fill both inconsistently; if column 6
-is non-empty, it wins.
+Columns 18–20 (`customer_title`/`customer_first_name`/
+`customer_last_name`) are required as of Release v1.2, so `customer_name`
+(column 6) is composed from them automatically and can be left blank.
+Filling column 6 explicitly still works and wins if non-empty (same rule
+the manual registration form uses, see
+`docs/standards/DATABASE_STANDARD.md`'s "avoid storing duplicate
+business data").
 
 ## Validation (Preview step)
 
 Every row is checked before anything is imported:
 
-- **Required fields** (`dealer_id`, `serial`, `engine_number`,
-  `delivery_date`, `customer_name`-or-structured-name, `customer_phone`)
-  — missing any marks the row **Failed**. `retail_date` is optional, same
-  as the manual registration form.
+- **Required fields** (`dealer_id`, `serial`, `model`, `delivery_date`,
+  `retail_date`, `hour_meter`, `customer_title`, `customer_first_name`,
+  `customer_last_name`, `customer_phone`, `customer_address`,
+  `customer_province`, `customer_district`, `customer_subdistrict`) —
+  missing any marks the row **Failed**.
 - **Dealer must exist** — an unrecognized `dealer_id` marks the row
   **Failed**.
 - **Duplicate detection** — a `serial` that already has an active NTR on

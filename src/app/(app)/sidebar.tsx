@@ -1,64 +1,38 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
-import { canManageMasterData, canManageLegacyImport, seesAllDealers } from '@/lib/scope';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
+import { getPrimaryNav, getAdminNav, showMasterDataNav, showLegacyImportNav } from './navConfig';
 
-export default function Sidebar({ session }: { session: SessionUser }) {
+export interface SidebarProps {
+  session: SessionUser;
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function Sidebar({ session, open, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
   const { t } = useTranslation();
 
-  async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-    router.refresh();
-  }
-
-  const showMasterData = canManageMasterData(session.role);
-  const showDealers = seesAllDealers(session.role);
+  const showMasterData = showMasterDataNav(session);
   // Legacy Import is hidden completely from every role except Super
   // Administrator - not just visually de-emphasized. Every route it calls
   // re-checks this same predicate server-side; hiding the menu entry is
   // UX only, never the actual enforcement (see
   // docs/standards/SECURITY_STANDARD.md §Application-layer authorization).
-  const showLegacyImport = canManageLegacyImport(session.role);
+  const showLegacyImport = showLegacyImportNav(session);
 
-  // Icons follow docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Official Menu
-  // Standard table - only modules that actually exist today get an entry;
-  // PDI/Campaign/Warranty/Parts/Reports are defined by the standard for
-  // future modules and are intentionally not added here.
-  const NAV = [
-    { href: '/dashboard', icon: '🏠', label: t('nav.dashboard') },
-    { href: '/report', icon: '⚠️', label: t('nav.newReport') },
-    { href: '/records', icon: '⚠️', label: t('nav.mqrRecords') },
-    { href: '/pm-records', icon: '🔧', label: t('nav.pmRecords') },
-    { href: '/ntr', icon: '📝', label: t('nav.ntrRecords') },
-    { href: '/vehicles', icon: '🚜', label: t('nav.vehicle360') },
-  ];
-
-  const adminNav = [
-    ...(showDealers ? [{ href: '/admin/dealers', label: t('nav.adminDealers') }] : []),
-    { href: '/admin/branches', label: t('nav.adminBranches') },
-    { href: '/admin/technicians', label: t('nav.adminTechnicians') },
-    ...(showDealers ? [{ href: '/admin/problem-codes', label: t('nav.adminProblemCodes') }] : []),
-    ...(showDealers ? [{ href: '/admin/pm-intervals', label: t('nav.adminPmIntervals') }] : []),
-    ...(showDealers ? [{ href: '/admin/product-families', label: t('nav.adminProductFamilies') }] : []),
-    ...(showDealers ? [{ href: '/admin/product-family-models', label: t('nav.adminProductFamilyModels') }] : []),
-    ...(showDealers ? [{ href: '/admin/maintenance-programs', label: t('nav.adminMaintenancePrograms') }] : []),
-    { href: '/admin/users', icon: '👥', label: t('nav.adminUsers') },
-  ];
+  const NAV = getPrimaryNav(t);
+  const adminNav = getAdminNav(t, session);
 
   function NavLink({ href, icon, label }: { href: string; icon?: string; label: string }) {
     const active = pathname === href || pathname.startsWith(href + '/');
     return (
       <Link
         href={href}
-        onClick={() => setOpen(false)}
+        onClick={onClose}
         className={`block px-3 py-2 rounded text-sm transition ${
           active ? 'bg-gradient-primary text-white shadow-glow' : 'text-white/80 hover:bg-white/10'
         }`}
@@ -71,27 +45,11 @@ export default function Sidebar({ session }: { session: SessionUser }) {
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div className="md:hidden flex items-center justify-between bg-brand-dark text-white px-4 py-3 print:hidden sticky top-0 z-30">
-        <div className="font-bold text-white text-sm">
-          Mahindra <span className="text-brand-red">After-Sales</span> Platform
-        </div>
-        <button
-          onClick={() => setOpen(true)}
-          aria-label={t('nav.openMenu')}
-          className="p-2 rounded hover:bg-white/10 transition"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      </div>
-
       {/* Mobile overlay */}
       {open && (
         <div
           className="md:hidden fixed inset-0 bg-black/50 z-40 print:hidden"
-          onClick={() => setOpen(false)}
+          onClick={onClose}
         />
       )}
 
@@ -100,21 +58,12 @@ export default function Sidebar({ session }: { session: SessionUser }) {
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4 border-b border-white/10 flex items-start justify-between">
-          <div>
-            <div className="font-bold text-white">
-              MSEAL <span className="text-brand-red">After-Sales</span> Platform
-            </div>
-            <div className="text-xs text-white/70 mt-2">{session.fullName}</div>
-            <div className="text-xs text-white/40">
-              {t(`role.${session.role}`)}
-              {session.dealerId ? ` · ${session.dealerId}` : ''}
-            </div>
-          </div>
+        <div className="p-4 border-b border-white/10 flex items-center justify-between md:hidden">
+          <div className="font-bold text-white text-sm">MASP</div>
           <button
-            onClick={() => setOpen(false)}
+            onClick={onClose}
             aria-label={t('nav.closeMenu')}
-            className="md:hidden p-1 text-white/60 hover:text-white"
+            className="p-1 text-white/60 hover:text-white"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -140,9 +89,6 @@ export default function Sidebar({ session }: { session: SessionUser }) {
             </>
           )}
         </nav>
-        <button onClick={logout} className="m-2 px-3 py-2 rounded text-sm text-white/80 hover:bg-white/10 text-left">
-          {t('nav.logout')}
-        </button>
       </aside>
     </>
   );

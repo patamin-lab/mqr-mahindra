@@ -102,6 +102,20 @@ Source of truth priority:
 
 If documentation differs from code, report the mismatch. Never assume.
 
+## 3.6 Post-v1.1.0 Development Standard
+
+**Current baseline: MASP Platform Foundation v1.1.0 (tag `v1.1.0`) — COMPLETE.** Full record: `docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`. Do not redesign or rewrite a completed platform foundation unless there is a confirmed bug, security issue, or measurable performance problem.
+
+**Frozen platform layers** (feature-frozen — bug/security/performance fixes only): Attachment Platform, Storage Platform, DealerBranchScope, Historical Import Framework. These are platform standards now — every new feature reuses them; never a parallel implementation. Binding detail: `docs/architecture/PLATFORM_CONSTITUTION.md`'s Storage rules and Authorization rules sections.
+
+Every business module's file storage follows `Business Module → AttachmentService → AttachmentRepository → StorageProviderFactory → Supabase/Cloudflare R2`. Every business module's dealer/branch authorization follows `UI → DealerBranchScope → Repository scope (applyScope()) → Database` — no module implements either independently (§6, §8.2).
+
+**Next development phase priority order** (see `docs/ROADMAP.md`'s "Next Development Phase" section): Workflow Engine → Service Management → Customer Experience → Machine Intelligence → Predictive Maintenance. Each integrates with the shared platforms above rather than building new infrastructure; none are scheduled or scoped yet — each requires its own explicit milestone.
+
+**Verification before claiming completion**: lint, typecheck, tests, build, architecture check — all of them, every time, not just at the end. If a Preview deployment exists, perform live UAT against it. Never claim success without the evidence to back it.
+
+**Release policy**: Production Ready only if build, tests, architecture check, Preview, and live UAT all pass and there is no open release blocker. Otherwise stop and report the blocker, its severity, and the affected module(s) — do not claim completion for work that could not actually be verified.
+
 ## 4. Repository structure
 
 ```

@@ -69,6 +69,7 @@ function buildRow(columnIndex: Record<string, number>, cells: string[], rowNumbe
     retail_date: value('retail_date') as string | null,
     delivery_date: get('delivery_date'),
     pdi_date: value('pdi_date') as string | null,
+    pdi_number: value('pdi_number') as string | null,
     manufacturing_year: value('manufacturing_year') as number | null,
     salesperson: value('salesperson') as string | null,
     receiving_person: value('receiving_person') as string | null,

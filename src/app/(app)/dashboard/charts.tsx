@@ -10,7 +10,6 @@ import {
   Tooltip,
   BarChart,
   Bar,
-  Legend,
   Cell,
 } from 'recharts';
 

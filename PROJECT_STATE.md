@@ -1426,3 +1426,93 @@ rollback plan; this entry is a pointer, not a duplicate.
   Preview UAT live-verified with real create/edit/delete/upload calls
   across SuperAdmin/DealerAdmin/two DealerUsers in different branches of
   the same dealer on the exact release commit.
+- Merged to `main` via PR #11 (merge commit `35153ea`), tagged `v1.1.0`,
+  GitHub Release "MASP Platform Foundation v1.1.0" published. Existing
+  `v1.0.0` tag/release left untouched per explicit instruction.
+
+## Post-v1.1.0 Development Standard (this milestone)
+
+Formalized the governance for all work after v1.1.0 - full detail in
+`CLAUDE.md` §3.6, `docs/architecture/PLATFORM_CONSTITUTION.md`'s new
+Authorization rules section, and `docs/ROADMAP.md`'s new "Next
+Development Phase" section; this entry is a pointer, not a duplicate.
+
+- Attachment Platform, Storage Platform, DealerBranchScope, and
+  Historical Import Framework are the frozen Foundation - reuse
+  mandatory, no parallel implementations, further work on any of them is
+  bug/security/performance fixes only.
+- Next development phase priority order: Workflow Engine → Service
+  Management → Customer Experience → Machine Intelligence → Predictive
+  Maintenance. None scheduled or scoped yet - each requires its own
+  explicit milestone.
+- Fixed a stale claim in `PLATFORM_CONSTITUTION.md`'s Future extension
+  rules #7 ("no automated architecture-boundary check exists in this
+  repository") - `scripts/architecture-check.ts` has existed and been
+  CI-wired since the Storage Platform freeze; corrected to say so and to
+  note it does not yet cover DealerBranchScope or general module-to-
+  module isolation.
+- No code changed this milestone - documentation and governance only.
+
+## Enterprise UI/UX Standardization (this milestone)
+
+Full record: `CHANGELOG_UI_STANDARDIZATION.md`,
+`docs/UI_STANDARD.md` (current-state component/token inventory),
+`RELEASE_NOTES_v1.2.0.md` (candidate - not yet tagged); this entry is a
+pointer, not a duplicate.
+
+- **Platform Header**: one shared, sticky, responsive `PlatformHeader` +
+  `AppShell` on every authenticated page. Floating language-toggle
+  button removed - split into `GoogleTranslateBridge` (invisible legacy
+  fallback bootstrap) and `LanguageSelector` (embeddable dropdown, one
+  implementation used in the header and on `/login`). `Sidebar`'s
+  duplicate mobile top bar/logout button removed; nav definitions
+  extracted to a shared `navConfig.ts`.
+- **NTR Historical Import v1.2**: Model/Retail Date/Hour Meter/Customer
+  Title-First-Last/Address/Province/District/Sub-District moved
+  optional→required; Engine Number moved required→optional; new
+  optional `pdi_number` field (2 migrations: the column, and the
+  `commit_ntr_legacy_import_row()` SECURITY DEFINER RPC). A real import
+  was run live end-to-end as verification.
+- **Attachment Standard**: one shared `AttachmentPhotoTile`
+  (16:9/object-contain/never-crop) replaces three independently
+  hand-duplicated tile implementations - fixes a real bug where PM's two
+  copies used `object-cover`/fixed height and cropped portrait photos.
+  NTR required list narrowed to ID Card/Tractor Name Plate/Delivery
+  Report; PM required list narrowed to Service Report only.
+- **Real regression found and fixed during full-platform regression
+  testing**: the server-side NTR/PM create schemas still required the
+  photos the new Attachment Standard made optional, rejecting legitimate
+  submissions with a 400 - confirmed live before the fix, confirmed
+  fixed live after.
+- **Shared UI Library**: wired the previously-built-but-unused
+  `EmptyState`/`LoadingState` into 3 more tables (upgrading
+  `LoadingState` into a real animated skeleton); extracted `KpiCard` and
+  `NotificationBell` into `components/shared/`; confirmed Dialogs stay
+  on the existing single `lib/swal.ts` implementation (no parallel
+  Dialog component introduced).
+- **Design tokens**: added semantic `status.*` color tokens and
+  `card`/`control` radius aliases to `tailwind.config.ts` - purely
+  additive, zero visual regression risk.
+- **Form Standard**: `TextField`/`SelectField` gained a `required` prop
+  (consistent asterisk indicator); `SelectField` gained a `disabled`
+  prop (previously silently unsupported, confirmed unused by any
+  caller).
+- **Repository cleanup**: removed confirmed-dead unused imports/consts
+  found via `tsc --noUnusedLocals --noUnusedParameters`; confirmed via
+  sweep no floating-button/duplicate-tile/stale-template-version
+  remnants remain; confirmed PDF shared styles were already consolidated
+  in a prior sprint.
+- **Accessibility**: added a `:focus-visible` keyboard-focus ring for
+  buttons/links/menu items (previously only form inputs had one).
+  Documented, not fixed (pre-existing, accepted, unrelated to this
+  release): `jsx-a11y/alt-text` false positives on `react-pdf`'s
+  `<Image>` component.
+- **Not independently verifiable in this environment**: real
+  screenshots, physical tablet/mobile device testing, screen-reader
+  testing, precise WCAG contrast-ratio measurement - flagged as
+  manual-verification-required rather than fabricated.
+- Verification re-run after every commit in this initiative:
+  lint/typecheck/tests(453/453)/build/architecture all pass. Live
+  Preview UAT: full page-load sweep across SuperAdmin/DealerAdmin/
+  DealerUser and every module, real NTR/PM create calls, language
+  cookie persistence, single-header confirmation.

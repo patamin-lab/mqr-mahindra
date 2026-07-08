@@ -6,6 +6,7 @@ import { STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
+import EmptyState from '@/components/shared/admin/EmptyState';
 import RecordsFilterBar from './RecordsFilterBar';
 
 /** Colors per docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Status Colors
@@ -188,9 +189,9 @@ export default async function RecordsPage({
         </div>
       </SearchToolbar>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+          <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3">เลขที่รายงาน</th>
               <th className="text-left px-4 py-3">วันที่พบ</th>
@@ -230,13 +231,7 @@ export default async function RecordsPage({
                 </td>
               </tr>
             ))}
-            {records.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                  ไม่พบข้อมูล
-                </td>
-              </tr>
-            )}
+            {records.length === 0 && <EmptyState colSpan={7} />}
           </tbody>
         </table>
       </div>

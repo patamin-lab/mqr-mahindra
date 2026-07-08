@@ -1,5 +1,18 @@
 # Design System
 
+> **Status update (Enterprise UI/UX Standardization, part of the
+> post-v1.1.0 development line):** several items this document originally
+> described as forward-looking are now real, shipped code - PM Record and
+> NTR are fully built business modules (not hypothetical), and the
+> "persistent fixed header" described under **Header** below now exists
+> as `src/components/shared/layout/PlatformHeader.tsx` (module title/
+> breadcrumb left, language selector/notification placeholder/user+role+
+> dealer+branch/user-menu-with-logout right - see `docs/UI_STANDARD.md`
+> for the exact current-state component inventory and design tokens
+> actually in force today). This document is kept as the longer-range
+> target vision; where it and `UI_STANDARD.md` disagree on what's
+> *already built*, `UI_STANDARD.md` is authoritative for current state.
+
 ## Scope and Intent — Read This First
 
 This document defines the **target UI/UX standard for the entire MSEAL SERVICE SYSTEM**. It is intentionally forward-looking and independent of any single existing module's current appearance:

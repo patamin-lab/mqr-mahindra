@@ -8,6 +8,7 @@ import { formatDateLocalized } from '@/lib/thaiDate';
 import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
+import EmptyState from '@/components/shared/admin/EmptyState';
 import NtrFilterBar from './NtrFilterBar';
 
 export const dynamic = 'force-dynamic';
@@ -155,9 +156,9 @@ export default async function NtrRegistryPage({
         </div>
       </SearchToolbar>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto max-h-[70vh] overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+          <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3">{t('csv.ntrNumber')}</th>
               <th className="text-left px-4 py-3">{t('ntr.acceptanceDate')}</th>
@@ -189,13 +190,7 @@ export default async function NtrRegistryPage({
                 <td className="px-4 py-3">{r.status}</td>
               </tr>
             ))}
-            {result.data.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                  {t('common.notFound')}
-                </td>
-              </tr>
-            )}
+            {result.data.length === 0 && <EmptyState colSpan={6} message={t('common.notFound')} />}
           </tbody>
         </table>
       </div>

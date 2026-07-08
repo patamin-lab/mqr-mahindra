@@ -164,6 +164,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
           <DetailRow label={t('ntr.registrationDate')} value={formatDateLocalized(record.created_at, locale)} />
           <DetailRow label={t('csv.retailDate')} value={record.retail_date ? formatDateLocalized(record.retail_date, locale) : 'N/A'} />
           <DetailRow label={t('csv.pdiDate')} value={record.pdi_date ? formatDateLocalized(record.pdi_date, locale) : 'N/A'} />
+          <DetailRow label={t('csv.pdiNumber')} value={record.pdi_number ?? 'N/A'} />
           <DetailRow label={t('pdf.hourMeter')} value={record.hour_meter != null ? String(record.hour_meter) : 'N/A'} />
           <DetailRow label={t('csv.salesperson')} value={record.salesperson ?? 'N/A'} />
           <DetailRow label={t('ntr.registrationSource')} value={sourceLabel(record.source)} />

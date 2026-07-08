@@ -224,21 +224,52 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, 
       results.push({ row, outcome: 'failed', reason: 'Missing serial' });
       continue;
     }
-    if (!row.engine_number) {
-      results.push({ row, outcome: 'failed', reason: 'Missing engine_number' });
+    if (!row.model) {
+      results.push({ row, outcome: 'failed', reason: 'Missing model' });
       continue;
     }
     if (!row.delivery_date) {
       results.push({ row, outcome: 'failed', reason: 'Missing delivery_date' });
       continue;
     }
-    // customer_name is required unless a structured name (title/first/
-    // last) is provided instead - NtrService.create() composes it, same
-    // rule the manual registration form uses (see
-    // docs/standards/NTR_IMPORT_MANUAL.md).
-    const hasName = row.customer_name || row.customer_first_name || row.customer_last_name;
-    if (!hasName || !row.customer_phone) {
-      results.push({ row, outcome: 'failed', reason: 'Missing customer name (or title/first/last name) or customer_phone' });
+    if (!row.retail_date) {
+      results.push({ row, outcome: 'failed', reason: 'Missing retail_date' });
+      continue;
+    }
+    if (row.hour_meter === null || row.hour_meter === undefined) {
+      results.push({ row, outcome: 'failed', reason: 'Missing hour_meter' });
+      continue;
+    }
+    if (!row.customer_title) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_title' });
+      continue;
+    }
+    if (!row.customer_first_name) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_first_name' });
+      continue;
+    }
+    if (!row.customer_last_name) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_last_name' });
+      continue;
+    }
+    if (!row.customer_phone) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_phone' });
+      continue;
+    }
+    if (!row.customer_address) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_address' });
+      continue;
+    }
+    if (!row.customer_province) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_province' });
+      continue;
+    }
+    if (!row.customer_district) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_district' });
+      continue;
+    }
+    if (!row.customer_subdistrict) {
+      results.push({ row, outcome: 'failed', reason: 'Missing customer_subdistrict' });
       continue;
     }
 
@@ -463,6 +494,7 @@ export class NtrImportService {
           retail_date: v.row.retail_date,
           delivery_date: v.row.delivery_date,
           pdi_date: v.row.pdi_date,
+          pdi_number: v.row.pdi_number,
           manufacturing_year: v.row.manufacturing_year,
           hour_meter: v.row.hour_meter,
           photo_customer_id_url: null,

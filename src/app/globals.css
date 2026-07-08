@@ -14,6 +14,16 @@ input:focus, select:focus, textarea:focus {
   border-color: #c8102e;
 }
 
+/* Keyboard-focus visibility (Accessibility) - a branded, consistent
+   focus ring for every interactive element navigated to via keyboard,
+   without showing it on a mouse click (":focus-visible" only fires for
+   keyboard/programmatic focus in modern browsers). */
+a:focus-visible, button:focus-visible, [role="menuitem"]:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid #c8102e;
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
 @layer components {
   .card {
     @apply bg-white rounded-xl shadow-card border border-gray-100 transition-shadow duration-200;
@@ -83,7 +93,8 @@ input:focus, select:focus, textarea:focus {
 
 /* Google Translate widget (TH/EN toggle) — keep Google's own banner/tooltip
    UI fully hidden since we drive translation ourselves via the googtrans
-   cookie and a custom pill toggle (see language-toggle.tsx). */
+   cookie and a custom pill toggle (see
+   components/shared/i18n/LanguageSelector.tsx). */
 #google_translate_element {
   display: none !important;
 }

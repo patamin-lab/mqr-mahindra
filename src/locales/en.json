@@ -1,5 +1,7 @@
 {
   "common": {
+    "notifications": "Notifications",
+    "notificationsComingSoon": "Coming soon",
     "vehicle": "Tractor",
     "owner": "Owner",
     "maintenance": "Maintenance",
@@ -449,6 +451,7 @@
     "variant": "Variant",
     "manufacturingYear": "Manufacturing Year",
     "pdiDate": "PDI Date",
+    "pdiNumber": "PDI Number",
     "engineModel": "Engine Model",
     "currentLifecycle": "Current Lifecycle",
     "registrationDate": "Registration Date",

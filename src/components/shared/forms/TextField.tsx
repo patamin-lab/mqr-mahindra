@@ -17,6 +17,11 @@ export type TextFieldProps = {
   wrapperClassName?: string;
   inputClassName?: string;
   disabled?: boolean;
+  /** Renders a consistent `<span className="text-brand-red">*</span>`
+   *  after the label (Form Standard) - the one required-indicator marker
+   *  every field should use going forward, instead of each caller baking
+   *  a literal " *" into its own label string. */
+  required?: boolean;
 };
 
 export default function TextField({
@@ -27,6 +32,7 @@ export default function TextField({
   wrapperClassName,
   inputClassName = 'border rounded px-2 py-1.5 text-sm w-full',
   disabled,
+  required,
 }: TextFieldProps) {
   const input = (
     <input
@@ -35,6 +41,7 @@ export default function TextField({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
+      required={required}
     />
   );
 
@@ -42,7 +49,9 @@ export default function TextField({
 
   return (
     <div className={wrapperClassName}>
-      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs text-gray-500 mb-1">
+        {label} {required && <span className="text-brand-red">*</span>}
+      </label>
       {input}
     </div>
   );

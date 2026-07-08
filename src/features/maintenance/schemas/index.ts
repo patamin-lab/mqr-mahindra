@@ -91,8 +91,8 @@ export const buildMaintenanceRecordCreateBodySchema = (locale: Locale = DEFAULT_
       .coerce.number({ invalid_type_error: translate(locale, 'validation.enterHourMeter') })
       .min(0, translate(locale, 'validation.hourMeterNegative')),
     pm_interval_id: requiredTrimmedString(translate(locale, 'validation.selectPmInterval')),
-    meter_photo_url: requiredTrimmedString(translate(locale, 'validation.uploadMeterPhoto')),
-    nameplate_photo_url: requiredTrimmedString(translate(locale, 'validation.uploadNameplatePhoto')),
+    meter_photo_url: nullableTrimmedString,
+    nameplate_photo_url: nullableTrimmedString,
     report_photo_url: requiredTrimmedString(translate(locale, 'validation.uploadReportPhoto')),
     meter_photo_attachment_id: nullableTrimmedString,
     nameplate_photo_attachment_id: nullableTrimmedString,

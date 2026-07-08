@@ -15,7 +15,6 @@ import QRCode from 'qrcode';
 import { ensureFontsRegistered } from '@/lib/pdf/fonts';
 import { fetchImageAsDataUri } from '@/lib/pdf/fetchImage';
 import { PdfBrandLogo } from '@/lib/pdf/PdfBrandLogo';
-import { PDF_BRAND_RED } from '@/lib/pdf/brand';
 import { sharedPdfStyles } from '@/lib/pdf/sharedStyles';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
 import { translate } from '@/lib/i18n/translate';

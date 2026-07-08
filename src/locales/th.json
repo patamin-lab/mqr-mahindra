@@ -1,5 +1,7 @@
 {
   "common": {
+    "notifications": "การแจ้งเตือน",
+    "notificationsComingSoon": "เร็วๆ นี้",
     "vehicle": "รถแทรกเตอร์",
     "owner": "เจ้าของรถ",
     "maintenance": "การบำรุงรักษา",
@@ -449,6 +451,7 @@
     "variant": "รุ่นย่อย",
     "manufacturingYear": "ปีที่ผลิต",
     "pdiDate": "วันที่ตรวจสภาพก่อนส่งมอบ (PDI)",
+    "pdiNumber": "เลขที่ใบตรวจสภาพก่อนส่งมอบ (PDI)",
     "engineModel": "รุ่นเครื่องยนต์",
     "currentLifecycle": "สถานะวงจรชีวิตปัจจุบัน",
     "registrationDate": "วันที่ลงทะเบียน",
