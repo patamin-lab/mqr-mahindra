@@ -1610,3 +1610,41 @@ existing `AttachmentService` shape. Documented in
 - Outstanding, non-blocking: Configuration Platform has exactly one
   consumer so far (NTR's warranty filter) - ready for more as future
   modules need a configurable business threshold.
+
+## Address Platform Reconciliation — MASP Enterprise Development Standard (this milestone)
+
+Before adopting the MASP Enterprise Development Standard document as
+this repository's canonical architecture reference, audited its Address
+Platform description against the actual v1.2.0 implementation and found
+two real mismatches. Full record: `docs/adr/ADR-011-Address-Platform.md`.
+
+- **Decision: keep the in-memory JSON design, do not migrate to DB
+  tables.** The Standard describes `provinces`/`districts`/
+  `subdistricts` tables; the shipped implementation uses an in-memory
+  index built once from a static JSON export. No current consumer needs
+  ID-based foreign keys, the reference data changes on the order of
+  years not days, and a DB migration here would be a real production-
+  data-risk change with no measured benefit - exactly what this
+  repository's own Architecture Evolution Rule and Foundation Freeze
+  guard against. ADR-011 documents this as an explicit, reasoned
+  supersession of the Standard's wording for this platform specifically,
+  not a silent deviation.
+- **Reconciled (safe, mechanical, zero data risk)**: renamed
+  `/api/address/*` → `/api/master/*` and `provinceId`/`districtId` →
+  `province_id`/`district_id`, matching the Standard's naming exactly
+  (2 call sites changed: `AddressSelector.tsx`, one doc comment).
+- **Reconciled (UI-only)**: added a plain-text filter `<input>` above
+  each of `AddressSelector`'s three `<select>` elements, satisfying the
+  Standard's "Searchable Dropdown" requirement without a free-text
+  combobox (which would have allowed selecting an invalid value) and
+  without a new dependency.
+- `docs/architecture/PLATFORM_CONSTITUTION.md`'s Master data rules
+  section now points to ADR-011 as the canonical Address Platform
+  architecture reference.
+- Verification: lint/typecheck/tests/build/architecture-check all pass;
+  live UAT on a fresh Preview confirmed the renamed `/api/master/*`
+  routes and the searchable filter inputs.
+- The MASP Enterprise Development Standard is saved as
+  `docs/architecture/MASP_ENTERPRISE_STANDARD.md`, the canonical
+  architecture document going forward, now that its one identified
+  implementation conflict is resolved and documented.

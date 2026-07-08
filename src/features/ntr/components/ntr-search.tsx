@@ -31,7 +31,7 @@ import type { AttachmentType } from '@/shared/attachments';
 // in the Address Platform (a ~3.5MB Thai address JSON) and the Reference
 // Data Platform (`lib/db`/`@supabase/supabase-js`), which would otherwise
 // get bundled into this page's client JS even though neither is used here
-// (address lookups go through `AddressSelector`'s `/api/address/*` calls
+// (address lookups go through `AddressSelector`'s `/api/master/*` calls
 // instead) - a documented exception to "always import the facade", same
 // category as `AttachmentService`'s own operational-surface exception.
 import { CUSTOMER_TYPE_VALUES, type CustomerType } from '@/shared/master-data/lookup/customerType';

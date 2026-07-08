@@ -3,15 +3,20 @@
 The permanent architecture policy for the Mahindra After Sales Platform
 (MASP), effective from the Storage Platform freeze. This document does
 not replace `docs/ARCHITECTURE.md`, `docs/ARCHITECTURE_PRINCIPLES.md`,
-`docs/standards/DOMAIN_LANGUAGE_STANDARD.md`, or any ADR - it consolidates
-the binding rules those documents already established, adds the rules the
-Storage Platform build-out (Phase 5B onward) proved out in practice, and
-is the one place future work should check first before introducing a new
-module, service, or dependency. Where this document and an older one
-disagree, the newer, more specific decision governs (see ADR-009's
-explicit supersession of the original "Tractor, NOT Vehicle" rule as the
-precedent for how that works) - and the disagreement itself should be
-resolved with a new ADR, not by silently picking one.
+`docs/standards/DOMAIN_LANGUAGE_STANDARD.md`, `docs/architecture/
+MASP_ENTERPRISE_STANDARD.md` (the mission/vision and platform-inventory
+document), or any ADR - it consolidates the binding rules those
+documents already established, adds the rules the Storage Platform
+build-out (Phase 5B onward) proved out in practice, and is the one place
+future work should check first before introducing a new module, service,
+or dependency. Where this document and an older one disagree, the newer,
+more specific decision governs (see ADR-009's explicit supersession of
+the original "Tractor, NOT Vehicle" rule as the precedent for how that
+works) - and the disagreement itself should be resolved with a new ADR,
+not by silently picking one. This precedence rule is what let
+`docs/adr/ADR-011-Address-Platform.md` supersede `MASP_ENTERPRISE_
+STANDARD.md`'s Address Platform storage/API wording without editing that
+document's substance.
 
 ## Layer definitions
 
@@ -263,7 +268,14 @@ families). Binding rules:
    Originally built for and used only by NTR; promoted to a shared
    platform service specifically so a second module needing address
    validation reuses it instead of building a second Thai-address
-   index.
+   index. The canonical Address Platform architecture (in-memory JSON
+   index, not DB tables; `/api/master/provinces`/`districts`/
+   `subdistricts` with `province_id`/`district_id` params; a filter
+   input paired with each `<select>` for "searchable dropdown") is
+   `docs/adr/ADR-011-Address-Platform.md` - it explicitly supersedes any
+   other document's description of this platform's storage/API shape,
+   including the MASP Enterprise Development Standard's DB-table
+   wording, until a real business need justifies revisiting it.
 4. **Reference Data delegates to `lib/db.ts`, never re-implements data
    access** - `reference/referenceData.ts` is a thin pass-through to the
    dealer/branch/technician/product-family reads already centralized in
