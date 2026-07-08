@@ -48,9 +48,65 @@ import type { NtrImportSession, NtrRecord } from '../types';
 
 const ACTOR = { username: 'tester' };
 
+const CSV_HEADER =
+  'Dealer,Serial Number,Engine No,Customer,Phone,Delivery Date,Model,District,Province,Postal Code,Manufacturing Year,Retail Date,Customer Title,First Name,Last Name,Address,Sub-District,Hour Meter';
+
+/** Defaults for every field the v1.1.0 required-field standard added
+ *  (Model/Retail Date/Hour Meter/Customer Title/First/Last Name/Address/
+ *  Province/District/Sub-District) - a real, valid Thailand
+ *  province/district/sub-district triple (see ntrAddressValidation.test.ts)
+ *  so a test that isn't specifically about address/date/name validation
+ *  doesn't have to restate all of this just to get past the new required
+ *  checks. */
+const ROW_DEFAULTS = {
+  dealer: 'D1',
+  serial: 'SER-001',
+  engine: 'ENG-1',
+  customer: 'John Doe',
+  phone: '0812345678',
+  deliveryDate: '2026-01-05',
+  model: 'Test Model',
+  district: 'เมืองบุรีรัมย์',
+  province: 'บุรีรัมย์',
+  postalCode: '31000',
+  manufacturingYear: '',
+  retailDate: '2026-01-05',
+  title: 'นาย',
+  firstName: 'John',
+  lastName: 'Doe',
+  address: '123 Test Address',
+  subdistrict: 'ในเมือง',
+  hourMeter: '10',
+};
+
+type RowOverrides = Partial<typeof ROW_DEFAULTS>;
+
+function row(overrides: RowOverrides = {}): string {
+  const r = { ...ROW_DEFAULTS, ...overrides };
+  return [
+    r.dealer,
+    r.serial,
+    r.engine,
+    r.customer,
+    r.phone,
+    r.deliveryDate,
+    r.model,
+    r.district,
+    r.province,
+    r.postalCode,
+    r.manufacturingYear,
+    r.retailDate,
+    r.title,
+    r.firstName,
+    r.lastName,
+    r.address,
+    r.subdistrict,
+    r.hourMeter,
+  ].join(',');
+}
+
 function csvBuffer(rows: string[]): Buffer {
-  const header = 'Dealer,Serial Number,Engine No,Customer,Phone,Delivery Date,Model,District,Province,Postal Code,Manufacturing Year,Retail Date';
-  return Buffer.from([header, ...rows].join('\n'), 'utf-8');
+  return Buffer.from([CSV_HEADER, ...rows].join('\n'), 'utf-8');
 }
 
 function makeNtrRepository(overrides: Partial<NtrRepository> = {}): NtrRepository {
@@ -131,7 +187,7 @@ describe('NtrImportService.preview - Serial Number validation (Legacy vs Strict 
 
   it('Legacy mode: an unknown serial is valid, with a warning', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = csvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,']);
+    const buffer = csvBuffer([row()]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
 
@@ -142,7 +198,7 @@ describe('NtrImportService.preview - Serial Number validation (Legacy vs Strict 
 
   it('Strict mode: an unknown serial is rejected outright', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = csvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,']);
+    const buffer = csvBuffer([row()]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'strict');
 
@@ -154,7 +210,7 @@ describe('NtrImportService.preview - Serial Number validation (Legacy vs Strict 
   it('a known serial with a mismatched Model is valid, with a warning', async () => {
     fakeTables.vehicles = [{ serial: 'SER-001', model: 'Model X' }];
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = csvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,Model Y,,,,,']);
+    const buffer = csvBuffer([row({ model: 'Model Y' })]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
 
@@ -172,8 +228,8 @@ describe('NtrImportService.preview - duplicate detection', () => {
   it('rejects a serial duplicated within the same file', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
     const buffer = csvBuffer([
-      'D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,',
-      'D1,SER-001,ENG-2,Jane Doe,0898765432,2026-01-06,,,,,,',
+      row(),
+      row({ serial: 'SER-001', engine: 'ENG-2', customer: 'Jane Doe', phone: '0898765432', deliveryDate: '2026-01-06' }),
     ]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
@@ -186,8 +242,8 @@ describe('NtrImportService.preview - duplicate detection', () => {
   it('flags a duplicate phone within the file as a warning only - never blocks import', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
     const buffer = csvBuffer([
-      'D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,',
-      'D1,SER-002,ENG-2,Jane Doe,0812345678,2026-01-06,,,,,,',
+      row(),
+      row({ serial: 'SER-002', engine: 'ENG-2', customer: 'Jane Doe', deliveryDate: '2026-01-06' }),
     ]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
@@ -202,7 +258,7 @@ describe('NtrImportService.preview - duplicate detection', () => {
       findActiveBySerials: vi.fn().mockResolvedValue(new Map([['SER-001', { ntr_number: 'NTR-D1-2026-000001' } as NtrRecord]])),
     });
     const service = new NtrImportService(ntrRepository, makeSessionRepository());
-    const buffer = csvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,']);
+    const buffer = csvBuffer([row()]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
 
@@ -220,7 +276,7 @@ describe('NtrImportService.preview - date validation', () => {
   it('rejects a future Retail Date', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
     const futureYear = new Date().getFullYear() + 5;
-    const buffer = csvBuffer([`D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,${futureYear}-01-01`]);
+    const buffer = csvBuffer([row({ retailDate: `${futureYear}-01-01` })]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
 
@@ -230,7 +286,7 @@ describe('NtrImportService.preview - date validation', () => {
 
   it('rejects a Retail Date before the Manufacturing Year', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = csvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,2030,2020-01-01']);
+    const buffer = csvBuffer([row({ manufacturingYear: '2030', retailDate: '2020-01-01' })]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
 
@@ -247,7 +303,7 @@ describe('NtrImportService.preview - address validation', () => {
 
   it('rejects a district that does not belong to the given province', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = csvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,เมืองบุรีรัมย์,สุรินทร์,,,']);
+    const buffer = csvBuffer([row({ district: 'เมืองบุรีรัมย์', province: 'สุรินทร์' })]);
 
     const { preview } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
 
@@ -263,15 +319,19 @@ describe('NtrImportService.preview - Dealer/Branch Scope Platform Standard (bran
     fakeTables.branches = [{ id: 'B1', dealer_id: 'D1' }];
   });
 
+  function branchRow(overrides: RowOverrides & { branch?: string } = {}): string {
+    const { branch = '', ...rest } = overrides;
+    return `${row(rest)},${branch}`;
+  }
+
   function branchCsvBuffer(rows: string[]): Buffer {
-    const header =
-      'Dealer,Serial Number,Engine No,Customer,Phone,Delivery Date,Model,District,Province,Postal Code,Manufacturing Year,Retail Date,Branch';
+    const header = `${CSV_HEADER},Branch`;
     return Buffer.from([header, ...rows].join('\n'), 'utf-8');
   }
 
   it('accepts a branch_id that belongs to the row\'s own dealer_id', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = branchCsvBuffer(['D1,SER-001,ENG-1,John Doe,0812345678,2026-01-05,,,,,,,B1']);
+    const buffer = branchCsvBuffer([branchRow({ branch: 'B1' })]);
 
     const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
 
@@ -283,7 +343,7 @@ describe('NtrImportService.preview - Dealer/Branch Scope Platform Standard (bran
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
     // B1 belongs to D1, but this row claims dealer D2 - a cross-dealer
     // branch_id, exactly the gap this validation closes.
-    const buffer = branchCsvBuffer(['D2,SER-002,ENG-2,Jane Doe,0812345679,2026-01-05,,,,,,,B1']);
+    const buffer = branchCsvBuffer([branchRow({ dealer: 'D2', serial: 'SER-002', engine: 'ENG-2', customer: 'Jane Doe', phone: '0812345679', branch: 'B1' })]);
 
     const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
 
@@ -294,7 +354,7 @@ describe('NtrImportService.preview - Dealer/Branch Scope Platform Standard (bran
 
   it('rejects a branch_id that does not exist at all', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = branchCsvBuffer(['D1,SER-003,ENG-3,Somchai,0812345680,2026-01-05,,,,,,,UNKNOWN_BRANCH']);
+    const buffer = branchCsvBuffer([branchRow({ serial: 'SER-003', engine: 'ENG-3', customer: 'Somchai', phone: '0812345680', branch: 'UNKNOWN_BRANCH' })]);
 
     const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
 
@@ -304,7 +364,7 @@ describe('NtrImportService.preview - Dealer/Branch Scope Platform Standard (bran
 
   it('a row with no branch_id at all is unaffected (branch is optional)', async () => {
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
-    const buffer = branchCsvBuffer(['D1,SER-004,ENG-4,Somsri,0812345681,2026-01-05,,,,,,,']);
+    const buffer = branchCsvBuffer([branchRow({ serial: 'SER-004', engine: 'ENG-4', customer: 'Somsri', phone: '0812345681' })]);
 
     const { preview } = await service.preview(buffer, 'branch.csv', ACTOR, 'legacy');
 
@@ -317,7 +377,9 @@ describe('NtrImportService.preview - bulk prefetch performance', () => {
   it('issues exactly one dealer query and one vehicle query regardless of row count (no per-row DB call)', async () => {
     fakeTables.dealers = [{ id: 'D1' }];
     fakeTables.vehicles = [];
-    const rows = Array.from({ length: 50 }, (_, i) => `D1,SER-BULK-${i},ENG-${i},Customer ${i},08123456${String(i).padStart(2, '0')},2026-01-05,,,,,,`);
+    const rows = Array.from({ length: 50 }, (_, i) =>
+      row({ serial: `SER-BULK-${i}`, engine: `ENG-${i}`, customer: `Customer ${i}`, phone: `08123456${String(i).padStart(2, '0')}` })
+    );
     const service = new NtrImportService(makeNtrRepository(), makeSessionRepository());
     const buffer = csvBuffer(rows);
 

@@ -98,6 +98,7 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     retail_date: nullableTrimmedString,
     delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
     pdi_date: nullableTrimmedString,
+    pdi_number: nullableTrimmedString,
     manufacturing_year: optionalManufacturingYear,
     hour_meter: z.preprocess(
       (val) => (val === undefined || val === null || val === '' ? null : val),
@@ -147,6 +148,7 @@ export const buildNtrRecordUpdateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
       retail_date: nullableTrimmedString,
       delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
       pdi_date: nullableTrimmedString,
+      pdi_number: nullableTrimmedString,
       manufacturing_year: optionalManufacturingYear,
       hour_meter: z.coerce.number().min(0, translate(locale, 'validation.hourMeterNegative')),
       latitude: buildOptionalLatitude(locale),

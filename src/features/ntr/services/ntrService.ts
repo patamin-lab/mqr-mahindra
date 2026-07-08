@@ -38,6 +38,7 @@ const NTR_FIELD_LABELS: Record<string, string> = {
   retail_date: 'วันที่ขายปลีก',
   delivery_date: 'วันที่ส่งมอบ',
   pdi_date: 'วันที่ตรวจสภาพก่อนส่งมอบ',
+  pdi_number: 'เลขที่ใบตรวจสภาพก่อนส่งมอบ (PDI)',
   manufacturing_year: 'ปีที่ผลิต',
   hour_meter: 'ชั่วโมงเครื่องยนต์',
   status: 'สถานะ',

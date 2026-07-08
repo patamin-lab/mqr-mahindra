@@ -451,6 +451,7 @@
     "variant": "Variant",
     "manufacturingYear": "Manufacturing Year",
     "pdiDate": "PDI Date",
+    "pdiNumber": "PDI Number",
     "engineModel": "Engine Model",
     "currentLifecycle": "Current Lifecycle",
     "registrationDate": "Registration Date",

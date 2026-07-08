@@ -40,29 +40,35 @@ alongside this document.)
 
 **Removed from the template, per this enhancement:** nothing - Customer
 Photo with Tractor / Customer Signature / Dealer Signature never existed
-as Data-sheet columns in the current (v1.1) template to begin with.
+as Data-sheet columns in the current (v1.2) template to begin with.
 Historical import has never required photos or signatures: `commit()`
 writes every photo/video/audio field as `null` unconditionally on
 import. Photos/signatures are added later from the NTR Detail page, as
 intended.
 
-## Mandatory Fields
+## Mandatory Fields (v1.2 template)
 
-`Dealer Code`, `Product Serial Number`, `Engine Number`, `Acceptance
-Date` (labeled "Delivery Date"/"Retail Date (Acceptance)"/"NTR Date" in
-some dealer files), and `Customer Phone`. `Customer Name` is required
-**unless** `Customer Title`/`Customer First Name`/`Customer Last Name`
-are filled instead (the import composes the name from those, same rule
-the manual registration form uses).
+`Dealer Code`, `Product Serial Number`, `Model`, `Retail Date`, `Hour
+Meter`, `Customer Title`, `Customer First Name`, `Customer Last Name`,
+`Address`, `Province`, `District`, `Sub-District`, `Customer Phone`, and
+`Acceptance Date` (labeled "Delivery Date"/"Retail Date (Acceptance)"/
+"NTR Date" in some dealer files). `Customer Name` remains optional -
+composed automatically from Customer Title/First Name/Last Name when
+left blank, same rule the manual registration form uses.
+
+**Changed from the v1.1 template:** `Engine Number` moved from mandatory
+to optional. `Model`, `Retail Date`, `Hour Meter`, `Customer Title`,
+`Customer First Name`, `Customer Last Name`, `Address`, `Province`,
+`District`, and `Sub-District` moved from optional to mandatory.
 
 ## Optional Fields
 
-Branch, Model, Customer Address/District/Province/Postal Code/Sub-District/
-Type, Retail Date, Salesperson, Receiving Person, Hour Meter, Product
-Family, Variant, PDI Date, Manufacturing Year. All optional fields may
-be blank with no validation consequence, **except** that once a field
-participates in a validated relationship (address hierarchy, date
-ordering) an inconsistent combination is still rejected - see below.
+Branch, Engine Number, Customer Postal Code, Customer Type, Salesperson,
+Receiving Person, Product Family, Variant, PDI Date, **PDI Number**
+(new in v1.2), Manufacturing Year. All optional fields may be blank with
+no validation consequence, **except** that once a field participates in
+a validated relationship (address hierarchy, date ordering) an
+inconsistent combination is still rejected - see below.
 
 ## Address Lookup
 
