@@ -23,6 +23,17 @@ Do not redesign or rewrite any of the four unless there is a confirmed bug, secu
 
 None of these five are scheduled or scoped in detail yet — each requires its own explicit milestone, plan, and approval before implementation starts, the same discipline every milestone through v1.1.0 followed.
 
+**Deferred, not scheduled**: migrating customer address fields (NTR's
+`ntr_records.customer_province`/`customer_district`/
+`customer_subdistrict`/`customer_postal_code`, or any future module's
+equivalent) from free text to resolved `province_id`/`district_id`/
+`subdistrict_id` foreign keys against the Address Platform's canonical
+tables (`docs/architecture/ADDRESS_PLATFORM.md`,
+`docs/adr/ADR-011-Address-Platform.md`). No consumer needs the join
+today - this requires its own future ADR once a real business
+requirement exists (e.g. address-based reporting/analytics), not a
+speculative schema change.
+
 ---
 
 ## Historical planning (Sprint 1-5, pre-dates the shipped platform)

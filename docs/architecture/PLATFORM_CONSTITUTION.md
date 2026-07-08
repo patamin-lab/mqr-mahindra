@@ -243,8 +243,13 @@ Binding rules, restated here as permanent policy:
 The MASP Platform Layer (`src/shared/master-data/`) completed as of
 MASP Platform Foundation **v1.2.0** (tagged/released on merge commit
 `6b7afb67765610337c04d10857a2c8028efdaa4c` - see `PROJECT_STATE.md`'s
-"MASP Platform Layer" entry and `RELEASE_NOTES_v1.2.0.md`), the current
-baseline this repository builds on. It is the one entry point for every
+"MASP Platform Layer" entry and `RELEASE_NOTES_v1.2.0.md`); its Address
+Platform sub-domain was then migrated onto Supabase canonical tables in
+**v1.2.1** (merge commits `b351b424c2d3fa62d9b693dd8192fdb7ed19d54b` and
+`c45c3ab584b0709e87cbdcd2fd98940aa3bfd0c0` - see `docs/adr/ADR-011-
+Address-Platform.md`'s v2 Supersession section and
+`RELEASE_NOTES_v1.2.1.md`). v1.2.1 is the current baseline this
+repository builds on. `MasterDataService` is the one entry point for every
 "master/reference/lookup data" concern: Address (Thai province/district/
 subdistrict/postal-code lookup and hierarchy validation), Lookup
 (controlled-vocabulary values - Customer Type, Customer Title, Attachment
