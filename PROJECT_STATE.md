@@ -1457,8 +1457,8 @@ Development Phase" section; this entry is a pointer, not a duplicate.
 
 Full record: `CHANGELOG_UI_STANDARDIZATION.md`,
 `docs/UI_STANDARD.md` (current-state component/token inventory),
-`RELEASE_NOTES_v1.2.0.md` (candidate - not yet tagged); this entry is a
-pointer, not a duplicate.
+`RELEASE_NOTES_v1.2.0.md` (released as part of `v1.2.0` - see the "MASP
+Platform Layer" entry below); this entry is a pointer, not a duplicate.
 
 - **Platform Header**: one shared, sticky, responsive `PlatformHeader` +
   `AppShell` on every authenticated page. Floating language-toggle
@@ -1535,10 +1535,9 @@ pointer, not a duplicate.
     the old floating-button markup, no regression found.
 - `RELEASE_NOTES_v1.2.0.md` and `CHANGELOG_UI_STANDARDIZATION.md` updated
   to reflect merged-to-main status. Tagging this commit as a formal
-  `v1.2.0` release (or folding it into a later-numbered one) is a
-  separate, not-yet-made decision - this closeout marks the UI
-  Standardization work itself complete, not a new version tag/GitHub
-  Release (neither was requested as part of this closeout).
+  `v1.2.0` release was a separate decision, made once the MASP Platform
+  Layer milestone below completed on the same version number - see that
+  entry for the actual tag/release.
 - Remaining, explicitly deferred (non-blocking) technical debt: PM's
   five newly-requested optional attachment slots that don't exist as
   columns yet (Before Repair/After Repair/Failed Part/Machine Overview/
@@ -1546,3 +1545,68 @@ pointer, not a duplicate.
   addition, left as its own future milestone. Real screenshots, physical
   tablet/mobile device testing, and screen-reader/contrast-ratio testing
   remain manual-verification items this environment cannot perform.
+
+## MASP Platform Layer — v1.2.0 Release Baseline (this milestone)
+
+**STATUS: COMPLETE.** Merged to `main` via PR #14 - merge commit
+`6b7afb67765610337c04d10857a2c8028efdaa4c`, merged 2026-07-08. Tagged and
+published as GitHub Release **`v1.2.0`** on that same commit - the
+current production baseline.
+
+Completed the MASP Platform layer requested before Workflow Engine
+development begins: Address Platform, Lookup Platform, Configuration
+Platform, and Reference Data Platform, unified behind one shared
+`MasterDataService` facade (`src/shared/master-data/`), mirroring the
+existing `AttachmentService` shape. Documented in
+`docs/architecture/PLATFORM_CONSTITUTION.md`'s "Master data rules
+(MasterDataService)" section.
+
+- **Address Platform**: Thai Province/District/Sub-District/Postal Code
+  lookup and hierarchy validation, promoted from NTR-only code. A shared
+  `AddressSelector` component (cascading dropdowns via new
+  `/api/address/*` routes, so the ~3.5MB address master data is never
+  bundled client-side) replaced NTR's 4 free-text address fields, which
+  previously had no hierarchy validation. PM has no customer address
+  fields, so nothing to migrate there.
+- **Lookup Platform**: Customer Type, Customer Title, Attachment Type
+  (facade over the Attachment Platform's existing vocabulary, no
+  duplicate list), Severity/Priority, and MQR Status - wired into NTR's
+  customer-title field and MQR's status/severity displays on the records
+  list and dashboard.
+- **Configuration Platform**: NTR's warranty-status filter now reads
+  `MasterDataService.getWarrantyLimitMonths('other')` instead of a
+  locally duplicated 24-month constant - a real business-module
+  consumer, without violating the one-way dependency rule (`lib/
+  warranty.ts` stays as-is; Infrastructure still can't depend on this
+  Platform service).
+- **Reference Data Platform**: 18 business-module files (pages and API
+  routes) migrated off direct `lib/db` dealer/branch/technician/
+  product-family reads onto `MasterDataService`.
+- **Real bug found and fixed during verification**: a Client Component
+  (`ntr-search.tsx`) was importing the full `MasterDataService` facade
+  for two small lookup values, which also pulled the Address Platform's
+  ~3.5MB JSON and `@supabase/supabase-js` into the browser bundle -
+  `/ntr/new`'s First Load JS was 465kB. Fixed by importing the two
+  Lookup Platform submodules it actually needs directly (a documented
+  exception, same category as `AttachmentService`'s operational-surface
+  exception) - dropped to 169kB.
+- Verification: lint/typecheck/tests(478/478, +25 new)/build/
+  architecture-check all pass. Live UAT on a fresh Vercel Preview
+  confirmed the Address Platform's cascading lookup, all four Reference
+  Data endpoints, and page loads; production re-confirmed healthy
+  post-merge (`https://masp-mseal.vercel.app`, 200 on `/login`).
+- **Repository housekeeping**: every fully-merged branch was deleted
+  (`docs/close-ui-standardization-release`,
+  `docs/post-v1.1.0-development-standard`, `feature/ntr-legacy-import`,
+  `feature/ntr-module`, `feature/pm-record-types`,
+  `feature/pm-record-workflow-redesign`, `feature/masp-platform-layer`).
+  `sprint11` was also deleted after re-confirming it was fully
+  superseded: its 12 commits were all exploratory work on a `pm-record`
+  (singular) module that predates this session's Foundation/
+  DealerBranchScope/Attachment-Standard work and was fully replaced by
+  `features/maintenance/` - `git ls-tree -r origin/main` confirmed zero
+  files from that module exist in `main`, so no unique work was lost.
+  `main` is now the only remaining branch, with no open PRs.
+- Outstanding, non-blocking: Configuration Platform has exactly one
+  consumer so far (NTR's warranty filter) - ready for more as future
+  modules need a configurable business threshold.
