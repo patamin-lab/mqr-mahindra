@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { translate } from '@/lib/i18n/translate';
 import { Locale, DEFAULT_LOCALE } from '@/lib/i18n/types';
 import { NTR_ATTACHMENT_TYPES } from '../types';
+import { MasterDataService } from '@/shared/master-data';
+import type { CustomerType } from '@/shared/master-data';
 
 /** Same preprocessors as `src/features/maintenance/schemas/index.ts` -
  *  reused verbatim rather than redefined, so "" / null / undefined all
@@ -48,10 +50,13 @@ const optionalManufacturingYear = z.preprocess(
 
 /** Normalizes an absent/unrecognized value to `null` (never `undefined`),
  *  matching the `nullableTrimmedString` convention above so downstream
- *  types stay `NtrCustomerType | null`, never `| undefined`. */
+ *  types stay `NtrCustomerType | null`, never `| undefined`. Values come
+ *  from the MASP Platform's shared Customer Type lookup
+ *  (`shared/master-data/lookup/customerType.ts`), never re-typed here. */
+const CUSTOMER_TYPE_VALUES_TUPLE = MasterDataService.customerTypeValues as [CustomerType, ...CustomerType[]];
 const customerTypeSchema = z.preprocess(
-  (val) => (val === 'Individual' || val === 'Company' ? val : null),
-  z.union([z.literal('Individual'), z.literal('Company'), z.null()])
+  (val) => (typeof val === 'string' && (MasterDataService.customerTypeValues as string[]).includes(val) ? val : null),
+  z.enum(CUSTOMER_TYPE_VALUES_TUPLE).nullable()
 );
 
 /** `additional_photos` entries hold the optional, no-dedicated-column

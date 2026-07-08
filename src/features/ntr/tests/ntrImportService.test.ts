@@ -54,7 +54,7 @@ const CSV_HEADER =
 /** Defaults for every field the v1.1.0 required-field standard added
  *  (Model/Retail Date/Hour Meter/Customer Title/First/Last Name/Address/
  *  Province/District/Sub-District) - a real, valid Thailand
- *  province/district/sub-district triple (see ntrAddressValidation.test.ts)
+ *  province/district/sub-district triple (see shared/master-data/address/__tests__/addressValidation.test.ts)
  *  so a test that isn't specifically about address/date/name validation
  *  doesn't have to restate all of this just to get past the new required
  *  checks. */

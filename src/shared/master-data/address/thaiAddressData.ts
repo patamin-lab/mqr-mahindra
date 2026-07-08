@@ -1,16 +1,22 @@
 /**
- * NTR — Thailand Province / District / Subdistrict / Postal Code master
- * data.
+ * MASP Platform — Address Platform: Thailand Province / District /
+ * Subdistrict / Postal Code master data.
  *
- * Source of truth: `src/features/ntr/data/thaiAddressMaster.json`, a
- * one-time export of the "Thai Province+DIstrict+Tambon.xlsx" reference
- * file's `TambonDatabase` sheet (7,436 rows - every subdistrict in
- * Thailand, with its parent district and province, in Thai and English,
- * full and short forms, plus postal code(s)). This module never re-reads
- * that spreadsheet at runtime and never queries a database for it -
- * loaded into memory exactly once (module-level singleton, built lazily
- * on first use), then reused for every row of every import - satisfying
- * "load the address master ONCE into memory, never a lookup per row."
+ * Platform service (`src/shared/master-data/`) - every module needing
+ * Thai address lookup/validation goes through this, never its own copy
+ * (originally built for and used only by NTR; promoted to a shared
+ * platform service so any future module needing address validation
+ * reuses it instead of re-implementing).
+ *
+ * Source of truth: `data/thaiAddressMaster.json`, a one-time export of
+ * the "Thai Province+DIstrict+Tambon.xlsx" reference file's
+ * `TambonDatabase` sheet (7,436 rows - every subdistrict in Thailand,
+ * with its parent district and province, in Thai and English, full and
+ * short forms, plus postal code(s)). This module never re-reads that
+ * spreadsheet at runtime and never queries a database for it - loaded
+ * into memory exactly once (module-level singleton, built lazily on
+ * first use), then reused for every caller - satisfying "load the
+ * address master ONCE into memory, never a lookup per row."
  *
  * Regenerating the JSON (only needed if Thailand's official province/
  * district/subdistrict list changes) is a manual, explicit step - not
@@ -18,7 +24,7 @@
  * reference file, not something this repository tracks changes to
  * automatically.
  */
-import thaiAddressData from '../data/thaiAddressMaster.json';
+import thaiAddressData from './data/thaiAddressMaster.json';
 
 interface TambonRow {
   tambonId: string;

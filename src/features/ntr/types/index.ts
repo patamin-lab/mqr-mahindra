@@ -11,8 +11,14 @@
  * later.
  */
 import type { ColumnMappingResult, ImportWarning } from '@/shared/import';
+import type { CustomerType } from '@/shared/master-data';
 
-export type NtrCustomerType = 'Individual' | 'Company';
+/** Alias for the MASP Platform's shared Customer Type lookup
+ *  (`shared/master-data/lookup/customerType.ts`) - kept under this name
+ *  since every existing NTR call site already references
+ *  `NtrCustomerType`; the canonical values/labels/normalizer live in the
+ *  shared platform, not duplicated here. */
+export type NtrCustomerType = CustomerType;
 
 /** Standardized attachment categories - future modules (PM, Warranty,
  *  Campaign) reuse these same keys/labels rather than inventing their own

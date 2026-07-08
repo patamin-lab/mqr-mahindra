@@ -31,7 +31,7 @@ import { NtrImportSessionRepository } from '../repositories/ntrImportSessionRepo
 import { mapNtrImportHeaders, parseNtrImportFile } from './ntrImportParser';
 import { buildNtrImportResultWorkbook } from './ntrImportResultExcel';
 import { NTR_IMPORT_FIELDS } from './ntrImportFields';
-import { validateNtrAddress } from './ntrAddressValidation';
+import { MasterDataService } from '@/shared/master-data';
 import {
   NtrImportMode,
   NtrImportPreview,
@@ -279,7 +279,7 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, 
       continue;
     }
 
-    const address = validateNtrAddress({
+    const address = MasterDataService.validateThaiAddress({
       province: row.customer_province,
       district: row.customer_district,
       subdistrict: row.customer_subdistrict,

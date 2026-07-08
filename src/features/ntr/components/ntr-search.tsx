@@ -25,6 +25,8 @@ import { uploadAttachment, newPendingEntityId } from '@/components/shared/attach
 import { processImageForUpload } from '@/components/shared/attachments/imageProcessing';
 import AttachmentPhotoTile from '@/components/shared/attachments/AttachmentPhotoTile';
 import type { AttachmentType } from '@/shared/attachments';
+import { MasterDataService } from '@/shared/master-data';
+import type { CustomerType } from '@/shared/master-data';
 import type { Dealer, Role } from '@/lib/types';
 import type { NtrTractorSearchResult } from '@/lib/db';
 import type { NtrAdditionalPhoto, NtrAttachmentType, NtrRecord } from '../types';
@@ -306,7 +308,7 @@ function NtrRegistrationForm({
   const [customerDistrict, setCustomerDistrict] = useState('');
   const [customerProvince, setCustomerProvince] = useState('');
   const [customerPostalCode, setCustomerPostalCode] = useState('');
-  const [customerType, setCustomerType] = useState<'Individual' | 'Company' | ''>('');
+  const [customerType, setCustomerType] = useState<CustomerType | ''>('');
   const [productFamilyId, setProductFamilyId] = useState('');
   const [productFamilies, setProductFamilies] = useState<{ id: string; name: string }[]>([]);
   const [variant, setVariant] = useState('');
@@ -504,10 +506,13 @@ function NtrRegistrationForm({
     }
   }
 
+  const CUSTOMER_TYPE_TRANSLATION_KEY: Record<CustomerType, string> = {
+    Individual: 'ntr.customerTypeIndividual',
+    Company: 'ntr.customerTypeCompany',
+  };
   const customerTypeOptions = [
     { value: '', label: t('ntr.selectCustomerType') },
-    { value: 'Individual', label: t('ntr.customerTypeIndividual') },
-    { value: 'Company', label: t('ntr.customerTypeCompany') },
+    ...MasterDataService.customerTypeValues.map((value) => ({ value, label: t(CUSTOMER_TYPE_TRANSLATION_KEY[value]) })),
   ];
 
   const requiredPhotoLabels: Record<RequiredPhotoSlot, string> = {
@@ -549,7 +554,7 @@ function NtrRegistrationForm({
       <div className="space-y-3 rounded border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.customerInfoTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <SelectField label={t('csv.customerType')} value={customerType} onChange={(v) => setCustomerType(v as 'Individual' | 'Company' | '')} options={customerTypeOptions} />
+          <SelectField label={t('csv.customerType')} value={customerType} onChange={(v) => setCustomerType(v as CustomerType | '')} options={customerTypeOptions} />
           {customerType === 'Individual' ? (
             <>
               <TextField label={t('csv.customerTitle')} value={customerTitle} onChange={setCustomerTitle} placeholder={t('ntr.customerTitlePlaceholder')} disabled={submitting} />
