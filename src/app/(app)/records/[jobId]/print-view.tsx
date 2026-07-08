@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { MqrRecord, SEVERITY_LABELS, Severity, STATUS_LABELS, StatusValue, PHOTO_CATEGORIES } from '@/lib/types';
 import { formatThaiDateTime } from '@/lib/thaiDate';
 

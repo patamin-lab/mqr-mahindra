@@ -17,14 +17,7 @@ import SelectField from '@/components/shared/forms/SelectField';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
 
-const EMPTY_GPS: GpsLocation = { latitude: null, longitude: null, accuracy: null, googleMapsUrl: null };
-
 type PhotoSlot = 'meter' | 'nameplate' | 'report';
-const PHOTO_FIELD: Record<PhotoSlot, 'meter_photo_url' | 'nameplate_photo_url' | 'report_photo_url'> = {
-  meter: 'meter_photo_url',
-  nameplate: 'nameplate_photo_url',
-  report: 'report_photo_url',
-};
 const PHOTO_ATTACHMENT_TYPE: Record<PhotoSlot, AttachmentType> = {
   meter: 'MeterPhoto',
   nameplate: 'NameplatePhoto',

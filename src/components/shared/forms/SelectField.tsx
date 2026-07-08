@@ -17,6 +17,9 @@ export type SelectFieldProps = {
   options: SelectOption[];
   wrapperClassName?: string;
   selectClassName?: string;
+  /** Same required-indicator convention as TextField (Form Standard). */
+  required?: boolean;
+  disabled?: boolean;
 };
 
 export default function SelectField({
@@ -26,9 +29,11 @@ export default function SelectField({
   options,
   wrapperClassName,
   selectClassName = 'border rounded px-2 py-1.5 text-sm w-full',
+  required,
+  disabled,
 }: SelectFieldProps) {
   const select = (
-    <select className={selectClassName} value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className={selectClassName} value={value} onChange={(e) => onChange(e.target.value)} required={required} disabled={disabled}>
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>
           {opt.label}
@@ -41,7 +46,9 @@ export default function SelectField({
 
   return (
     <div className={wrapperClassName}>
-      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      <label className="block text-xs text-gray-500 mb-1">
+        {label} {required && <span className="text-brand-red">*</span>}
+      </label>
       {select}
     </div>
   );

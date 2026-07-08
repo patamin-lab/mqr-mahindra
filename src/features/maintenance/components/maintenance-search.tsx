@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalUpdateLoading, swalSuccessToast } from '@/lib/swal';
+import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/swal';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
