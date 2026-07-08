@@ -1,5 +1,9 @@
 # Changelog — Enterprise UI/UX Standardization
 
+**Status: COMPLETE - merged to `main`** via PR #12, merge commit
+`08b4856` (2026-07-08). CI on `main` green, production deployment
+verified healthy post-merge, no regression found.
+
 Human-readable summary of the UI/UX standardization pass that shipped on
 top of MASP Platform Foundation v1.1.0. See `docs/UI_STANDARD.md` for the
 full current-state component/token inventory.
