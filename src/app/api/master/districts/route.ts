@@ -12,5 +12,5 @@ export async function GET(req: NextRequest) {
   const provinceId = new URL(req.url).searchParams.get('province_id');
   if (!provinceId) return NextResponse.json({ ok: true, districts: [] });
 
-  return NextResponse.json({ ok: true, districts: MasterDataService.listDistricts(provinceId) });
+  return NextResponse.json({ ok: true, districts: await MasterDataService.listDistricts(provinceId) });
 }

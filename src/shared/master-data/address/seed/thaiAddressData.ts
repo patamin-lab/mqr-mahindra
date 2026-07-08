@@ -1,28 +1,26 @@
 /**
  * MASP Platform — Address Platform: Thailand Province / District /
- * Subdistrict / Postal Code master data.
+ * Subdistrict / Postal Code SEED data.
  *
- * Platform service (`src/shared/master-data/`) - every module needing
- * Thai address lookup/validation goes through this, never its own copy
- * (originally built for and used only by NTR; promoted to a shared
- * platform service so any future module needing address validation
- * reuses it instead of re-implementing).
+ * **Not the production data source as of v2** (see
+ * `docs/adr/ADR-011-Address-Platform.md`'s v2 supersession) -
+ * `AddressRepository` (Supabase-backed) is the one entry point production
+ * code uses now. This module and `data/thaiAddressMaster.json` are kept
+ * only as: (1) the seed data the `address_platform_canonical_tables`
+ * migration's `provinces_raw`/`districts_raw`/`subdistricts_raw` tables
+ * were originally loaded from, (2) a backup if the DB tables ever need
+ * re-seeding, and (3) a fixture for automated tests that want real Thai
+ * address data without a live Supabase connection. No production request
+ * path imports this file - if one starts to, that is itself a regression
+ * (a second Address Platform implementation), not a valid reuse.
  *
- * Source of truth: `data/thaiAddressMaster.json`, a one-time export of
- * the "Thai Province+DIstrict+Tambon.xlsx" reference file's
- * `TambonDatabase` sheet (7,436 rows - every subdistrict in Thailand,
- * with its parent district and province, in Thai and English, full and
- * short forms, plus postal code(s)). This module never re-reads that
- * spreadsheet at runtime and never queries a database for it - loaded
- * into memory exactly once (module-level singleton, built lazily on
- * first use), then reused for every caller - satisfying "load the
- * address master ONCE into memory, never a lookup per row."
- *
- * Regenerating the JSON (only needed if Thailand's official province/
- * district/subdistrict list changes) is a manual, explicit step - not
- * part of any build script, since the source spreadsheet is an external
- * reference file, not something this repository tracks changes to
- * automatically.
+ * Source: `data/thaiAddressMaster.json`, a one-time export of the "Thai
+ * Province+DIstrict+Tambon.xlsx" reference file's `TambonDatabase` sheet
+ * (7,436 rows - every subdistrict in Thailand, with its parent district
+ * and province, in Thai and English, full and short forms, plus postal
+ * code(s)). Regenerating it (only needed if Thailand's official
+ * province/district/subdistrict list changes) is a manual, explicit
+ * step - not part of any build script.
  */
 import thaiAddressData from './data/thaiAddressMaster.json';
 

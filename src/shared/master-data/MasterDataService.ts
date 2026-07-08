@@ -18,8 +18,10 @@
  * (the address index and reference-data reads are either a module-level
  * cache or a stateless pass-through) - there is nothing to construct.
  */
-import * as address from './address/thaiAddressData';
+import { AddressRepository, normalizeThaiAddressValue, type ProvinceRef, type DistrictRef, type SubdistrictRef } from './address/AddressRepository';
 import { validateThaiAddress, type AddressValidationInput, type AddressValidationResult } from './address/addressValidation';
+
+const addressRepository = new AddressRepository();
 import {
   CUSTOMER_TYPE_VALUES,
   CUSTOMER_TYPE_LABELS_TH,
@@ -42,14 +44,29 @@ import * as reference from './reference/referenceData';
 
 export class MasterDataService {
   // ---- Address Platform ----
-  static findProvince = address.findProvince;
-  static findDistrict = address.findDistrict;
-  static findSubdistrict = address.findSubdistrict;
-  static listProvinces = address.listProvinces;
-  static listDistricts = address.listDistricts;
-  static listSubdistricts = address.listSubdistricts;
-  static normalizeThaiAddressValue = address.normalizeThaiAddressValue;
-  static validateThaiAddress(input: AddressValidationInput): AddressValidationResult {
+  // Supabase-backed (ADR-011 v2) - every method is async. No business
+  // module queries Supabase or reads `address/AddressRepository.ts`
+  // directly; this facade is the only entry point.
+  static findProvince(name: string): Promise<ProvinceRef | null> {
+    return addressRepository.findProvince(name);
+  }
+  static findDistrict(name: string, provinceId: string): Promise<DistrictRef | null> {
+    return addressRepository.findDistrict(name, provinceId);
+  }
+  static findSubdistrict(name: string, districtId: string): Promise<SubdistrictRef | null> {
+    return addressRepository.findSubdistrict(name, districtId);
+  }
+  static listProvinces(): Promise<ProvinceRef[]> {
+    return addressRepository.listProvinces();
+  }
+  static listDistricts(provinceId: string): Promise<DistrictRef[]> {
+    return addressRepository.listDistricts(provinceId);
+  }
+  static listSubdistricts(districtId: string): Promise<SubdistrictRef[]> {
+    return addressRepository.listSubdistricts(districtId);
+  }
+  static normalizeThaiAddressValue = normalizeThaiAddressValue;
+  static validateThaiAddress(input: AddressValidationInput): Promise<AddressValidationResult> {
     return validateThaiAddress(input);
   }
 

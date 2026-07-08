@@ -18,21 +18,46 @@ const fakeTables: {
   branches: [],
 };
 
+// Address Platform (v2, Supabase-backed) tables - a fixed Buriram/Surin
+// fixture matching every other Address Platform test's example, so import
+// rows built with the same province/district/subdistrict values above
+// validate successfully through the real `MasterDataService.validateThaiAddress`.
+const ADDRESS_TABLES: Record<string, unknown[]> = {
+  provinces: [
+    { province_id: 31, province_name_th: 'บุรีรัมย์' },
+    { province_id: 32, province_name_th: 'สุรินทร์' },
+  ],
+  districts: [{ district_id: 3101, district_name_th: 'อำเภอเมืองบุรีรัมย์', province_id: 31 }],
+  subdistricts: [{ subdistrict_id: 310101, subdistrict_name_th: 'ในเมือง', district_id: 3101, postcode: 31000 }],
+};
+
 vi.mock('@/lib/supabase', () => ({
   getSupabase: () => ({
-    from: (table: string) => ({
-      select: () => ({
-        in: (_column: string, values: string[]) => {
-          const rows =
-            table === 'dealers'
-              ? fakeTables.dealers.filter((d) => values.includes(d.id))
-              : table === 'branches'
-                ? fakeTables.branches.filter((b) => values.includes(b.id))
-                : fakeTables.vehicles.filter((v) => values.includes(v.serial));
-          return Promise.resolve({ data: rows, error: null });
-        },
-      }),
-    }),
+    from: (table: string) => {
+      if (table in ADDRESS_TABLES) {
+        const builder: any = {};
+        builder.select = () => builder;
+        builder.eq = (column: string, value: unknown) => {
+          builder._filtered = (ADDRESS_TABLES[table] as Record<string, unknown>[]).filter((r) => String(r[column]) === String(value));
+          return builder;
+        };
+        builder.order = () => Promise.resolve({ data: builder._filtered ?? ADDRESS_TABLES[table], error: null });
+        return builder;
+      }
+      return {
+        select: () => ({
+          in: (_column: string, values: string[]) => {
+            const rows =
+              table === 'dealers'
+                ? fakeTables.dealers.filter((d) => values.includes(d.id))
+                : table === 'branches'
+                  ? fakeTables.branches.filter((b) => values.includes(b.id))
+                  : fakeTables.vehicles.filter((v) => values.includes(v.serial));
+            return Promise.resolve({ data: rows, error: null });
+          },
+        }),
+      };
+    },
   }),
 }));
 vi.mock('@/lib/db', async (importOriginal) => {

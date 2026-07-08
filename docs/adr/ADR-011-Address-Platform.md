@@ -1,5 +1,15 @@
 # ADR-011: Address Platform
 
+> **Superseded in part by the v2 update below (v1.2.1).** The original
+> decision ("keep the in-memory JSON design; do not migrate to DB
+> tables") is no longer current - Thailand Address Master Data now
+> exists in Supabase, changing the "no consumer needs foreign keys yet /
+> a migration is a real production-data risk for zero benefit" reasoning
+> that decision rested on. The original Problem/Audit/Decision/
+> Alternatives/Consequences below are kept verbatim as the historical
+> record of the v1 decision and why it was reasonable at the time; the
+> **v2 Supersession** section at the end is what governs today.
+
 ## Problem
 
 The MASP Platform Layer (v1.2.0, PR #14) shipped an Address Platform
@@ -116,3 +126,132 @@ production-data-risk changes):
 - `docs/architecture/PLATFORM_CONSTITUTION.md`'s Master data rules section
   and `PROJECT_STATE.md` are updated to point here rather than restate
   the reconciliation inline.
+
+---
+
+## v2 Supersession (v1.2.1): Supabase becomes the canonical source
+
+### Context
+
+The Thailand Address Master Data has been imported into Supabase. This
+is the fact that changes the v1 Decision's reasoning: point 1 above
+("no consumer needs ID-based foreign keys today... adding tables would
+be infrastructure just in case") and point 2 ("the DB tables would just
+be a slower, migration-risk-carrying copy of the same rows, not a new
+capability") no longer hold once the data already exists in Supabase
+independent of anything this ADR does - the question is no longer
+"should we create DB tables nobody asked for," it's "the data already
+exists in the database; should the platform read from its actual
+system of record or keep a separate copy." Kept as a JSON-only source at
+that point would itself become the "two copies of the same reference
+data" duplication this repository's rules warn against.
+
+**Audit finding before writing this migration**: the imported
+`provinces`/`districts`/`subdistricts` tables were a raw, undeduplicated
+flat export - `provinces` had 7,436 rows for only 77 distinct
+`province_id` values (`districts`: 7,436 rows for 928 distinct ids), no
+primary keys, no foreign keys, no indexes anywhere, and a stray
+duplicate `province_id_1` column on `subdistricts`. This was confirmed
+via `information_schema.table_constraints` (empty result) and `count(*)`
+vs. `count(distinct id)` before any migration was written - "the data
+exists in Supabase" and "the data is usable as canonical reference data"
+are different claims, and only the first was true without further work.
+
+### Decision
+
+1. **Keep the raw imported tables, untouched, as `*_raw` staging data.**
+   Renamed `provinces`/`districts`/`subdistricts` → `provinces_raw`/
+   `districts_raw`/`subdistricts_raw` (migration
+   `address_platform_canonical_tables`) - no row deleted, no column
+   changed. This is the "seed/backup" role the raw data now plays.
+2. **Create new, proper canonical tables** with the same names the
+   application actually reads (`provinces`/`districts`/`subdistricts`):
+   `bigint` primary keys, `districts.province_id`/`subdistricts.
+   district_id`/`subdistricts.province_id` foreign keys to their parent,
+   and the three indexes named in the migration brief
+   (`districts_province_id_idx`, `subdistricts_district_id_idx`,
+   `subdistricts_postcode_idx`).
+3. **Populate the canonical tables via a `DISTINCT ON (id) ... ORDER BY
+   id, ctid` deduplication pass** from the `*_raw` tables in the same
+   migration - one canonical row per id, deterministically picking the
+   first-seen raw row's name when (rarely) more than one name variant
+   existed for the same id.
+4. **Build `AddressRepository`** (`src/shared/master-data/address/
+   AddressRepository.ts`) as the one data-access layer over the
+   canonical tables - async (Supabase queries are async, unlike the old
+   in-memory index), with an instance-level cache per method (province
+   list, district list per province, subdistrict list per district) so
+   the "load once, reuse for every caller" property the v1 JSON index
+   had is preserved without re-querying Supabase on every lookup.
+5. **`MasterDataService`'s Address Platform methods (`findProvince`/
+   `findDistrict`/`findSubdistrict`/`listProvinces`/`listDistricts`/
+   `listSubdistricts`/`validateThaiAddress`) are now `async`**, delegating
+   to `AddressRepository`. Every call site (`/api/master/*` routes,
+   `ntrImportService.ts`) was updated to `await` them.
+6. **The pre-v2 JSON module moved to `address/seed/thaiAddressData.ts`**
+   (with its `data/thaiAddressMaster.json`) - kept only as the seed the
+   `*_raw` tables were originally loaded from, a backup if the DB ever
+   needs re-seeding, and a fixture for tests that want real Thai address
+   data without mocking Supabase. No production code path imports it.
+7. **RLS enabled on all six tables** (canonical + raw), each with a
+   permissive `SELECT ... USING (true)` policy - matching this
+   repository's existing pattern for other public reference tables
+   (`problem_codes`, `product_families`): RLS technically on, but this
+   is non-tenant-scoped reference data every authenticated session reads
+   identically, so there is nothing to restrict per-row.
+
+### Alternatives Considered
+
+- **Deduplicate the raw tables in place (`DELETE` the extra rows, then
+  add PK/FK/indexes to the same table)** - rejected: destructive on a
+  production table for no benefit over creating clean tables alongside;
+  the instruction to treat imported data as **immutable** staging rules
+  this out directly, and it also removes the "backup to re-seed from"
+  property entirely if the dedup logic ever needs revisiting.
+- **Views over the raw tables instead of new physical tables** - rejected:
+  a `SELECT DISTINCT` view cannot itself hold a primary key or foreign
+  key constraint, so the required indexes/FKs (`districts.province_id`,
+  `subdistricts.district_id`, `subdistricts.postcode`) would not be
+  real, enforced constraints - only query-time behavior that Postgres
+  could still plan inefficiently around.
+- **Leave `MasterDataService`'s Address methods synchronous, fetch all
+  three tables once at cold-start and keep an in-memory index (same
+  shape as v1, just Supabase-sourced)** - rejected: this repository's own
+  convention for reference-data reads (dealers/branches/technicians in
+  `reference/referenceData.ts`) is a thin async pass-through to
+  Supabase, not a bulk-preload-then-sync-index pattern; matching that
+  existing convention was preferred over inventing a second one.
+
+### Migration
+
+Applied as Supabase migration `address_platform_canonical_tables`:
+rename raw tables → create canonical tables (PK/FK) → create the three
+required indexes → populate via `INSERT ... SELECT DISTINCT ON` → enable
+RLS + permissive SELECT policy on all six tables. Verified after
+applying: `provinces` 77 rows, `districts` 928 rows, `subdistricts`
+7,436 rows (matching Thailand's real counts), `*_raw` tables unchanged
+at 7,436 rows each, zero new Supabase security advisories.
+
+No destructive change to any table another module reads - `ntr_records`
+still stores `customer_province`/`customer_district`/`customer_
+subdistrict`/`customer_postal_code` as free text (unchanged); this
+migration only affects the Address Platform's own reference tables.
+
+### Consequences
+
+- Supabase (via `AddressRepository`) is now the single, real system of
+  record for Thai Province/District/Subdistrict/Postcode data - the v1
+  ADR's "the JSON is the source of truth" is no longer true anywhere in
+  this codebase.
+- Every Address Platform method is now `async` - a future caller must
+  `await` it; there is no synchronous path left (the old
+  `thaiAddressData.ts` functions still exist, synchronously, but only as
+  seed/test-fixture code, never wired into `MasterDataService`).
+- Re-seeding the canonical tables (if Thailand's official boundaries
+  ever change) means regenerating `thaiAddressMaster.json`, reloading
+  `*_raw`, and re-running the same `DISTINCT ON` population query - not
+  hand-editing 7,436 JSON rows.
+- `docs/architecture/MASTER_DATA_PLATFORM.md` and
+  `docs/architecture/ADDRESS_PLATFORM.md` (new) hold the current
+  architecture/schema/API reference; this ADR stays the historical
+  decision record for both the v1 and v2 choices.
