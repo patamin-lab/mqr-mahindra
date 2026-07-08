@@ -2,7 +2,9 @@
 
 **Status: COMPLETE - merged to `main`** via PR #12, merge commit
 `08b4856` (2026-07-08). CI on `main` green, production deployment
-verified healthy post-merge, no regression found.
+verified healthy post-merge, no regression found. Released as part of
+`v1.2.0` (tagged on merge commit `6b7afb6`, once the MASP Platform Layer
+milestone below it completed) - see `RELEASE_NOTES_v1.2.0.md`.
 
 Human-readable summary of the UI/UX standardization pass that shipped on
 top of MASP Platform Foundation v1.1.0. See `docs/UI_STANDARD.md` for the

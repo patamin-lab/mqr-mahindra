@@ -235,12 +235,17 @@ Binding rules, restated here as permanent policy:
 
 ## Master data rules (MasterDataService)
 
-The MASP Platform (`src/shared/master-data/`) is the one entry point
-for every "master/reference/lookup data" concern: Address (Thai
-province/district/subdistrict/postal-code lookup and hierarchy
-validation), Lookup (controlled-vocabulary values, e.g. Customer Type),
-Configuration (business-rule constants), and Reference Data (dealers/
-branches/technicians/product families). Binding rules:
+The MASP Platform Layer (`src/shared/master-data/`) completed as of
+MASP Platform Foundation **v1.2.0** (tagged/released on merge commit
+`6b7afb67765610337c04d10857a2c8028efdaa4c` - see `PROJECT_STATE.md`'s
+"MASP Platform Layer" entry and `RELEASE_NOTES_v1.2.0.md`), the current
+baseline this repository builds on. It is the one entry point for every
+"master/reference/lookup data" concern: Address (Thai province/district/
+subdistrict/postal-code lookup and hierarchy validation), Lookup
+(controlled-vocabulary values - Customer Type, Customer Title, Attachment
+Type, Severity/Priority, Status), Configuration (business-rule
+constants), and Reference Data (dealers/branches/technicians/product
+families). Binding rules:
 
 1. **`MasterDataService` is the only public surface** - a module imports
    `MasterDataService` from `@/shared/master-data`, never reaches into

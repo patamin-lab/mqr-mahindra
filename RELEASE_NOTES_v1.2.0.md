@@ -1,19 +1,22 @@
-# Release Notes — v1.2.0 (candidate): Enterprise UI/UX Standardization
+# Release Notes — v1.2.0: MASP Platform Foundation v1.2.0
 
-**Status: merged to `main`** via PR #12 (merge commit `08b4856`,
-2026-07-08) - not yet tagged. Whether this specific commit becomes the
-`v1.2.0` tag/GitHub Release or folds into a later-numbered release is a
-separate, explicit tagging decision not made as part of this merge (see
-`.claude/rules/git.md` - tags/releases require their own explicit
-instruction). All code, verification, and regression-testing described
-below already happened before the merge, live on a Vercel Preview; the
-merge itself was verified end-to-end on `main` and production
-afterward - see `PROJECT_STATE.md`'s "Enterprise UI/UX Standardization -
-Release Closeout" entry for the merge/production verification record.
+**Status: RELEASED.** Tagged and published as GitHub Release `v1.2.0` on
+the merge commit `6b7afb67765610337c04d10857a2c8028efdaa4c` (PR #14,
+2026-07-08), which sits on top of the Enterprise UI/UX Standardization
+work below (merged earlier via PR #12, merge commit `08b4856`). `v1.2.0`
+is the current baseline - see `PROJECT_STATE.md`'s "MASP Platform Layer"
+entry for the full merge/tag/release/production verification record.
+
+This release bundles two milestones onto the same version number:
+Enterprise UI/UX Standardization (below) and the MASP Platform Layer
+(Address/Lookup/Configuration/Reference Data Platforms, unified behind
+`MasterDataService`) that completed the platform work before Workflow
+Engine development begins.
 
 Companion documents: `CHANGELOG_UI_STANDARDIZATION.md` (detailed
 feature-by-feature summary), `docs/UI_STANDARD.md` (current-state
-component/token inventory).
+component/token inventory), `docs/architecture/PLATFORM_CONSTITUTION.md`
+(the Master Data rules the Platform Layer added).
 
 ## Major changes
 
@@ -53,3 +56,32 @@ them; this is the intended, documented behavior change (see
 No destructive migration - `ntr_records.pdi_number` is additive and
 nullable. `CustomerTractorPhoto` is no longer offered on new NTR
 registrations, but existing records/data are untouched.
+
+## MASP Platform Layer (merged after the above, same release)
+
+- **Address Platform**: Thai Province/District/Sub-District/Postal Code
+  lookup and validation, promoted from NTR-only code into a shared
+  platform service. A new shared `AddressSelector` component (cascading
+  dropdowns, backed by `/api/address/*` so the address master data is
+  never bundled client-side) replaced NTR's 4 free-text address fields.
+- **Lookup Platform**: Customer Type, Customer Title, Attachment Type,
+  Severity/Priority, and MQR Status - one canonical source for every
+  controlled vocabulary in the system.
+- **Configuration Platform**: env-overridable business-rule constants
+  (`getWarrantyLimitMonths()`), now with a real consumer (NTR's
+  warranty-status filter).
+- **Reference Data Platform**: a thin facade over `lib/db.ts`'s dealer/
+  branch/technician/product-family reads - every business-module call
+  site now goes through `MasterDataService` instead of importing
+  `lib/db` directly.
+- All four unified behind one `MasterDataService` facade
+  (`src/shared/master-data/`), mirroring the existing `AttachmentService`
+  shape.
+
+## Repository housekeeping (same release)
+
+Every fully-merged branch was deleted, including `sprint11` - a branch
+of exploratory PM-record work that predated (and was fully superseded
+by) the `features/maintenance/` module now live in `main`. Confirmed via
+`git ls-tree` that its `features/pm-record/` (singular) module has zero
+presence in `main` before deletion; no unique work was lost.
