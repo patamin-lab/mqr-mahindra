@@ -50,9 +50,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'branch_id does not belong to dealer_id' } }, { status: 400 });
   }
 
+  // receiving_person/pdi_date/manufacturing_year/video_url/video_attachment_id
+  // are no longer collected by the manual registration form (NTR Form
+  // Update, 2026-07) - explicitly null here rather than accepted from the
+  // request body. `NtrRecordCreateInput` keeps these fields because Legacy
+  // Import (a separate create path) still populates them.
   const input: NtrRecordCreateInput = {
     dealer_id: dealerId,
     ...parsedBody,
+    receiving_person: null,
+    pdi_date: null,
+    manufacturing_year: null,
+    video_url: null,
+    video_attachment_id: null,
     source: 'manual',
   };
 

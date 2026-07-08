@@ -139,10 +139,19 @@ export interface NtrRecord {
 }
 
 /** Shape accepted when registering a tractor via the search-first
- *  workflow. `dealer_id` is resolved server-side from the session (never
- *  trusted from the client), same zero-leakage principle as every other
- *  create path in this app - it is listed here because the Repository
- *  layer still needs it to build the insert payload. */
+ *  workflow, and (separately) by Legacy Import's row-commit path - kept
+ *  as one shared type since both write the same table via the same
+ *  repository method. `dealer_id` is resolved server-side from the
+ *  session (never trusted from the client), same zero-leakage principle
+ *  as every other create path in this app - it is listed here because
+ *  the Repository layer still needs it to build the insert payload.
+ *
+ *  `receiving_person`/`pdi_date`/`manufacturing_year`/`video_url` stay on
+ *  this type because Legacy Import still populates them (see
+ *  `ntrImportService.ts`); the manual registration form (NTR Form Update,
+ *  2026-07) no longer collects them - `api/ntr-records/route.ts` sets
+ *  each to `null` explicitly for that path instead of accepting them from
+ *  the request body. */
 export type NtrRecordCreateInput = Pick<
   NtrRecord,
   | 'dealer_id'

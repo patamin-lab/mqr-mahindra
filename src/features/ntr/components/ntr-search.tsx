@@ -306,7 +306,6 @@ function NtrRegistrationForm({
 }) {
   const { t } = useTranslation();
   const [salesperson, setSalesperson] = useState('');
-  const [receivingPerson, setReceivingPerson] = useState('');
   const [customerTitle, setCustomerTitle] = useState('');
   const [customerFirstName, setCustomerFirstName] = useState('');
   const [customerLastName, setCustomerLastName] = useState('');
@@ -316,11 +315,10 @@ function NtrRegistrationForm({
   const [customerType, setCustomerType] = useState<CustomerType | ''>('');
   const [productFamilyId, setProductFamilyId] = useState('');
   const [productFamilies, setProductFamilies] = useState<{ id: string; name: string }[]>([]);
-  const [variant, setVariant] = useState('');
+  const [subModel, setSubModel] = useState('');
+  const [subModelOptions, setSubModelOptions] = useState<string[]>([]);
   const [retailDate, setRetailDate] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
-  const [pdiDate, setPdiDate] = useState('');
-  const [manufacturingYear, setManufacturingYear] = useState('');
   const [hourMeter, setHourMeter] = useState('');
   const [gps, setGps] = useState<GpsLocation>(EMPTY_GPS);
 
@@ -334,6 +332,22 @@ function NtrRegistrationForm({
       }
     })();
   }, []);
+
+  /** Sub Model options are scoped to the selected Product Family (NTR Form
+   *  Update, 2026-07) - reloaded on every change, and the current
+   *  selection cleared since it may not be valid for the new family. */
+  async function handleProductFamilyChange(id: string) {
+    setProductFamilyId(id);
+    setSubModel('');
+    setSubModelOptions([]);
+    if (!id) return;
+    try {
+      const json = await fetchJson<{ ok: boolean; variants: string[] }>(`/api/ntr/variants?productFamilyId=${encodeURIComponent(id)}`);
+      setSubModelOptions(json.variants ?? []);
+    } catch {
+      setSubModelOptions([]);
+    }
+  }
   const pendingEntityId = useRef(newPendingEntityId()).current;
   const [photos, setPhotos] = useState<Record<PhotoSlot, { url: string | null; attachmentId: string | null }>>({
     customer_id: { url: null, attachmentId: null },
@@ -345,8 +359,6 @@ function NtrRegistrationForm({
     crm_lead: { url: null, attachmentId: null },
   });
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoAttachmentId, setVideoAttachmentId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function uploadPhoto(slot: PhotoSlot, attachmentType: AttachmentType, file: File, label: string, offerGps: boolean) {
@@ -379,25 +391,6 @@ function NtrRegistrationForm({
           });
         }
       }
-    } catch (err) {
-      await swalErrorToast(err instanceof Error ? err.message : t('validation.uploadFailed'));
-    } finally {
-      setUploadingSlot(null);
-    }
-  }
-
-  async function uploadVideo(file: File) {
-    setUploadingSlot('video');
-    try {
-      const uploaded = await uploadAttachment(file, {
-        module: 'ntr',
-        entityType: 'ntr_record',
-        entityId: pendingEntityId,
-        attachmentType: 'Video',
-        label: t('ntr.attachmentsTitle'),
-      });
-      setVideoUrl(uploaded.url);
-      setVideoAttachmentId(uploaded.attachmentId);
     } catch (err) {
       await swalErrorToast(err instanceof Error ? err.message : t('validation.uploadFailed'));
     } finally {
@@ -457,7 +450,6 @@ function NtrRegistrationForm({
           model: tractor.model,
           engine_number: tractor.engine_number,
           salesperson: salesperson.trim() || null,
-          receiving_person: receivingPerson.trim() || null,
           customer_title: customerTitle.trim() || null,
           customer_first_name: customerFirstName.trim() || null,
           customer_last_name: customerLastName.trim() || null,
@@ -470,11 +462,9 @@ function NtrRegistrationForm({
           customer_postal_code: addressValue.postalCode.trim() || null,
           customer_type: customerType || null,
           product_family_id: productFamilyId || null,
-          variant: variant.trim() || null,
+          variant: subModel || null,
           retail_date: retailDate || null,
           delivery_date: deliveryDate,
-          pdi_date: pdiDate || null,
-          manufacturing_year: manufacturingYear.trim() ? Number(manufacturingYear) : null,
           hour_meter: hourMeter.trim() ? Number(hourMeter) : null,
           photo_customer_id_url: photos.customer_id.url,
           photo_customer_tractor_url: null,
@@ -487,8 +477,6 @@ function NtrRegistrationForm({
           photo_hour_meter_attachment_id: photos.hour_meter.attachmentId,
           photo_signed_document_attachment_id: photos.signed_document.attachmentId,
           additional_photos: additionalPhotos,
-          video_url: videoUrl,
-          video_attachment_id: videoAttachmentId,
           audio_url: null,
           latitude: gps.latitude,
           longitude: gps.longitude,
@@ -593,11 +581,17 @@ function NtrRegistrationForm({
           <SelectField
             label={t('common.productFamily')}
             value={productFamilyId}
-            onChange={setProductFamilyId}
+            onChange={handleProductFamilyChange}
             options={[{ value: '', label: t('ntr.selectProductFamily') }, ...productFamilies.map((f) => ({ value: f.id, label: f.name }))]}
+            disabled={submitting}
           />
-          <TextField label={t('csv.variant')} value={variant} onChange={setVariant} disabled={submitting} />
-          <TextField label={t('csv.manufacturingYear')} value={manufacturingYear} onChange={setManufacturingYear} placeholder="2026" disabled={submitting} />
+          <SelectField
+            label={t('ntr.subModel')}
+            value={subModel}
+            onChange={setSubModel}
+            options={[{ value: '', label: t('ntr.selectSubModel') }, ...subModelOptions.map((v) => ({ value: v, label: v }))]}
+            disabled={submitting || !productFamilyId}
+          />
         </div>
 
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.deliveryInfoTitle')}</h2>
@@ -607,16 +601,11 @@ function NtrRegistrationForm({
             <input type="date" className="w-full rounded border px-2 py-1.5 text-sm" value={retailDate} onChange={(e) => setRetailDate(e.target.value)} disabled={submitting} />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">{`${t('ntr.acceptanceDate')} *`}</label>
-            <input type="date" className="w-full rounded border px-2 py-1.5 text-sm" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} disabled={submitting} />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">{t('csv.pdiDate')}</label>
-            <input type="date" className="w-full rounded border px-2 py-1.5 text-sm" value={pdiDate} onChange={(e) => setPdiDate(e.target.value)} disabled={submitting} />
+            <label className="block text-xs text-gray-500 mb-1">{`${t('csv.deliveryDate')} *`}</label>
+            <input type="date" required className="w-full rounded border px-2 py-1.5 text-sm" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} disabled={submitting} />
           </div>
           <TextField label={t('pdf.hourMeter')} value={hourMeter} onChange={setHourMeter} disabled={submitting} />
           <TextField label={t('csv.salesperson')} value={salesperson} onChange={setSalesperson} disabled={submitting} />
-          <TextField label={t('csv.receivingPerson')} value={receivingPerson} onChange={setReceivingPerson} disabled={submitting} />
         </div>
 
         <h2 className="text-sm font-semibold text-gray-600">{t('pdf.gpsLocation')}</h2>
@@ -671,21 +660,6 @@ function NtrRegistrationForm({
               onSelect={(file) => uploadPhoto(slot, slotAttachmentType(slot), file, optionalTaggedPhotoLabels[slot], false)}
             />
           ))}
-        </div>
-
-        <div>
-          <p className="mb-2 text-xs text-gray-500">{t('pdf.videoLabel')} ({t('common.optional')})</p>
-          <input
-            type="file"
-            accept="video/*"
-            disabled={submitting || uploadingSlot === 'video'}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) uploadVideo(file);
-            }}
-            className="w-full text-xs"
-          />
-          {videoUrl && <p className="mt-1 text-xs text-green-700">{t('ntr.videoUploaded')}</p>}
         </div>
 
         <div className="flex justify-end gap-2">

@@ -75,9 +75,18 @@ const additionalPhotoSchema = z.object({
  * resolved server-side from the session (zero-leakage, same as every
  * other create route), never trusted from the client, so it isn't in this
  * schema. `ntr_number` is server-generated, also not in this schema.
- * The four required attachments (Customer ID Card, Serial Plate, Hour
- * Meter, Delivery Handover Document) are required strings here, per spec;
- * Customer with Tractor / `additional_photos` / video / audio are optional.
+ * The three required attachments (Customer ID Card, Serial Plate,
+ * Delivery Handover Document) are required strings here, per spec;
+ * Customer with Tractor / Hour Meter photo / `additional_photos` / audio
+ * are optional.
+ *
+ * `receiving_person`/`pdi_date`/`manufacturing_year`/`video_url`/
+ * `video_attachment_id` are not in this schema (NTR Form Update, 2026-07)
+ * - the manual registration form no longer collects them;
+ * `api/ntr-records/route.ts` sets each to `null` explicitly rather than
+ * accept them from the request body. Legacy Import still sets all of
+ * these - it validates a different shape entirely (see
+ * `ntrImportService.ts`), not this schema.
  */
 export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) =>
   z.object({
@@ -86,7 +95,6 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     model: nullableTrimmedString,
     engine_number: nullableTrimmedString,
     salesperson: nullableTrimmedString,
-    receiving_person: nullableTrimmedString,
     customer_title: nullableTrimmedString,
     customer_first_name: nullableTrimmedString,
     customer_last_name: nullableTrimmedString,
@@ -102,9 +110,7 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     variant: nullableTrimmedString,
     retail_date: nullableTrimmedString,
     delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
-    pdi_date: nullableTrimmedString,
     pdi_number: nullableTrimmedString,
-    manufacturing_year: optionalManufacturingYear,
     hour_meter: z.preprocess(
       (val) => (val === undefined || val === null || val === '' ? null : val),
       z.union([z.coerce.number().min(0, translate(locale, 'validation.hourMeterNegative')), z.null()])
@@ -120,8 +126,6 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     photo_hour_meter_attachment_id: nullableTrimmedString.optional(),
     photo_signed_document_attachment_id: nullableTrimmedString.optional(),
     additional_photos: z.preprocess((val) => (Array.isArray(val) ? val : []), z.array(additionalPhotoSchema)),
-    video_url: nullableTrimmedString,
-    video_attachment_id: nullableTrimmedString.optional(),
     audio_url: nullableTrimmedString,
     latitude: buildOptionalLatitude(locale),
     longitude: buildOptionalLongitude(locale),

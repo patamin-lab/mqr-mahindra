@@ -176,6 +176,8 @@
     "customerTitlePlaceholder": "Mr. / Mrs. / Ms.",
     "tractorInfoTitle": "Tractor Information",
     "selectProductFamily": "-- Select Product Family --",
+    "subModel": "Sub Model",
+    "selectSubModel": "-- Select Sub Model --",
     "registrationInfoTitle": "Registration Information",
     "timelineSectionTitle": "Tractor Timeline",
     "currentStatusSectionTitle": "Current Tractor Status",
