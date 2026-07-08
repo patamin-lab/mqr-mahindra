@@ -1516,3 +1516,33 @@ pointer, not a duplicate.
   Preview UAT: full page-load sweep across SuperAdmin/DealerAdmin/
   DealerUser and every module, real NTR/PM create calls, language
   cookie persistence, single-header confirmation.
+
+## Enterprise UI/UX Standardization — Release Closeout (this milestone)
+
+**STATUS: COMPLETE.** Merged to `main` via PR #12 - merge commit
+`08b4856da2b280abb4418607226149adfc196c9c`, merged 2026-07-08.
+
+- Pre-merge gate re-verified immediately before merging: working tree
+  clean, PR #12 CI green (architecture/typecheck/lint/test/build),
+  Preview deployment healthy, `mergeStateStatus: CLEAN`, documentation
+  and PR description already up to date from the prior milestone.
+- Post-merge verification: CI on `main` re-ran green on the merge commit
+  itself; production auto-deployed via Vercel
+  (`https://mqr-mahindra-2ilqc5q7t-mseal.vercel.app`, alias
+  `masp-mseal.vercel.app`) and confirmed `Ready`; live-checked afterward
+  - root path redirects to `/login` (auth gate intact), login page
+    renders the new embedded `LanguageSelector` with zero occurrences of
+    the old floating-button markup, no regression found.
+- `RELEASE_NOTES_v1.2.0.md` and `CHANGELOG_UI_STANDARDIZATION.md` updated
+  to reflect merged-to-main status. Tagging this commit as a formal
+  `v1.2.0` release (or folding it into a later-numbered one) is a
+  separate, not-yet-made decision - this closeout marks the UI
+  Standardization work itself complete, not a new version tag/GitHub
+  Release (neither was requested as part of this closeout).
+- Remaining, explicitly deferred (non-blocking) technical debt: PM's
+  five newly-requested optional attachment slots that don't exist as
+  columns yet (Before Repair/After Repair/Failed Part/Machine Overview/
+  Customer Signature) - sized similarly to this release's NTR PDI Number
+  addition, left as its own future milestone. Real screenshots, physical
+  tablet/mobile device testing, and screen-reader/contrast-ratio testing
+  remain manual-verification items this environment cannot perform.

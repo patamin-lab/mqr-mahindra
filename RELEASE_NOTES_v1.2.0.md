@@ -1,11 +1,15 @@
 # Release Notes — v1.2.0 (candidate): Enterprise UI/UX Standardization
 
-**Not yet tagged/released** - prepared alongside the code so
-documentation isn't inconsistent with what shipped in PR #12, per this
-repo's Post-v1.1.0 Development Standard. Whether this becomes `v1.2.0`
-or folds into a differently-numbered release is a release-management
-decision for whoever merges this PR - see the PR's own Merge Gate
-Evaluation section for the current recommendation.
+**Status: merged to `main`** via PR #12 (merge commit `08b4856`,
+2026-07-08) - not yet tagged. Whether this specific commit becomes the
+`v1.2.0` tag/GitHub Release or folds into a later-numbered release is a
+separate, explicit tagging decision not made as part of this merge (see
+`.claude/rules/git.md` - tags/releases require their own explicit
+instruction). All code, verification, and regression-testing described
+below already happened before the merge, live on a Vercel Preview; the
+merge itself was verified end-to-end on `main` and production
+afterward - see `PROJECT_STATE.md`'s "Enterprise UI/UX Standardization -
+Release Closeout" entry for the merge/production verification record.
 
 Companion documents: `CHANGELOG_UI_STANDARDIZATION.md` (detailed
 feature-by-feature summary), `docs/UI_STANDARD.md` (current-state
