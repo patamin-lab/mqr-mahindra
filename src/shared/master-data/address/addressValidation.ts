@@ -1,17 +1,17 @@
 /**
- * NTR — Address hierarchy validation (Province -> District -> Subdistrict
- * -> Postal Code), against `thaiAddressMasterData.ts`.
+ * MASP Platform — Address Platform: address hierarchy validation
+ * (Province -> District -> Subdistrict -> Postal Code), against
+ * `thaiAddressData.ts`. Originally NTR-only; promoted to a shared
+ * platform service - any module with a Thai address field validates
+ * through this, never a second copy.
  *
- * Every field here (`customer_province`/`customer_district`/
- * `customer_subdistrict`/`customer_postal_code`) is optional in
- * `ntr_records` and stays that way - this validates whatever subset of
- * the hierarchy a row actually provides; it never requires an address at
- * all. What it never does is silently accept an internally inconsistent
- * combination (e.g. a real district that belongs to a different
- * province than the one given) - see docs/import/NTR_HISTORICAL_IMPORT.md's
- * worked example.
+ * Callers decide whether an address is required at all (this function
+ * always accepts a fully-blank input) - what it never does is silently
+ * accept an internally inconsistent combination (e.g. a real district
+ * that belongs to a different province than the one given) - see
+ * docs/import/NTR_HISTORICAL_IMPORT.md's worked example.
  */
-import { findDistrict, findProvince, findSubdistrict } from './thaiAddressMasterData';
+import { findDistrict, findProvince, findSubdistrict } from './thaiAddressData';
 
 export interface AddressValidationInput {
   province: string | null;
@@ -29,7 +29,7 @@ export type AddressValidationResult = { ok: true } | { ok: false; reason: string
  *  unmatched values"). Subdistrict requires a known District the same
  *  way. Postal Code is checked against whichever subdistrict was
  *  resolved. */
-export function validateNtrAddress(input: AddressValidationInput): AddressValidationResult {
+export function validateThaiAddress(input: AddressValidationInput): AddressValidationResult {
   const province = input.province?.trim() || null;
   const district = input.district?.trim() || null;
   const subdistrict = input.subdistrict?.trim() || null;

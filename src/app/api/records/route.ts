@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { createRecord, getVehicleBySerial, getDealer } from '@/lib/db';
+import { createRecord, getVehicleBySerial } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { calcWarranty } from '@/lib/warranty';
 import { seesAllDealers } from '@/lib/scope';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
@@ -129,7 +130,7 @@ export async function POST(req: NextRequest) {
     // reported. A failed/unconfigured email must never fail the create.
     let dealer = null;
     try {
-      dealer = await getDealer(record.dealer_id);
+      dealer = await MasterDataService.getDealerById(record.dealer_id);
       await sendRecordNotification(record, dealer?.full_name, new URL(req.url).origin, 'created');
     } catch (err) {
       console.error('notification email error (create)', err);

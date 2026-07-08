@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { listRecordsPaginated, listDealers, getDealer, getBranchById } from '@/lib/db';
+import { listRecordsPaginated } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { seesAllDealers, canExport } from '@/lib/scope';
-import { STATUS_VALUES, STATUS_LABELS, StatusValue } from '@/lib/types';
+import type { StatusValue } from '@/lib/types';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
@@ -57,9 +58,9 @@ export default async function RecordsPage({
   // full dealer list; branches are resolved client-side by
   // `RecordsFilterBar`'s `useDealerBranchScope`, only for whichever dealer
   // is actually known.
-  const dealers = seesAllDealers(session.role) ? await listDealers() : [];
-  const pinnedDealer = !seesAllDealers(session.role) && session.dealerId ? await getDealer(session.dealerId) : null;
-  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
+  const dealers = seesAllDealers(session.role) ? await MasterDataService.getDealers() : [];
+  const pinnedDealer = !seesAllDealers(session.role) && session.dealerId ? await MasterDataService.getDealerById(session.dealerId) : null;
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await MasterDataService.getBranch(session.branchId) : null;
   const allowExport = canExport(session.role);
 
   const exportQuery = new URLSearchParams();
@@ -148,9 +149,9 @@ export default async function RecordsPage({
             className="border border-gray-300 rounded px-3 py-2 text-sm"
           >
             <option value="">ทั้งหมด</option>
-            {STATUS_VALUES.map((s) => (
+            {MasterDataService.statusValues.map((s) => (
               <option key={s} value={s}>
-                {STATUS_LABELS[s as StatusValue]}
+                {MasterDataService.statusLabel(s)}
               </option>
             ))}
           </select>
@@ -226,7 +227,7 @@ export default async function RecordsPage({
                 <td className="px-4 py-3 whitespace-nowrap">{r.warranty_status ?? '-'}</td>
                 <td className="px-4 py-3">
                   <StatusPill colorClassName={statusColor[r.status] ?? 'bg-gray-100 text-gray-600'}>
-                    {STATUS_LABELS[r.status as StatusValue] ?? r.status}
+                    {MasterDataService.statusLabel(r.status as StatusValue) ?? r.status}
                   </StatusPill>
                 </td>
               </tr>

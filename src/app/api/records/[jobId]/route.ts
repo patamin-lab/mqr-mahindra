@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getRecordByJobId, updateRecord, softDeleteRecord, getDealer } from '@/lib/db';
+import { getRecordByJobId, updateRecord, softDeleteRecord } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { canUpdateStatus, canDelete } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
 import { sendRecordNotification } from '@/lib/email';
@@ -74,7 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
     const justClosed = !wasAlreadyClosed && CLOSING_STATUSES.has(record.status);
     if (justClosed) {
       try {
-        const dealer = await getDealer(record.dealer_id);
+        const dealer = await MasterDataService.getDealerById(record.dealer_id);
         await sendRecordNotification(record, dealer?.full_name, new URL(req.url).origin, 'closed');
       } catch (err) {
         console.error('notification email error (closed)', err);

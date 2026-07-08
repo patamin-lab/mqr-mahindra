@@ -72,16 +72,19 @@ inconsistent combination is still rejected - see below.
 
 ## Address Lookup
 
-Source of truth: `src/features/ntr/data/thaiAddressMaster.json`, a
+This is the MASP Platform's Address Platform
+(`src/shared/master-data/address/`), consumed here via
+`MasterDataService` - not an NTR-specific implementation. Source of
+truth: `src/shared/master-data/address/data/thaiAddressMaster.json`, a
 one-time export of the uploaded "Thai Province+DIstrict+Tambon.xlsx"
 reference file's `TambonDatabase` sheet (7,436 subdistricts, with parent
 district/province, in Thai and English, full and short forms, plus
 postal code(s)). Loaded into memory **once** per server instance
-(`thaiAddressMasterData.ts`'s module-level cache) and reused for every
-row of every import - never a database query, never a per-row
-re-parse of the reference file. Regenerating this JSON (only needed if
-Thailand's official administrative boundaries change) is a manual,
-explicit step, not part of any build.
+(`thaiAddressData.ts`'s module-level cache) and reused for every row of
+every import - never a database query, never a per-row re-parse of the
+reference file. Regenerating this JSON (only needed if Thailand's
+official administrative boundaries change) is a manual, explicit step,
+not part of any build.
 
 **Normalization before lookup** (`normalizeThaiAddressValue()`): trims
 leading/trailing whitespace, collapses multiple internal spaces to one,
@@ -105,7 +108,7 @@ Enforced top-down, only as far as the row actually provides data
    "<value>"`. (The milestone's own worked example: District
    "เมืองบุรีรัมย์" does not belong to Province "สุรินทร์" - it belongs
    to "บุรีรัมย์". This exact case is covered by
-   `ntrAddressValidation.test.ts`.)
+   `shared/master-data/address/__tests__/addressValidation.test.ts`.)
 3. **Sub-District**, if given, requires a resolved District, and must
    belong to it - else `Sub-District "<value>" does not belong to
    District "<value>"`.

@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { validateNtrAddress } from '../services/ntrAddressValidation';
-import { normalizeThaiAddressValue } from '../services/thaiAddressMasterData';
+import { validateThaiAddress } from '../addressValidation';
+import { normalizeThaiAddressValue } from '../thaiAddressData';
 
-describe('validateNtrAddress', () => {
+describe('validateThaiAddress', () => {
   it('passes when nothing is provided (address is optional)', () => {
-    expect(validateNtrAddress({ province: null, district: null, subdistrict: null, postalCode: null })).toEqual({ ok: true });
+    expect(validateThaiAddress({ province: null, district: null, subdistrict: null, postalCode: null })).toEqual({ ok: true });
   });
 
   it('passes a real, fully-consistent hierarchy', () => {
-    const result = validateNtrAddress({
+    const result = validateThaiAddress({
       province: 'บุรีรัมย์',
       district: 'อำเภอเมืองบุรีรัมย์',
       subdistrict: 'ในเมือง',
@@ -18,7 +18,7 @@ describe('validateNtrAddress', () => {
   });
 
   it('passes when only the short (no-prefix) forms are given', () => {
-    const result = validateNtrAddress({
+    const result = validateThaiAddress({
       province: 'บุรีรัมย์',
       district: 'เมืองบุรีรัมย์',
       subdistrict: 'ในเมือง',
@@ -28,7 +28,7 @@ describe('validateNtrAddress', () => {
   });
 
   it('rejects the exact milestone example - a Buriram district claimed under Surin province', () => {
-    const result = validateNtrAddress({
+    const result = validateThaiAddress({
       province: 'สุรินทร์',
       district: 'เมืองบุรีรัมย์',
       subdistrict: null,
@@ -39,19 +39,19 @@ describe('validateNtrAddress', () => {
   });
 
   it('rejects an unknown province', () => {
-    const result = validateNtrAddress({ province: 'ไม่มีจังหวัดนี้', district: null, subdistrict: null, postalCode: null });
+    const result = validateThaiAddress({ province: 'ไม่มีจังหวัดนี้', district: null, subdistrict: null, postalCode: null });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toContain('Invalid Province');
   });
 
   it('rejects District given without Province', () => {
-    const result = validateNtrAddress({ province: null, district: 'เมืองบุรีรัมย์', subdistrict: null, postalCode: null });
+    const result = validateThaiAddress({ province: null, district: 'เมืองบุรีรัมย์', subdistrict: null, postalCode: null });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toContain('Province is required');
   });
 
   it('rejects a Postal Code that does not match the resolved Sub-District', () => {
-    const result = validateNtrAddress({
+    const result = validateThaiAddress({
       province: 'บุรีรัมย์',
       district: 'เมืองบุรีรัมย์',
       subdistrict: 'ในเมือง',
@@ -62,7 +62,7 @@ describe('validateNtrAddress', () => {
   });
 
   it('tolerates leading/trailing spaces and a doubled internal space in the prefix', () => {
-    const result = validateNtrAddress({
+    const result = validateThaiAddress({
       province: '  บุรีรัมย์  ',
       district: 'อำเภอ  เมืองบุรีรัมย์',
       subdistrict: '  ในเมือง  ',

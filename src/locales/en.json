@@ -1,4 +1,9 @@
 {
+  "address": {
+    "selectProvince": "Select Province",
+    "selectDistrict": "Select District",
+    "selectSubdistrict": "Select Sub-District"
+  },
   "common": {
     "notifications": "Notifications",
     "notificationsComingSoon": "Coming soon",

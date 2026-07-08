@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { canDelete } from '@/lib/scope';
 import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
-import { getBranchById, getProductFamily } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
 import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
 import { calcWarranty } from '@/lib/warranty';
@@ -89,8 +89,8 @@ export default async function NtrDetailPage({ params }: RouteParams) {
   const allowDelete = canDelete(session.role);
 
   const [branch, productFamily, summary, timeline] = await Promise.all([
-    record.branch_id ? getBranchById(record.branch_id) : Promise.resolve(null),
-    record.product_family_id ? getProductFamily(record.product_family_id) : Promise.resolve(null),
+    record.branch_id ? MasterDataService.getBranch(record.branch_id) : Promise.resolve(null),
+    record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
     getVehicleSummary(record.serial, session),
     getVehicleTimeline(record.serial, session),
   ]);

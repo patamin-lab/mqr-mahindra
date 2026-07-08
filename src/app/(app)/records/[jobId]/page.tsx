@@ -3,7 +3,8 @@ import { headers } from 'next/headers';
 import QRCode from 'qrcode';
 import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { getRecordByJobId, getVehicleHistory, getDealer, listAuditLog } from '@/lib/db';
+import { getRecordByJobId, getVehicleHistory, listAuditLog } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
 import { PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY } from '@/lib/types';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
@@ -49,7 +50,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
     if (resolved) record.video_link = resolved.url;
   }
 
-  const dealer = await getDealer(record.dealer_id);
+  const dealer = await MasterDataService.getDealerById(record.dealer_id);
   const history = record.serial ? await getVehicleHistory(record.serial, session) : [];
   const auditLog = await listAuditLog('mqr', record.id);
   const otherHistory = history.filter((h) => h.job_id !== record.job_id);

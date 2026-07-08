@@ -233,6 +233,42 @@ Binding rules, restated here as permanent policy:
    resolver, or did it build a parallel mechanism? The latter is always
    wrong, regardless of whether it happens to produce the same result.
 
+## Master data rules (MasterDataService)
+
+The MASP Platform (`src/shared/master-data/`) is the one entry point
+for every "master/reference/lookup data" concern: Address (Thai
+province/district/subdistrict/postal-code lookup and hierarchy
+validation), Lookup (controlled-vocabulary values, e.g. Customer Type),
+Configuration (business-rule constants), and Reference Data (dealers/
+branches/technicians/product families). Binding rules:
+
+1. **`MasterDataService` is the only public surface** - a module imports
+   `MasterDataService` from `@/shared/master-data`, never reaches into
+   `address/`/`lookup/`/`config/`/`reference/` directly, the same
+   boundary `AttachmentService` already established for the Storage
+   Platform.
+2. **Never hardcode a lookup value a module could get from
+   `MasterDataService` instead** - a controlled-vocabulary value
+   (Customer Type today; any future lookup) is defined once, in
+   `lookup/`, and referenced everywhere else - not re-typed as a raw
+   string literal in a component's options array, a zod schema, or an
+   import-column normalizer.
+3. **Never duplicate address logic** - Thai province/district/
+   subdistrict lookup and hierarchy validation live in `address/` only.
+   Originally built for and used only by NTR; promoted to a shared
+   platform service specifically so a second module needing address
+   validation reuses it instead of building a second Thai-address
+   index.
+4. **Reference Data delegates to `lib/db.ts`, never re-implements data
+   access** - `reference/referenceData.ts` is a thin pass-through to the
+   dealer/branch/technician/product-family reads already centralized in
+   infrastructure; it exists so a module reaches reference data through
+   one platform-service entry point, not so the query logic moves.
+5. **Configuration values are read lazily, at call time** (matching
+   `lib/supabase.ts`'s established convention) with the already-shipped
+   business rule as the default - importing the config module never
+   throws before an optional override env var is configured.
+
 ## Future extension rules
 
 A future module or platform service must, before writing any code:

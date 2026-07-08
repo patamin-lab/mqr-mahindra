@@ -10,20 +10,13 @@
  * and, if the field is genuinely new, `NtrImportRow`/`ntrImportService.ts`.
  */
 import { ImportContract, ImportFieldDefinition, ImportTemplateMeta } from '@/shared/import';
-import { NtrCustomerType } from '../types';
+import { MasterDataService } from '@/shared/master-data';
 
 export const NTR_IMPORT_TEMPLATE_META: ImportTemplateMeta = {
   module: 'ntr',
   templateName: 'NTR Legacy Import Template',
   templateVersion: '1.2',
 };
-
-function normalizeCustomerType(value: string): NtrCustomerType | null {
-  const v = value.trim().toLowerCase();
-  if (v === 'individual' || v === 'บุคคลธรรมดา') return 'Individual';
-  if (v === 'company' || v === 'นิติบุคคล') return 'Company';
-  return null;
-}
 
 const toNumberOrNull = (raw: string): number | null => (raw.trim() ? Number(raw.trim()) : null);
 const toStringOrNull = (raw: string): string | null => (raw.trim() ? raw.trim() : null);
@@ -122,7 +115,7 @@ export const NTR_IMPORT_FIELDS: ImportFieldDefinition[] = [
     displayLabel: 'Customer Type',
     required: false,
     aliases: ['Type'],
-    parse: (raw) => (raw.trim() ? normalizeCustomerType(raw) : null),
+    parse: (raw) => (raw.trim() ? MasterDataService.normalizeCustomerType(raw) : null),
   },
   { canonicalKey: 'retail_date', displayLabel: 'Retail Date', required: true, aliases: ['Retail Date'], parse: parseImportDate },
   {

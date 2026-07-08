@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { listTechnicians } from '@/lib/db';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
+import { MasterDataService } from '@/shared/master-data';
 
 /** Active-technician lookup for the report form's cascading dropdown (not an admin route). */
 export async function GET(req: NextRequest) {
@@ -12,6 +12,6 @@ export async function GET(req: NextRequest) {
   const { dealerId } = resolveDealerScope(session, searchParams.get('dealerId'));
   const branch = searchParams.get('branch');
 
-  const technicians = await listTechnicians(dealerId, branch);
+  const technicians = await MasterDataService.getTechniciansForDealer(dealerId, branch);
   return NextResponse.json({ ok: true, technicians });
 }

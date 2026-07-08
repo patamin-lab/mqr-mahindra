@@ -18,6 +18,7 @@ import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
 import DealerBranchSelector from '@/components/shared/scope/DealerBranchSelector';
+import AddressSelector, { type AddressValue } from '@/components/shared/scope/AddressSelector';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
@@ -25,6 +26,16 @@ import { uploadAttachment, newPendingEntityId } from '@/components/shared/attach
 import { processImageForUpload } from '@/components/shared/attachments/imageProcessing';
 import AttachmentPhotoTile from '@/components/shared/attachments/AttachmentPhotoTile';
 import type { AttachmentType } from '@/shared/attachments';
+// Client Component - imports the two Lookup Platform submodules directly
+// rather than the full `MasterDataService` facade. The facade also pulls
+// in the Address Platform (a ~3.5MB Thai address JSON) and the Reference
+// Data Platform (`lib/db`/`@supabase/supabase-js`), which would otherwise
+// get bundled into this page's client JS even though neither is used here
+// (address lookups go through `AddressSelector`'s `/api/address/*` calls
+// instead) - a documented exception to "always import the facade", same
+// category as `AttachmentService`'s own operational-surface exception.
+import { CUSTOMER_TYPE_VALUES, type CustomerType } from '@/shared/master-data/lookup/customerType';
+import { CUSTOMER_TITLE_VALUES, CUSTOMER_TITLE_LABELS_TH } from '@/shared/master-data/lookup/customerTitle';
 import type { Dealer, Role } from '@/lib/types';
 import type { NtrTractorSearchResult } from '@/lib/db';
 import type { NtrAdditionalPhoto, NtrAttachmentType, NtrRecord } from '../types';
@@ -301,12 +312,8 @@ function NtrRegistrationForm({
   const [customerLastName, setCustomerLastName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [customerSubdistrict, setCustomerSubdistrict] = useState('');
-  const [customerDistrict, setCustomerDistrict] = useState('');
-  const [customerProvince, setCustomerProvince] = useState('');
-  const [customerPostalCode, setCustomerPostalCode] = useState('');
-  const [customerType, setCustomerType] = useState<'Individual' | 'Company' | ''>('');
+  const [addressValue, setAddressValue] = useState<AddressValue>({ address: '', province: '', district: '', subdistrict: '', postalCode: '' });
+  const [customerType, setCustomerType] = useState<CustomerType | ''>('');
   const [productFamilyId, setProductFamilyId] = useState('');
   const [productFamilies, setProductFamilies] = useState<{ id: string; name: string }[]>([]);
   const [variant, setVariant] = useState('');
@@ -456,11 +463,11 @@ function NtrRegistrationForm({
           customer_last_name: customerLastName.trim() || null,
           customer_name: composedName,
           customer_phone: customerPhone,
-          customer_address: customerAddress.trim() || null,
-          customer_subdistrict: customerSubdistrict.trim() || null,
-          customer_district: customerDistrict.trim() || null,
-          customer_province: customerProvince.trim() || null,
-          customer_postal_code: customerPostalCode.trim() || null,
+          customer_address: addressValue.address.trim() || null,
+          customer_subdistrict: addressValue.subdistrict.trim() || null,
+          customer_district: addressValue.district.trim() || null,
+          customer_province: addressValue.province.trim() || null,
+          customer_postal_code: addressValue.postalCode.trim() || null,
           customer_type: customerType || null,
           product_family_id: productFamilyId || null,
           variant: variant.trim() || null,
@@ -504,10 +511,13 @@ function NtrRegistrationForm({
     }
   }
 
+  const CUSTOMER_TYPE_TRANSLATION_KEY: Record<CustomerType, string> = {
+    Individual: 'ntr.customerTypeIndividual',
+    Company: 'ntr.customerTypeCompany',
+  };
   const customerTypeOptions = [
     { value: '', label: t('ntr.selectCustomerType') },
-    { value: 'Individual', label: t('ntr.customerTypeIndividual') },
-    { value: 'Company', label: t('ntr.customerTypeCompany') },
+    ...CUSTOMER_TYPE_VALUES.map((value) => ({ value, label: t(CUSTOMER_TYPE_TRANSLATION_KEY[value]) })),
   ];
 
   const requiredPhotoLabels: Record<RequiredPhotoSlot, string> = {
@@ -549,10 +559,19 @@ function NtrRegistrationForm({
       <div className="space-y-3 rounded border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.customerInfoTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <SelectField label={t('csv.customerType')} value={customerType} onChange={(v) => setCustomerType(v as 'Individual' | 'Company' | '')} options={customerTypeOptions} />
+          <SelectField label={t('csv.customerType')} value={customerType} onChange={(v) => setCustomerType(v as CustomerType | '')} options={customerTypeOptions} />
           {customerType === 'Individual' ? (
             <>
-              <TextField label={t('csv.customerTitle')} value={customerTitle} onChange={setCustomerTitle} placeholder={t('ntr.customerTitlePlaceholder')} disabled={submitting} />
+              <SelectField
+                label={t('csv.customerTitle')}
+                value={customerTitle}
+                onChange={setCustomerTitle}
+                options={[
+                  { value: '', label: t('ntr.customerTitlePlaceholder') },
+                  ...CUSTOMER_TITLE_VALUES.map((v) => ({ value: CUSTOMER_TITLE_LABELS_TH[v], label: CUSTOMER_TITLE_LABELS_TH[v] })),
+                ]}
+                disabled={submitting}
+              />
               <TextField label={t('csv.customerFirstName')} value={customerFirstName} onChange={setCustomerFirstName} disabled={submitting} />
               <TextField label={t('csv.customerLastName')} value={customerLastName} onChange={setCustomerLastName} disabled={submitting} />
             </>
@@ -566,11 +585,7 @@ function NtrRegistrationForm({
             placeholder="081-2345678"
             disabled={submitting}
           />
-          <TextField label={t('csv.customerAddress')} value={customerAddress} onChange={setCustomerAddress} disabled={submitting} />
-          <TextField label={t('csv.subdistrict')} value={customerSubdistrict} onChange={setCustomerSubdistrict} disabled={submitting} />
-          <TextField label={t('csv.district')} value={customerDistrict} onChange={setCustomerDistrict} disabled={submitting} />
-          <TextField label={t('csv.province')} value={customerProvince} onChange={setCustomerProvince} disabled={submitting} />
-          <TextField label={t('csv.postalCode')} value={customerPostalCode} onChange={setCustomerPostalCode} disabled={submitting} />
+          <AddressSelector value={addressValue} onChange={setAddressValue} disabled={submitting} />
         </div>
 
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.tractorInfoTitle')}</h2>

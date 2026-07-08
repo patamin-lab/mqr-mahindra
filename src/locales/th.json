@@ -1,4 +1,9 @@
 {
+  "address": {
+    "selectProvince": "เลือกจังหวัด",
+    "selectDistrict": "เลือกอำเภอ",
+    "selectSubdistrict": "เลือกตำบล"
+  },
   "common": {
     "notifications": "การแจ้งเตือน",
     "notificationsComingSoon": "เร็วๆ นี้",

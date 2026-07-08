@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth';
-import { listDealers, getDealer, getBranchById } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { seesAllDealers } from '@/lib/scope';
 import NtrSearch from '@/features/ntr/components/ntr-search';
 
@@ -8,9 +8,9 @@ export default async function NtrNewPage() {
   if (!session) return null;
 
   const showDealerField = seesAllDealers(session.role);
-  const dealers = showDealerField ? await listDealers() : [];
-  const pinnedDealer = !showDealerField && session.dealerId ? await getDealer(session.dealerId) : null;
-  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
+  const dealers = showDealerField ? await MasterDataService.getDealers() : [];
+  const pinnedDealer = !showDealerField && session.dealerId ? await MasterDataService.getDealerById(session.dealerId) : null;
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await MasterDataService.getBranch(session.branchId) : null;
 
   return (
     <NtrSearch

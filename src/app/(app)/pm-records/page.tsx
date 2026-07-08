@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth';
-import { listDealers, getBranchById } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { seesAllDealers } from '@/lib/scope';
 import MaintenanceHistory from '@/features/maintenance/components/maintenance-history';
 
@@ -8,8 +8,8 @@ export default async function PmRecordsPage() {
   if (!session) return null;
 
   const showDealerField = seesAllDealers(session.role);
-  const dealers = showDealerField ? await listDealers() : [];
-  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
+  const dealers = showDealerField ? await MasterDataService.getDealers() : [];
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await MasterDataService.getBranch(session.branchId) : null;
 
   return (
     <MaintenanceHistory

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getRecordByJobId, getDealer } from '@/lib/db';
+import { getRecordByJobId } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { canExport } from '@/lib/scope';
 import { buildSingleRecordWorkbook } from '@/lib/exportExcel';
 import { renderRecordPdf } from '@/lib/exportPdf';
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
   }
 
   try {
-    const dealer = await getDealer(record.dealer_id);
+    const dealer = await MasterDataService.getDealerById(record.dealer_id);
 
     const { searchParams, origin } = new URL(req.url);
     const format = searchParams.get('format') === 'pdf' ? 'pdf' : 'xlsx';

@@ -8,6 +8,17 @@ export interface WarrantyResult {
  * Replicates the original Apps Script _warranty() business rule:
  * powertrain systems (engine/transmission/hydraulic) get 48 months,
  * everything else gets 24 months, measured from delivery_date to found_date.
+ *
+ * This already is the single source of truth for these two numbers (no
+ * duplicate copy exists anywhere else - confirmed via repo-wide search
+ * during the MASP Platform build-out) - kept here, in `lib/` rather than
+ * threaded through `shared/master-data`'s Configuration Platform, since
+ * `lib/` (infrastructure) may not depend upward on `shared/` (platform
+ * services) per `docs/architecture/PLATFORM_CONSTITUTION.md`'s one-way
+ * dependency rule. `shared/master-data/config/businessConfig.ts` exposes
+ * the same two numbers as `getWarrantyLimitMonths()` for business
+ * modules that want them without duplicating the 48/24 knowledge
+ * themselves - this function is not required to route through it.
  */
 export function calcWarranty(
   deliveryDate: string | null | undefined,
