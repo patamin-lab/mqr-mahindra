@@ -1,10 +1,34 @@
-import { describe, it, expect } from 'vitest';
-import { MasterDataService } from '../MasterDataService';
+import { describe, it, expect, vi } from 'vitest';
+
+/** MasterDataService's Address Platform methods are Supabase-backed
+ *  (ADR-011 v2) - same fake query builder as `AddressRepository.test.ts`. */
+function makeClient(byTable: Record<string, { data: unknown; error: unknown }>) {
+  const from = vi.fn((table: string) => {
+    const result = byTable[table] ?? { data: [], error: null };
+    const builder: Record<string, ReturnType<typeof vi.fn>> = {};
+    builder.select = vi.fn(() => builder);
+    builder.eq = vi.fn(() => builder);
+    builder.order = vi.fn(() => Promise.resolve(result));
+    return builder;
+  });
+  return { client: { from } };
+}
+
+vi.mock('@/lib/supabase', () => {
+  const { client } = makeClient({
+    provinces: { data: [{ province_id: 31, province_name_th: 'บุรีรัมย์' }], error: null },
+    districts: { data: [], error: null },
+    subdistricts: { data: [], error: null },
+  });
+  return { getSupabase: () => client };
+});
+
+const { MasterDataService } = await import('../MasterDataService');
 
 describe('MasterDataService - public facade', () => {
-  it('exposes the Address Platform', () => {
-    expect(MasterDataService.findProvince('บุรีรัมย์')).not.toBeNull();
-    expect(MasterDataService.validateThaiAddress({ province: null, district: null, subdistrict: null, postalCode: null })).toEqual({ ok: true });
+  it('exposes the Address Platform (Supabase-backed, async)', async () => {
+    expect(await MasterDataService.findProvince('บุรีรัมย์')).not.toBeNull();
+    expect(await MasterDataService.validateThaiAddress({ province: null, district: null, subdistrict: null, postalCode: null })).toEqual({ ok: true });
   });
 
   it('exposes the Lookup Platform', () => {

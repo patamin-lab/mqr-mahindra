@@ -7,7 +7,7 @@
  */
 export { MasterDataService } from './MasterDataService';
 export type { AddressValidationInput, AddressValidationResult } from './address/addressValidation';
-export type { ProvinceRef, DistrictRef, SubdistrictRef } from './address/thaiAddressData';
+export type { ProvinceRef, DistrictRef, SubdistrictRef } from './address/AddressRepository';
 export type { CustomerType } from './lookup/customerType';
 export type { CustomerTitle } from './lookup/customerTitle';
 export type { AttachmentType } from './lookup/attachmentType';

@@ -75,16 +75,15 @@ inconsistent combination is still rejected - see below.
 This is the MASP Platform's Address Platform
 (`src/shared/master-data/address/`), consumed here via
 `MasterDataService` - not an NTR-specific implementation. Source of
-truth: `src/shared/master-data/address/data/thaiAddressMaster.json`, a
-one-time export of the uploaded "Thai Province+DIstrict+Tambon.xlsx"
-reference file's `TambonDatabase` sheet (7,436 subdistricts, with parent
-district/province, in Thai and English, full and short forms, plus
-postal code(s)). Loaded into memory **once** per server instance
-(`thaiAddressData.ts`'s module-level cache) and reused for every row of
-every import - never a database query, never a per-row re-parse of the
-reference file. Regenerating this JSON (only needed if Thailand's
-official administrative boundaries change) is a manual, explicit step,
-not part of any build.
+truth (as of ADR-011 v2): the canonical `provinces`/`districts`/
+`subdistricts` Supabase tables (7,436 subdistricts, 928 districts, 77
+provinces - deduplicated, with PK/FK/indexes), queried through
+`AddressRepository`. Each import run's repeated lookups are served from
+that repository's own in-memory cache (populated on first query, reused
+for the rest of the run) rather than one round-trip per row.
+`src/shared/master-data/address/seed/thaiAddressData.ts` (the pre-v2
+JSON-backed implementation) is kept only as seed/backup/test-fixture
+data - it is not read by this import path.
 
 **Normalization before lookup** (`normalizeThaiAddressValue()`): trims
 leading/trailing whitespace, collapses multiple internal spaces to one,

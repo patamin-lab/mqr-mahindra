@@ -1,26 +1,23 @@
 # MASP Enterprise Development Standard
 
-Version: v1.2.0
-Status: Platform Foundation Complete (Frozen)
+Version: v1.2.1
+Status: Platform Foundation Complete (Frozen); Address Platform on its v2 architecture
 
 Adopted as this repository's canonical architecture document on
 2026-07-08, after reconciling its Address Platform description against
 the actual v1.2.0 implementation - see `docs/adr/ADR-011-Address-
-Platform.md`. That ADR **explicitly supersedes** this document's
-"Shared Tables" (`provinces`/`districts`/`subdistricts`) and
-`province_id`/`district_id`/`subdistrict_id` foreign-key wording in the
-Address Platform section below: the shipped Address Platform uses an
-in-memory JSON index, not DB tables, for the reasons ADR-011 documents
-(no consumer needs foreign keys yet; the reference data is static;
-Foundation Freeze/Architecture Evolution Rule both require a real,
-measured need before adding infrastructure). The API route names
-(`/api/master/provinces`/`districts`/`subdistricts`) and the Searchable
-Dropdown requirement described below **are** implemented as written.
-Where this document and `docs/architecture/PLATFORM_CONSTITUTION.md`
-disagree on any other point, `PLATFORM_CONSTITUTION.md`'s binding rules
-govern, per that document's own precedence statement - this Standard is
-the mission/vision and platform-inventory layer above it, not a
-replacement for it.
+Platform.md`. As of v1.2.1, the Address Master Data has been imported
+into Supabase and ADR-011's v2 Supersession section governs: the
+canonical `provinces`/`districts`/`subdistricts` tables (with PK/FK/
+indexes) and `AddressRepository` now match this document's "Shared
+Tables"/API wording **as written** - the v1 gap (in-memory JSON instead
+of DB tables) no longer exists. `docs/architecture/ADDRESS_PLATFORM.md`
+and `docs/architecture/MASTER_DATA_PLATFORM.md` hold the current,
+detailed architecture reference; this document stays the mission/vision
+and platform-inventory layer. Where this document and
+`docs/architecture/PLATFORM_CONSTITUTION.md` disagree on any other
+point, `PLATFORM_CONSTITUTION.md`'s binding rules govern, per that
+document's own precedence statement.
 
 ---
 
@@ -203,14 +200,22 @@ Automatically resolve
 - subdistrict_id
 - postcode
 
-**Reconciliation note** (see `docs/adr/ADR-011-Address-Platform.md`):
-"Shared Tables" and the Historical Import's `province_id`/`district_id`/
-`subdistrict_id` resolution are the one part of this document not
-implemented as literally written - the shipped platform validates and
-displays Thai names via an in-memory index rather than resolving to
-stored foreign keys, because no consumer needs the ID today. Everything
-else in this section (APIs, component, cascading behavior, all six
-requirements including Searchable Dropdown) is implemented as described.
+**Reconciliation note (updated for v1.2.1)**: as of ADR-011's v2
+Supersession, "Shared Tables" is implemented exactly as written - the
+canonical `provinces`/`districts`/`subdistricts` Supabase tables (PK/FK/
+indexes) are the system of record, behind `AddressRepository`. The
+Historical Import path resolves and validates against these tables
+(`MasterDataService.validateThaiAddress()`, now Supabase-backed); the
+resolved IDs are used for validation/lookup during import, while
+`ntr_records` itself continues to store the Thai names as free text
+(`customer_province`/`customer_district`/`customer_subdistrict`/
+`customer_postal_code`) rather than foreign keys - no consumer today
+joins against a stored `ntr_records.province_id`-shaped column, so that
+part of the schema was not changed. Every other requirement in this
+section (APIs, component, cascading behavior, all six requirements
+including Searchable Dropdown) is implemented as described. See
+`docs/architecture/ADDRESS_PLATFORM.md` for the full current schema/API/
+repository reference.
 
 ## ATTACHMENT STANDARD
 

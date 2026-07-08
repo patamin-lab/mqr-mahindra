@@ -279,7 +279,7 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, 
       continue;
     }
 
-    const address = MasterDataService.validateThaiAddress({
+    const address = await MasterDataService.validateThaiAddress({
       province: row.customer_province,
       district: row.customer_district,
       subdistrict: row.customer_subdistrict,
