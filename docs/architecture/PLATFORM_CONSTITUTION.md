@@ -263,7 +263,14 @@ families). Binding rules:
    Originally built for and used only by NTR; promoted to a shared
    platform service specifically so a second module needing address
    validation reuses it instead of building a second Thai-address
-   index.
+   index. The canonical Address Platform architecture (in-memory JSON
+   index, not DB tables; `/api/master/provinces`/`districts`/
+   `subdistricts` with `province_id`/`district_id` params; a filter
+   input paired with each `<select>` for "searchable dropdown") is
+   `docs/adr/ADR-011-Address-Platform.md` - it explicitly supersedes any
+   other document's description of this platform's storage/API shape,
+   including the MASP Enterprise Development Standard's DB-table
+   wording, until a real business need justifies revisiting it.
 4. **Reference Data delegates to `lib/db.ts`, never re-implements data
    access** - `reference/referenceData.ts` is a thin pass-through to the
    dealer/branch/technician/product-family reads already centralized in

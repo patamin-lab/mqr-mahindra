@@ -2,7 +2,10 @@
   "address": {
     "selectProvince": "เลือกจังหวัด",
     "selectDistrict": "เลือกอำเภอ",
-    "selectSubdistrict": "เลือกตำบล"
+    "selectSubdistrict": "เลือกตำบล",
+    "searchProvince": "ค้นหาจังหวัด...",
+    "searchDistrict": "ค้นหาอำเภอ...",
+    "searchSubdistrict": "ค้นหาตำบล..."
   },
   "common": {
     "notifications": "การแจ้งเตือน",

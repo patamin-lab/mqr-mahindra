@@ -2,7 +2,10 @@
   "address": {
     "selectProvince": "Select Province",
     "selectDistrict": "Select District",
-    "selectSubdistrict": "Select Sub-District"
+    "selectSubdistrict": "Select Sub-District",
+    "searchProvince": "Search province...",
+    "searchDistrict": "Search district...",
+    "searchSubdistrict": "Search sub-district..."
   },
   "common": {
     "notifications": "Notifications",
