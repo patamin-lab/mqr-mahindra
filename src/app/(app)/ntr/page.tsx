@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth';
 import { createNtrService } from '@/features/ntr/factory';
 import { parseNtrHistoryFilterFromSearchParams } from '@/features/ntr/utils/parseHistoryFilter';
 import { seesAllDealers, canExport } from '@/lib/scope';
-import { listDealers, getDealer, getBranchById } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { formatDateLocalized } from '@/lib/thaiDate';
 import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
@@ -43,9 +43,9 @@ export default async function NtrRegistryPage({
   // full dealer list; branches are resolved client-side by `NtrFilterBar`'s
   // `useDealerBranchScope`, only for whichever dealer is actually known.
   const showDealerField = seesAllDealers(session.role);
-  const dealers = showDealerField ? await listDealers() : [];
-  const pinnedDealer = !showDealerField && session.dealerId ? await getDealer(session.dealerId) : null;
-  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
+  const dealers = showDealerField ? await MasterDataService.getDealers() : [];
+  const pinnedDealer = !showDealerField && session.dealerId ? await MasterDataService.getDealerById(session.dealerId) : null;
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await MasterDataService.getBranch(session.branchId) : null;
   const allowExport = canExport(session.role);
 
   const exportQuery = new URLSearchParams();

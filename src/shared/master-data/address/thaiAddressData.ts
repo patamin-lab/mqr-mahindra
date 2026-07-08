@@ -91,6 +91,13 @@ interface AddressIndex {
   provincesByName: Map<string, ProvinceRef>;
   districtsByProvinceId: Map<string, Map<string, DistrictRef>>;
   subdistrictsByDistrictId: Map<string, Map<string, SubdistrictRef>>;
+  /** Sorted, de-duplicated listing views for cascading-select UI
+   *  (`AddressSelector`) - the by-name maps above hold two keys per entry
+   *  (full + short form), so they can't be iterated directly as an
+   *  options list without duplicates. */
+  provinceList: ProvinceRef[];
+  districtListByProvinceId: Map<string, DistrictRef[]>;
+  subdistrictListByDistrictId: Map<string, SubdistrictRef[]>;
 }
 
 let cachedIndex: AddressIndex | null = null;
@@ -107,11 +114,18 @@ function buildIndex(): AddressIndex {
   const provincesByName = new Map<string, ProvinceRef>();
   const districtsByProvinceId = new Map<string, Map<string, DistrictRef>>();
   const subdistrictsByDistrictId = new Map<string, Map<string, SubdistrictRef>>();
+  const provinceList: ProvinceRef[] = [];
+  const districtListByProvinceId = new Map<string, DistrictRef[]>();
+  const subdistrictListByDistrictId = new Map<string, SubdistrictRef[]>();
+  const seenDistrictIds = new Set<string>();
+  const seenTambonIds = new Set<string>();
 
   for (const row of thaiAddressData as TambonRow[]) {
     const provinceKey = normalizeThaiAddressValue(row.provinceThai);
     if (!provincesByName.has(provinceKey)) {
-      provincesByName.set(provinceKey, { provinceId: row.provinceId, provinceThai: row.provinceThai });
+      const provinceRef: ProvinceRef = { provinceId: row.provinceId, provinceThai: row.provinceThai };
+      provincesByName.set(provinceKey, provinceRef);
+      provinceList.push(provinceRef);
     }
 
     let districtMap = districtsByProvinceId.get(row.provinceId);
@@ -122,6 +136,15 @@ function buildIndex(): AddressIndex {
     const districtRef: DistrictRef = { districtId: row.districtId, districtThai: row.districtThai, provinceId: row.provinceId };
     districtMap.set(normalizeThaiAddressValue(row.districtThai), districtRef);
     districtMap.set(normalizeThaiAddressValue(row.districtThaiShort), districtRef);
+    if (!seenDistrictIds.has(row.districtId)) {
+      seenDistrictIds.add(row.districtId);
+      let list = districtListByProvinceId.get(row.provinceId);
+      if (!list) {
+        list = [];
+        districtListByProvinceId.set(row.provinceId, list);
+      }
+      list.push(districtRef);
+    }
 
     let subdistrictMap = subdistrictsByDistrictId.get(row.districtId);
     if (!subdistrictMap) {
@@ -136,9 +159,22 @@ function buildIndex(): AddressIndex {
     };
     subdistrictMap.set(normalizeThaiAddressValue(row.tambonThai), subdistrictRef);
     subdistrictMap.set(normalizeThaiAddressValue(row.tambonThaiShort), subdistrictRef);
+    if (!seenTambonIds.has(row.tambonId)) {
+      seenTambonIds.add(row.tambonId);
+      let list = subdistrictListByDistrictId.get(row.districtId);
+      if (!list) {
+        list = [];
+        subdistrictListByDistrictId.set(row.districtId, list);
+      }
+      list.push(subdistrictRef);
+    }
   }
 
-  return { provincesByName, districtsByProvinceId, subdistrictsByDistrictId };
+  provinceList.sort((a, b) => a.provinceThai.localeCompare(b.provinceThai, 'th'));
+  for (const list of districtListByProvinceId.values()) list.sort((a, b) => a.districtThai.localeCompare(b.districtThai, 'th'));
+  for (const list of subdistrictListByDistrictId.values()) list.sort((a, b) => a.tambonThai.localeCompare(b.tambonThai, 'th'));
+
+  return { provincesByName, districtsByProvinceId, subdistrictsByDistrictId, provinceList, districtListByProvinceId, subdistrictListByDistrictId };
 }
 
 /** Builds the in-memory index on first call, reused for every subsequent
@@ -159,4 +195,18 @@ export function findDistrict(name: string, provinceId: string): DistrictRef | nu
 
 export function findSubdistrict(name: string, districtId: string): SubdistrictRef | null {
   return getIndex().subdistrictsByDistrictId.get(districtId)?.get(normalizeThaiAddressValue(name)) ?? null;
+}
+
+/** Listing views for a cascading Province/District/Subdistrict select
+ *  (`AddressSelector`) - sorted, one entry per real administrative unit. */
+export function listProvinces(): ProvinceRef[] {
+  return getIndex().provinceList;
+}
+
+export function listDistricts(provinceId: string): DistrictRef[] {
+  return getIndex().districtListByProvinceId.get(provinceId) ?? [];
+}
+
+export function listSubdistricts(districtId: string): SubdistrictRef[] {
+  return getIndex().subdistrictListByDistrictId.get(districtId) ?? [];
 }

@@ -9,22 +9,24 @@ import { getSupabase } from '@/lib/supabase';
 import { applyScope } from '@/lib/db';
 import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import type { SessionUser } from '@/lib/types';
+import { MasterDataService } from '@/shared/master-data';
 import { NtrLegacyImportVehicleInput, NtrRepository } from './ntrRepository';
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 
-/** General (non-powertrain) warranty window, same 24-month limit
- *  `calcWarranty()` (src/lib/warranty.ts) already applies to MQR claims -
- *  reused here so NTR's "Warranty Status" filter can never silently drift
- *  from MQR's warranty rule. `warrantyStatus` is a computed filter, not a
- *  stored column - "in warranty" means `retail_date` within the last 24
- *  months; a null `retail_date` folds into "out of warranty" for filtering
- *  purposes only (the record detail page still shows it distinctly, via
- *  `calcWarranty()`, as "delivery date not specified"). */
-const GENERAL_WARRANTY_MONTHS = 24;
-
+/** "In warranty" means `retail_date` within the general (non-powertrain)
+ *  warranty window - read from the Configuration Platform
+ *  (`MasterDataService.getWarrantyLimitMonths()`) rather than a locally
+ *  duplicated 24, so NTR's "Warranty Status" filter can never silently
+ *  drift from MQR's warranty rule (`lib/warranty.ts`'s `calcWarranty()`,
+ *  which reads the same two numbers independently since `lib/`
+ *  Infrastructure may not depend on this Platform service - see that
+ *  file's own doc comment). `warrantyStatus` is a computed filter, not a
+ *  stored column; a null `retail_date` folds into "out of warranty" for
+ *  filtering purposes only (the record detail page still shows it
+ *  distinctly, via `calcWarranty()`, as "delivery date not specified"). */
 function warrantyCutoffIso(): string {
   const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - GENERAL_WARRANTY_MONTHS);
+  cutoff.setMonth(cutoff.getMonth() - MasterDataService.getWarrantyLimitMonths('other'));
   return cutoff.toISOString().slice(0, 10);
 }
 

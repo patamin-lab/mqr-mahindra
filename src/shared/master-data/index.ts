@@ -9,4 +9,8 @@ export { MasterDataService } from './MasterDataService';
 export type { AddressValidationInput, AddressValidationResult } from './address/addressValidation';
 export type { ProvinceRef, DistrictRef, SubdistrictRef } from './address/thaiAddressData';
 export type { CustomerType } from './lookup/customerType';
+export type { CustomerTitle } from './lookup/customerTitle';
+export type { AttachmentType } from './lookup/attachmentType';
+export type { Severity } from './lookup/severity';
+export type { StatusValue } from './lookup/status';
 export type { WarrantyProblemSystem } from './config/businessConfig';

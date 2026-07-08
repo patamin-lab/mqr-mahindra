@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getDealer, getPmInterval } from '@/lib/db';
+import { getPmInterval } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const { origin } = new URL(req.url);
     const [dealer, interval] = await Promise.all([
-      getDealer(record.dealer_id),
+      MasterDataService.getDealerById(record.dealer_id),
       record.pm_interval_id ? getPmInterval(record.pm_interval_id) : Promise.resolve(null),
     ]);
     const safeId = (record.pm_number ?? record.id).replace(/[^a-zA-Z0-9_-]/g, '_');

@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { dashboardStats, listDealers, getDealer, getBranchById } from '@/lib/db';
+import { dashboardStats } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { seesAllDealers } from '@/lib/scope';
-import { STATUS_LABELS, StatusValue, SEVERITY_LABELS, Severity } from '@/lib/types';
+import type { StatusValue, Severity } from '@/lib/types';
 import { THAI_MONTHS_FULL, formatMonthKeyThai, buildYearOptions, toBuddhistYear } from '@/lib/thaiDate';
 import {
   MonthlyTrendChart,
@@ -56,9 +57,9 @@ export default async function DashboardPage({
   // at all - `DashboardFilterBar`'s `useDealerBranchScope` loads them
   // client-side, only for whichever dealer is actually known, and caches
   // per dealer (see `components/shared/scope/`).
-  const dealers = seesAllDealers(session.role) ? await listDealers() : [];
-  const pinnedDealer = !seesAllDealers(session.role) && session.dealerId ? await getDealer(session.dealerId) : null;
-  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await getBranchById(session.branchId) : null;
+  const dealers = seesAllDealers(session.role) ? await MasterDataService.getDealers() : [];
+  const pinnedDealer = !seesAllDealers(session.role) && session.dealerId ? await MasterDataService.getDealerById(session.dealerId) : null;
+  const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await MasterDataService.getBranch(session.branchId) : null;
   const yearOptions = buildYearOptions(stats.filterOptions.years);
 
   const filterQuery = new URLSearchParams();
@@ -72,15 +73,15 @@ export default async function DashboardPage({
   const monthlyData = stats.monthly.map((m) => ({ ...m, label: formatMonthKeyThai(m.month) }));
   const statusBacklogData = stats.statusBacklog.map((s) => ({
     ...s,
-    statusLabel: STATUS_LABELS[s.status as StatusValue] ?? s.status,
+    statusLabel: MasterDataService.statusLabel(s.status as StatusValue) ?? s.status,
   }));
   const statusBreakdownData = stats.statusBreakdown.map((s) => ({
     ...s,
-    statusLabel: STATUS_LABELS[s.status as StatusValue] ?? s.status,
+    statusLabel: MasterDataService.statusLabel(s.status as StatusValue) ?? s.status,
   }));
   const severityBreakdownData = stats.severityBreakdown.map((s) => ({
     ...s,
-    severityLabel: SEVERITY_LABELS[s.severity as Severity] ?? s.severity,
+    severityLabel: MasterDataService.severityLabel(s.severity as Severity) ?? s.severity,
   }));
   const byModelData = stats.byModel.map((m) => ({ ...m, modelLabel: m.model }));
 
@@ -166,11 +167,11 @@ export default async function DashboardPage({
                           </Link>
                         )}
                       </td>
-                      <td className="py-1.5 pr-3 text-gray-600">{STATUS_LABELS[j.status as StatusValue] ?? j.status}</td>
+                      <td className="py-1.5 pr-3 text-gray-600">{MasterDataService.statusLabel(j.status as StatusValue) ?? j.status}</td>
                       <td className="py-1.5 pr-3">
                         {j.severity ? (
                           <StatusPill className="px-2 py-0.5 rounded-full text-xs" colorClassName={severityBadgeClass(j.severity)}>
-                            {SEVERITY_LABELS[j.severity as Severity] ?? j.severity}
+                            {MasterDataService.severityLabel(j.severity as Severity) ?? j.severity}
                           </StatusPill>
                         ) : (
                           '-'

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getDealer, getBranchById, getProductFamily } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { createNtrService } from '@/features/ntr/factory';
 import { renderNtrRecordPdf } from '@/features/ntr/services/ntrPdf';
@@ -33,9 +33,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   try {
     const { origin } = new URL(req.url);
     const [dealer, branch, productFamily, summary, timeline] = await Promise.all([
-      getDealer(record.dealer_id),
-      record.branch_id ? getBranchById(record.branch_id) : Promise.resolve(null),
-      record.product_family_id ? getProductFamily(record.product_family_id) : Promise.resolve(null),
+      MasterDataService.getDealerById(record.dealer_id),
+      record.branch_id ? MasterDataService.getBranch(record.branch_id) : Promise.resolve(null),
+      record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
       getVehicleSummary(record.serial, session),
       getVehicleTimeline(record.serial, session),
     ]);

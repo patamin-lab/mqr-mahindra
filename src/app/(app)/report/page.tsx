@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth';
-import { listProblemCodes, listDealers, listTechnicians, getDealer, getBranchById } from '@/lib/db';
+import { listProblemCodes } from '@/lib/db';
+import { MasterDataService } from '@/shared/master-data';
 import { seesAllDealers } from '@/lib/scope';
 import ReportForm from './report-form';
 
@@ -10,10 +11,10 @@ export default async function ReportPage() {
   const isCentral = seesAllDealers(session.role);
   const [problemCodes, dealers, technicians, pinnedDealer, pinnedBranch] = await Promise.all([
     listProblemCodes(),
-    isCentral ? listDealers() : Promise.resolve([]),
-    isCentral ? Promise.resolve([]) : listTechnicians(session.dealerId),
-    !isCentral && session.dealerId ? getDealer(session.dealerId) : Promise.resolve(null),
-    session.role === 'DealerUser' && session.branchId ? getBranchById(session.branchId) : Promise.resolve(null),
+    isCentral ? MasterDataService.getDealers() : Promise.resolve([]),
+    isCentral ? Promise.resolve([]) : MasterDataService.getTechniciansForDealer(session.dealerId),
+    !isCentral && session.dealerId ? MasterDataService.getDealerById(session.dealerId) : Promise.resolve(null),
+    session.role === 'DealerUser' && session.branchId ? MasterDataService.getBranch(session.branchId) : Promise.resolve(null),
   ]);
 
   return (
