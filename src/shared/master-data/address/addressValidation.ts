@@ -1,9 +1,9 @@
 /**
  * MASP Platform — Address Platform: address hierarchy validation
  * (Province -> District -> Subdistrict -> Postal Code), against
- * `thaiAddressData.ts`. Originally NTR-only; promoted to a shared
- * platform service - any module with a Thai address field validates
- * through this, never a second copy.
+ * `AddressRepository` (Supabase-backed, ADR-011 v2). Originally NTR-only;
+ * promoted to a shared platform service - any module with a Thai address
+ * field validates through this, never a second copy.
  *
  * Callers decide whether an address is required at all (this function
  * always accepts a fully-blank input) - what it never does is silently
@@ -11,7 +11,9 @@
  * that belongs to a different province than the one given) - see
  * docs/import/NTR_HISTORICAL_IMPORT.md's worked example.
  */
-import { findDistrict, findProvince, findSubdistrict } from './thaiAddressData';
+import { AddressRepository } from './AddressRepository';
+
+const repository = new AddressRepository();
 
 export interface AddressValidationInput {
   province: string | null;
@@ -29,7 +31,7 @@ export type AddressValidationResult = { ok: true } | { ok: false; reason: string
  *  unmatched values"). Subdistrict requires a known District the same
  *  way. Postal Code is checked against whichever subdistrict was
  *  resolved. */
-export function validateThaiAddress(input: AddressValidationInput): AddressValidationResult {
+export async function validateThaiAddress(input: AddressValidationInput): Promise<AddressValidationResult> {
   const province = input.province?.trim() || null;
   const district = input.district?.trim() || null;
   const subdistrict = input.subdistrict?.trim() || null;
@@ -39,7 +41,7 @@ export function validateThaiAddress(input: AddressValidationInput): AddressValid
 
   let resolvedProvinceId: string | null = null;
   if (province) {
-    const found = findProvince(province);
+    const found = await repository.findProvince(province);
     // "Invalid", not "Unknown" - `Unknown \w+ "..."` is a generic pattern
     // `ImportErrorFormatter.ts` already rewrites for a different,
     // canonical-key-based message shape (`Unknown dealer_id "D9"`); this
@@ -54,15 +56,15 @@ export function validateThaiAddress(input: AddressValidationInput): AddressValid
   let resolvedDistrictId: string | null = null;
   if (district) {
     if (!resolvedProvinceId) return { ok: false, reason: 'Province is required when District is provided' };
-    const found = findDistrict(district, resolvedProvinceId);
+    const found = await repository.findDistrict(district, resolvedProvinceId);
     if (!found) return { ok: false, reason: `District "${district}" does not belong to Province "${province}"` };
     resolvedDistrictId = found.districtId;
   }
 
-  let resolvedSubdistrict = null as ReturnType<typeof findSubdistrict>;
+  let resolvedSubdistrict: Awaited<ReturnType<typeof repository.findSubdistrict>> = null;
   if (subdistrict) {
     if (!resolvedDistrictId) return { ok: false, reason: 'District is required when Sub-District is provided' };
-    resolvedSubdistrict = findSubdistrict(subdistrict, resolvedDistrictId);
+    resolvedSubdistrict = await repository.findSubdistrict(subdistrict, resolvedDistrictId);
     if (!resolvedSubdistrict) return { ok: false, reason: `Sub-District "${subdistrict}" does not belong to District "${district}"` };
   }
 

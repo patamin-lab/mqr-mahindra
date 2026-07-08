@@ -1648,3 +1648,55 @@ two real mismatches. Full record: `docs/adr/ADR-011-Address-Platform.md`.
   `docs/architecture/MASP_ENTERPRISE_STANDARD.md`, the canonical
   architecture document going forward, now that its one identified
   implementation conflict is resolved and documented.
+
+## Address Platform Migration — v2, Supabase Canonical (v1.2.1, this milestone)
+
+**STATUS: COMPLETE.** Full record: `docs/adr/ADR-011-Address-
+Platform.md`'s v2 Supersession section, `docs/architecture/
+ADDRESS_PLATFORM.md` (current architecture/schema/API reference),
+`docs/architecture/MASTER_DATA_PLATFORM.md` (Master Data Platform
+inventory).
+
+The Thailand Address Master Data was imported into Supabase, superseding
+ADR-011's v1 decision to keep an in-memory JSON index. Before building
+on top of the imported tables, audited them and found they were a raw,
+undeduplicated flat export - `provinces`/`districts` had 7,436 rows each
+for only 77/928 distinct ids respectively, zero primary keys/foreign
+keys/indexes anywhere, and a stray duplicate column on `subdistricts`.
+This was a real Database Integrity finding, not a rubber-stamp of "data
+exists in Supabase now" - flagged and confirmed with the project owner
+before writing any migration.
+
+- **Migration** (`address_platform_canonical_tables`): renamed the raw
+  imported tables to `provinces_raw`/`districts_raw`/`subdistricts_raw`
+  (kept untouched, immutable, as seed/backup); created new canonical
+  `provinces`/`districts`/`subdistricts` tables with proper PK/FK/
+  indexes; populated via a deterministic `DISTINCT ON (id) ORDER BY id,
+  ctid` deduplication pass from the raw tables; enabled RLS with a
+  permissive `SELECT` policy on all six tables (matching the existing
+  `problem_codes`/`product_families` pattern). Verified after applying:
+  77 provinces / 928 districts / 7,436 subdistricts (Thailand's real
+  counts), raw tables unchanged at 7,436 rows each, zero new Supabase
+  security advisories.
+- **`AddressRepository`** (new, `shared/master-data/address/
+  AddressRepository.ts`): the one data-access layer over the canonical
+  tables - async, with an instance-level cache per method so the "load
+  once, reuse for every caller" property is preserved without
+  re-querying Supabase on every lookup.
+- **`MasterDataService`'s Address Platform methods are now `async`**,
+  delegating to `AddressRepository`. Every call site (`/api/master/*`
+  routes, NTR's Historical Import validation) updated to `await` them.
+- **The pre-v2 JSON module moved** to `shared/master-data/address/
+  seed/thaiAddressData.ts` - kept only as the seed the raw tables were
+  loaded from, a re-seed backup, and a test fixture; no production code
+  path imports it.
+- Verification: lint/typecheck/tests(487/487, +12 new)/build/
+  architecture-check all pass. Live UAT on a fresh Preview: all three
+  `/api/master/*` routes verified against the real canonical tables,
+  `/ntr/new` still loads, full regression sweep across Dashboard/NTR/PM/
+  QIR-MQR/Machine360/Dealer/Customer/Historical Import found no
+  regression.
+- Remaining, non-blocking: `ntr_records` still stores customer address
+  as free text (`customer_province`/`customer_district`/etc.), not
+  resolved foreign keys - no consumer needs the FK today; a genuine
+  future need gets its own ADR, not a retroactive redo of this one.

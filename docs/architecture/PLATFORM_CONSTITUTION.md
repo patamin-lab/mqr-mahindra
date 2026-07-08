@@ -264,18 +264,23 @@ families). Binding rules:
    string literal in a component's options array, a zod schema, or an
    import-column normalizer.
 3. **Never duplicate address logic** - Thai province/district/
-   subdistrict lookup and hierarchy validation live in `address/` only.
+   subdistrict lookup and hierarchy validation live in `address/` only,
+   behind `AddressRepository` (Supabase-backed, async, as of v1.2.1).
    Originally built for and used only by NTR; promoted to a shared
    platform service specifically so a second module needing address
-   validation reuses it instead of building a second Thai-address
-   index. The canonical Address Platform architecture (in-memory JSON
-   index, not DB tables; `/api/master/provinces`/`districts`/
-   `subdistricts` with `province_id`/`district_id` params; a filter
-   input paired with each `<select>` for "searchable dropdown") is
-   `docs/adr/ADR-011-Address-Platform.md` - it explicitly supersedes any
-   other document's description of this platform's storage/API shape,
-   including the MASP Enterprise Development Standard's DB-table
-   wording, until a real business need justifies revisiting it.
+   validation reuses it instead of building a second Thai-address index.
+   No business module queries the `provinces`/`districts`/`subdistricts`
+   tables directly - only `AddressRepository` does, and only
+   `MasterDataService` calls `AddressRepository`. The canonical Address
+   Platform architecture (Supabase tables with PK/FK/indexes;
+   `/api/master/provinces`/`districts`/`subdistricts` with
+   `province_id`/`district_id` params; a filter input paired with each
+   `<select>` for "searchable dropdown") is
+   `docs/adr/ADR-011-Address-Platform.md` (see its v2 Supersession
+   section) and `docs/architecture/ADDRESS_PLATFORM.md` - it explicitly
+   supersedes any other document's description of this platform's
+   storage/API shape, until a real business need justifies revisiting it
+   again.
 4. **Reference Data delegates to `lib/db.ts`, never re-implements data
    access** - `reference/referenceData.ts` is a thin pass-through to the
    dealer/branch/technician/product-family reads already centralized in

@@ -14,5 +14,5 @@ export async function GET(req: NextRequest) {
   const districtId = new URL(req.url).searchParams.get('district_id');
   if (!districtId) return NextResponse.json({ ok: true, subdistricts: [] });
 
-  return NextResponse.json({ ok: true, subdistricts: MasterDataService.listSubdistricts(districtId) });
+  return NextResponse.json({ ok: true, subdistricts: await MasterDataService.listSubdistricts(districtId) });
 }
