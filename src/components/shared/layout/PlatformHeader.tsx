@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
+import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@/lib/fetchJson';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import LanguageSelector from '@/components/shared/i18n/LanguageSelector';
 import NotificationBell from '@/components/shared/layout/NotificationBell';
@@ -41,7 +42,7 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
   }, []);
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/api/auth/logout', { method: 'POST', headers: { [CSRF_HEADER]: CSRF_HEADER_VALUE } });
     router.push('/login');
     router.refresh();
   }

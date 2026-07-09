@@ -96,6 +96,31 @@ export async function recordPasswordHistory(userId: string, hash: string, salt: 
   }
 }
 
+/** Minimum Password Age / Password Expiration (spec section 10, both
+ *  explicitly marked "(optional)"/"(configurable)") - disabled by default
+ *  (`0` = no limit) so shipping this doesn't change behavior for anyone;
+ *  set the env var to activate without a code change. */
+export const PASSWORD_MIN_AGE_HOURS = Number(process.env.PASSWORD_MIN_AGE_HOURS ?? 0);
+export const PASSWORD_EXPIRY_DAYS = Number(process.env.PASSWORD_EXPIRY_DAYS ?? 0);
+
+/** Blocks rapid password cycling (a user changing it 5 times in a row to
+ *  defeat `isPasswordReused`'s 5-entry history) - only meaningful once
+ *  `PASSWORD_MIN_AGE_HOURS` is actually set. */
+export function isWithinMinimumAge(passwordChangedAt: string | null): boolean {
+  if (!PASSWORD_MIN_AGE_HOURS || !passwordChangedAt) return false;
+  const elapsedHours = (Date.now() - new Date(passwordChangedAt).getTime()) / (1000 * 60 * 60);
+  return elapsedHours < PASSWORD_MIN_AGE_HOURS;
+}
+
+/** Checked at login - an expired password forces the same
+ *  `force_password_change` flow as an admin-set temporary password
+ *  (spec section 7), rather than a separate mechanism. */
+export function isPasswordExpired(passwordChangedAt: string | null): boolean {
+  if (!PASSWORD_EXPIRY_DAYS || !passwordChangedAt) return false;
+  const elapsedDays = (Date.now() - new Date(passwordChangedAt).getTime()) / (1000 * 60 * 60 * 24);
+  return elapsedDays >= PASSWORD_EXPIRY_DAYS;
+}
+
 /** Writes the new hash, upgrades `password_algo` to `scrypt`, stamps
  *  `password_changed_at`, and (the caller decides when) clears
  *  `force_password_change`. Does not touch sessions - the caller wires

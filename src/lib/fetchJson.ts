@@ -22,10 +22,24 @@ export class FetchJsonError extends Error {
   }
 }
 
+/**
+ * CSRF protection (Authentication Platform v3.0, spec section 10): a
+ * simple cross-site `<form>` POST can ride along on the `mqr_session`
+ * cookie (`sameSite: 'lax'` alone doesn't block a top-level cross-site
+ * navigation), but it can't attach a custom header - only same-origin
+ * `fetch`/XHR can, and a cross-origin one would need a CORS preflight
+ * this app never allows. `middleware.ts` rejects any mutating `/api/*`
+ * request missing this header. The couple of call sites that bypass
+ * `fetchJson` (logout, the NTR legacy-import upload) set it directly -
+ * see `middleware.ts` for the enforcement side.
+ */
+export const CSRF_HEADER = 'x-mqr-csrf';
+export const CSRF_HEADER_VALUE = '1';
+
 export async function fetchJson<T = any>(url: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url, init);
+    res = await fetch(url, { ...init, headers: { ...init?.headers, [CSRF_HEADER]: CSRF_HEADER_VALUE } });
   } catch {
     throw new FetchJsonError('เชื่อมต่อเครือข่ายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
   }

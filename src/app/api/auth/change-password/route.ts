@@ -5,6 +5,7 @@ import {
   applyNewPassword,
   hashPassword,
   isPasswordReused,
+  isWithinMinimumAge,
   recordPasswordHistory,
   validateComplexity,
   verifyPassword,
@@ -44,6 +45,13 @@ export async function POST(req: NextRequest) {
 
   if (await isPasswordReused(user.id, newPassword)) {
     return NextResponse.json({ ok: false, error: 'ห้ามใช้ซ้ำกับรหัสผ่าน 5 รายการล่าสุด' }, { status: 400 });
+  }
+
+  // Minimum Password Age (disabled unless PASSWORD_MIN_AGE_HOURS is set) -
+  // never applies to a mandatory change (First Login / an expired
+  // password already forced this route), only a voluntary one.
+  if (!session.forcePasswordChange && isWithinMinimumAge(user.password_changed_at)) {
+    return NextResponse.json({ ok: false, error: 'ยังไม่ถึงระยะเวลาขั้นต่ำก่อนเปลี่ยนรหัสผ่านอีกครั้ง' }, { status: 400 });
   }
 
   const { hash, salt } = await hashPassword(newPassword);

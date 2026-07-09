@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
+import { CSRF_HEADER } from './lib/fetchJson';
 
 const SESSION_COOKIE = 'mqr_session';
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+// NTR Legacy Import is frozen - "never modify Legacy Import unless
+// explicitly requested" (root CLAUDE.md). Its upload/preview/commit calls
+// use a raw `fetch()` that predates this header; exempting its routes
+// here avoids touching that code at all, the same tradeoff this repo has
+// made for every other Legacy Import constraint.
+const CSRF_EXEMPT_API_PREFIXES = ['/api/ntr/import'];
 
 // Pages/routes reachable with NO session at all - the entry points into the
 // password-reset/invitation flows (Authentication Platform v3.0), plus the
@@ -79,6 +87,21 @@ function matchesPrefix(pathname: string, prefixes: string[]): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // CSRF protection (spec section 10): a simple cross-site <form> POST
+  // can't attach a custom header, only same-origin fetch/XHR can - see
+  // `lib/fetchJson.ts`'s doc comment for the full reasoning. Checked
+  // before the public/session branches below since it applies regardless
+  // of whether the route needs a session (a forged forgot-password spam
+  // request is still worth blocking).
+  if (
+    pathname.startsWith('/api/') &&
+    MUTATING_METHODS.has(req.method) &&
+    !matchesPrefix(pathname, CSRF_EXEMPT_API_PREFIXES) &&
+    !req.headers.get(CSRF_HEADER)
+  ) {
+    return NextResponse.json({ ok: false, error: 'คำขอไม่ถูกต้อง (CSRF)' }, { status: 403 });
+  }
 
   if (matchesPrefix(pathname, PUBLIC_API_PREFIXES)) {
     return NextResponse.next();

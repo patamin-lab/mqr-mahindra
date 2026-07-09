@@ -11,7 +11,7 @@ import {
 import { signSession, SESSION_COOKIE, SESSION_MINUTES } from '@/lib/auth';
 import { SessionUser } from '@/lib/types';
 import { createSession } from '@/lib/authServices/sessionService';
-import { hashPassword, verifyPassword } from '@/lib/authServices/passwordService';
+import { hashPassword, isPasswordExpired, verifyPassword } from '@/lib/authServices/passwordService';
 
 export async function POST(req: NextRequest) {
   let username = '';
@@ -70,7 +70,10 @@ export async function POST(req: NextRequest) {
       branch: user.branch,
       branchId: user.branch_id ?? null,
       sessionId,
-      forcePasswordChange: !!user.force_password_change,
+      // Password Expiration (disabled unless PASSWORD_EXPIRY_DAYS is set) -
+      // an expired password forces the same Change Password gate as an
+      // admin-set temporary password, not a separate mechanism.
+      forcePasswordChange: !!user.force_password_change || isPasswordExpired(user.password_changed_at),
     };
     const token = await signSession(sessionUser);
     await insertLoginLog({ username: user.username, role: user.role, action: 'เข้าสู่ระบบ', device, result: 'ok' });
