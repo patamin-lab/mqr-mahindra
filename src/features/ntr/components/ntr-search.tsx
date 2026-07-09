@@ -317,7 +317,6 @@ function NtrRegistrationForm({
   const [productFamilies, setProductFamilies] = useState<{ id: string; name: string }[]>([]);
   const [subModel, setSubModel] = useState('');
   const [subModelOptions, setSubModelOptions] = useState<string[]>([]);
-  const [retailDate, setRetailDate] = useState('');
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
   const [hourMeter, setHourMeter] = useState('');
   const [gps, setGps] = useState<GpsLocation>(EMPTY_GPS);
@@ -463,7 +462,6 @@ function NtrRegistrationForm({
           customer_type: customerType || null,
           product_family_id: productFamilyId || null,
           variant: subModel || null,
-          retail_date: retailDate || null,
           delivery_date: deliveryDate,
           hour_meter: hourMeter.trim() ? Number(hourMeter) : null,
           photo_customer_id_url: photos.customer_id.url,
@@ -596,10 +594,6 @@ function NtrRegistrationForm({
 
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.deliveryInfoTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">{t('csv.retailDate')}</label>
-            <input type="date" className="w-full rounded border px-2 py-1.5 text-sm" value={retailDate} onChange={(e) => setRetailDate(e.target.value)} disabled={submitting} />
-          </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">{`${t('csv.deliveryDate')} *`}</label>
             <input type="date" required className="w-full rounded border px-2 py-1.5 text-sm" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} disabled={submitting} />

@@ -146,12 +146,12 @@ export interface NtrRecord {
  *  as every other create path in this app - it is listed here because
  *  the Repository layer still needs it to build the insert payload.
  *
- *  `receiving_person`/`pdi_date`/`manufacturing_year`/`video_url` stay on
- *  this type because Legacy Import still populates them (see
- *  `ntrImportService.ts`); the manual registration form (NTR Form Update,
- *  2026-07) no longer collects them - `api/ntr-records/route.ts` sets
- *  each to `null` explicitly for that path instead of accepting them from
- *  the request body. */
+ *  `receiving_person`/`pdi_date`/`manufacturing_year`/`video_url`/
+ *  `retail_date` stay on this type because Legacy Import still populates
+ *  them (see `ntrImportService.ts`); the manual registration form (NTR
+ *  Form Update, 2026-07) no longer collects them - `api/ntr-records/
+ *  route.ts` sets each to `null` explicitly for that path instead of
+ *  accepting them from the request body. */
 export type NtrRecordCreateInput = Pick<
   NtrRecord,
   | 'dealer_id'

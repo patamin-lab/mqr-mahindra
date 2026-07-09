@@ -446,7 +446,7 @@
     "status": "สถานะ",
     "ntrNumber": "เลขที่ NTR",
     "retailDate": "วันที่ส่งมอบ",
-    "deliveryDate": "วันที่รับมอบ",
+    "deliveryDate": "วันที่ส่งมอบรถ",
     "customerAddress": "ที่อยู่ลูกค้า",
     "district": "อำเภอ/เขต",
     "province": "จังหวัด",
