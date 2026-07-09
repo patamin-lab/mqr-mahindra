@@ -30,8 +30,14 @@ export interface CardProps {
   className?: string;
   /** Some call sites use `<section>` for document outline purposes. */
   as?: ElementType;
+  /** Anchor id - e.g. Quick Navigation scroll targets (Activity Timeline). */
+  id?: string;
 }
 
-export default function Card({ children, variant = 'elevated', className, as: Tag = 'div' }: CardProps) {
-  return <Tag className={`${VARIANT_CLASSES[variant]}${className ? ` ${className}` : ''}`}>{children}</Tag>;
+export default function Card({ children, variant = 'elevated', className, as: Tag = 'div', id }: CardProps) {
+  return (
+    <Tag id={id} className={`${VARIANT_CLASSES[variant]}${className ? ` ${className}` : ''}`}>
+      {children}
+    </Tag>
+  );
 }
