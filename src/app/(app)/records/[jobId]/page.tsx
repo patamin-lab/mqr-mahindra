@@ -6,7 +6,7 @@ import { getSession } from '@/lib/auth';
 import { getRecordByJobId, getVehicleHistory, listAuditLog } from '@/lib/db';
 import { MasterDataService } from '@/shared/master-data';
 import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
-import { PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY } from '@/lib/types';
+import { PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY, STATUS_LABELS } from '@/lib/types';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
 import UpdateForm from './update-form';
 import DeleteButton from './delete-button';
@@ -23,8 +23,12 @@ import RecordActivityTimelineSection from './activity-timeline-section';
 
 /** MQR's own closing-status vocabulary, passed to the generic activity
  *  adapter so it can render ✅ Closed / ↩ Reopened without itself knowing
- *  what "Repaired"/"Closed" mean - see `mapAuditLogToActivityEvents.ts`. */
-const MQR_CLOSING_STATUSES = ['Repaired', 'Closed'];
+ *  what "Repaired"/"Closed" mean - see `mapAuditLogToActivityEvents.ts`.
+ *  `updateRecord()` writes `record_audit_log.old_value`/`new_value` for a
+ *  `StatusChanged` row as `STATUS_LABELS[status]` (the Thai display text),
+ *  never the raw `StatusValue` code - so the comparison values here must
+ *  be the same labels, not `['Repaired', 'Closed']`, or this never matches. */
+const MQR_CLOSING_STATUSES = [STATUS_LABELS.Repaired, STATUS_LABELS.Closed];
 
 const attachmentService = new AttachmentService();
 
