@@ -30,7 +30,15 @@ export class MaintenanceSummaryProvider implements VehicleSummaryProvider {
     // than guessing.
     const model = vehicle?.model ?? records[0]?.model ?? null;
 
-    const productFamilyId = model ? await getProductFamilyIdForModel(model) : null;
+    // Tractor IN sync (`TractorInSyncService`) is now the source of truth
+    // for `vehicles.product_family_id` - prefer it. The `model`-based
+    // derivation is a temporary migration safeguard for a vehicle that
+    // hasn't been synced yet (e.g. no Product Family match in the sheet,
+    // or the sync simply hasn't run for it).
+    // TODO(tractor-in-sync): remove this fallback once the first
+    // successful production sync has run and every vehicle in active use
+    // has `product_family_id` populated directly.
+    const productFamilyId = vehicle?.product_family_id ?? (model ? await getProductFamilyIdForModel(model) : null);
     const [productFamily, versionResolution] = await Promise.all([
       productFamilyId ? getProductFamily(productFamilyId) : Promise.resolve(null),
       productFamilyId && vehicle

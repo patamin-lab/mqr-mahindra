@@ -304,26 +304,6 @@ export class SupabaseNtrRepository implements NtrRepository {
     return { data: (data ?? []) as NtrRecord[], total: count ?? 0 };
   }
 
-  /** Distinct, non-blank `variant` values already recorded for a Product
-   *  Family - reuses data already on `ntr_records` rather than a new Sub
-   *  Model master-data table (see `NtrRepository`'s doc comment). Sorted
-   *  for a stable dropdown order; a brand-new Product Family with no
-   *  prior registrations simply has no options yet. */
-  async listDistinctVariants(productFamilyId: string): Promise<string[]> {
-    const { data, error } = await this.client
-      .from(this.table)
-      .select('variant')
-      .eq('product_family_id', productFamilyId)
-      .eq('record_status', 'Active')
-      .not('variant', 'is', null);
-    if (error) throw error;
-    const values = new Set<string>();
-    for (const row of (data ?? []) as { variant: string | null }[]) {
-      if (row.variant?.trim()) values.add(row.variant.trim());
-    }
-    return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }
-
   /** Calls the `commit_ntr_legacy_import_row` Postgres function - one RPC
    *  call is one Postgres transaction, so Tractor + NTR + Timeline + Audit
    *  either all land together or none do (a raised exception, e.g. the

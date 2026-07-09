@@ -965,7 +965,6 @@ export interface NtrTractorSearchFilters {
   serial?: string | null;
   engineNumber?: string | null;
   model?: string | null;
-  productFamilyId?: string | null;
   limit?: number;
 }
 
@@ -983,6 +982,12 @@ export interface NtrTractorSearchResult {
    *  Tractor Search step uses this to warn "already registered" instead of
    *  letting a dealer create a duplicate NTR for the same tractor. */
   existing_ntr_number: string | null;
+  /** Synced from the Tractor IN Google Sheet by `TractorInSyncService` -
+   *  read-only here, never resolved/derived by this search itself. Null
+   *  until the sheet has the corresponding columns and a sync has run. */
+  product_family_id: string | null;
+  product_family_name: string | null;
+  sub_model: string | null;
 }
 
 /**
@@ -996,20 +1001,11 @@ export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Pr
   const supabase = getSupabase();
   const limit = Math.min(filters.limit ?? 20, 50);
 
-  let modelsForFamily: string[] | null = null;
-  if (filters.productFamilyId) {
-    const { data, error } = await supabase
-      .from('product_family_models')
-      .select('model')
-      .eq('product_family_id', filters.productFamilyId);
-    if (error) throw error;
-    modelsForFamily = (data ?? []).map((r: any) => r.model as string);
-    if (modelsForFamily.length === 0) return [];
-  }
-
   let query = supabase
     .from('vehicles')
-    .select('id, serial, model, delivery_date, engine_number, dealer_id, branch_id, dealers(short_name, full_name), branches(name)')
+    .select(
+      'id, serial, model, delivery_date, engine_number, dealer_id, branch_id, product_family_id, sub_model, dealers(short_name, full_name), branches(name), product_families(name)'
+    )
     .order('serial')
     .limit(limit);
 
@@ -1018,7 +1014,6 @@ export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Pr
   if (filters.serial?.trim()) query = query.ilike('serial', `%${filters.serial.trim()}%`);
   if (filters.engineNumber?.trim()) query = query.ilike('engine_number', `%${filters.engineNumber.trim()}%`);
   if (filters.model?.trim()) query = query.ilike('model', `%${filters.model.trim()}%`);
-  if (modelsForFamily) query = query.in('model', modelsForFamily);
 
   const { data: vehicleRows, error } = await query;
   if (error) throw error;
@@ -1045,6 +1040,9 @@ export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Pr
     branch_id: v.branch_id,
     branch_name: v.branches?.name ?? null,
     existing_ntr_number: ntrNumberBySerial.get(v.serial) ?? null,
+    product_family_id: v.product_family_id ?? null,
+    product_family_name: v.product_families?.name ?? null,
+    sub_model: v.sub_model ?? null,
   }));
 }
 

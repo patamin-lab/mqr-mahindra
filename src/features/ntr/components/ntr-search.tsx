@@ -198,6 +198,12 @@ export default function NtrSearch({ dealers, role, sessionDealerId, sessionBranc
         branch_id: branchId || null,
         branch_name: null,
         existing_ntr_number: null,
+        // A freshly-created tractor has no Tractor IN sync data yet -
+        // Product Family/Sub Model stay null until the sheet has them and
+        // a sync runs (see TractorInSyncService).
+        product_family_id: null,
+        product_family_name: null,
+        sub_model: null,
       });
     } catch (err) {
       swalClose();
@@ -313,40 +319,9 @@ function NtrRegistrationForm({
   const [customerPhone, setCustomerPhone] = useState('');
   const [addressValue, setAddressValue] = useState<AddressValue>({ address: '', province: '', district: '', subdistrict: '', postalCode: '' });
   const [customerType, setCustomerType] = useState<CustomerType | ''>('');
-  const [productFamilyId, setProductFamilyId] = useState('');
-  const [productFamilies, setProductFamilies] = useState<{ id: string; name: string }[]>([]);
-  const [subModel, setSubModel] = useState('');
-  const [subModelOptions, setSubModelOptions] = useState<string[]>([]);
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
   const [hourMeter, setHourMeter] = useState('');
   const [gps, setGps] = useState<GpsLocation>(EMPTY_GPS);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const json = await fetchJson<{ ok: boolean; productFamilies: { id: string; name: string }[] }>('/api/product-families');
-        setProductFamilies(json.productFamilies ?? []);
-      } catch {
-        setProductFamilies([]);
-      }
-    })();
-  }, []);
-
-  /** Sub Model options are scoped to the selected Product Family (NTR Form
-   *  Update, 2026-07) - reloaded on every change, and the current
-   *  selection cleared since it may not be valid for the new family. */
-  async function handleProductFamilyChange(id: string) {
-    setProductFamilyId(id);
-    setSubModel('');
-    setSubModelOptions([]);
-    if (!id) return;
-    try {
-      const json = await fetchJson<{ ok: boolean; variants: string[] }>(`/api/ntr/variants?productFamilyId=${encodeURIComponent(id)}`);
-      setSubModelOptions(json.variants ?? []);
-    } catch {
-      setSubModelOptions([]);
-    }
-  }
   const pendingEntityId = useRef(newPendingEntityId()).current;
   const [photos, setPhotos] = useState<Record<PhotoSlot, { url: string | null; attachmentId: string | null }>>({
     customer_id: { url: null, attachmentId: null },
@@ -460,8 +435,11 @@ function NtrRegistrationForm({
           customer_province: addressValue.province.trim() || null,
           customer_postal_code: addressValue.postalCode.trim() || null,
           customer_type: customerType || null,
-          product_family_id: productFamilyId || null,
-          variant: subModel || null,
+          // Product Family / Sub Model come from the selected Tractor -
+          // synced from Tractor IN (TractorInSyncService), never chosen by
+          // the operator in this form.
+          product_family_id: tractor.product_family_id,
+          variant: tractor.sub_model,
           delivery_date: deliveryDate,
           hour_meter: hourMeter.trim() ? Number(hourMeter) : null,
           photo_customer_id_url: photos.customer_id.url,
@@ -576,20 +554,16 @@ function NtrRegistrationForm({
 
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.tractorInfoTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-          <SelectField
-            label={t('common.productFamily')}
-            value={productFamilyId}
-            onChange={handleProductFamilyChange}
-            options={[{ value: '', label: t('ntr.selectProductFamily') }, ...productFamilies.map((f) => ({ value: f.id, label: f.name }))]}
-            disabled={submitting}
-          />
-          <SelectField
-            label={t('ntr.subModel')}
-            value={subModel}
-            onChange={setSubModel}
-            options={[{ value: '', label: t('ntr.selectSubModel') }, ...subModelOptions.map((v) => ({ value: v, label: v }))]}
-            disabled={submitting || !productFamilyId}
-          />
+          {/* Read-only - synced from Tractor IN (TractorInSyncService), never
+              chosen by the operator (NTR Form Update, 2026-07). */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t('common.productFamily')}</label>
+            <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractor.product_family_name ?? '-'}</p>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t('ntr.subModel')}</label>
+            <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractor.sub_model ?? '-'}</p>
+          </div>
         </div>
 
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.deliveryInfoTitle')}</h2>

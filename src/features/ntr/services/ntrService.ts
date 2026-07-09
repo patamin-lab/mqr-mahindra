@@ -80,12 +80,6 @@ export class NtrService {
     return this.repository.listHistory(filter, session);
   }
 
-  /** Sub Model dropdown options for a Product Family (NTR Form Update,
-   *  2026-07) - see `NtrRepository.listDistinctVariants()`'s doc comment. */
-  async listDistinctVariants(productFamilyId: string): Promise<string[]> {
-    return this.repository.listDistinctVariants(productFamilyId);
-  }
-
   /** Registers a tractor delivery. Enforces "never create duplicate NTR"
    *  independently of whatever the search-first UI already warned about -
    *  the service layer is the one that actually blocks it. Publishes both

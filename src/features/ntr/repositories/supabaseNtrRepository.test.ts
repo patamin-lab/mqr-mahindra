@@ -116,35 +116,3 @@ describe('SupabaseNtrRepository branch scoping (session param)', () => {
   });
 });
 
-/** Sub Model dropdown support (NTR Form Update, 2026-07) - reuses
- *  existing `variant` values, deduplicated and sorted, scoped to a
- *  Product Family. */
-describe('SupabaseNtrRepository.listDistinctVariants', () => {
-  function fromMock(rows: { variant: string | null }[]) {
-    const builder: Record<string, unknown> = {};
-    builder.select = vi.fn(() => builder);
-    builder.eq = vi.fn(() => builder);
-    builder.not = vi.fn(() => builder);
-    builder.then = (onFulfilled: (v: { data: unknown; error: null }) => unknown) =>
-      Promise.resolve({ data: rows, error: null }).then(onFulfilled);
-    return builder;
-  }
-
-  it('returns distinct, sorted, non-blank variant values', async () => {
-    const from = vi.fn(() => fromMock([{ variant: 'B' }, { variant: 'A' }, { variant: 'B' }, { variant: '  ' }]));
-    state.client = { rpc: vi.fn(), from } as unknown as { rpc: ReturnType<typeof vi.fn> };
-    const repository = new SupabaseNtrRepository();
-
-    const result = await repository.listDistinctVariants('family-1');
-    expect(result).toEqual(['A', 'B']);
-  });
-
-  it('returns an empty list when no records exist for the family yet', async () => {
-    const from = vi.fn(() => fromMock([]));
-    state.client = { rpc: vi.fn(), from } as unknown as { rpc: ReturnType<typeof vi.fn> };
-    const repository = new SupabaseNtrRepository();
-
-    const result = await repository.listDistinctVariants('family-new');
-    expect(result).toEqual([]);
-  });
-});
