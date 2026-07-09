@@ -46,6 +46,21 @@ export async function findUserByUsername(username: string) {
   return data;
 }
 
+/** Forgot Password accepts "Username or Email" (spec section 2) - tries
+ *  username first (the common case), falls back to email. Never throws
+ *  on "not found" (returns `null`) - the caller must always answer with
+ *  the same generic message either way, never revealing which happened. */
+export async function findUserByUsernameOrEmail(identifier: string) {
+  const supabase = getSupabase();
+  const trimmed = identifier.trim();
+  const byUsername = await supabase.from('users').select('*').ilike('username', escapeIlike(trimmed)).maybeSingle();
+  if (byUsername.error) throw byUsername.error;
+  if (byUsername.data) return byUsername.data;
+  const byEmail = await supabase.from('users').select('*').ilike('email', escapeIlike(trimmed)).maybeSingle();
+  if (byEmail.error) throw byEmail.error;
+  return byEmail.data;
+}
+
 export async function insertLoginLog(entry: {
   username: string;
   role: string;

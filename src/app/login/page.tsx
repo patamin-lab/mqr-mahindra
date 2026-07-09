@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalLoading, swalError, swalClose } from '@/lib/swal';
 import LanguageSelector from '@/components/shared/i18n/LanguageSelector';
@@ -80,6 +81,10 @@ required
 <button disabled={loading} className="btn-primary w-full">
 {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
 </button>
+
+<Link href="/forgot-password" className="block text-center text-sm text-gray-500 hover:underline mt-4">
+ลืมรหัสผ่าน?
+</Link>
 </form>
 </div>
 );
