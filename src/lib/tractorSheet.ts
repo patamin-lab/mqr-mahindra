@@ -6,18 +6,26 @@ import Papa from 'papaparse';
  * "Anyone with the link: Viewer" - we read it via the public gviz CSV export
  * endpoint, no Google API key/service account needed.
  *
- * This sheet has no customer/dealer/delivery-date columns - it only
- * confirms a serial is a real unit and supplies its model/engine/product
- * code. Delivery date (for warranty calc) still comes from the Supabase
- * `vehicles` table when available - see the merge logic in
- * src/app/api/vehicles/[serial]/route.ts.
+ * The live sheet's real current header row (confirmed 2026-07-09 by
+ * fetching the CSV directly - this doc comment previously listed only 7
+ * columns, which was stale relative to the sheet's actual state; verify
+ * against the real sheet before changing this list again, never against
+ * this comment alone):
  *
- * `productFamily`/`subModel` (columns 8/9) are the Tractor IN sync's
- * source of truth for `vehicles.product_family_id`/`vehicles.sub_model`
- * (see `features/vehicle/services/tractorInSyncService.ts`) - added here
- * as a manual prerequisite in the live sheet; until that column exists,
- * this simply reads as an empty string (same graceful-absence handling
- * every other column here already has).
+ *   No. | Product Serial Number | Engine Serial Number | Product Code |
+ *   Product Model | WH Arrival Date | PDI Status | วันที่ส่งมอบ
+ *   (Delivery Date, Thai) | Dealer
+ *
+ * `deliveryDateThai`/`dealer` (columns 8/9, 0-indexed 7/8) are pre-existing
+ * sheet columns, exposed here for completeness - neither is currently
+ * consumed by application code.
+ *
+ * `productFamily`/`subModel` (columns 10/11, 0-indexed 9/10) are the
+ * Tractor IN sync's source of truth for `vehicles.product_family_id`/
+ * `vehicles.sub_model` (see `features/vehicle/services/
+ * tractorInSyncService.ts`) - a manual prerequisite still to be added to
+ * the live sheet; until they exist, both simply read as an empty string
+ * (same graceful-absence handling every other column here already has).
  */
 
 const SHEET_ID = process.env.TRACTOR_SHEET_ID || '1v9AQRoBaOKCxp2W3IwG7H3895yCnjhLyJy3yh34zq84';
@@ -32,6 +40,11 @@ export interface TractorInRow {
   productModel: string;
   whArrivalDate: string;
   pdiStatus: string;
+  /** วันที่ส่งมอบ (Delivery Date, Thai) - pre-existing sheet column, not
+   *  currently consumed anywhere. */
+  deliveryDateThai: string;
+  /** Pre-existing sheet column, not currently consumed anywhere. */
+  dealer: string;
   /** Must match an existing `product_families.code` or `.name` exactly -
    *  the sync service never guesses/creates a Product Family. */
   productFamily: string;
@@ -53,10 +66,10 @@ async function fetchRows(): Promise<TractorInRow[]> {
   const text = await res.text();
   const parsed = Papa.parse<string[]>(text.trim(), { skipEmptyLines: true });
   const rows = (parsed.data as string[][]) ?? [];
-  // Row 0 is the header: No. | Product Serial Number | Engine Serial Number |
-  // Product Code | Product Model | WH Arrival Date | PDI Status |
-  // Product Family | Sub Model (the last two are a manual prerequisite -
-  // see this file's module doc comment; read as '' until added).
+  // Row 0 is the header - see this file's module doc comment for the full,
+  // verified-against-the-real-sheet column list. Columns 10/11 (Product
+  // Family/Sub Model) are a manual prerequisite not yet added - read as ''
+  // until they exist.
   return rows
     .slice(1)
     .filter((r) => Array.isArray(r) && r[1])
@@ -68,8 +81,10 @@ async function fetchRows(): Promise<TractorInRow[]> {
       productModel: (r[4] ?? '').trim(),
       whArrivalDate: (r[5] ?? '').trim(),
       pdiStatus: (r[6] ?? '').trim(),
-      productFamily: (r[7] ?? '').trim(),
-      subModel: (r[8] ?? '').trim(),
+      deliveryDateThai: (r[7] ?? '').trim(),
+      dealer: (r[8] ?? '').trim(),
+      productFamily: (r[9] ?? '').trim(),
+      subModel: (r[10] ?? '').trim(),
     }));
 }
 

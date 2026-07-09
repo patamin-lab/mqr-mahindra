@@ -52,8 +52,22 @@ model/engine number already do.
 
 This codebase has no write access to the Tractor IN Google Sheet (it's
 read via the sheet's public CSV export URL - see `lib/tractorSheet.ts`).
-**The sheet owner must add two columns**, in this exact position
-(columns 8 and 9, immediately after the existing `PDI Status`):
+
+**Correction (2026-07-09):** this ADR originally proposed adding the new
+columns at position 8/9, based on `lib/tractorSheet.ts`'s own doc
+comment, which turned out to be stale - it documented only 7 columns.
+Fetching the live sheet's actual CSV directly during verification showed
+it already has **9** real columns, the last two being `วันที่ส่งมอบ`
+(Delivery Date, Thai) and `Dealer` - neither previously known to this
+codebase. A first sync attempt against the live sheet before this
+correction briefly wrote the `Dealer` column's value (`"KTV"`) into
+`vehicles.sub_model` for 12 rows; caught immediately via the sync's own
+result reporting (12 rows "updated" against a sheet with no real Product
+Family/Sub Model data yet was the tell), and reverted with `UPDATE
+vehicles SET sub_model = NULL WHERE sub_model = 'KTV'` before any other
+module read it. No `product_family_id` was affected. **The sheet owner
+must add two columns**, in this exact position (columns 10 and 11,
+immediately after the existing `Dealer`):
 
 | Column | Notes |
 |---|---|
@@ -62,7 +76,8 @@ read via the sheet's public CSV export URL - see `lib/tractorSheet.ts`).
 
 Until this column exists, `TractorInSyncService.sync()` simply finds
 nothing to write for any row (both fields read as empty string) - it
-does not error.
+does not error. Verified live against the real sheet post-fix: 0 rows
+updated, 0 unmatched (confirms the fix; see Verification section).
 
 ## Database migration
 
