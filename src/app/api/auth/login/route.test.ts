@@ -3,9 +3,11 @@ import { NextRequest } from 'next/server';
 
 const mockFindUserByUsername = vi.fn();
 const mockInsertLoginLog = vi.fn();
+const mockUpgradePasswordHash = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/db', () => ({
   findUserByUsername: mockFindUserByUsername,
   insertLoginLog: mockInsertLoginLog,
+  upgradePasswordHash: mockUpgradePasswordHash,
 }));
 
 const mockSignSession = vi.fn().mockResolvedValue('signed-token');
@@ -36,6 +38,7 @@ describe('POST /api/auth/login — branchId population', () => {
     mockInsertLoginLog.mockReset();
     mockSignSession.mockClear();
     mockCreateSession.mockClear();
+    mockUpgradePasswordHash.mockClear();
   });
 
   it('populates sessionUser.branchId from the user row\'s branch_id', async () => {

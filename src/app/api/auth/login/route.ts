@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserByUsername, insertLoginLog } from '@/lib/db';
-import { sha256Hex, signSession, SESSION_COOKIE, SESSION_MINUTES } from '@/lib/auth';
+import { findUserByUsername, insertLoginLog, upgradePasswordHash } from '@/lib/db';
+import { signSession, SESSION_COOKIE, SESSION_MINUTES } from '@/lib/auth';
 import { SessionUser } from '@/lib/types';
 import { createSession } from '@/lib/authServices/sessionService';
+import { hashPassword, verifyPassword } from '@/lib/authServices/passwordService';
 
 export async function POST(req: NextRequest) {
   let username = '';
@@ -13,11 +14,20 @@ export async function POST(req: NextRequest) {
     const device = req.headers.get('user-agent') ?? '';
 
     const user = await findUserByUsername(username);
-    const hash = await sha256Hex(password);
+    const passwordOk = user ? await verifyPassword(password, user) : false;
 
-    if (!user || user.password_hash !== hash || user.active === false) {
+    if (!user || !passwordOk || user.active === false) {
       await insertLoginLog({ username, role: user?.role ?? '', action: 'เข้าสู่ระบบ', device, result: 'fail' });
       return NextResponse.json({ ok: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
+    }
+
+    // Opportunistic, silent upgrade of a legacy sha256 hash to salted
+    // scrypt - never a forced bulk migration, just moves each account
+    // over the moment it next authenticates successfully (spec section 10:
+    // "Secure password hashing"). Never blocks the login on failure.
+    if (user.password_algo !== 'scrypt') {
+      const { hash: newHash, salt } = await hashPassword(password);
+      await upgradePasswordHash(user.id, newHash, salt).catch(() => {});
     }
 
     // Session Platform Foundation (Authentication Platform v3.0): every
