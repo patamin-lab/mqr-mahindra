@@ -1,31 +1,74 @@
 # Roadmap
 
-## Post-v2.3.1 Roadmap — current
+## Release: v2.4.0-foundation
 
-**Supersedes the "Next Development Phase (Post v1.1.0)" section below as
-the active plan** (that section is preserved for its still-relevant
-Frozen Foundation list and deferred items, not because it's still the
-plan being executed). Baseline this roadmap starts from: Tractor IN is
-the master source, `vehicles` is the application master, NTR and PM read
-from `vehicles`, the Tractor IN sync is in production with a health
-endpoint and run logging (`docs/adr/ADR-012-Tractor-IN-Master-Data.md`,
-`docs/releases/RELEASE_CHECKLIST_V2.3.1_SYNC_HARDENING.md`).
+Tag `v2.4.0-foundation` marks the current baseline. Full release notes:
+`docs/releases/RELEASE_NOTES_V2.4.0_FOUNDATION.md`. The sections below
+reflect that baseline — completed work is out of "next" planning, not
+because it's finished forever (see the Working rules below), but because
+it shipped and moved to maintenance.
 
-Full operational detail for the current system: `docs/OPERATIONS.md`
-(Phase 1 of this roadmap).
+## Completed Milestones
+
+- **Master Data Governance** — Province/District/Subdistrict formalized as
+  System Master Data: business modules are read-only (`MasterDataService`),
+  no `INSERT`/`UPDATE`/`DELETE` RLS policy exists on any of the six
+  address tables. `docs/architecture/PLATFORM_CONSTITUTION.md` ("Foundation
+  Freeze" / "Master Data Governance").
+- **Tractor IN Sync** — production sync from the Tractor IN Google Sheet
+  into `vehicles`, with a health endpoint and per-run logging; v2.3.1 Sync
+  Hardening executed and verified against production.
+  `docs/adr/ADR-012-Tractor-IN-Master-Data.md`,
+  `docs/releases/RELEASE_CHECKLIST_V2.3.1_SYNC_HARDENING.md`.
+- **AuthorizationScope** — fixed the SuperAdmin dealer-scope bug in
+  `getVehicleBySerial()` (v2.3.2). `docs/adr/ADR-013-Authorization-Scope.md`.
+- **Permission Matrix** — documented role/scope enforcement across
+  modules. `docs/architecture/PERMISSION_MATRIX.md`.
+- **Activity Timeline** — reusable, generic Activity Timeline component
+  (Vehicle 360 foundation), shipped for Quality Reports; designed so
+  PM/NTR/Warranty/ORC/etc. can plug in without a redesign.
+  `docs/architecture/ACTIVITY_TIMELINE.md`.
+- **Quality Report Edit** — Edit Report on the Quality Report Detail page
+  (reuses the create form in edit mode); removed the redundant "New
+  Quality Report" sidebar entry.
+- **Operations Handbook** — `docs/OPERATIONS.md`, the production
+  operations reference for the current system.
+- **Production Rollout Documentation** — v2.3.1 Sync Hardening's real
+  production execution results recorded end-to-end.
+  `docs/releases/RELEASE_CHECKLIST_V2.3.1_SYNC_HARDENING.md`.
+
+## Known Issues (carried forward, not blocking)
+
+- Production alias `mqr-mahindra.vercel.app` returns `DEPLOYMENT_NOT_FOUND`
+  — needs a look at the Vercel dashboard's domain assignment, unrelated to
+  any application code.
+- Collaboration Layer (Comments, Internal/Customer Notes, @mentions,
+  Pinned Events) deferred — tracked in issue #30, its own schema/RBAC/API
+  review.
+- Activity Timeline's Photo History isn't paired 1:1 by category (the
+  audit log doesn't record which category a *removed* photo belonged to).
+- No true virtualization in the Activity Timeline — "Load more" pagination
+  only, until real data volume justifies it.
+- PM's model-derivation fallback remains until the Tractor IN sheet's
+  Product Family/Sub Model sync is 100% populated (see Next Milestones).
+
+## Next Milestones
+
+Baseline this section starts from: Tractor IN is the master source,
+`vehicles` is the application master, NTR and PM read from `vehicles`.
+Full operational detail: `docs/OPERATIONS.md`.
 
 | Phase | Focus | Status |
 |---|---|---|
-| 1 | Documentation — `docs/OPERATIONS.md` production operations handbook | Complete |
-| 2 | Permission Hardening (v2.3.2) — fix `getVehicleBySerial()`'s dealer-scope bug, Permission Matrix, regression tests across NTR/PM/Vehicle 360/Warranty/ORC | Next — plan proposed, implementation not started |
-| 3 | Sync Improvements — retry-failed-rows endpoint, single-vehicle sync endpoint, richer health endpoint (success_rate, last error, version) | Not started |
-| 4 | Google Sheet Master Data — sheet owner adds Product Family/Sub Model columns, backfill `vehicles.sub_model`, remove PM's model-derivation fallback only once `product_family_id` is 100% populated | Not started — blocked on external sheet-owner action |
-| 5 | Vehicle 360 — full lifecycle timeline (Tractor IN → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History), read-only Vehicle Overview page | Not started |
-| 6 | Workflow — Draft → Submitted → Approved → Delivered → Warranty Active, with audit trail and role approval | Not started |
-| 7 | Reporting — cross-module KPI dashboard (tractor count, delivery, PM, warranty, ORC, complaints, dealer KPI, sync status) | Not started |
-| 8 | Engineering Quality — architecture ADRs, coding standards, folder structure, dead code/translation cleanup, API documentation, performance budget, error monitoring, security review | Not started |
-| 9 | Technical Debt — close every item tracked in `docs/OPERATIONS.md` §10 | Not started |
-| 10 | v3.0 — Digital Tractor Passport (one tractor, one lifetime record, QR-code entry point spanning the same Vehicle → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History chain as Phase 5) | Not started |
+| 1 | Sync Improvements — retry-failed-rows endpoint, single-vehicle sync endpoint, richer health endpoint (success_rate, last error, version) | Not started |
+| 2 | Google Sheet Master Data — sheet owner adds Product Family/Sub Model columns, backfill `vehicles.sub_model`, remove PM's model-derivation fallback only once `product_family_id` is 100% populated | Not started — blocked on external sheet-owner action |
+| 3 | Vehicle 360 — full lifecycle timeline (Tractor IN → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History), read-only Vehicle Overview page | Not started |
+| 4 | Workflow — Draft → Submitted → Approved → Delivered → Warranty Active, with audit trail and role approval | Not started |
+| 5 | Reporting — cross-module KPI dashboard (tractor count, delivery, PM, warranty, ORC, complaints, dealer KPI, sync status) | Not started |
+| 6 | Engineering Quality — architecture ADRs, coding standards, folder structure, dead code/translation cleanup, API documentation, performance budget, error monitoring, security review | Not started |
+| 7 | Technical Debt — close every item tracked in `docs/OPERATIONS.md` §10 | Not started |
+| 8 | v3.0 — Digital Tractor Passport (one tractor, one lifetime record, QR-code entry point spanning the same Vehicle → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History chain as Phase 3) | Not started |
+| + | Collaboration Layer — `activity_notes` table, comments, internal/customer notes, @mentions, pinned events, notification hooks (issue #30) | Not started |
 
 **Working rules for every phase** (binding, from the project owner):
 
