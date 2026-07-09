@@ -31,9 +31,17 @@
  *   endpoint's staleness signal meaningful.
  * - A single row's failure (a thrown Supabase error) is caught, counted,
  *   and recorded in `failures` - it never aborts the rest of the run.
- * - Every run's summary is persisted to `tractor_in_sync_runs` (best
- *   effort - a logging failure never turns a successful sync into a
- *   reported failure) and returned to the caller.
+ * - Every real (non-dry-run) run's summary is persisted to
+ *   `tractor_in_sync_runs` (best effort - a logging failure never turns a
+ *   successful sync into a reported failure) and returned to the caller.
+ * - `dryRun: true` computes and returns the exact same insert/update/
+ *   skip decision per row *without* calling `.insert()`/`.update()` on
+ *   `vehicles` at all, and without persisting a run-log row (a dry run
+ *   isn't a real sync execution). Because no write is attempted, a dry
+ *   run's `failed` count is always 0 - it reports the *planned* action
+ *   per row based on current data shape, not runtime failures (a
+ *   network blip or constraint violation can only surface during a real
+ *   write). This is a deliberate, documented limitation, not a bug.
  *
  * Product Family resolution matches the sheet's `Product Family` text
  * against `product_families.code`/`.name` exactly (case-insensitive,
@@ -58,6 +66,7 @@ export interface TractorInSyncFailure {
 }
 
 export interface TractorInSyncResult {
+  dryRun: boolean;
   totalRows: number;
   inserted: number;
   updated: number;
@@ -66,6 +75,13 @@ export interface TractorInSyncResult {
   durationMs: number;
   unmatchedProductFamily: TractorInSyncUnmatched[];
   failures: TractorInSyncFailure[];
+}
+
+export interface TractorInSyncOptions {
+  /** Session username, recorded on the run log for audit only. Ignored in dry-run mode (nothing is logged). */
+  triggeredBy?: string | null;
+  /** When true, computes the same insert/update/skip decisions but never writes to `vehicles` or the run log. */
+  dryRun?: boolean;
 }
 
 const SYNC_SOURCE = 'tractor_in_sheet';
@@ -84,8 +100,8 @@ function extractErrorMessage(err: unknown): string {
 }
 
 export class TractorInSyncService {
-  /** @param triggeredBy - session username, recorded on the run log for audit only. */
-  async sync(triggeredBy?: string | null): Promise<TractorInSyncResult> {
+  async sync(options: TractorInSyncOptions = {}): Promise<TractorInSyncResult> {
+    const dryRun = options.dryRun ?? false;
     const startedAt = new Date();
     const startMs = Date.now();
 
@@ -105,7 +121,10 @@ export class TractorInSyncService {
     const supabase = getSupabase();
     const { data: existingRows, error: existingError } = await supabase.from('vehicles').select('serial');
     if (existingError) throw existingError;
-    const existingSerials = new Set((existingRows ?? []).map((v: { serial: string }) => v.serial));
+    // Working copy - grown as rows are (or, in dry-run, would be) inserted,
+    // so a duplicate serial within the sheet itself is only ever planned
+    // as one insert + skip-after in both real and dry-run modes.
+    const knownSerials = new Set((existingRows ?? []).map((v: { serial: string }) => v.serial));
 
     let inserted = 0;
     let updated = 0;
@@ -131,8 +150,19 @@ export class TractorInSyncService {
         if (!productFamilyId) unmatchedProductFamily.push({ serial, productFamilyText });
       }
 
+      const isUpdate = knownSerials.has(serial);
+
+      if (dryRun) {
+        if (isUpdate) updated += 1;
+        else {
+          inserted += 1;
+          knownSerials.add(serial);
+        }
+        continue;
+      }
+
       try {
-        if (existingSerials.has(serial)) {
+        if (isUpdate) {
           const updatePayload: Record<string, string> = {
             last_synced_at: nowIso,
             sync_source: SYNC_SOURCE,
@@ -164,13 +194,13 @@ export class TractorInSyncService {
               // a duplicate serial row) - the row now exists, so this is
               // not a failure, and we must never attempt a second insert.
               skipped += 1;
-              existingSerials.add(serial);
+              knownSerials.add(serial);
               continue;
             }
             throw error;
           }
           inserted += 1;
-          existingSerials.add(serial);
+          knownSerials.add(serial);
         }
       } catch (err) {
         failed += 1;
@@ -181,6 +211,7 @@ export class TractorInSyncService {
     const finishedAt = new Date();
     const durationMs = Date.now() - startMs;
     const result: TractorInSyncResult = {
+      dryRun,
       totalRows: rows.length,
       inserted,
       updated,
@@ -191,13 +222,14 @@ export class TractorInSyncService {
       failures,
     };
 
-    await this.recordRun(startedAt, finishedAt, result, triggeredBy ?? null);
+    if (!dryRun) await this.recordRun(startedAt, finishedAt, result, options.triggeredBy ?? null);
     return result;
   }
 
   /** Best-effort: the run log is observability data, not the source of
    *  truth for `vehicles` - a failure to persist it must never turn an
-   *  otherwise-successful sync into a reported failure. */
+   *  otherwise-successful sync into a reported failure. Never called for
+   *  a dry run - it isn't a real sync execution. */
   private async recordRun(startedAt: Date, finishedAt: Date, result: TractorInSyncResult, triggeredBy: string | null): Promise<void> {
     try {
       const supabase = getSupabase();

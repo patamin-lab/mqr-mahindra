@@ -85,8 +85,9 @@ describe('TractorInSyncService.sync', () => {
     const mocked = mockClient({ existingSerials: ['EXIST1'] });
     state.client = mocked.client;
 
-    const result = await new TractorInSyncService().sync('qa_tester');
+    const result = await new TractorInSyncService().sync({ triggeredBy: 'qa_tester' });
 
+    expect(result.dryRun).toBe(false);
     expect(result.inserted).toBe(1);
     expect(result.updated).toBe(1);
     expect(result.failed).toBe(0);
@@ -180,7 +181,7 @@ describe('TractorInSyncService.sync', () => {
     });
     state.client = mocked.client;
 
-    await new TractorInSyncService().sync('qa_tester');
+    await new TractorInSyncService().sync({ triggeredBy: 'qa_tester' });
 
     expect(mocked.syncRunInsert).toHaveBeenCalledTimes(1);
     const logged = mocked.syncRunInsert.mock.calls[0][0];
@@ -203,5 +204,53 @@ describe('TractorInSyncService.sync', () => {
 
     const logged = mocked.syncRunInsert.mock.calls[0][0];
     expect(logged.status).toBe('success');
+  });
+
+  it('dry run: reports insert/update/skip counts without writing to vehicles or the run log', async () => {
+    mockRows.mockResolvedValue([
+      row({ productSerial: 'NEW1', productFamily: '5000' }),
+      row({ productSerial: 'EXIST1', productFamily: '5000' }),
+      row({ productSerial: '' }), // no serial - always skipped, dry run or not
+    ]);
+    const mocked = mockClient({ existingSerials: ['EXIST1'] });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync({ dryRun: true, triggeredBy: 'qa_tester' });
+
+    expect(result.dryRun).toBe(true);
+    expect(result.inserted).toBe(1);
+    expect(result.updated).toBe(1);
+    expect(result.skipped).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.totalRows).toBe(3);
+    expect(mocked.insert).not.toHaveBeenCalled();
+    expect(mocked.update).not.toHaveBeenCalled();
+    expect(mocked.syncRunInsert).not.toHaveBeenCalled();
+  });
+
+  it('dry run: a duplicate serial within the sheet itself is planned as one insert, not two', async () => {
+    mockRows.mockResolvedValue([
+      row({ productSerial: 'DUPE1', productFamily: '5000' }),
+      row({ productSerial: 'DUPE1', productFamily: '5000' }),
+    ]);
+    const mocked = mockClient({ existingSerials: [] });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync({ dryRun: true });
+
+    expect(result.inserted).toBe(1);
+    expect(result.updated).toBe(1); // second DUPE1 row is now "known" from the first, planned as an update
+    expect(mocked.insert).not.toHaveBeenCalled();
+  });
+
+  it('dry run: still reports unmatched Product Family rows for review', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'S1', productFamily: 'Unknown Family' })]);
+    const mocked = mockClient({ existingSerials: [] });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync({ dryRun: true });
+
+    expect(result.unmatchedProductFamily).toEqual([{ serial: 'S1', productFamilyText: 'Unknown Family' }]);
+    expect(mocked.insert).not.toHaveBeenCalled();
   });
 });
