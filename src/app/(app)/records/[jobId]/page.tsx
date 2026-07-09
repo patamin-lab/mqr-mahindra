@@ -73,6 +73,9 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
   const encodedJobId = encodeURIComponent(record.job_id);
   const allowExport = canExport(session.role);
   const allowDelete = canDelete(session.role);
+  // Same permission that already gates the Update Status section below -
+  // "existing edit permission" for this record.
+  const allowEdit = canUpdateStatus(session.role);
 
   const h = headers();
   const proto = h.get('x-forwarded-proto') ?? 'http';
@@ -119,6 +122,14 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
         actions={
           <>
             <PrintButton />
+            {allowEdit && (
+              <Link
+                href={`/records/${encodedJobId}/edit`}
+                className="text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                {t('recordDetail.editReport')}
+              </Link>
+            )}
             {allowExport && (
               <>
                 <a

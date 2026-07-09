@@ -23,7 +23,6 @@ type Translate = (key: string, vars?: TranslationVars) => string;
 export function getPrimaryNav(t: Translate): NavItem[] {
   return [
     { href: '/dashboard', icon: '🏠', label: t('nav.dashboard') },
-    { href: '/report', icon: '⚠️', label: t('nav.newReport') },
     { href: '/records', icon: '⚠️', label: t('nav.mqrRecords') },
     { href: '/pm-records', icon: '🔧', label: t('nav.pmRecords') },
     { href: '/ntr', icon: '📝', label: t('nav.ntrRecords') },

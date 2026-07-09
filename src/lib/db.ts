@@ -1449,6 +1449,36 @@ export interface UpdateRecordInput {
   addPhotoLinks?: PhotoLink[];
   /** URLs to drop from the existing photo_links array (per-photo delete from the record detail/edit page). */
   removePhotoUrls?: string[];
+  // ---- Report-editing fields (Edit Report - reuses the create form in
+  // edit mode, see records/[jobId]/edit/page.tsx). Dealer/branch are
+  // deliberately NOT editable here - job_id embeds the dealer at creation
+  // time (nextJobId()), so reassigning it after the fact would make the
+  // job number inconsistent with the record's actual dealer. Every other
+  // create-form field is editable.
+  serial?: string;
+  model?: string;
+  hours?: number | null;
+  foundDate?: string;
+  problemCode?: string;
+  problemSystem?: 'powertrain' | 'other';
+  /** Recomputed by the caller (mirrors createRecord's pattern) whenever
+   *  serial/foundDate/problemSystem may have changed. */
+  warrantyStatus?: string;
+  customerName?: string;
+  customerPhone?: string;
+  reporterName?: string;
+  reporterPhone?: string;
+  attachment?: string;
+  stockNote?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  gpsAccuracy?: number | null;
+  googleMapsUrl?: string | null;
+  videoLink?: string | null;
+  videoAttachmentId?: string | null;
+  technicianId?: string | null;
+  repairDate?: string;
+  hoursInForRepair?: number | null;
 }
 
 /** Thai labels for the RCA-family free-text fields, reused between the audit
@@ -1461,6 +1491,25 @@ const MQR_RCA_FIELD_LABELS: Record<string, string> = {
   technician_action: 'การดำเนินการของช่าง',
   corrective_action: 'การแก้ไข (Corrective Action)',
   preventive_action: 'การป้องกัน (Preventive Action)',
+};
+
+/** Thai labels for the original report fields, editable via "Edit Report" -
+ *  see `UpdateRecordInput`'s report-editing fields above. */
+const MQR_REPORT_FIELD_LABELS: Record<string, string> = {
+  serial: 'หมายเลขรถ',
+  model: 'รุ่นรถ',
+  hours: 'ชั่วโมงการใช้งานขณะพบปัญหา',
+  found_date: 'วันที่พบปัญหา',
+  problem_code: 'อาการที่พบ',
+  customer_name: 'ชื่อลูกค้า',
+  customer_phone: 'เบอร์โทรลูกค้า',
+  reporter_name: 'ชื่อผู้แจ้ง',
+  reporter_phone: 'เบอร์โทรผู้แจ้ง',
+  attachment: 'รายละเอียดปัญหาที่ลูกค้าพบ',
+  stock_note: 'ที่มาของรถ',
+  technician_name: 'ช่างผู้รับผิดชอบ',
+  repair_date: 'วันที่นำรถเข้าซ่อม',
+  hours_in_for_repair: 'ชั่วโมงการใช้งานขณะนำเข้าซ่อม',
 };
 
 export async function updateRecord(
@@ -1485,6 +1534,36 @@ export async function updateRecord(
   }
 
   const supabase = getSupabase();
+
+  // Edit Report never reassigns dealer/branch (job_id already embeds the
+  // dealer at creation time via nextJobId()) - only technician may change,
+  // re-validated exactly like createRecord: must belong to the record's
+  // existing (unchanged) dealer.
+  let technicianName: string | null | undefined;
+  if (patch.technicianId !== undefined) {
+    if (patch.technicianId) {
+      const { data: tech } = await supabase
+        .from('technicians')
+        .select('id, name, dealer_id')
+        .eq('id', patch.technicianId)
+        .maybeSingle();
+      if (!tech || tech.dealer_id !== existing.dealer_id) throw new Error('ช่างที่เลือกไม่ถูกต้อง');
+      technicianName = tech.name;
+    } else {
+      technicianName = null;
+    }
+  }
+
+  if (
+    patch.repairDate !== undefined &&
+    patch.hoursInForRepair !== undefined &&
+    patch.hoursInForRepair !== null &&
+    (patch.hours ?? existing.hours) !== null &&
+    patch.hoursInForRepair < (patch.hours ?? existing.hours)!
+  ) {
+    throw new Error('ชั่วโมงการใช้งานขณะนำเข้าซ่อม ต้องไม่น้อยกว่าชั่วโมงขณะพบปัญหา');
+  }
+
   const updatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
     updated_by: session.username,
@@ -1502,6 +1581,32 @@ export async function updateRecord(
     const remaining = (existing.photo_links ?? []).filter((p) => !removeSet.has(p.url));
     updatePayload.photo_links = [...remaining, ...(patch.addPhotoLinks ?? [])];
   }
+  // ---- Edit Report fields (dealer/branch intentionally excluded - see UpdateRecordInput) ----
+  if (patch.serial !== undefined) updatePayload.serial = patch.serial;
+  if (patch.model !== undefined) updatePayload.model = patch.model;
+  if (patch.hours !== undefined) updatePayload.hours = patch.hours;
+  if (patch.foundDate !== undefined) updatePayload.found_date = patch.foundDate;
+  if (patch.problemCode !== undefined) updatePayload.problem_code = patch.problemCode;
+  if (patch.problemSystem !== undefined) updatePayload.problem_system = patch.problemSystem;
+  if (patch.warrantyStatus !== undefined) updatePayload.warranty_status = patch.warrantyStatus;
+  if (patch.customerName !== undefined) updatePayload.customer_name = patch.customerName;
+  if (patch.customerPhone !== undefined) updatePayload.customer_phone = patch.customerPhone;
+  if (patch.reporterName !== undefined) updatePayload.reporter_name = patch.reporterName;
+  if (patch.reporterPhone !== undefined) updatePayload.reporter_phone = patch.reporterPhone;
+  if (patch.attachment !== undefined) updatePayload.attachment = patch.attachment;
+  if (patch.stockNote !== undefined) updatePayload.stock_note = patch.stockNote;
+  if (patch.lat !== undefined) updatePayload.lat = patch.lat;
+  if (patch.lng !== undefined) updatePayload.lng = patch.lng;
+  if (patch.gpsAccuracy !== undefined) updatePayload.gps_accuracy = patch.gpsAccuracy;
+  if (patch.googleMapsUrl !== undefined) updatePayload.google_maps_url = patch.googleMapsUrl;
+  if (patch.videoLink !== undefined) updatePayload.video_link = patch.videoLink;
+  if (patch.videoAttachmentId !== undefined) updatePayload.video_attachment_id = patch.videoAttachmentId;
+  if (patch.technicianId !== undefined) {
+    updatePayload.technician_id = patch.technicianId;
+    updatePayload.technician_name = technicianName;
+  }
+  if (patch.repairDate !== undefined) updatePayload.repair_date = patch.repairDate;
+  if (patch.hoursInForRepair !== undefined) updatePayload.hours_in_for_repair = patch.hoursInForRepair;
 
   const { data, error } = await supabase
     .from('records')
@@ -1529,6 +1634,9 @@ export async function updateRecord(
     ...diffFieldsForAudit(auditBase, MQR_RCA_FIELD_LABELS, existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>).map(
       (e) => ({ ...e, eventType: 'RcaUpdated' as const })
     )
+  );
+  events.push(
+    ...diffFieldsForAudit(auditBase, MQR_REPORT_FIELD_LABELS, existing as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>)
   );
   for (const p of patch.addPhotoLinks ?? []) {
     events.push({ ...auditBase, eventType: 'AttachmentAdded', fieldName: p.label, newValue: p.url });

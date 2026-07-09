@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ProblemCode,
   PhotoLink,
@@ -11,10 +12,11 @@ import {
   SEVERITY_VALUES,
   SEVERITY_LABELS,
   Role,
+  MqrRecord,
 } from '@/lib/types';
 import { calcWarranty } from '@/lib/warranty';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
-import { swalError, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
+import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
@@ -58,6 +60,8 @@ export default function ReportForm({
   pinnedDealerName,
   pinnedBranchName,
   initialTechnicians,
+  mode = 'create',
+  record,
 }: {
   problemCodes: ProblemCode[];
   dealers: Dealer[];
@@ -67,15 +71,34 @@ export default function ReportForm({
   pinnedDealerName?: string | null;
   pinnedBranchName?: string | null;
   initialTechnicians: Technician[];
+  /** 'edit' reuses this exact form, prefilled from `record`, saving via
+   *  `PATCH /api/records/[jobId]` instead of `POST /api/records` - see
+   *  `records/[jobId]/edit/page.tsx`. */
+  mode?: 'create' | 'edit';
+  /** Required when `mode === 'edit'`. */
+  record?: MqrRecord;
 }) {
   const router = useRouter();
+  const isEdit = mode === 'edit' && !!record;
+
+  function existingPhoto(category: PhotoLink['category']): PhotoLink | null {
+    return record?.photo_links?.find((p) => p.category === category) ?? null;
+  }
+  const existingOdometer = existingPhoto('odometer');
+  const existingSerialPhoto = existingPhoto('vehicle_serial');
+  const existingDamage1 = existingPhoto('damage_point_1');
+  const existingDamage2 = existingPhoto('damage_point_2');
+  const existingDamage3 = existingPhoto('damage_point_3');
 
   // ---- vehicle smart search ----
   // Uploaded via AttachmentService against this temporary ID (the real
   // job_id doesn't exist until /api/records creates the record) - see
-  // uploadAttachment.ts / reassignAttachments().
+  // uploadAttachment.ts / reassignAttachments(). Edit mode uploads
+  // directly against the real, already-existing job_id instead (see
+  // `uploadOne` below) - no pending/reassign step needed, same reasoning
+  // as `update-form.tsx`'s after-repair photo uploads.
   const pendingEntityId = useRef(newPendingEntityId()).current;
-  const [serial, setSerial] = useState('');
+  const [serial, setSerial] = useState(record?.serial ?? '');
   const [vehicle, setVehicle] = useState<VehicleInfo | null>(null);
   const [vehicleChecked, setVehicleChecked] = useState(false);
   const [vehicleLoading, setVehicleLoading] = useState(false);
@@ -83,24 +106,28 @@ export default function ReportForm({
   const [vehicleListLoading, setVehicleListLoading] = useState(true);
   const [searchResults, setSearchResults] = useState<VehicleSearchResult[]>([]);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [model, setModel] = useState('');
-  const [stockNote, setStockNote] = useState('');
-  const [hours, setHours] = useState('');
-  const [foundDate, setFoundDate] = useState(todayStr());
-  const [problemCodeId, setProblemCodeId] = useState('');
-  const [severity, setSeverity] = useState<Severity | ''>('');
-  const severityTouched = useRef(false);
-  const [peripheralEquipment, setPeripheralEquipment] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [reporterName, setReporterName] = useState('');
-  const [reporterPhone, setReporterPhone] = useState('');
-  const [attachment, setAttachment] = useState('');
+  const [model, setModel] = useState(record?.model ?? '');
+  const [stockNote, setStockNote] = useState(record?.stock_note ?? '');
+  const [hours, setHours] = useState(record?.hours != null ? String(record.hours) : '');
+  const [foundDate, setFoundDate] = useState(record?.found_date ?? todayStr());
+  const [problemCodeId, setProblemCodeId] = useState<string>(() =>
+    record ? problemCodes.find((p) => p.label === record.problem_code)?.id ?? '' : ''
+  );
+  const [severity, setSeverity] = useState<Severity | ''>(record?.severity ?? '');
+  // In edit mode the severity is already prefilled from the record - never
+  // let the auto-fill-from-problem-code effect below silently overwrite it.
+  const severityTouched = useRef(isEdit);
+  const [peripheralEquipment, setPeripheralEquipment] = useState(record?.peripheral_equipment ?? '');
+  const [customerName, setCustomerName] = useState(record?.customer_name ?? '');
+  const [customerPhone, setCustomerPhone] = useState(record?.customer_phone ?? '');
+  const [reporterName, setReporterName] = useState(record?.reporter_name ?? '');
+  const [reporterPhone, setReporterPhone] = useState(record?.reporter_phone ?? '');
+  const [attachment, setAttachment] = useState(record?.attachment ?? '');
   const [gpsLocation, setGpsLocation] = useState<GpsLocation>({
-    latitude: null,
-    longitude: null,
-    accuracy: null,
-    googleMapsUrl: null,
+    latitude: record?.lat ?? null,
+    longitude: record?.lng ?? null,
+    accuracy: record?.gps_accuracy ?? null,
+    googleMapsUrl: record?.google_maps_url ?? null,
   });
 
   // ---- repair details (Phase 3) ----
@@ -109,11 +136,13 @@ export default function ReportForm({
     sessionDealerId,
     sessionBranchId,
     initialDealers: dealers,
+    initialDealerId: record?.dealer_id,
+    initialBranchId: record?.branch_id,
   });
   const [technicians, setTechnicians] = useState<Technician[]>(initialTechnicians);
-  const [technicianId, setTechnicianId] = useState('');
-  const [repairDate, setRepairDate] = useState(todayStr());
-  const [hoursInForRepair, setHoursInForRepair] = useState('');
+  const [technicianId, setTechnicianId] = useState(record?.technician_id ?? '');
+  const [repairDate, setRepairDate] = useState(record?.repair_date ?? todayStr());
+  const [hoursInForRepair, setHoursInForRepair] = useState(record?.hours_in_for_repair != null ? String(record.hours_in_for_repair) : '');
 
   const [odometerPhoto, setOdometerPhoto] = useState<File | null>(null);
   const [serialPhoto, setSerialPhoto] = useState<File | null>(null);
@@ -125,8 +154,13 @@ export default function ReportForm({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<{ jobId: string; warrantyStatus: string } | null>(null);
 
-  const effectiveDealerId = scope.currentDealer?.id ?? sessionDealerId ?? '';
-  const branchId = scope.currentBranch?.id ?? '';
+  // Edit mode never reassigns dealer/branch (job_id already embeds the
+  // dealer at creation time) - the selector is rendered read-only (see the
+  // JSX below) and these stay fixed to the record's original values,
+  // regardless of what `scope` would otherwise resolve to for a
+  // privileged role.
+  const effectiveDealerId = isEdit ? record?.dealer_id ?? '' : scope.currentDealer?.id ?? sessionDealerId ?? '';
+  const branchId = isEdit ? record?.branch_id ?? '' : scope.currentBranch?.id ?? '';
 
   // Refetch technicians whenever the dealer or branch selection changes,
   // and clear the previously-selected technician since it may not belong
@@ -312,11 +346,26 @@ export default function ReportForm({
     }
   }
 
+  // Edit mode: run the same exact-match lookup on mount as if the user had
+  // just blurred the serial field with the record's existing serial -
+  // reuses checkSerialExact() rather than reconstructing `vehicle` from the
+  // record (which doesn't store delivery_date/engineSerial/productCode -
+  // only a live lookup has those). Also means an edit correctly reflects
+  // the vehicle's *current* state (e.g. since renamed/removed), not stale
+  // data frozen at creation time.
+  useEffect(() => {
+    if (isEdit) checkSerialExact();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** Uploads through AttachmentService (`src/shared/attachments/`) rather
    *  than any storage provider directly - see
-   *  `docs/engineering/ATTACHMENT_FRAMEWORK.md`. */
+   *  `docs/engineering/ATTACHMENT_FRAMEWORK.md`. Edit mode uploads
+   *  directly against the real, already-existing job_id (no pending id/
+   *  reassignment needed - see the comment on `pendingEntityId` above). */
   async function uploadOne(file: File, label: string, attachmentType: 'ReportPhoto' | 'DefectPhoto' | 'RepairPhoto' | 'Video', onProgress?: (pct: number) => void) {
-    return uploadAttachment(file, { module: 'mqr', entityType: 'record', entityId: pendingEntityId, attachmentType, label }, onProgress);
+    const entityId = isEdit && record ? record.job_id : pendingEntityId;
+    return uploadAttachment(file, { module: 'mqr', entityType: 'record', entityId, attachmentType, label }, onProgress);
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -329,7 +378,11 @@ export default function ReportForm({
       swalError('กรุณาเลือกความรุนแรงของปัญหา');
       return;
     }
-    if (!odometerPhoto || !serialPhoto || !damagePhoto1) {
+    if (
+      (!odometerPhoto && !existingOdometer) ||
+      (!serialPhoto && !existingSerialPhoto) ||
+      (!damagePhoto1 && !existingDamage1)
+    ) {
       swalError('กรุณาแนบรูปเรือนไมล์, รูปเลขรถ, และรูปจุดที่เสียหาย 1 ให้ครบ');
       return;
     }
@@ -369,21 +422,27 @@ export default function ReportForm({
     setSubmitting(true);
     swalLoading('กำลังบันทึก...');
     try {
-      const photoLinks: PhotoLink[] = [];
       const namedPhotoSlots: {
         file: File | null;
+        existing: PhotoLink | null;
         category: PhotoLink['category'];
         label: string;
         attachmentType: 'ReportPhoto' | 'DefectPhoto' | 'RepairPhoto';
       }[] = [
-        { file: odometerPhoto, category: 'odometer', label: 'รูปเรือนไมล์', attachmentType: 'ReportPhoto' },
-        { file: serialPhoto, category: 'vehicle_serial', label: 'รูปเลขรถ', attachmentType: 'ReportPhoto' },
-        { file: damagePhoto1, category: 'damage_point_1', label: 'รูปจุดที่เสียหาย 1', attachmentType: 'DefectPhoto' },
-        { file: damagePhoto2, category: 'damage_point_2', label: 'รูปจุดที่เสียหาย 2', attachmentType: 'DefectPhoto' },
-        { file: damagePhoto3, category: 'damage_point_3', label: 'รูปจุดที่เสียหาย 3', attachmentType: 'DefectPhoto' },
+        { file: odometerPhoto, existing: existingOdometer, category: 'odometer', label: 'รูปเรือนไมล์', attachmentType: 'ReportPhoto' },
+        { file: serialPhoto, existing: existingSerialPhoto, category: 'vehicle_serial', label: 'รูปเลขรถ', attachmentType: 'ReportPhoto' },
+        { file: damagePhoto1, existing: existingDamage1, category: 'damage_point_1', label: 'รูปจุดที่เสียหาย 1', attachmentType: 'DefectPhoto' },
+        { file: damagePhoto2, existing: existingDamage2, category: 'damage_point_2', label: 'รูปจุดที่เสียหาย 2', attachmentType: 'DefectPhoto' },
+        { file: damagePhoto3, existing: existingDamage3, category: 'damage_point_3', label: 'รูปจุดที่เสียหาย 3', attachmentType: 'DefectPhoto' },
       ];
       const totalFiles = namedPhotoSlots.filter((s) => s.file).length + (video ? 1 : 0);
       let doneFiles = 0;
+      // In edit mode, a slot with no newly-selected file keeps its existing
+      // photo untouched (not resent) - only replaced slots are uploaded and
+      // diffed via addPhotoLinks/removePhotoUrls (the same merge mechanism
+      // `update-form.tsx`'s after-repair photos already use).
+      const newPhotoLinks: PhotoLink[] = [];
+      const replacedPhotoUrls: string[] = [];
       for (const slot of namedPhotoSlots) {
         if (!slot.file) continue;
         doneFiles += 1;
@@ -391,10 +450,11 @@ export default function ReportForm({
         const uploaded = await uploadOne(slot.file, slot.label, slot.attachmentType, (pct) =>
           swalUpdateLoading(`กำลังอัปโหลด${slot.label} (${doneFiles}/${totalFiles}) ${pct}%`),
         );
-        photoLinks.push({ category: slot.category, label: slot.label, url: uploaded.url ?? '', attachmentId: uploaded.attachmentId });
+        newPhotoLinks.push({ category: slot.category, label: slot.label, url: uploaded.url ?? '', attachmentId: uploaded.attachmentId });
+        if (slot.existing) replacedPhotoUrls.push(slot.existing.url);
       }
-      let videoLink: string | null = null;
-      let videoAttachmentId: string | null = null;
+      let videoLink: string | null = isEdit ? record?.video_link ?? null : null;
+      let videoAttachmentId: string | null = isEdit ? record?.video_attachment_id ?? null : null;
       if (video) {
         doneFiles += 1;
         swalUpdateLoading(`กำลังอัปโหลดวิดีโอปัญหา (${doneFiles}/${totalFiles})...`);
@@ -406,6 +466,46 @@ export default function ReportForm({
       }
 
       swalUpdateLoading('กำลังบันทึกข้อมูลรายงาน...');
+
+      if (isEdit && record) {
+        await fetchJson<{ ok: boolean }>(`/api/records/${encodeURIComponent(record.job_id)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            serial: serial.trim(),
+            model: model || vehicle?.model || '',
+            hours: hours === '' ? null : Number(hours),
+            foundDate,
+            problemCode: selectedCode?.label ?? '',
+            problemSystem,
+            severity,
+            peripheralEquipment,
+            customerName,
+            customerPhone,
+            reporterName,
+            reporterPhone,
+            attachment,
+            stockNote: vehicle ? null : stockNote,
+            lat: gpsLocation.latitude,
+            lng: gpsLocation.longitude,
+            gpsAccuracy: gpsLocation.accuracy,
+            googleMapsUrl: gpsLocation.googleMapsUrl,
+            videoLink,
+            videoAttachmentId,
+            technicianId: technicianId || null,
+            repairDate,
+            hoursInForRepair: hoursInForRepair === '' ? null : Number(hoursInForRepair),
+            addPhotoLinks: newPhotoLinks,
+            removePhotoUrls: replacedPhotoUrls,
+          }),
+        });
+        swalClose();
+        await swalSuccess('บันทึกการแก้ไขรายงานเรียบร้อย');
+        router.push(`/records/${encodeURIComponent(record.job_id)}`);
+        router.refresh();
+        return;
+      }
+
       const json = await fetchJson<{ record: { job_id: string }; warranty: { status: string } }>(
         '/api/records',
         {
@@ -430,7 +530,7 @@ export default function ReportForm({
             lng: gpsLocation.longitude,
             gpsAccuracy: gpsLocation.accuracy,
             googleMapsUrl: gpsLocation.googleMapsUrl,
-            photoLinks,
+            photoLinks: newPhotoLinks,
             videoLink,
             videoAttachmentId,
             dealerId: effectiveDealerId || null,
@@ -451,7 +551,9 @@ export default function ReportForm({
       swalClose();
       if (err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED') {
         swalError(
-          'เซสชันของคุณหมดอายุ ข้อมูลที่กรอกจะยังอยู่ในหน้านี้ — กรุณาเปิดแท็บใหม่แล้วเข้าสู่ระบบอีกครั้ง จากนั้นกลับมาที่แท็บนี้และกด "บันทึกรายงานปัญหาคุณภาพ" อีกครั้ง',
+          isEdit
+            ? 'เซสชันของคุณหมดอายุ ข้อมูลที่กรอกจะยังอยู่ในหน้านี้ — กรุณาเปิดแท็บใหม่แล้วเข้าสู่ระบบอีกครั้ง จากนั้นกลับมาที่แท็บนี้และกด "บันทึกการแก้ไข" อีกครั้ง'
+            : 'เซสชันของคุณหมดอายุ ข้อมูลที่กรอกจะยังอยู่ในหน้านี้ — กรุณาเปิดแท็บใหม่แล้วเข้าสู่ระบบอีกครั้ง จากนั้นกลับมาที่แท็บนี้และกด "บันทึกรายงานปัญหาคุณภาพ" อีกครั้ง',
         );
       } else {
         swalError(err?.message ?? 'เกิดข้อผิดพลาด');
@@ -701,16 +803,37 @@ export default function ReportForm({
         <h2 className="font-semibold text-brand-dark">3. รายละเอียดงานซ่อม</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <DealerBranchSelector
-            scope={scope}
-            pinnedDealerName={pinnedDealerName}
-            pinnedBranchName={pinnedBranchName}
-            dealerLabel="ดีลเลอร์"
-            branchLabel="สาขา"
-            dealerAllLabel="-- เลือกดีลเลอร์ --"
-            branchAllLabel="-- ไม่ระบุ --"
-            className="contents"
-          />
+          {isEdit ? (
+            // Dealer/branch are never reassigned via edit - job_id already
+            // embeds the dealer at creation time (see effectiveDealerId's
+            // comment above) - shown as fixed text instead of the
+            // interactive selector, regardless of role.
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">ดีลเลอร์</label>
+                <p className="w-full border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-600">
+                  {pinnedDealerName ?? '-'}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">สาขา</label>
+                <p className="w-full border border-gray-200 rounded px-3 py-2 bg-gray-50 text-gray-600">
+                  {pinnedBranchName ?? '-'}
+                </p>
+              </div>
+            </>
+          ) : (
+            <DealerBranchSelector
+              scope={scope}
+              pinnedDealerName={pinnedDealerName}
+              pinnedBranchName={pinnedBranchName}
+              dealerLabel="ดีลเลอร์"
+              branchLabel="สาขา"
+              dealerAllLabel="-- เลือกดีลเลอร์ --"
+              branchAllLabel="-- ไม่ระบุ --"
+              className="contents"
+            />
+          )}
           <div>
             <label className="block text-sm font-medium mb-1">ช่างผู้รับผิดชอบ</label>
             <select
@@ -802,48 +925,70 @@ export default function ReportForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {(
             [
-              { label: 'รูปเรือนไมล์', file: odometerPhoto, set: setOdometerPhoto, required: true },
-              { label: 'รูปเลขรถ', file: serialPhoto, set: setSerialPhoto, required: true },
+              { label: 'รูปเรือนไมล์', file: odometerPhoto, set: setOdometerPhoto, required: true, existing: existingOdometer },
+              { label: 'รูปเลขรถ', file: serialPhoto, set: setSerialPhoto, required: true, existing: existingSerialPhoto },
               {
                 label: 'รูปจุดที่เสียหาย 1',
                 file: damagePhoto1,
                 set: setDamagePhoto1,
                 required: true,
+                existing: existingDamage1,
               },
               {
                 label: 'รูปจุดที่เสียหาย 2',
                 file: damagePhoto2,
                 set: setDamagePhoto2,
                 required: false,
+                existing: existingDamage2,
               },
               {
                 label: 'รูปจุดที่เสียหาย 3',
                 file: damagePhoto3,
                 set: setDamagePhoto3,
                 required: false,
+                existing: existingDamage3,
               },
             ] as const
           ).map((slot) => (
             <div key={slot.label}>
               <label className="block text-sm font-medium mb-1">
-                {slot.label} {slot.required && <span className="text-red-500">*</span>}
+                {slot.label} {slot.required && !slot.existing && <span className="text-red-500">*</span>}
               </label>
+              {slot.existing && !slot.file && (
+                <div className="mb-2">
+                  <img
+                    src={slot.existing.url}
+                    alt={slot.label}
+                    className="rounded border border-gray-200 h-20 w-20 object-cover"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">รูปปัจจุบัน — เลือกไฟล์ใหม่เพื่อแทนที่</p>
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/*,.heic,.heif"
                 className="w-full text-sm"
                 onChange={(e) => slot.set(e.target.files?.[0] ?? null)}
-                required={slot.required && !slot.file}
+                required={slot.required && !slot.file && !slot.existing}
               />
               {slot.file ? (
                 <p className="text-xs text-green-600 mt-1">เลือกแล้ว: {slot.file.name}</p>
               ) : (
-                !slot.required && <p className="text-xs text-gray-400 mt-1">ไม่บังคับ</p>
+                !slot.required && !slot.existing && <p className="text-xs text-gray-400 mt-1">ไม่บังคับ</p>
               )}
             </div>
           ))}
           <div>
             <label className="block text-sm font-medium mb-1">วิดีโอปัญหา (ถ้ามี)</label>
+            {isEdit && record?.video_link && !video && (
+              <p className="text-xs text-gray-400 mb-1">
+                มีวิดีโออยู่แล้ว —{' '}
+                <a href={record.video_link} target="_blank" className="text-brand-red hover:underline">
+                  ดูวิดีโอปัจจุบัน
+                </a>{' '}
+                (เลือกไฟล์ใหม่เพื่อแทนที่)
+              </p>
+            )}
             <input
               type="file"
               accept="video/*"
@@ -858,12 +1003,22 @@ export default function ReportForm({
         </p>
       </section>
 
-      <button
-        disabled={submitting}
-        className="w-full sm:w-auto px-6 py-3 rounded bg-brand-red hover:bg-brand-redDark text-white font-medium disabled:opacity-50"
-      >
-        {submitting ? 'กำลังบันทึก...' : 'บันทึกรายงานปัญหาคุณภาพ'}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          disabled={submitting}
+          className="w-full sm:w-auto px-6 py-3 rounded bg-brand-red hover:bg-brand-redDark text-white font-medium disabled:opacity-50"
+        >
+          {submitting ? 'กำลังบันทึก...' : isEdit ? 'บันทึกการแก้ไข' : 'บันทึกรายงานปัญหาคุณภาพ'}
+        </button>
+        {isEdit && record && (
+          <Link
+            href={`/records/${encodeURIComponent(record.job_id)}`}
+            className="px-4 py-2 text-sm text-gray-600 hover:underline"
+          >
+            ยกเลิก
+          </Link>
+        )}
+      </div>
     </form>
   );
 }

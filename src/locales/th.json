@@ -204,7 +204,6 @@
   "nav": {
     "dashboard": "แดชบอร์ด",
     "mqrRecords": "รายงานปัญหาคุณภาพ",
-    "newReport": "รายงานปัญหาใหม่",
     "pmRecords": "งานเช็คระยะ",
     "newPm": "บันทึกงานเช็คระยะใหม่",
     "ntrRecords": "ลงทะเบียนส่งมอบรถใหม่ (NTR)",
@@ -545,6 +544,7 @@
     "noAttachments": "ยังไม่มีไฟล์แนบ"
   },
   "recordDetail": {
+    "editReport": "แก้ไขรายงาน",
     "photosVideosTitle": "รูปภาพ / วิดีโอ",
     "openVideoNewTab": "เปิดวิดีโอในแท็บใหม่",
     "vehicleRepairHistory": "ประวัติการซ่อมของรถคันนี้ ({count})",
