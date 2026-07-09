@@ -13,9 +13,8 @@ export async function GET(req: NextRequest, { params }: { params: { serial: stri
 
   // Vehicles are dealer-level master data - scoped to dealer only, not
   // branch (see api/vehicles/list/route.ts's comment).
-  const { dealerId } = resolveDealerScope(session, null);
   const [vehicle, tractor] = await Promise.all([
-    getVehicleBySerial(serial, dealerId),
+    getVehicleBySerial(serial, resolveDealerScope(session, null)),
     lookupTractorBySerial(serial).catch((err) => {
       console.error('tractor sheet lookup error', err);
       return null;

@@ -121,7 +121,7 @@ describe('GET /api/platform/events', () => {
 
     await GET(getRequest('http://localhost/api/platform/events?serial=SN-1'));
 
-    expect(getVehicleBySerial).toHaveBeenCalledWith('SN-1', 'D1');
+    expect(getVehicleBySerial).toHaveBeenCalledWith('SN-1', { dealerId: 'D1', unrestricted: false });
     expect(mockService.searchEvents).toHaveBeenCalledWith(expect.objectContaining({ vehicleId: 'veh-1' }));
   });
 

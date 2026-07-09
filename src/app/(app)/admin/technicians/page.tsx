@@ -10,7 +10,7 @@ export default async function TechniciansAdminPage() {
   if (!session) return null;
   if (!canManageMasterData(session.role)) redirect('/dashboard');
 
-  const { dealerId, isPinned } = resolveDealerScope(session, null);
+  const { dealerId, unrestricted } = resolveDealerScope(session, null);
   const technicians = await listAllTechniciansAdmin(dealerId);
   const dealers = seesAllDealers(session.role) ? await listAllDealersAdmin() : [];
 
@@ -20,7 +20,7 @@ export default async function TechniciansAdminPage() {
       <TechniciansTable
         initialTechnicians={technicians}
         dealers={dealers}
-        lockedDealerId={isPinned ? dealerId : null}
+        lockedDealerId={unrestricted ? null : dealerId}
       />
     </div>
   );

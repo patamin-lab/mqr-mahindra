@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { createVehicleManual, getVehicleBySerial } from '@/lib/db';
-import { resolveDealerScope, assertBranchAccess } from '@/lib/dealerBranchScope';
+import { resolveDealerScope, assertBranchAccess, UNRESTRICTED_SCOPE } from '@/lib/dealerBranchScope';
 import { isNonEmptyString, parseWithSchema, ValidationError } from '@/lib/validation';
 import { buildTractorCreateBodySchema, TractorCreateBody } from '@/features/ntr/schemas';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const existing = await getVehicleBySerial(parsed.serial, null);
+    const existing = await getVehicleBySerial(parsed.serial, UNRESTRICTED_SCOPE);
     if (existing) {
       return NextResponse.json(
         { ok: false, error: { code: 'CONFLICT', message: `Tractor serial "${parsed.serial}" already exists` } },

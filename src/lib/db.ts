@@ -1,6 +1,6 @@
 import { getSupabase } from './supabase';
 import { seesAllDealers, canDelete } from './scope';
-import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch, assertBranchAccess } from './dealerBranchScope';
+import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch, assertBranchAccess, AuthorizationScope } from './dealerBranchScope';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 import {
@@ -110,8 +110,16 @@ export async function getBranchById(branchId: string): Promise<Branch | null> {
   return data;
 }
 
-/** Looks up a vehicle by serial, enforcing dealer-scoped "zero leakage". */
-export async function getVehicleBySerial(serial: string, dealerId: string | null): Promise<Vehicle | null> {
+/** Looks up a vehicle by serial, enforcing dealer-scoped "zero leakage".
+ *  Takes an already-resolved `AuthorizationScope` (see
+ *  `dealerBranchScope.ts`/ADR-013), never a `SessionUser` — authorization
+ *  decisions (which role sees which dealer) happen in the calling layer,
+ *  not in this data-access function. `scope.unrestricted` is checked
+ *  first and bypasses dealer filtering completely, regardless of what
+ *  `scope.dealerId` happens to hold — this is the exact fix for the bug
+ *  where a SuperAdmin/CentralAdmin's own non-null dealerId was mistakenly
+ *  treated as a restriction. */
+export async function getVehicleBySerial(serial: string, scope: AuthorizationScope): Promise<Vehicle | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('vehicles')
@@ -120,8 +128,7 @@ export async function getVehicleBySerial(serial: string, dealerId: string | null
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  // dealerId === null means the caller sees all dealers (SuperAdmin / CentralAdmin)
-  if (dealerId && data.dealer_id && data.dealer_id !== dealerId) return null;
+  if (!scope.unrestricted && data.dealer_id && data.dealer_id !== scope.dealerId) return null;
   return data;
 }
 

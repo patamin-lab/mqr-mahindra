@@ -66,8 +66,7 @@ export async function getPlatformEvents(serial: string, session: SessionUser): P
   // detail page is independently blocked by that module's own branch
   // check. Full per-event branch filtering would require joining back to
   // each source module's table by reference_id - out of scope here.
-  const { dealerId: dealerScope } = resolveDealerScope(session, null);
-  const vehicle = await getVehicleBySerial(serial, dealerScope);
+  const vehicle = await getVehicleBySerial(serial, resolveDealerScope(session, null));
   if (!vehicle) return [];
 
   const events = await createVehicleEventService().getVehicleEvents(vehicle.id);

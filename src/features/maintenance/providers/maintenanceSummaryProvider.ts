@@ -10,6 +10,7 @@
  * computation to `MaintenanceDueService` - this file is orchestration only.
  */
 import { getProductFamilyIdForModel, getProductFamily, getVehicleBySerial, resolveVehicleProgramVersionStages } from '@/lib/db';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { SessionUser } from '@/lib/types';
 import { MaintenanceDueService } from '@/features/maintenance-due/service';
 import { MaintenanceHistoryEntry, MaintenanceProgramStage } from '@/features/maintenance-due/types';
@@ -20,8 +21,13 @@ const maintenanceDueService = new MaintenanceDueService();
 
 export class MaintenanceSummaryProvider implements VehicleSummaryProvider {
   async getVehicleSummary(serial: string, session: SessionUser): Promise<Partial<VehicleSummary> | null> {
+    // BUG FIX (v2.3.2, ADR-013): previously passed `session.dealerId ?? null`
+    // directly, so a SuperAdmin/CentralAdmin whose own account has a
+    // non-null dealerId was incorrectly treated as dealer-restricted -
+    // `resolveDealerScope()` is the one place that knows to bypass dealer
+    // filtering entirely for a `seesAllDealers` role.
     const [vehicle, records] = await Promise.all([
-      getVehicleBySerial(serial, session.dealerId ?? null),
+      getVehicleBySerial(serial, resolveDealerScope(session, null)),
       fetchMaintenanceHistoryForSerial(serial, session),
     ]);
     // A vehicle unknown to Vehicle Master (shouldn't normally happen, since

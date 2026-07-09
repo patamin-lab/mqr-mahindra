@@ -10,7 +10,7 @@ export default async function UsersAdminPage() {
   if (!session) return null;
   if (!canManageUsers(session.role)) redirect('/dashboard');
 
-  const { dealerId, isPinned } = resolveDealerScope(session, null);
+  const { dealerId, unrestricted } = resolveDealerScope(session, null);
   const users = await listAllUsersAdmin(dealerId);
   const dealers = seesAllDealers(session.role) ? await listAllDealersAdmin() : [];
 
@@ -20,7 +20,7 @@ export default async function UsersAdminPage() {
       <UsersTable
         initialUsers={users}
         dealers={dealers}
-        lockedDealerId={isPinned ? dealerId : null}
+        lockedDealerId={unrestricted ? null : dealerId}
         actorRole={session.role}
         currentUsername={session.username}
       />

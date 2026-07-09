@@ -4,17 +4,18 @@
  * a working `VehicleEventService`/`VehicleEventPublisher` from.
  */
 import { getVehicleBySerial } from '@/lib/db';
+import { UNRESTRICTED_SCOPE } from '@/lib/dealerBranchScope';
 import { SupabaseVehicleEventRepository } from './supabaseRepository';
 import { VehicleEventService } from './service';
 import { VehicleEventPublisher, VehicleLookup } from './publisher';
 
 const vehicleLookup: VehicleLookup = {
   async getVehicleIdBySerial(serial: string) {
-    // null dealerId = no dealer-scope narrowing here; resolving "does this
+    // Unrestricted = no dealer-scope narrowing here; resolving "does this
     // serial exist at all" is a lookup, not a scoped business read - the
     // caller (API route) applies its own dealer scope on the event query,
     // same separation MaintenanceSearch already relies on for vehicle search.
-    const vehicle = await getVehicleBySerial(serial, null);
+    const vehicle = await getVehicleBySerial(serial, UNRESTRICTED_SCOPE);
     return vehicle?.id ?? null;
   },
 };

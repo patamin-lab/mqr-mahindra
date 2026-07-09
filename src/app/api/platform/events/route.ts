@@ -29,12 +29,12 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
 
-  const { dealerId: dealerScope } = resolveDealerScope(session, null);
+  const scope = resolveDealerScope(session, null);
 
   let vehicleId = searchParams.get('vehicleId');
   const serial = searchParams.get('serial');
   if (!vehicleId && serial) {
-    const vehicle = await getVehicleBySerial(serial, dealerScope);
+    const vehicle = await getVehicleBySerial(serial, scope);
     if (!vehicle) {
       return NextResponse.json({ ok: true, data: [], total: 0 }, { status: 200 });
     }
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   }
 
   const filter: VehicleEventFilter = {
-    dealerId: dealerScope,
+    dealerId: scope.dealerId,
     vehicleId,
     sourceModule: searchParams.get('sourceModule'),
     eventDefinitionId: searchParams.get('eventDefinitionId'),

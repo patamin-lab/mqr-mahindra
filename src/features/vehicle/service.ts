@@ -48,8 +48,7 @@ export async function getVehicleSummary(serial: string, session: SessionUser): P
   // dealer only. The sensitive per-record data each provider below
   // contributes (NTR/PM/MQR history, owner name, etc.) is still correctly
   // branch-scoped by that module's own provider.
-  const { dealerId: dealerScope } = resolveDealerScope(session, null);
-  const vehicle = await getVehicleBySerial(serial, dealerScope);
+  const vehicle = await getVehicleBySerial(serial, resolveDealerScope(session, null));
   if (!vehicle) return null;
 
   const [dealer, branch, contributions] = await Promise.all([
