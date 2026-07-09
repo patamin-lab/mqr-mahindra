@@ -29,7 +29,6 @@ export async function GET(req: NextRequest) {
       serial: searchParams.get('serial'),
       engineNumber: searchParams.get('engineNumber'),
       model: searchParams.get('model'),
-      productFamilyId: searchParams.get('productFamilyId'),
     });
     return NextResponse.json({ ok: true, data: results }, { status: 200 });
   } catch (error) {

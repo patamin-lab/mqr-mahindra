@@ -965,7 +965,6 @@ export interface NtrTractorSearchFilters {
   serial?: string | null;
   engineNumber?: string | null;
   model?: string | null;
-  productFamilyId?: string | null;
   limit?: number;
 }
 
@@ -1002,17 +1001,6 @@ export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Pr
   const supabase = getSupabase();
   const limit = Math.min(filters.limit ?? 20, 50);
 
-  let modelsForFamily: string[] | null = null;
-  if (filters.productFamilyId) {
-    const { data, error } = await supabase
-      .from('product_family_models')
-      .select('model')
-      .eq('product_family_id', filters.productFamilyId);
-    if (error) throw error;
-    modelsForFamily = (data ?? []).map((r: any) => r.model as string);
-    if (modelsForFamily.length === 0) return [];
-  }
-
   let query = supabase
     .from('vehicles')
     .select(
@@ -1026,7 +1014,6 @@ export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Pr
   if (filters.serial?.trim()) query = query.ilike('serial', `%${filters.serial.trim()}%`);
   if (filters.engineNumber?.trim()) query = query.ilike('engine_number', `%${filters.engineNumber.trim()}%`);
   if (filters.model?.trim()) query = query.ilike('model', `%${filters.model.trim()}%`);
-  if (modelsForFamily) query = query.in('model', modelsForFamily);
 
   const { data: vehicleRows, error } = await query;
   if (error) throw error;

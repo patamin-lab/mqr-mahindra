@@ -126,6 +126,25 @@ No data loss risk: `product_family_id`/`sub_model` are the only new
 columns, nothing else changes, and `ntr_records`/Legacy Import are
 completely unaffected regardless of rollback.
 
+## Known limitation: sync updates existing vehicles, never creates new ones
+
+`TractorInSyncService.sync()` only ever calls `.update().eq('serial', ...)`
+against `vehicles` - it never inserts. A Tractor IN sheet row whose serial
+has no matching `vehicles` row is silently skipped (not counted, not
+reported as unmatched). This matches this ADR's approved scope exactly
+("the sync service updates the vehicles table") - creating new `vehicles`
+rows stays the job of the pre-existing, unchanged path (NTR's "Create
+Tractor" flow, used when a dealer selects a serial with no match).
+
+Verified live (2026-07-09): every one of the sheet's 330 real serials
+already has a matching `vehicles` row (333 total - 3 extra vehicles exist
+that aren't in the sheet, created via the manual flow) - so this
+limitation has zero current data impact. It becomes relevant only if a
+brand-new tractor is added to the sheet before any dealer has created its
+`vehicles` row - that row's Product Family/Sub Model would never sync
+until it exists. Tracked as technical debt, not a release blocker; revisit
+if/when the sheet becomes the sole path for onboarding a new serial.
+
 ## Consequences
 
 - Product Family is now a stored, synced fact per vehicle instead of

@@ -33,6 +33,36 @@ table is an open question, not decided by this sprint; docs/DATA_SYNCHRONIZATION
 already distinguishes this read-only feed from the Supabase → Sheets sync
 direction used elsewhere, and that distinction still applies.
 
+### 2.1 Product Family / Sub Model (implemented — `docs/adr/ADR-012-Tractor-IN-Master-Data.md`)
+
+Product Family and Sub Model are properties of the physical tractor, sourced
+from the Tractor IN Google Sheet, not chosen per-module. The data flow:
+
+```
+Google Sheet (Tractor IN)
+        ↓
+Tractor IN Sync Service (src/features/vehicle/services/tractorInSyncService.ts)
+        ↓
+vehicles (single application master: product_family_id, sub_model)
+        ↓
+NTR
+PM
+Warranty   (not yet built)
+ORC        (not yet built)
+Reports    (not yet built)
+```
+
+`vehicles.product_family_id`/`vehicles.sub_model` are written **only** by
+`TractorInSyncService` (triggered manually today via
+`POST /api/admin/tractor-in/sync`, SuperAdmin-only — no scheduler platform
+exists yet, see docs/SCHEDULER_ARCHITECTURE.md). No business module ever
+derives or writes these two columns itself. NTR and PM are the only two
+consumers wired up so far; Warranty, ORC, and Reports don't exist as
+modules yet, but when they're built, they read the same `vehicles` columns
+rather than re-deriving Product Family from `model` independently — this
+is the single-source-of-truth contract this table records for future
+readers.
+
 ## 3. Problem Codes
 
 Already exists in production as the `problem_codes` table with its own
