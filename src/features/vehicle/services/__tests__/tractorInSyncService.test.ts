@@ -1,20 +1,47 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockRows = vi.fn();
 const mockFamilies = vi.fn();
+const mockDealers = vi.fn();
 
 vi.mock('@/lib/tractorSheet', () => ({
   getTractorInRows: () => mockRows(),
 }));
 vi.mock('@/lib/db', () => ({
   listActiveProductFamilies: () => mockFamilies(),
+  listDealers: () => mockDealers(),
 }));
 
-function mockClient(updateResult: { error: unknown; count: number | null }) {
-  const eq = vi.fn().mockResolvedValue(updateResult);
-  const update = vi.fn(() => ({ eq }));
-  const from = vi.fn(() => ({ update }));
-  return { client: { from }, from, update, eq };
+interface VehiclesTableConfig {
+  existingSerials: string[];
+  insertError?: (payload: Record<string, unknown>) => { message: string; code?: string } | null;
+  updateError?: (serial: string) => { message: string; code?: string } | null;
+}
+
+function mockClient(config: VehiclesTableConfig) {
+  const select = vi.fn().mockResolvedValue({
+    data: config.existingSerials.map((serial) => ({ serial })),
+    error: null,
+  });
+  const insert = vi.fn((payload: Record<string, unknown>) => {
+    const err = config.insertError?.(payload) ?? null;
+    return Promise.resolve({ error: err });
+  });
+  const update = vi.fn((payload: Record<string, unknown>) => ({
+    eq: vi.fn((_col: string, serial: string) => {
+      const err = config.updateError?.(serial) ?? null;
+      return Promise.resolve({ error: err });
+    }),
+  }));
+  const syncRunInsert = vi.fn().mockResolvedValue({ error: null });
+
+  const from = vi.fn((table: string) => {
+    if (table === 'vehicles') return { select, update, insert };
+    if (table === 'tractor_in_sync_runs') return { insert: syncRunInsert };
+    throw new Error(`unexpected table: ${table}`);
+  });
+
+  return { client: { from }, from, select, insert, update, syncRunInsert };
 }
 
 const state: { client: unknown } = { client: null };
@@ -25,41 +52,156 @@ vi.mock('@/lib/supabase', () => ({
 const { TractorInSyncService } = await import('../tractorInSyncService');
 
 const family5000 = { id: 'family-5000', code: '5000', name: '5000 Series', description: null, active: true };
+const dealerKTV = { id: 'KTV', short_name: 'KTV', full_name: 'คูณทวีแทรคเตอร์' };
+
+function row(overrides: Partial<Record<string, string>>) {
+  return {
+    no: '1',
+    productSerial: '',
+    engineSerial: '',
+    productCode: '',
+    productModel: '',
+    whArrivalDate: '',
+    pdiStatus: '',
+    deliveryDateThai: '',
+    dealer: '',
+    productFamily: '',
+    subModel: '',
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  mockFamilies.mockResolvedValue([family5000]);
+  mockDealers.mockResolvedValue([dealerKTV]);
+});
 
 describe('TractorInSyncService.sync', () => {
-  it('resolves Product Family by code or name, writes both fields, reports unmatched rows', async () => {
-    mockFamilies.mockResolvedValue([family5000]);
+  it('inserts a brand-new serial (resolving dealer + product family) and updates an existing one', async () => {
     mockRows.mockResolvedValue([
-      { productSerial: 'S1', productFamily: '5000', subModel: 'A1', engineSerial: '', productCode: '', productModel: '', whArrivalDate: '', pdiStatus: '', no: '1' },
-      { productSerial: 'S2', productFamily: '5000 Series', subModel: '', engineSerial: '', productCode: '', productModel: '', whArrivalDate: '', pdiStatus: '', no: '2' },
-      { productSerial: 'S3', productFamily: 'Unknown Family', subModel: 'B1', engineSerial: '', productCode: '', productModel: '', whArrivalDate: '', pdiStatus: '', no: '3' },
-      { productSerial: '', productFamily: '5000', subModel: '', engineSerial: '', productCode: '', productModel: '', whArrivalDate: '', pdiStatus: '', no: '4' },
-      { productSerial: 'S5', productFamily: '', subModel: '', engineSerial: '', productCode: '', productModel: '', whArrivalDate: '', pdiStatus: '', no: '5' },
+      row({ productSerial: 'NEW1', productModel: '3140', engineSerial: 'ENG1', dealer: 'ktv', productFamily: '5000', subModel: 'A1' }),
+      row({ productSerial: 'EXIST1', productFamily: '5000 Series', subModel: 'B1' }),
     ]);
-    const mocked = mockClient({ error: null, count: 1 });
+    const mocked = mockClient({ existingSerials: ['EXIST1'] });
     state.client = mocked.client;
 
-    const result = await new TractorInSyncService().sync();
+    const result = await new TractorInSyncService().sync('qa_tester');
 
-    expect(result.totalRows).toBe(5);
-    expect(result.skippedNoSerial).toBe(1);
-    expect(result.updated).toBe(3); // S1, S2, S3 all write something (S3 writes sub_model even with unmatched family)
-    expect(result.unmatchedProductFamily).toEqual([{ serial: 'S3', productFamilyText: 'Unknown Family' }]);
-    // S5 has neither a matched family nor a sub model - never written.
-    expect(mocked.from).toHaveBeenCalledTimes(3);
+    expect(result.inserted).toBe(1);
+    expect(result.updated).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.skipped).toBe(0);
+    expect(mocked.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serial: 'NEW1',
+        model: '3140',
+        engine_number: 'ENG1',
+        dealer_id: 'KTV',
+        product_family_id: 'family-5000',
+        sub_model: 'A1',
+        sync_source: 'tractor_in_sheet',
+      })
+    );
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload).toMatchObject({ product_family_id: 'family-5000', sub_model: 'B1', sync_source: 'tractor_in_sheet' });
   });
 
-  it('never writes vehicles.product_family_id/sub_model for a row with nothing to sync', async () => {
-    mockFamilies.mockResolvedValue([family5000]);
-    mockRows.mockResolvedValue([
-      { productSerial: 'S1', productFamily: '', subModel: '', engineSerial: '', productCode: '', productModel: '', whArrivalDate: '', pdiStatus: '', no: '1' },
-    ]);
-    const mocked = mockClient({ error: null, count: 0 });
+  it('reports an unmatched Product Family without blocking the rest of the row', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'S3', productFamily: 'Unknown Family', subModel: 'B1' })]);
+    const mocked = mockClient({ existingSerials: ['S3'] });
     state.client = mocked.client;
 
     const result = await new TractorInSyncService().sync();
 
-    expect(result.updated).toBe(0);
-    expect(mocked.from).not.toHaveBeenCalled();
+    expect(result.unmatchedProductFamily).toEqual([{ serial: 'S3', productFamilyText: 'Unknown Family' }]);
+    expect(result.updated).toBe(1);
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload.product_family_id).toBeUndefined();
+    expect(updatePayload.sub_model).toBe('B1');
+  });
+
+  it('never creates a duplicate serial: a race unique-violation on insert counts as skipped, not failed', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'RACE1', productFamily: '5000' })]);
+    const mocked = mockClient({
+      existingSerials: [],
+      insertError: () => ({ message: 'duplicate key value violates unique constraint "vehicles_serial_key"', code: '23505' }),
+    });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync();
+
+    expect(result.skipped).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.inserted).toBe(0);
+  });
+
+  it('collects a per-row failure and continues processing the remaining rows', async () => {
+    mockRows.mockResolvedValue([
+      row({ productSerial: 'BAD1', productFamily: '5000' }),
+      row({ productSerial: 'GOOD1', productFamily: '5000' }),
+    ]);
+    const mocked = mockClient({
+      existingSerials: ['BAD1', 'GOOD1'],
+      updateError: (serial) => (serial === 'BAD1' ? { message: 'connection reset' } : null),
+    });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync();
+
+    expect(result.failed).toBe(1);
+    expect(result.failures).toEqual([{ serial: 'BAD1', error: 'connection reset' }]);
+    expect(result.updated).toBe(1); // GOOD1 still processed despite BAD1's failure
+    expect(result.totalRows).toBe(2);
+  });
+
+  it('stamps last_synced_at/sync_source on every synced row even with nothing else to sync', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'S1' })]);
+    const mocked = mockClient({ existingSerials: ['S1'] });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync();
+
+    expect(result.updated).toBe(1);
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload.sync_source).toBe('tractor_in_sheet');
+    expect(typeof updatePayload.last_synced_at).toBe('string');
+    expect(updatePayload.product_family_id).toBeUndefined();
+    expect(updatePayload.sub_model).toBeUndefined();
+  });
+
+  it('persists a sync run summary log with the correct status and counts', async () => {
+    mockRows.mockResolvedValue([
+      row({ productSerial: 'OK1', productFamily: '5000' }),
+      row({ productSerial: 'BAD1', productFamily: '5000' }),
+    ]);
+    const mocked = mockClient({
+      existingSerials: ['OK1', 'BAD1'],
+      updateError: (serial) => (serial === 'BAD1' ? { message: 'boom' } : null),
+    });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync('qa_tester');
+
+    expect(mocked.syncRunInsert).toHaveBeenCalledTimes(1);
+    const logged = mocked.syncRunInsert.mock.calls[0][0];
+    expect(logged).toMatchObject({
+      total_rows: 2,
+      updated: 1,
+      failed: 1,
+      status: 'partial_failure',
+      triggered_by: 'qa_tester',
+    });
+    expect(typeof logged.duration_ms).toBe('number');
+  });
+
+  it('reports success status when every row succeeds', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'OK1', productFamily: '5000' })]);
+    const mocked = mockClient({ existingSerials: ['OK1'] });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const logged = mocked.syncRunInsert.mock.calls[0][0];
+    expect(logged.status).toBe('success');
   });
 });

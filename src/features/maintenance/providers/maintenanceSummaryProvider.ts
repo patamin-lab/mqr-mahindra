@@ -35,9 +35,22 @@ export class MaintenanceSummaryProvider implements VehicleSummaryProvider {
     // derivation is a temporary migration safeguard for a vehicle that
     // hasn't been synced yet (e.g. no Product Family match in the sheet,
     // or the sync simply hasn't run for it).
-    // TODO(tractor-in-sync): remove this fallback once the first
-    // successful production sync has run and every vehicle in active use
-    // has `product_family_id` populated directly.
+    //
+    // KEEP THIS FALLBACK (v2.3.1 review, 2026-07-09): not yet safe to
+    // remove. Verified live: 290/333 vehicles have `product_family_id` set
+    // (all from the one-time `product_family_models` backfill migration,
+    // not yet from a real sheet sync); the remaining 43 have no entry in
+    // `product_family_models` for their `model` at all, so a sync can't
+    // backfill them either until the Tractor IN sheet's own `Product
+    // Family` column is populated (still empty sheet-wide as of this
+    // date - see ADR-012). Removing this fallback today would silently
+    // drop Product Family (and every PM computation that depends on it)
+    // for those 43 vehicles.
+    // TODO(tractor-in-sync): remove this fallback once a production sync
+    // has run against a sheet with real Product Family data and
+    // `select count(*) from vehicles where product_family_id is null` is 0
+    // (or the remaining nulls are confirmed to be genuinely retired/out-of-
+    // fleet vehicles, not a sync gap).
     const productFamilyId = vehicle?.product_family_id ?? (model ? await getProductFamilyIdForModel(model) : null);
     const [productFamily, versionResolution] = await Promise.all([
       productFamilyId ? getProductFamily(productFamilyId) : Promise.resolve(null),

@@ -28,7 +28,9 @@ model/engine number already do.
    columns. It reads the Tractor IN sheet's `Product Family`/`Sub Model`
    columns (a manual prerequisite - see below), resolves Product Family
    by exact `code`/`name` match against `product_families` (never
-   guesses, never auto-creates), and upserts into `vehicles` by serial.
+   guesses, never auto-creates), and writes into `vehicles` by serial -
+   **UPDATE** when the serial already exists, **INSERT** when it doesn't
+   (v2.3.1 - see "v2.3.1: Sync Hardening" below).
 3. **No read-through sync.** NTR's tractor search and PM's vehicle lookup
    never trigger a sync as a side effect of a lookup - they only read
    whatever is already in `vehicles`. Synchronization is a deliberate,
@@ -102,6 +104,38 @@ vehicles backfilled with `product_family_id` (the remainder have a
 `model` with no entry in `product_family_models` - expected, not an
 error); 0/333 have `sub_model` (expected - no source exists yet).
 
+### v2.3.1 migration
+
+```sql
+alter table vehicles add column last_synced_at timestamptz;
+alter table vehicles add column sync_source text;
+
+create table tractor_in_sync_runs (
+  id uuid primary key default gen_random_uuid(),
+  started_at timestamptz not null,
+  finished_at timestamptz not null,
+  duration_ms integer not null,
+  total_rows integer not null,
+  inserted integer not null,
+  updated integer not null,
+  skipped integer not null,
+  failed integer not null,
+  status text not null check (status in ('success', 'partial_failure')),
+  unmatched_product_family jsonb not null default '[]'::jsonb,
+  failures jsonb not null default '[]'::jsonb,
+  triggered_by text,
+  created_at timestamptz not null default now()
+);
+-- RLS enabled, permissive policies (same pattern as product_family_models) -
+-- authorization is enforced in the SuperAdmin-gated API routes, not per-row.
+```
+
+Applied 2026-07-09 as Supabase migration
+`add_vehicles_sync_metadata_and_sync_runs_log`. No backfill needed -
+`last_synced_at`/`sync_source` are correctly `NULL` for every vehicle
+until the next real sync run touches it; `tractor_in_sync_runs` starts
+empty.
+
 ## Rollback plan
 
 The migration is additive only (two new nullable columns, one index, one
@@ -126,24 +160,115 @@ No data loss risk: `product_family_id`/`sub_model` are the only new
 columns, nothing else changes, and `ntr_records`/Legacy Import are
 completely unaffected regardless of rollback.
 
-## Known limitation: sync updates existing vehicles, never creates new ones
+## v2.3.1: Sync Hardening (2026-07-09)
 
-`TractorInSyncService.sync()` only ever calls `.update().eq('serial', ...)`
-against `vehicles` - it never inserts. A Tractor IN sheet row whose serial
-has no matching `vehicles` row is silently skipped (not counted, not
-reported as unmatched). This matches this ADR's approved scope exactly
-("the sync service updates the vehicles table") - creating new `vehicles`
-rows stays the job of the pre-existing, unchanged path (NTR's "Create
-Tractor" flow, used when a dealer selects a serial with no match).
+The previous version's known limitation ("sync updates existing vehicles,
+never creates new ones" - `.update()` only, no `.insert()`) is resolved.
+This section supersedes that limitation and documents the hardened design.
 
-Verified live (2026-07-09): every one of the sheet's 330 real serials
-already has a matching `vehicles` row (333 total - 3 extra vehicles exist
-that aren't in the sheet, created via the manual flow) - so this
-limitation has zero current data impact. It becomes relevant only if a
-brand-new tractor is added to the sheet before any dealer has created its
-`vehicles` row - that row's Product Family/Sub Model would never sync
-until it exists. Tracked as technical debt, not a release blocker; revisit
-if/when the sheet becomes the sole path for onboarding a new serial.
+### INSERT + UPDATE, idempotent, no duplicates
+
+`TractorInSyncService.sync()` fetches every existing `vehicles.serial`
+once up front into an in-memory `Set`. For each sheet row:
+
+- **Serial already in the set → UPDATE.** Only `product_family_id` (if
+  resolved) and `sub_model` (if non-empty) are touched - this never
+  overwrites `model`/`engine_number`/`dealer_id` on an existing row with
+  sheet noise, since a business module or a dealer may have since
+  corrected that vehicle's own data.
+- **Serial not in the set → INSERT.** This is the only place a new
+  `vehicles` row gets `model`/`engine_number`/`dealer_id` from the sheet
+  directly (`dealer` resolved against `dealers.id` - the sheet's `Dealer`
+  column already contains dealer codes like `"KTV"`, confirmed against
+  the live sheet). The newly-inserted serial is added to the in-memory
+  set immediately, so a duplicate serial elsewhere in the same sheet
+  still only ever inserts once.
+- **Hard backstop:** `vehicles_serial_key` (pre-existing DB-level UNIQUE
+  constraint) makes a true duplicate impossible even under a race with
+  another process. A `23505` (unique-violation) on insert is treated as
+  `skipped`, not `failed` - the row already exists with the intended
+  data, so nothing is wrong, and the service never retries an insert into
+  an existing row.
+- Re-running the sync any number of times against an unchanged sheet
+  produces the same `vehicles` state every time - verified live (see
+  Verification section).
+
+### Sync metadata
+
+Two new columns on `vehicles`: `last_synced_at` (timestamptz) and
+`sync_source` (text, always `'tractor_in_sheet'` when set by this
+service). Stamped on **every** synced row (insert or update) regardless
+of whether Product Family/Sub Model actually changed - this is what
+makes "is this vehicle's data stale" answerable later. Application-set
+only, no DB-level default: NTR's manual "Create Tractor" flow never sets
+either column, so `sync_source IS NULL` correctly means "never
+sheet-synced."
+
+### Per-row error isolation
+
+Each row's insert/update is wrapped individually - a thrown Supabase
+error (network blip, constraint violation) is caught, counted in
+`failed`, and recorded in `failures: [{ serial, error }]`. The loop
+always continues to the next row. One bad record can never abort the
+rest of a sync run.
+
+### Sync run log & health endpoint
+
+Every run persists one row to `tractor_in_sync_runs` (`started_at`,
+`finished_at`, `duration_ms`, `total_rows`, `inserted`, `updated`,
+`skipped`, `failed`, `status`, `unmatched_product_family`, `failures`,
+`triggered_by`) - the durable record behind "return and log," and the
+only thing `GET /api/admin/tractor-in/health` (SuperAdmin-only, new)
+reads from, alongside a live `select count(*) from vehicles`. Persisting
+the log is best-effort: a failure to write the log row is caught and
+logged separately, and never turns an otherwise-successful sync into a
+reported failure - `vehicles` is already correctly written by that point.
+
+### PM's fallback - kept, not removed
+
+Requirement was: remove `getProductFamilyIdForModel()`'s fallback in
+`maintenanceSummaryProvider.ts` only if the sync has populated
+`product_family_id` for every vehicle. Verified live (2026-07-09): 290/333
+have it (all from the one-time migration backfill, not yet from a real
+sheet sync - the sheet's own `Product Family` column is still empty
+sheet-wide, since the sheet owner hasn't added it yet per the "Manual
+prerequisite" section above). The remaining 43 have no entry at all in
+`product_family_models` for their `model`, so even a sync against a fully
+populated sheet can't help them unless their serial happens to be in the
+sheet with a resolvable Product Family. **Fallback stays**, with the
+precise removal condition now spelled out in the code comment itself
+(`maintenanceSummaryProvider.ts`).
+
+### Rollback plan (v2.3.1 additions)
+
+Additive only, same shape as before - two nullable columns plus one new
+table, nothing existing modified or dropped:
+
+```sql
+drop table if exists tractor_in_sync_runs;
+alter table vehicles drop column if exists last_synced_at;
+alter table vehicles drop column if exists sync_source;
+```
+
+Application-level rollback: revert `tractorInSyncService.ts` to the prior
+(update-only) version, remove the health endpoint. No data loss risk -
+rolling back stops writing/reading two metadata columns and one log
+table; `vehicles.product_family_id`/`sub_model` (the v2.3.0 columns) and
+every row inserted by v2.3.1's sync remain exactly as they were, since
+this rollback doesn't touch or depend on them.
+
+### Failure recovery
+
+A partially-failed run (`status: 'partial_failure'`) leaves `vehicles` in
+a safe, well-defined state: every row that succeeded is already committed
+(no all-or-nothing transaction wraps the whole sync - each row commits
+independently), and every row that failed is listed by serial in the run
+log's `failures` column with its error message. Recovery is simply
+re-running the sync - rows that already succeeded update harmlessly
+(idempotent), and only the previously-failed serials do real work again.
+There is no separate "retry just the failures" path in this version; the
+full-sheet re-run is cheap enough (a few hundred rows) that this wasn't
+built out further.
 
 ## Consequences
 

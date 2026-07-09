@@ -17,7 +17,14 @@ export async function POST() {
   }
 
   try {
-    const result = await new TractorInSyncService().sync();
+    const result = await new TractorInSyncService().sync(session.username);
+    console.log('Tractor IN sync completed', {
+      inserted: result.inserted,
+      updated: result.updated,
+      skipped: result.skipped,
+      failed: result.failed,
+      durationMs: result.durationMs,
+    });
     return NextResponse.json({ ok: true, result });
   } catch (error) {
     console.error('Tractor IN sync error', error);

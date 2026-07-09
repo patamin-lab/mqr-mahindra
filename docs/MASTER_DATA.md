@@ -41,9 +41,10 @@ from the Tractor IN Google Sheet, not chosen per-module. The data flow:
 ```
 Google Sheet (Tractor IN)
         ↓
-Tractor IN Sync Service (src/features/vehicle/services/tractorInSyncService.ts)
+Sync Service (src/features/vehicle/services/tractorInSyncService.ts)
         ↓
-vehicles (single application master: product_family_id, sub_model)
+vehicles (Application Master: product_family_id, sub_model,
+          last_synced_at, sync_source)
         ↓
 NTR
 PM
@@ -62,6 +63,17 @@ modules yet, but when they're built, they read the same `vehicles` columns
 rather than re-deriving Product Family from `model` independently — this
 is the single-source-of-truth contract this table records for future
 readers.
+
+**v2.3.1 (Sync Hardening):** the sync now **inserts** a new `vehicles`
+row when the sheet has a serial with no existing match (previously
+update-only — see ADR-012's "v2.3.1: Sync Hardening" section), is
+idempotent under repeated runs and concurrent-write races (backed by the
+pre-existing `vehicles_serial_key` UNIQUE constraint), stamps
+`last_synced_at`/`sync_source` on every row it touches, isolates one
+row's failure from the rest of the run, and persists a per-run summary to
+`tractor_in_sync_runs` — read by the new `GET /api/admin/tractor-in/health`
+endpoint (last sync time, inserted/updated/failed counts, total vehicles,
+sync status). Full detail, migration, and rollback: ADR-012.
 
 ## 3. Problem Codes
 
