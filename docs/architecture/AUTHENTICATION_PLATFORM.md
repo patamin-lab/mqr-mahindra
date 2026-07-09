@@ -240,7 +240,8 @@ is the documented fallback, not a redesign.
 | Password storage | Salted scrypt going forward; legacy sha256 rows upgrade opportunistically on next login. Never plaintext, never logged. |
 | Reset/invitation tokens | `crypto.randomBytes(32)`, only `sha256(token)` stored, single-use, time-limited (30m / 7d). |
 | Account enumeration | Forgot Password always returns the same generic message/shape, including on internal error - never distinguishes "not found" from "found." |
-| Brute force | 5 failed attempts → 15-minute lock, checked before password comparison; every attempt logged to both `login_log` and `auth_audit_log`. |
+| Brute force (per-account) | 5 failed attempts → 15-minute lock, checked before password comparison; every attempt logged to both `login_log` and `auth_audit_log`. |
+| Rate limiting (per-IP) | `rateLimitService.ts` - counts `auth_audit_log` rows by IP within a window (DB-backed, not in-memory, since Vercel serverless functions don't share memory across invocations). Login: 30 attempts/15m; Forgot Password: 5 requests/hour - catches distributed attempts across many usernames from one IP, which per-account lockout can't see. |
 | Session revocation | Real, DB-backed, checked on every request via `middleware.ts` - not merely "wait for the JWT to expire." |
 | CSRF | Custom-header check on every mutating `/api/*` request (Legacy Import explicitly, narrowly exempted - see ADR-014). |
 | RBAC | Invite/unlock/force-reset/force-logout-all gated by dedicated `scope.ts` predicates, checked server-side in every route - never UI-only. |
@@ -253,8 +254,9 @@ is the documented fallback, not a redesign.
    instead - see ADR-014).
 2. No admin UI to view another user's active sessions (only their own) -
    an admin's "force logout all" acts without a preview list.
-3. Real geo-IP, IP-based rate-limiting, and multi-factor authentication
-   are all out of scope for this PR (see ADR-014's "Not changed" section).
+3. Real geo-IP and multi-factor authentication are out of scope for this
+   PR (see ADR-014's "Not changed" section). IP-based rate limiting
+   *was* added (`rateLimitService.ts`) after being initially deferred.
 4. Password expiration/minimum-age ship disabled by default - turning
    them on for real accounts (if ever needed) is a config change, not a
    code change, but has not been exercised against real user data.

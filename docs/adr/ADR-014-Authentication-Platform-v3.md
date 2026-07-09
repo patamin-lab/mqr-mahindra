@@ -102,6 +102,24 @@ an expired password both set it, through the same mechanism).
   Reset, Password Changed, Account Locked) — same "never throws, never
   blocks the caller" contract `sendRecordNotification` already established.
 
+### Rate limiting
+
+`rateLimitService.ts` counts `auth_audit_log` rows by IP within a time
+window — deliberately DB-backed, not an in-memory limiter: this app runs
+on Vercel serverless functions, which don't share memory across
+invocations/cold starts, so an in-memory counter would silently not work
+in production. Wired into `POST /api/auth/login` (30 attempts/15
+minutes, counting both successes and failures) and
+`POST /api/auth/forgot-password` (5 requests/hour). This is distinct from
+Account Lock Protection, which only ever counts one *account's* own
+failures — rate limiting catches many attempts spread across many
+*different* usernames/emails from one IP, which per-account lockout
+structurally cannot see. `forgot-password` now logs
+`PASSWORD_RESET_REQUEST` unconditionally (found or not), not only when a
+real account matched, so the count actually reflects total request
+volume rather than only "hits" — the response shape is unaffected either
+way, preserving the existing non-enumeration guarantee.
+
 ### CSRF
 
 `lib/fetchJson.ts` attaches a custom header to every request;
@@ -144,8 +162,6 @@ above, not in RLS policies.
 
 - **NTR Legacy Import** — untouched, per the constraint above.
 - **Real geo-IP** beyond Vercel's request headers.
-- **Rate-limiting** beyond the per-account lockout (e.g. IP-based
-  throttling).
 - **Multi-factor authentication** — not requested.
 - **Enforced password expiration/min-age** — shipped as disabled-by-default
   config knobs, not turned on.

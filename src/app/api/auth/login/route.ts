@@ -14,6 +14,14 @@ import { createSession, clientIpFrom } from '@/lib/authServices/sessionService';
 import { hashPassword, isPasswordExpired, verifyPassword } from '@/lib/authServices/passwordService';
 import { logAuthEvent } from '@/lib/authServices/auditService';
 import { sendAccountLockedEmail } from '@/lib/email';
+import { isRateLimited } from '@/lib/authServices/rateLimitService';
+
+// Rate limiting (distinct from the per-account 5-fails/15-min lockout
+// below): catches many attempts spread across many *different* usernames
+// from one IP, which per-account lockout never sees. Generous enough not
+// to punish a shared office/NAT IP under normal use.
+const LOGIN_RATE_LIMIT_WINDOW_MINUTES = 15;
+const LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 30;
 
 export async function POST(req: NextRequest) {
   let username = '';
@@ -23,6 +31,13 @@ export async function POST(req: NextRequest) {
     const password = String(body.password ?? '');
     const device = req.headers.get('user-agent') ?? '';
     const ipAddress = clientIpFrom(req);
+
+    if (await isRateLimited(ipAddress, ['LOGIN_SUCCESS', 'LOGIN_FAILED'], LOGIN_RATE_LIMIT_WINDOW_MINUTES, LOGIN_RATE_LIMIT_MAX_ATTEMPTS)) {
+      return NextResponse.json(
+        { ok: false, error: 'มีการเข้าสู่ระบบผิดพลาดมากเกินไปจาก IP นี้ กรุณาลองใหม่ภายหลัง' },
+        { status: 429 }
+      );
+    }
 
     const user = await findUserByUsername(username);
 

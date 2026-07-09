@@ -42,6 +42,11 @@ vi.mock('@/lib/email', () => ({
   sendAccountLockedEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockIsRateLimited = vi.fn().mockResolvedValue(false);
+vi.mock('@/lib/authServices/rateLimitService', () => ({
+  isRateLimited: mockIsRateLimited,
+}));
+
 const { POST } = await import('./route');
 
 function loginRequest(username: string, password: string) {
@@ -60,6 +65,8 @@ describe('POST /api/auth/login — branchId population', () => {
     mockUpgradePasswordHash.mockClear();
     mockRecordFailedLogin.mockClear();
     mockResetFailedLogins.mockClear();
+    mockIsRateLimited.mockClear();
+    mockIsRateLimited.mockResolvedValue(false);
   });
 
   it('populates sessionUser.branchId from the user row\'s branch_id', async () => {
@@ -99,5 +106,14 @@ describe('POST /api/auth/login — branchId population', () => {
 
     expect(json.ok).toBe(true);
     expect(json.user.branchId).toBeNull();
+  });
+
+  it('returns 429 and never even looks up the user when the requesting IP is rate-limited', async () => {
+    mockIsRateLimited.mockResolvedValue(true);
+
+    const res = await POST(loginRequest('anyone', 'whatever'));
+
+    expect(res.status).toBe(429);
+    expect(mockFindUserByUsername).not.toHaveBeenCalled();
   });
 });
