@@ -2210,6 +2210,44 @@ export async function resetUserPassword(
   if (error) throw error;
 }
 
+export interface TractorInSyncHealth {
+  lastSyncTime: string | null;
+  inserted: number | null;
+  updated: number | null;
+  failed: number | null;
+  totalVehicles: number;
+  syncStatus: 'success' | 'partial_failure' | 'never_run';
+}
+
+/** Powers `GET /api/admin/tractor-in/health` - the last recorded
+ *  `tractor_in_sync_runs` row (see `TractorInSyncService`) plus a live
+ *  `vehicles` count, so an operator can tell "did the last sync work" and
+ *  "is it stale" without querying Supabase directly. */
+export async function getTractorInSyncHealth(): Promise<TractorInSyncHealth> {
+  const supabase = getSupabase();
+
+  const [{ data: lastRun, error: runError }, { count: totalVehicles, error: countError }] = await Promise.all([
+    supabase
+      .from('tractor_in_sync_runs')
+      .select('started_at, inserted, updated, failed, status')
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase.from('vehicles').select('*', { count: 'exact', head: true }),
+  ]);
+  if (runError) throw runError;
+  if (countError) throw countError;
+
+  return {
+    lastSyncTime: lastRun?.started_at ?? null,
+    inserted: lastRun?.inserted ?? null,
+    updated: lastRun?.updated ?? null,
+    failed: lastRun?.failed ?? null,
+    totalVehicles: totalVehicles ?? 0,
+    syncStatus: lastRun ? (lastRun.status as 'success' | 'partial_failure') : 'never_run',
+  };
+}
+
 /** Hard delete — SuperAdmin only, enforced again at the API route layer. */
 export async function deleteUserAdmin(id: string): Promise<void> {
   const supabase = getSupabase();
