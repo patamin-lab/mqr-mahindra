@@ -10,7 +10,8 @@ import {
   validateComplexity,
   verifyPassword,
 } from '@/lib/authServices/passwordService';
-import { revokeAllOtherSessions } from '@/lib/authServices/sessionService';
+import { revokeAllOtherSessions, clientIpFrom } from '@/lib/authServices/sessionService';
+import { logAuthEvent } from '@/lib/authServices/auditService';
 import { SessionUser } from '@/lib/types';
 
 /** Self-service Change Password (spec section 4) and the same route the
@@ -54,9 +55,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'ยังไม่ถึงระยะเวลาขั้นต่ำก่อนเปลี่ยนรหัสผ่านอีกครั้ง' }, { status: 400 });
   }
 
+  const wasForced = session.forcePasswordChange;
   const { hash, salt } = await hashPassword(newPassword);
   await applyNewPassword(user.id, hash, salt, { clearForcePasswordChange: true });
   await recordPasswordHistory(user.id, hash, salt);
+  logAuthEvent(wasForced ? 'FORCE_PASSWORD_CHANGE_COMPLETED' : 'PASSWORD_CHANGED', {
+    username: user.username,
+    userId: user.id,
+    ipAddress: clientIpFrom(req),
+    userAgent: req.headers.get('user-agent'),
+  }).catch(() => {});
 
   if (logoutOtherDevices) {
     await revokeAllOtherSessions(user.id, session.sessionId, 'password_changed');

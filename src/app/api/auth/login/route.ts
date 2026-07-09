@@ -10,8 +10,9 @@ import {
 } from '@/lib/db';
 import { signSession, SESSION_COOKIE, SESSION_MINUTES } from '@/lib/auth';
 import { SessionUser } from '@/lib/types';
-import { createSession } from '@/lib/authServices/sessionService';
+import { createSession, clientIpFrom } from '@/lib/authServices/sessionService';
 import { hashPassword, isPasswordExpired, verifyPassword } from '@/lib/authServices/passwordService';
+import { logAuthEvent } from '@/lib/authServices/auditService';
 
 export async function POST(req: NextRequest) {
   let username = '';
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     username = String(body.username ?? '').trim();
     const password = String(body.password ?? '');
     const device = req.headers.get('user-agent') ?? '';
+    const ipAddress = clientIpFrom(req);
 
     const user = await findUserByUsername(username);
 
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
       const lock = checkLockStatus(user);
       if (lock.isLocked) {
         await insertLoginLog({ username, role: user.role, action: 'เข้าสู่ระบบ', device, result: 'fail' });
+        logAuthEvent('LOGIN_FAILED', { username, userId: user.id, ipAddress, userAgent: device, metadata: { reason: 'locked' } }).catch(() => {});
         return NextResponse.json(
           { ok: false, error: `บัญชีถูกล็อกชั่วคราวเนื่องจากเข้าสู่ระบบผิดหลายครั้ง กรุณาลองใหม่ภายใน ${LOCKOUT_MINUTES} นาที หรือติดต่อผู้ดูแลระบบ` },
           { status: 423 }
@@ -40,8 +43,17 @@ export async function POST(req: NextRequest) {
     const passwordOk = user ? await verifyPassword(password, user) : false;
 
     if (!user || !passwordOk || user.active === false) {
-      if (user) await recordFailedLogin(user.id, user.failed_login_attempts ?? 0);
+      if (user) {
+        const lockResult = await recordFailedLogin(user.id, user.failed_login_attempts ?? 0);
+        // Log ACCOUNT_LOCKED only on the transition into locked, not on
+        // every subsequent attempt while already locked (those return
+        // earlier, above, via checkLockStatus).
+        if (lockResult.isLocked) {
+          logAuthEvent('ACCOUNT_LOCKED', { username, userId: user.id, ipAddress, userAgent: device }).catch(() => {});
+        }
+      }
       await insertLoginLog({ username, role: user?.role ?? '', action: 'เข้าสู่ระบบ', device, result: 'fail' });
+      logAuthEvent('LOGIN_FAILED', { username, userId: user?.id ?? null, ipAddress, userAgent: device }).catch(() => {});
       return NextResponse.json({ ok: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
     }
 
@@ -77,6 +89,7 @@ export async function POST(req: NextRequest) {
     };
     const token = await signSession(sessionUser);
     await insertLoginLog({ username: user.username, role: user.role, action: 'เข้าสู่ระบบ', device, result: 'ok' });
+    logAuthEvent('LOGIN_SUCCESS', { username: user.username, userId: user.id, ipAddress, userAgent: device }).catch(() => {});
 
     const res = NextResponse.json({ ok: true, user: sessionUser });
     res.cookies.set(SESSION_COOKIE, token, {

@@ -27,6 +27,11 @@ vi.mock('@/lib/auth', () => ({
 const mockCreateSession = vi.fn().mockResolvedValue({ sessionId: 'test-session', expiresAt: new Date().toISOString() });
 vi.mock('@/lib/authServices/sessionService', () => ({
   createSession: mockCreateSession,
+  clientIpFrom: () => '127.0.0.1',
+}));
+
+vi.mock('@/lib/authServices/auditService', () => ({
+  logAuthEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 const { POST } = await import('./route');

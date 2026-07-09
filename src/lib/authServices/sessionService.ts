@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getSupabase } from '../supabase';
 import { parseUserAgent } from './userAgentParser';
+import { logAuthEvent } from './auditService';
 
 /**
  * Session Platform Foundation (Authentication Platform v3.0). Before this,
@@ -59,18 +60,20 @@ export async function createSession(
   const { browser, os, deviceName } = parseUserAgent(userAgent);
   const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
 
+  const ipAddress = clientIpFrom(req);
   const { error } = await supabase.from('user_sessions').insert({
     user_id: userId,
     session_id: sessionId,
     device_name: deviceName,
     browser,
     os,
-    ip_address: clientIpFrom(req),
+    ip_address: ipAddress,
     user_agent: userAgent,
     approx_location: approxLocationFrom(req),
     expires_at: expiresAt,
   });
   if (error) throw error;
+  logAuthEvent('SESSION_CREATED', { userId, ipAddress, userAgent, metadata: { sessionId } }).catch(() => {});
   return { sessionId, expiresAt };
 }
 
@@ -85,12 +88,15 @@ export async function touchLastActivity(sessionId: string): Promise<void> {
 
 export async function revokeSession(sessionId: string, reason: string): Promise<void> {
   const supabase = getSupabase();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('user_sessions')
     .update({ revoked_at: new Date().toISOString(), revoked_reason: reason })
     .eq('session_id', sessionId)
-    .is('revoked_at', null);
+    .is('revoked_at', null)
+    .select('user_id')
+    .maybeSingle();
   if (error) throw error;
+  if (data) logAuthEvent('SESSION_REVOKED', { userId: data.user_id, metadata: { sessionId, reason } }).catch(() => {});
 }
 
 /** Used by "Logout all other devices" (a checkbox on Change Password) and
@@ -104,6 +110,7 @@ export async function revokeAllOtherSessions(userId: string, exceptSessionId: st
     .neq('session_id', exceptSessionId)
     .is('revoked_at', null);
   if (error) throw error;
+  logAuthEvent('SESSION_REVOKED_ALL', { userId, metadata: { reason, exceptSessionId } }).catch(() => {});
 }
 
 /** Used by the admin's "force logout all sessions" action. */
@@ -115,6 +122,7 @@ export async function revokeAllSessions(userId: string, reason: string): Promise
     .eq('user_id', userId)
     .is('revoked_at', null);
   if (error) throw error;
+  logAuthEvent('SESSION_REVOKED_ALL', { userId, metadata: { reason } }).catch(() => {});
 }
 
 export async function listSessionsForUser(userId: string): Promise<SessionRecord[]> {
