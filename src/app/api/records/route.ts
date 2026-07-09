@@ -68,13 +68,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidReporterPhone') }, { status: 400 });
     }
 
-    const { dealerId: dealerIdForLookup } = resolveDealerScope(session, body.dealerId ?? null);
+    const scope = resolveDealerScope(session, body.dealerId ?? null);
 
-    // Zero-leakage: if the vehicle exists but belongs to another dealer, treat it as not found.
-    const vehicle = await getVehicleBySerial(serial, dealerIdForLookup);
-    if (vehicle && dealerIdForLookup && vehicle.dealer_id && vehicle.dealer_id !== dealerIdForLookup) {
-      return NextResponse.json({ ok: false, error: translate(locale, 'validation.serialNotInYourDealer') }, { status: 403 });
-    }
+    // Zero-leakage: getVehicleBySerial() itself returns null for a vehicle
+    // belonging to another dealer (unless scope.unrestricted) - no separate
+    // re-check needed here.
+    const vehicle = await getVehicleBySerial(serial, scope);
 
     const hours = body.hours === '' || body.hours === undefined || body.hours === null ? null : Number(body.hours);
     const hoursInForRepair =
@@ -117,7 +116,7 @@ export async function POST(req: NextRequest) {
         photoLinks,
         videoLink: body.videoLink ? String(body.videoLink) : null,
         videoAttachmentId: body.videoAttachmentId ? String(body.videoAttachmentId) : null,
-        dealerId: dealerIdForLookup,
+        dealerId: scope.dealerId,
         branchId: body.branchId ? String(body.branchId) : null,
         technicianId: body.technicianId ? String(body.technicianId) : null,
         repairDate,

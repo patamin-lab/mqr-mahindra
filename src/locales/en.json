@@ -317,7 +317,6 @@
     "requiredDamagePhotos": "Please attach the odometer photo, vehicle serial photo, and damage point 1 photo.",
     "invalidCustomerPhone": "Invalid customer phone number (must be 10 digits starting with 0).",
     "invalidReporterPhone": "Invalid reporter phone number (must be 10 digits starting with 0).",
-    "serialNotInYourDealer": "This vehicle serial number does not belong to your dealer.",
     "repairHoursLessThanFound": "Hours at repair intake must not be less than hours when the problem was found.",
     "internalSystemError": "A system error occurred.",
     "unauthorizedExport": "You do not have permission to export data.",

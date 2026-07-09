@@ -17,24 +17,47 @@ import { getSupabase } from './supabase';
 import { seesAllDealers } from './scope';
 import { SessionUser } from './types';
 
-export interface DealerScopeResult {
-  /** null means "no dealer restriction" — only possible for a role that
-   *  `seesAllDealers` and did not request a specific one. */
+/**
+ * The reusable authorization result every data-access function should
+ * consume instead of a `SessionUser` — computing "which dealer does this
+ * request get scoped to" is an authorization decision (belongs here, or in
+ * a caller that has a `session`), never something `lib/db.ts` re-derives
+ * from a raw role/id pair itself. Keeping `lib/db.ts` free of `SessionUser`
+ * keeps authentication/authorization decisions out of the data-access
+ * layer, per `docs/adr/ADR-013-Authorization-Scope.md`.
+ */
+export interface AuthorizationScope {
+  /** Dealer id this scope is restricted to. Meaningless when `unrestricted`
+   *  is true — a caller must check `unrestricted` first, never infer "no
+   *  restriction" from `dealerId` being `null` alone (a pinned role's
+   *  `dealerId` is never null in practice, but the field's absence is not
+   *  itself the unrestricted signal). */
   dealerId: string | null;
-  /** true if the caller is restricted to exactly one dealer (their own). */
-  isPinned: boolean;
+  /** True for a role that sees every dealer (`seesAllDealers`) — dealer
+   *  filtering must be skipped entirely for such a scope, never compared
+   *  against `dealerId`. This is the one flag that fixes the class of bug
+   *  where a privileged role's own non-null `dealerId` was mistakenly
+   *  treated as a restriction (see ADR-013). */
+  unrestricted: boolean;
 }
 
-/** Resolves the dealer_id a query should filter by. A privileged role
- *  (`seesAllDealers`) gets whatever `requestedDealerId` it asked for (or
- *  `null` = "all dealers"); every other role is always pinned to their own
- *  session dealer, regardless of what the client requested — never trust
- *  a client-supplied dealerId for a non-privileged session. */
-export function resolveDealerScope(session: SessionUser, requestedDealerId?: string | null): DealerScopeResult {
+/** The scope for a lookup that is deliberately never dealer-filtered (the
+ *  caller already applies its own scope elsewhere, or the lookup is a
+ *  existence-only check with no business-data exposure) — use this
+ *  instead of a raw `null` so the intent is explicit at the call site. */
+export const UNRESTRICTED_SCOPE: AuthorizationScope = { dealerId: null, unrestricted: true };
+
+/** Resolves the dealer scope a query/lookup should run against. A
+ *  privileged role (`seesAllDealers`) gets `unrestricted: true` and
+ *  whatever `requestedDealerId` it asked for (or `null` = "all dealers");
+ *  every other role is always pinned to their own session dealer,
+ *  regardless of what the client requested — never trust a client-supplied
+ *  dealerId for a non-privileged session. */
+export function resolveDealerScope(session: SessionUser, requestedDealerId?: string | null): AuthorizationScope {
   if (seesAllDealers(session.role)) {
-    return { dealerId: requestedDealerId ?? null, isPinned: false };
+    return { dealerId: requestedDealerId ?? null, unrestricted: true };
   }
-  return { dealerId: session.dealerId, isPinned: true };
+  return { dealerId: session.dealerId, unrestricted: false };
 }
 
 export interface BranchScopeResult {

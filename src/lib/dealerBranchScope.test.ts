@@ -13,21 +13,29 @@ function session(overrides: Partial<SessionUser> = {}): SessionUser {
 }
 
 describe('resolveDealerScope', () => {
-  it('lets SuperAdmin request any dealer (or none = all)', () => {
-    expect(resolveDealerScope(session({ role: 'SuperAdmin', dealerId: null }), 'D9')).toEqual({ dealerId: 'D9', isPinned: false });
-    expect(resolveDealerScope(session({ role: 'SuperAdmin', dealerId: null }), null)).toEqual({ dealerId: null, isPinned: false });
+  it('lets SuperAdmin request any dealer (or none = all), and marks the scope unrestricted', () => {
+    expect(resolveDealerScope(session({ role: 'SuperAdmin', dealerId: null }), 'D9')).toEqual({ dealerId: 'D9', unrestricted: true });
+    expect(resolveDealerScope(session({ role: 'SuperAdmin', dealerId: null }), null)).toEqual({ dealerId: null, unrestricted: true });
   });
 
-  it('lets CentralAdmin request any dealer', () => {
-    expect(resolveDealerScope(session({ role: 'CentralAdmin', dealerId: null }), 'D9')).toEqual({ dealerId: 'D9', isPinned: false });
+  it('marks SuperAdmin unrestricted even when their own session has a non-null dealerId (the v2.3.2 bug)', () => {
+    // A SuperAdmin account can itself belong to a dealer (e.g. the head-office
+    // dealer) - `unrestricted` must still be true, since a consumer that
+    // naively compared session.dealerId directly (bypassing this function)
+    // was exactly the bug this scope type exists to prevent.
+    expect(resolveDealerScope(session({ role: 'SuperAdmin', dealerId: 'MSEAL' }), null)).toEqual({ dealerId: null, unrestricted: true });
+  });
+
+  it('lets CentralAdmin request any dealer, and marks the scope unrestricted', () => {
+    expect(resolveDealerScope(session({ role: 'CentralAdmin', dealerId: null }), 'D9')).toEqual({ dealerId: 'D9', unrestricted: true });
   });
 
   it('pins DealerAdmin to their own session dealer regardless of what is requested', () => {
-    expect(resolveDealerScope(session({ role: 'DealerAdmin', dealerId: 'D1' }), 'OTHER_DEALER')).toEqual({ dealerId: 'D1', isPinned: true });
+    expect(resolveDealerScope(session({ role: 'DealerAdmin', dealerId: 'D1' }), 'OTHER_DEALER')).toEqual({ dealerId: 'D1', unrestricted: false });
   });
 
   it('pins DealerUser to their own session dealer regardless of what is requested', () => {
-    expect(resolveDealerScope(session({ role: 'DealerUser', dealerId: 'D1' }), 'OTHER_DEALER')).toEqual({ dealerId: 'D1', isPinned: true });
+    expect(resolveDealerScope(session({ role: 'DealerUser', dealerId: 'D1' }), 'OTHER_DEALER')).toEqual({ dealerId: 'D1', unrestricted: false });
   });
 });
 

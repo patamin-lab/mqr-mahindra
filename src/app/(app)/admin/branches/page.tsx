@@ -10,14 +10,14 @@ export default async function BranchesAdminPage() {
   if (!session) return null;
   if (!canManageMasterData(session.role)) redirect('/dashboard');
 
-  const { dealerId, isPinned } = resolveDealerScope(session, null);
+  const { dealerId, unrestricted } = resolveDealerScope(session, null);
   const branches = await listAllBranchesAdmin(dealerId);
   const dealers = seesAllDealers(session.role) ? await listAllDealersAdmin() : [];
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold text-brand-dark">จัดการสาขา</h1>
-      <BranchesTable initialBranches={branches} dealers={dealers} lockedDealerId={isPinned ? dealerId : null} />
+      <BranchesTable initialBranches={branches} dealers={dealers} lockedDealerId={unrestricted ? null : dealerId} />
     </div>
   );
 }
