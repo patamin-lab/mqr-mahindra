@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalLoading, swalError, swalClose } from '@/lib/swal';
@@ -11,9 +11,15 @@ const router = useRouter();
 const [username, setUsername] = useState('');
 const [password, setPassword] = useState('');
 const [loading, setLoading] = useState(false);
+// A synchronous guard alongside `loading` - `disabled={loading}` alone
+// still leaves a few-millisecond window (before React re-renders) where a
+// fast double Enter/double click could fire onSubmit twice.
+const submittingRef = useRef(false);
 
 async function onSubmit(e: React.FormEvent) {
 e.preventDefault();
+if (submittingRef.current) return;
+submittingRef.current = true;
 setLoading(true);
 swalLoading('กำลังเข้าสู่ระบบ...');
 try {
@@ -37,6 +43,7 @@ const msg = err instanceof FetchJsonError && err.message === 'SESSION_EXPIRED'
 : err?.message ?? 'เกิดข้อผิดพลาด กรุณาลองใหม่';
 swalError(msg);
 } finally {
+submittingRef.current = false;
 setLoading(false);
 }
 }
@@ -56,6 +63,7 @@ className="w-full border border-gray-300 rounded px-3 py-2 mb-4"
 value={username}
 onChange={(e) => setUsername(e.target.value)}
 autoComplete="username"
+autoFocus
 required
 />
 
