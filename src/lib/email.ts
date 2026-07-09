@@ -137,6 +137,22 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   );
 }
 
+export async function sendInvitationEmail(to: string, fullName: string, inviteUrl: string): Promise<void> {
+  await sendAuthEmail(
+    to,
+    '[MQR] คุณได้รับเชิญให้เข้าใช้งานระบบ',
+    buildEmailLayout(
+      'คำเชิญเข้าใช้งานระบบ MQR',
+      `
+        <p>สวัสดีคุณ ${fullName}</p>
+        <p>ผู้ดูแลระบบได้สร้างบัญชีให้คุณในระบบ Market Quality Report</p>
+        <p><a href="${inviteUrl}" style="color:#9c1c1c">คลิกที่นี่เพื่อตั้งรหัสผ่านและเปิดใช้งานบัญชี →</a></p>
+        <p style="color:#666;font-size:12px">ลิงก์นี้จะหมดอายุภายใน 7 วันและใช้ได้เพียงครั้งเดียว</p>
+      `
+    )
+  );
+}
+
 export async function sendPasswordChangedEmail(to: string): Promise<void> {
   await sendAuthEmail(
     to,

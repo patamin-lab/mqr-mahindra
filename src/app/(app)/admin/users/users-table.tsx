@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AdminUser, Dealer, Role } from '@/lib/types';
-import { assignableRoles, canDeleteUsers, canManageRoleTarget, canUnlockAccounts, roleLabelTh } from '@/lib/scope';
+import { assignableRoles, canDeleteUsers, canInviteUsers, canManageRoleTarget, canUnlockAccounts, roleLabelTh } from '@/lib/scope';
 import { swalConfirm, swalError, swalSuccess, swalPrompt, swalLoading, swalClose } from '@/lib/swal';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 
@@ -27,6 +27,7 @@ export default function UsersTable({
   const myAssignableRoles = assignableRoles(actorRole);
   const iCanDelete = canDeleteUsers(actorRole);
   const iCanUnlock = canUnlockAccounts(actorRole);
+  const iCanInvite = canInviteUsers(actorRole);
 
   const [newUser, setNewUser] = useState({
     username: '',
@@ -37,6 +38,10 @@ export default function UsersTable({
     role: myAssignableRoles[myAssignableRoles.length - 1] ?? 'DealerUser',
     dealer_id: lockedDealerId ?? '',
     branch: '',
+    /** User Invitation (spec section 8) - admin never sees/sets a
+     *  password; the user sets their own via the emailed link. Requires
+     *  `email` instead. Mutually exclusive with the `password` field. */
+    invite: false,
   });
 
   async function showError(err: any) {
@@ -57,8 +62,9 @@ export default function UsersTable({
       });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => [...prev, json.user].sort((a, b) => a.username.localeCompare(b.username)));
-      setNewUser({ ...newUser, username: '', full_name: '', password: '', email: '', mobile: '', branch: '' });
+      setNewUser({ ...newUser, username: '', full_name: '', password: '', email: '', mobile: '', branch: '', invite: false });
       swalClose();
+      if (newUser.invite) await swalSuccess('ส่งคำเชิญทางอีเมลเรียบร้อยแล้ว');
     } catch (err: any) {
       swalClose();
       await showError(err);
@@ -176,7 +182,11 @@ export default function UsersTable({
       <div className="card p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อผู้ใช้ (username)" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value.trim() })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อ-สกุล" value={newUser.full_name} onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })} />
-        <input className="border rounded px-2 py-1.5 text-sm" placeholder="รหัสผ่านเริ่มต้น" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+        {newUser.invite ? (
+          <div className="text-xs text-gray-400 flex items-center px-2 border rounded bg-gray-50">ผู้ใช้จะตั้งรหัสผ่านเอง</div>
+        ) : (
+          <input className="border rounded px-2 py-1.5 text-sm" placeholder="รหัสผ่านเริ่มต้น" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+        )}
         <select className="border rounded px-2 py-1.5 text-sm" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })}>
           {myAssignableRoles.map((r) => (
             <option key={r} value={r}>
@@ -184,9 +194,19 @@ export default function UsersTable({
             </option>
           ))}
         </select>
-        <input className="border rounded px-2 py-1.5 text-sm" placeholder="อีเมล" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+        <input className="border rounded px-2 py-1.5 text-sm" placeholder={newUser.invite ? 'อีเมล (จำเป็น)' : 'อีเมล'} value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="เบอร์โทร" value={newUser.mobile} onChange={(e) => setNewUser({ ...newUser, mobile: e.target.value })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="สาขา (ถ้ามี)" value={newUser.branch} onChange={(e) => setNewUser({ ...newUser, branch: e.target.value })} />
+        {iCanInvite && (
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 px-2">
+            <input
+              type="checkbox"
+              checked={newUser.invite}
+              onChange={(e) => setNewUser({ ...newUser, invite: e.target.checked, password: '' })}
+            />
+            เชิญทางอีเมลแทนการตั้งรหัสผ่าน
+          </label>
+        )}
         {!lockedDealerId ? (
           <select className="border rounded px-2 py-1.5 text-sm" value={newUser.dealer_id} onChange={(e) => setNewUser({ ...newUser, dealer_id: e.target.value })}>
             <option value="">ไม่ระบุดีลเลอร์ (ส่วนกลาง)</option>

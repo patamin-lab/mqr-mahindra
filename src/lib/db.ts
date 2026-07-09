@@ -157,6 +157,14 @@ export async function unlockUserAccount(userId: string, session: SessionUser): P
   if (error) throw error;
 }
 
+/** User Invitation (spec section 8) - "Account activated" is this one
+ *  flip, the moment the user's own accept-invitation submission succeeds. */
+export async function activateUserAccount(userId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('users').update({ active: true }).eq('id', userId);
+  if (error) throw error;
+}
+
 // ---------- Lookups ----------
 
 export async function listDealers(): Promise<Dealer[]> {
@@ -2320,6 +2328,16 @@ export async function createUserAdmin(
     role: Role;
     dealerId: string | null;
     branch: string | null;
+    /** User Invitation (spec section 8): the account stays inactive - and
+     *  its `passwordHash` an unusable placeholder - until the invite is
+     *  accepted. Defaults to `true` (existing admin-sets-temp-password
+     *  behavior, unchanged). */
+    active?: boolean;
+    /** First Login Password Change (spec section 7) - set when the admin
+     *  hands the user a temporary password directly. Never set together
+     *  with `active: false` (the invitation path forces its own change
+     *  via account activation, not this flag). */
+    forcePasswordChange?: boolean;
   },
   session: SessionUser
 ): Promise<AdminUser> {
@@ -2335,7 +2353,8 @@ export async function createUserAdmin(
       role: input.role,
       dealer_id: input.dealerId,
       branch: input.branch,
-      active: true,
+      active: input.active ?? true,
+      force_password_change: input.forcePasswordChange ?? false,
       created_by: session.username,
       updated_by: session.username,
     })
@@ -2388,6 +2407,10 @@ export async function resetUserPassword(
     .from('users')
     .update({
       password_hash: passwordHash,
+      // "Force password reset" (spec section 13's RBAC list) - an
+      // admin-driven reset always forces a change on the account's next
+      // login, same as a brand-new temp password at creation time.
+      force_password_change: true,
       updated_by: session.username,
       updated_at: new Date().toISOString(),
     })
