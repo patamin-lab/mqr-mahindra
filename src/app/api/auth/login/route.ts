@@ -13,6 +13,7 @@ import { SessionUser } from '@/lib/types';
 import { createSession, clientIpFrom } from '@/lib/authServices/sessionService';
 import { hashPassword, isPasswordExpired, verifyPassword } from '@/lib/authServices/passwordService';
 import { logAuthEvent } from '@/lib/authServices/auditService';
+import { sendAccountLockedEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   let username = '';
@@ -50,6 +51,7 @@ export async function POST(req: NextRequest) {
         // earlier, above, via checkLockStatus).
         if (lockResult.isLocked) {
           logAuthEvent('ACCOUNT_LOCKED', { username, userId: user.id, ipAddress, userAgent: device }).catch(() => {});
+          if (user.email) sendAccountLockedEmail(user.email, LOCKOUT_MINUTES).catch(() => {});
         }
       }
       await insertLoginLog({ username, role: user?.role ?? '', action: 'เข้าสู่ระบบ', device, result: 'fail' });

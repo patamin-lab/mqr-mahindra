@@ -166,3 +166,18 @@ export async function sendPasswordChangedEmail(to: string): Promise<void> {
     )
   );
 }
+
+export async function sendAccountLockedEmail(to: string, lockoutMinutes: number): Promise<void> {
+  await sendAuthEmail(
+    to,
+    '[MQR] บัญชีของคุณถูกล็อกชั่วคราว',
+    buildEmailLayout(
+      'บัญชีถูกล็อกชั่วคราว',
+      `
+        <p>บัญชี MQR ของคุณถูกล็อกชั่วคราวเนื่องจากมีการเข้าสู่ระบบผิดพลาดหลายครั้งติดต่อกัน</p>
+        <p>คุณสามารถลองเข้าสู่ระบบใหม่ได้ภายใน ${lockoutMinutes} นาที หรือติดต่อผู้ดูแลระบบเพื่อปลดล็อกบัญชี</p>
+        <p style="color:#666;font-size:12px">หากคุณไม่ได้เป็นผู้พยายามเข้าสู่ระบบ กรุณาติดต่อผู้ดูแลระบบ</p>
+      `
+    )
+  );
+}

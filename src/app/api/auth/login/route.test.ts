@@ -34,6 +34,14 @@ vi.mock('@/lib/authServices/auditService', () => ({
   logAuthEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
+// lib/email.ts pulls in exportPdf.tsx (react-pdf JSX) at module scope,
+// which the Vitest/Vite transform for this .ts test can't parse - mocked
+// out entirely rather than letting it load for real, same as every other
+// sibling module this route imports.
+vi.mock('@/lib/email', () => ({
+  sendAccountLockedEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
 const { POST } = await import('./route');
 
 function loginRequest(username: string, password: string) {
