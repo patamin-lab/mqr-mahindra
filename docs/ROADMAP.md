@@ -1,6 +1,50 @@
 # Roadmap
 
-## Next Development Phase (Post v1.1.0) — current
+## Post-v2.3.1 Roadmap — current
+
+**Supersedes the "Next Development Phase (Post v1.1.0)" section below as
+the active plan** (that section is preserved for its still-relevant
+Frozen Foundation list and deferred items, not because it's still the
+plan being executed). Baseline this roadmap starts from: Tractor IN is
+the master source, `vehicles` is the application master, NTR and PM read
+from `vehicles`, the Tractor IN sync is in production with a health
+endpoint and run logging (`docs/adr/ADR-012-Tractor-IN-Master-Data.md`,
+`docs/releases/RELEASE_CHECKLIST_V2.3.1_SYNC_HARDENING.md`).
+
+Full operational detail for the current system: `docs/OPERATIONS.md`
+(Phase 1 of this roadmap).
+
+| Phase | Focus | Status |
+|---|---|---|
+| 1 | Documentation — `docs/OPERATIONS.md` production operations handbook | Complete |
+| 2 | Permission Hardening (v2.3.2) — fix `getVehicleBySerial()`'s dealer-scope bug, Permission Matrix, regression tests across NTR/PM/Vehicle 360/Warranty/ORC | Next — plan proposed, implementation not started |
+| 3 | Sync Improvements — retry-failed-rows endpoint, single-vehicle sync endpoint, richer health endpoint (success_rate, last error, version) | Not started |
+| 4 | Google Sheet Master Data — sheet owner adds Product Family/Sub Model columns, backfill `vehicles.sub_model`, remove PM's model-derivation fallback only once `product_family_id` is 100% populated | Not started — blocked on external sheet-owner action |
+| 5 | Vehicle 360 — full lifecycle timeline (Tractor IN → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History), read-only Vehicle Overview page | Not started |
+| 6 | Workflow — Draft → Submitted → Approved → Delivered → Warranty Active, with audit trail and role approval | Not started |
+| 7 | Reporting — cross-module KPI dashboard (tractor count, delivery, PM, warranty, ORC, complaints, dealer KPI, sync status) | Not started |
+| 8 | Engineering Quality — architecture ADRs, coding standards, folder structure, dead code/translation cleanup, API documentation, performance budget, error monitoring, security review | Not started |
+| 9 | Technical Debt — close every item tracked in `docs/OPERATIONS.md` §10 | Not started |
+| 10 | v3.0 — Digital Tractor Passport (one tractor, one lifetime record, QR-code entry point spanning the same Vehicle → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History chain as Phase 5) | Not started |
+
+**Working rules for every phase** (binding, from the project owner):
+
+1. Inspect architecture first.
+2. Propose an implementation plan.
+3. Identify risks.
+4. Open a PR.
+5. Run lint, typecheck, tests, production build, and architecture check.
+6. Never modify Legacy Import unless explicitly requested.
+7. Never duplicate master data.
+8. Tractor IN remains the single source of truth.
+9. `vehicles` remains the application master.
+10. Documentation must be updated whenever architecture changes.
+11. Do not merge automatically — always wait for review before merging.
+12. When a phase completes, update this roadmap, `docs/OPERATIONS.md`,
+    the relevant ADRs, and the release checklist. Provide evidence for
+    every completed task.
+
+## Next Development Phase (Post v1.1.0) — historical, partially superseded above
 
 **MASP Platform Foundation v1.1.0 is COMPLETE** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`, tag `v1.1.0`). This supersedes the Sprint/Phase 1-5 planning below as the source of truth for *current* status — that section is historical planning from before any business module existed, preserved as-is per this repo's "archive, don't delete" convention, not an accurate picture of what's built today (see `PROJECT_STATE.md` for the real chronological build log).
 
