@@ -81,12 +81,13 @@ const additionalPhotoSchema = z.object({
  * are optional.
  *
  * `receiving_person`/`pdi_date`/`manufacturing_year`/`video_url`/
- * `video_attachment_id` are not in this schema (NTR Form Update, 2026-07)
- * - the manual registration form no longer collects them;
- * `api/ntr-records/route.ts` sets each to `null` explicitly rather than
- * accept them from the request body. Legacy Import still sets all of
- * these - it validates a different shape entirely (see
- * `ntrImportService.ts`), not this schema.
+ * `video_attachment_id`/`retail_date` are not in this schema (NTR Form
+ * Update, 2026-07) - the manual registration form no longer collects
+ * them (Delivery Date is the section's only date field, its only
+ * required field); `api/ntr-records/route.ts` sets each to `null`
+ * explicitly rather than accept them from the request body. Legacy
+ * Import still sets all of these - it validates a different shape
+ * entirely (see `ntrImportService.ts`), not this schema.
  */
 export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) =>
   z.object({
@@ -108,7 +109,6 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     customer_type: customerTypeSchema,
     product_family_id: nullableTrimmedString,
     variant: nullableTrimmedString,
-    retail_date: nullableTrimmedString,
     delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
     pdi_number: nullableTrimmedString,
     hour_meter: z.preprocess(
