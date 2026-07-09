@@ -47,7 +47,7 @@ return (
 <div className="absolute top-4 right-4">
   <LanguageSelector variant="card" />
 </div>
-<h1 className="text-xl font-bold text-brand-red mb-1">Market Quality Report</h1>
+<h1 className="text-xl font-bold text-brand-red mb-1">MSEAL DMS</h1>
 <p className="text-sm text-gray-500 mb-6">เข้าสู่ระบบเพื่อใช้งาน</p>
 
 <label className="block text-sm font-medium mb-1">ชื่อผู้ใช้</label>

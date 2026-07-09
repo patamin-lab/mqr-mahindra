@@ -29,7 +29,7 @@ function problemSystemLabel(s: string | null) {
 
 export async function buildRecordsWorkbook(records: MqrRecord[]): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Market Quality Report';
+  wb.creator = 'MSEAL DMS';
   wb.created = new Date();
   const sheet = wb.addWorksheet('รายงาน MQR');
   sheet.columns = LIST_COLUMNS;
@@ -69,7 +69,7 @@ export async function buildSingleRecordWorkbook(
   dealerName?: string
 ): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Market Quality Report';
+  wb.creator = 'MSEAL DMS';
   wb.created = new Date();
   const sheet = wb.addWorksheet(record.job_id.slice(0, 31));
   sheet.columns = [{ width: 24 }, { width: 60 }];

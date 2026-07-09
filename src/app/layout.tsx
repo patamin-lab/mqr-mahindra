@@ -5,7 +5,7 @@ import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import { getServerLocale } from '@/lib/i18n/server';
 
 export const metadata: Metadata = {
-  title: 'Market Quality Report',
+  title: 'MSEAL DMS',
   description: 'ระบบรายงานปัญหาคุณภาพสำหรับรถในระยะรับประกัน',
 };
 
