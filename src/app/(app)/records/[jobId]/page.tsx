@@ -6,7 +6,7 @@ import { getSession } from '@/lib/auth';
 import { getRecordByJobId, getVehicleHistory, listAuditLog } from '@/lib/db';
 import { MasterDataService } from '@/shared/master-data';
 import { canUpdateStatus, canExport, canDelete } from '@/lib/scope';
-import { PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY } from '@/lib/types';
+import { PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY, STATUS_LABELS } from '@/lib/types';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
 import UpdateForm from './update-form';
 import DeleteButton from './delete-button';
@@ -16,10 +16,19 @@ import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Card from '@/components/shared/layout/Card';
-import Timeline from '@/components/shared/timeline/Timeline';
-import TimelineItem from '@/components/shared/timeline/TimelineItem';
 import AttachmentGallery from '@/components/shared/attachments/AttachmentGallery';
 import { AttachmentService } from '@/shared/attachments';
+import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import RecordActivityTimelineSection from './activity-timeline-section';
+
+/** MQR's own closing-status vocabulary, passed to the generic activity
+ *  adapter so it can render ✅ Closed / ↩ Reopened without itself knowing
+ *  what "Repaired"/"Closed" mean - see `mapAuditLogToActivityEvents.ts`.
+ *  `updateRecord()` writes `record_audit_log.old_value`/`new_value` for a
+ *  `StatusChanged` row as `STATUS_LABELS[status]` (the Thai display text),
+ *  never the raw `StatusValue` code - so the comparison values here must
+ *  be the same labels, not `['Repaired', 'Closed']`, or this never matches. */
+const MQR_CLOSING_STATUSES = [STATUS_LABELS.Repaired, STATUS_LABELS.Closed];
 
 const attachmentService = new AttachmentService();
 
@@ -53,6 +62,13 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
   const dealer = await MasterDataService.getDealerById(record.dealer_id);
   const history = record.serial ? await getVehicleHistory(record.serial, session) : [];
   const auditLog = await listAuditLog('mqr', record.id);
+  const activityEvents = mapAuditLogToActivityEvents(auditLog, {
+    entityType: 'mqr',
+    entityId: record.id,
+    entityRef: record.job_id,
+    vehicleSerial: record.serial,
+    closingStatusValues: MQR_CLOSING_STATUSES,
+  });
   const otherHistory = history.filter((h) => h.job_id !== record.job_id);
   const encodedJobId = encodeURIComponent(record.job_id);
   const allowExport = canExport(session.role);
@@ -147,7 +163,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
           <div className="text-gray-400 text-xs">{t('pdf.foundDate')}</div>
           <div>{record.found_date ?? '-'}</div>
         </div>
-        <div>
+        <div id="warranty-section">
           <div className="text-gray-400 text-xs">{t('pdf.warrantyStatus')}</div>
           <div>{record.warranty_status ?? '-'}</div>
         </div>
@@ -203,7 +219,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
       </Card>
 
       {(record.cause || record.damaged_parts || record.technician_action || record.corrective_action || record.preventive_action) && (
-        <Card as="section" variant="flat" className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        <Card id="rca-section" as="section" variant="flat" className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
           <h2 className="font-semibold text-brand-dark sm:col-span-2">{t('pdf.rcaSectionTitle')}</h2>
           {record.cause && (
             <div>
@@ -239,7 +255,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
       )}
 
       {(record.photo_links?.length || record.video_link) && (
-        <Card as="section" variant="flat" className="p-5 space-y-4">
+        <Card id="photos-section" as="section" variant="flat" className="p-5 space-y-4">
           <h2 className="font-semibold text-brand-dark">{t('recordDetail.photosVideosTitle')}</h2>
           {PHOTO_CATEGORIES.map((cat) => {
             const photos = (record.photo_links ?? []).filter((p) => p.category === cat.key);
@@ -296,7 +312,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
         </Card>
       )}
 
-      <Card as="section" variant="flat" className="p-5 print:hidden">
+      <Card id="status-section" as="section" variant="flat" className="p-5 print:hidden">
         <h2 className="font-semibold text-brand-dark mb-3">{t('recordDetail.updateStatusTitle')}</h2>
         {canUpdateStatus(session.role) ? (
           <UpdateForm record={record} role={session.role} />
@@ -306,30 +322,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
       </Card>
 
       <Card as="section" variant="flat" className="p-5 print:hidden">
-        <h2 className="font-semibold text-brand-dark text-sm mb-3">{t('common.auditTrail')}</h2>
-        {auditLog.length === 0 ? (
-          <p className="text-sm text-gray-400">{t('recordDetail.noAuditHistory')}</p>
-        ) : (
-          <Timeline className="space-y-2 text-sm">
-            {auditLog.map((entry) => (
-              <TimelineItem
-                key={entry.id}
-                liClassName="border-b border-gray-50 pb-2 last:border-0 last:pb-0"
-                date={formatDateTimeLocalized(entry.performedAt, locale)}
-                badge={t(`auditEvent.${entry.eventType}`)}
-                trailing={<span className="text-xs text-gray-500">{t('vehicle360.byUser', { user: entry.performedBy })}</span>}
-              >
-                {(entry.fieldName || entry.oldValue !== null || entry.newValue !== null) && (
-                  <p className="mt-1 text-gray-700">
-                    {entry.fieldName && <span className="text-gray-500">{entry.fieldName}: </span>}
-                    {entry.oldValue !== null && <span className="text-gray-400 line-through mr-1">{entry.oldValue}</span>}
-                    {entry.newValue !== null && <span>{entry.newValue}</span>}
-                  </p>
-                )}
-              </TimelineItem>
-            ))}
-          </Timeline>
-        )}
+        <RecordActivityTimelineSection events={activityEvents} />
       </Card>
 
       <Card as="section" variant="flat" className="p-5 text-xs text-gray-500 space-y-1">
