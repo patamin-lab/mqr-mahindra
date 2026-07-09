@@ -16,6 +16,11 @@ vi.mock('@/lib/auth', () => ({
   SESSION_MINUTES: 180,
 }));
 
+const mockCreateSession = vi.fn().mockResolvedValue({ sessionId: 'test-session', expiresAt: new Date().toISOString() });
+vi.mock('@/lib/authServices/sessionService', () => ({
+  createSession: mockCreateSession,
+}));
+
 const { POST } = await import('./route');
 
 function loginRequest(username: string, password: string) {
@@ -30,6 +35,7 @@ describe('POST /api/auth/login — branchId population', () => {
     mockFindUserByUsername.mockReset();
     mockInsertLoginLog.mockReset();
     mockSignSession.mockClear();
+    mockCreateSession.mockClear();
   });
 
   it('populates sessionUser.branchId from the user row\'s branch_id', async () => {

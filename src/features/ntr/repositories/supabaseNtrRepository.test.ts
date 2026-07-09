@@ -85,7 +85,7 @@ describe('SupabaseNtrRepository branch scoping (session param)', () => {
   }
 
   function session(overrides: Record<string, unknown> = {}) {
-    return { username: 'x', fullName: 'X', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: 'B1', ...overrides };
+    return { username: 'x', fullName: 'X', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: 'B1', sessionId: 'test-session', forcePasswordChange: false, ...overrides };
   }
 
   it('getById returns null when the record is outside the DealerUser\'s branch', async () => {

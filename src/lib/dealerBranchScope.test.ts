@@ -9,7 +9,7 @@ vi.mock('./supabase', () => ({
 import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch, assertBranchAccess } from './dealerBranchScope';
 
 function session(overrides: Partial<SessionUser> = {}): SessionUser {
-  return { username: 'alice', fullName: 'Alice', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: 'B1', ...overrides };
+  return { username: 'alice', fullName: 'Alice', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: 'B1', sessionId: 'test-session', forcePasswordChange: false, ...overrides };
 }
 
 describe('resolveDealerScope', () => {

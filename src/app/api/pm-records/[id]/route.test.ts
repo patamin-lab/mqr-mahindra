@@ -42,6 +42,8 @@ const dealerUserSession = {
   dealerId: 'D1',
   branch: null,
   branchId: 'B1',
+  sessionId: 'test-session',
+  forcePasswordChange: false,
 };
 
 const dealerAdminSession = {
@@ -51,6 +53,8 @@ const dealerAdminSession = {
   dealerId: 'D1',
   branch: null,
   branchId: null,
+  sessionId: 'test-session',
+  forcePasswordChange: false,
 };
 
 const otherDealerUserSession = {
@@ -60,6 +64,8 @@ const otherDealerUserSession = {
   dealerId: 'D2',
   branch: null,
   branchId: null,
+  sessionId: 'test-session',
+  forcePasswordChange: false,
 };
 
 const otherDealerAdminSession = {
@@ -69,6 +75,8 @@ const otherDealerAdminSession = {
   dealerId: 'D2',
   branch: null,
   branchId: null,
+  sessionId: 'test-session',
+  forcePasswordChange: false,
 };
 
 const activeRecord = {

@@ -37,7 +37,7 @@ vi.mock('../supabase', () => ({
 import { listRecordsPaginated } from '../db';
 
 function session(overrides: Partial<SessionUser> = {}): SessionUser {
-  return { username: 'x', fullName: 'X', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: null, ...overrides };
+  return { username: 'x', fullName: 'X', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: null, sessionId: 'test-session', forcePasswordChange: false, ...overrides };
 }
 
 const FIXTURE = [

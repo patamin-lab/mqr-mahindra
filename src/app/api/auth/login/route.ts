@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { findUserByUsername, insertLoginLog } from '@/lib/db';
 import { sha256Hex, signSession, SESSION_COOKIE, SESSION_MINUTES } from '@/lib/auth';
 import { SessionUser } from '@/lib/types';
+import { createSession } from '@/lib/authServices/sessionService';
 
 export async function POST(req: NextRequest) {
   let username = '';
@@ -19,6 +20,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
     }
 
+    // Session Platform Foundation (Authentication Platform v3.0): every
+    // session gets a `user_sessions` row before the JWT is signed, so the
+    // JWT only ever needs to carry the opaque lookup key - see
+    // `lib/authServices/sessionService.ts`.
+    const { sessionId } = await createSession(user.id, req, SESSION_MINUTES);
     const sessionUser: SessionUser = {
       username: user.username,
       fullName: user.full_name,
@@ -26,6 +32,8 @@ export async function POST(req: NextRequest) {
       dealerId: user.dealer_id,
       branch: user.branch,
       branchId: user.branch_id ?? null,
+      sessionId,
+      forcePasswordChange: !!user.force_password_change,
     };
     const token = await signSession(sessionUser);
     await insertLoginLog({ username: user.username, role: user.role, action: 'เข้าสู่ระบบ', device, result: 'ok' });

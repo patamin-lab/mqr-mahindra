@@ -28,9 +28,9 @@ const { POST: commitPOST } = await import('./commit/route');
 const { GET: sessionsGET } = await import('./sessions/route');
 const { GET: archiveGET, POST: archivePOST } = await import('./archive/route');
 
-const superAdminSession = { username: 'root', fullName: 'Root', role: 'SuperAdmin' as const, dealerId: null, branch: null, branchId: null };
-const dealerAdminSession = { username: 'bob', fullName: 'Bob', role: 'DealerAdmin' as const, dealerId: 'D1', branch: null, branchId: null };
-const centralAdminSession = { username: 'carol', fullName: 'Carol', role: 'CentralAdmin' as const, dealerId: null, branch: null, branchId: null };
+const superAdminSession = { username: 'root', fullName: 'Root', role: 'SuperAdmin' as const, dealerId: null, branch: null, branchId: null, sessionId: 'test-session', forcePasswordChange: false };
+const dealerAdminSession = { username: 'bob', fullName: 'Bob', role: 'DealerAdmin' as const, dealerId: 'D1', branch: null, branchId: null, sessionId: 'test-session', forcePasswordChange: false };
+const centralAdminSession = { username: 'carol', fullName: 'Carol', role: 'CentralAdmin' as const, dealerId: null, branch: null, branchId: null, sessionId: 'test-session', forcePasswordChange: false };
 
 /**
  * Every Legacy Import route must reject every role except SuperAdmin -
