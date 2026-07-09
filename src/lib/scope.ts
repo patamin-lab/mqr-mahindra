@@ -32,6 +32,17 @@ export const canCreateSuperAdmin = (role: Role) => role === 'SuperAdmin';
 export const canManageMasterData = (role: Role) =>
   role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';
 
+/** Authentication Platform v3.0 (spec section 13): "Only Admin or
+ *  SuperAdmin" - the same DealerUser-excluded boundary every other
+ *  admin-only action in this app already uses (`canManageUsers`). Kept as
+ *  distinct, named predicates (not just reused `canManageUsers` calls
+ *  inline) so each call site documents *which* admin action it's gating,
+ *  matching this file's own "no inline role checks" convention. */
+export const canInviteUsers = (role: Role) => role !== 'DealerUser';
+export const canUnlockAccounts = (role: Role) => role !== 'DealerUser';
+export const canForceResetPassword = (role: Role) => role !== 'DealerUser';
+export const canForceLogoutAllSessions = (role: Role) => role !== 'DealerUser';
+
 export const roleLabelTh: Record<Role, string> = {
   SuperAdmin: 'ผู้ดูแลระบบสูงสุด',
   CentralAdmin: 'ผู้ดูแลส่วนกลาง',

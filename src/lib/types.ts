@@ -177,6 +177,9 @@ export interface AdminUser {
   branch: string | null;
   active: boolean;
   created_at: string;
+  /** Set while Account Lock Protection has this account locked (spec
+   *  section 9) - `null`/a past timestamp both mean "not locked." */
+  locked_until: string | null;
 }
 
 export type PhotoCategory =

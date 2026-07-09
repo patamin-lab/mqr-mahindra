@@ -4,10 +4,16 @@ import { NextRequest } from 'next/server';
 const mockFindUserByUsername = vi.fn();
 const mockInsertLoginLog = vi.fn();
 const mockUpgradePasswordHash = vi.fn().mockResolvedValue(undefined);
+const mockRecordFailedLogin = vi.fn().mockResolvedValue({ isLocked: false, lockedUntil: null });
+const mockResetFailedLogins = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/db', () => ({
   findUserByUsername: mockFindUserByUsername,
   insertLoginLog: mockInsertLoginLog,
   upgradePasswordHash: mockUpgradePasswordHash,
+  checkLockStatus: () => ({ isLocked: false, lockedUntil: null }),
+  recordFailedLogin: mockRecordFailedLogin,
+  resetFailedLogins: mockResetFailedLogins,
+  LOCKOUT_MINUTES: 15,
 }));
 
 const mockSignSession = vi.fn().mockResolvedValue('signed-token');
@@ -39,6 +45,8 @@ describe('POST /api/auth/login — branchId population', () => {
     mockSignSession.mockClear();
     mockCreateSession.mockClear();
     mockUpgradePasswordHash.mockClear();
+    mockRecordFailedLogin.mockClear();
+    mockResetFailedLogins.mockClear();
   });
 
   it('populates sessionUser.branchId from the user row\'s branch_id', async () => {

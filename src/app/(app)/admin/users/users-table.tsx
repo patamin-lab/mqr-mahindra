@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AdminUser, Dealer, Role } from '@/lib/types';
-import { assignableRoles, canDeleteUsers, canManageRoleTarget, roleLabelTh } from '@/lib/scope';
+import { assignableRoles, canDeleteUsers, canManageRoleTarget, canUnlockAccounts, roleLabelTh } from '@/lib/scope';
 import { swalConfirm, swalError, swalSuccess, swalPrompt, swalLoading, swalClose } from '@/lib/swal';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 
@@ -26,6 +26,7 @@ export default function UsersTable({
 
   const myAssignableRoles = assignableRoles(actorRole);
   const iCanDelete = canDeleteUsers(actorRole);
+  const iCanUnlock = canUnlockAccounts(actorRole);
 
   const [newUser, setNewUser] = useState({
     username: '',
@@ -122,6 +123,25 @@ export default function UsersTable({
       if (!json.ok) throw new Error(json.error);
       swalClose();
       await swalSuccess('รีเซ็ตรหัสผ่านสำเร็จ');
+    } catch (err: any) {
+      swalClose();
+      await showError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unlockAccount(u: AdminUser) {
+    const confirmed = await swalConfirm(`ปลดล็อกบัญชี ${u.username}?`, { title: 'ปลดล็อกบัญชี', confirmText: 'ปลดล็อก' });
+    if (!confirmed) return;
+    setBusy(true);
+    swalLoading('กำลังปลดล็อกบัญชี...');
+    try {
+      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/users/${u.id}/unlock`, { method: 'POST' });
+      if (!json.ok) throw new Error(json.error);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, locked_until: null } : x)));
+      swalClose();
+      await swalSuccess('ปลดล็อกบัญชีสำเร็จ');
     } catch (err: any) {
       swalClose();
       await showError(err);
@@ -250,6 +270,9 @@ export default function UsersTable({
                     <span className={`px-2 py-0.5 rounded text-xs ${u.active === false ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
                       {u.active === false ? 'ปิดใช้งาน' : 'ใช้งาน'}
                     </span>
+                    {u.locked_until && new Date(u.locked_until).getTime() > Date.now() && (
+                      <span className="ml-1 px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700">ถูกล็อก</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 space-x-2 whitespace-nowrap">
                     {!manageable ? (
@@ -274,6 +297,11 @@ export default function UsersTable({
                         <button disabled={busy} onClick={() => resetPassword(u)} className="text-amber-600 text-xs">
                           รีเซ็ตรหัสผ่าน
                         </button>
+                        {iCanUnlock && u.locked_until && new Date(u.locked_until).getTime() > Date.now() && (
+                          <button disabled={busy} onClick={() => unlockAccount(u)} className="text-orange-600 text-xs font-medium">
+                            ปลดล็อกบัญชี
+                          </button>
+                        )}
                         {iCanDelete && u.username !== currentUsername && (
                           <button disabled={busy} onClick={() => removeUser(u)} className="text-red-600 text-xs">
                             ลบ

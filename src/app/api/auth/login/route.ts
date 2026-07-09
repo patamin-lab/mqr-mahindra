@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findUserByUsername, insertLoginLog, upgradePasswordHash } from '@/lib/db';
+import {
+  findUserByUsername,
+  insertLoginLog,
+  upgradePasswordHash,
+  checkLockStatus,
+  recordFailedLogin,
+  resetFailedLogins,
+  LOCKOUT_MINUTES,
+} from '@/lib/db';
 import { signSession, SESSION_COOKIE, SESSION_MINUTES } from '@/lib/auth';
 import { SessionUser } from '@/lib/types';
 import { createSession } from '@/lib/authServices/sessionService';
@@ -14,12 +22,31 @@ export async function POST(req: NextRequest) {
     const device = req.headers.get('user-agent') ?? '';
 
     const user = await findUserByUsername(username);
+
+    // Account Lock Protection (spec section 9) - checked before touching
+    // the password at all, so a locked account's attempts don't keep
+    // resetting the window or leaking timing info via the hash compare.
+    if (user) {
+      const lock = checkLockStatus(user);
+      if (lock.isLocked) {
+        await insertLoginLog({ username, role: user.role, action: 'เข้าสู่ระบบ', device, result: 'fail' });
+        return NextResponse.json(
+          { ok: false, error: `บัญชีถูกล็อกชั่วคราวเนื่องจากเข้าสู่ระบบผิดหลายครั้ง กรุณาลองใหม่ภายใน ${LOCKOUT_MINUTES} นาที หรือติดต่อผู้ดูแลระบบ` },
+          { status: 423 }
+        );
+      }
+    }
+
     const passwordOk = user ? await verifyPassword(password, user) : false;
 
     if (!user || !passwordOk || user.active === false) {
+      if (user) await recordFailedLogin(user.id, user.failed_login_attempts ?? 0);
       await insertLoginLog({ username, role: user?.role ?? '', action: 'เข้าสู่ระบบ', device, result: 'fail' });
       return NextResponse.json({ ok: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
     }
+
+    // A clean login always clears any stale failed-attempt counter.
+    await resetFailedLogins(user.id);
 
     // Opportunistic, silent upgrade of a legacy sha256 hash to salted
     // scrypt - never a forced bulk migration, just moves each account

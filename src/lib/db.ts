@@ -87,6 +87,61 @@ export async function upgradePasswordHash(id: string, passwordHash: string, pass
   if (error) console.error('password upgrade error', error);
 }
 
+// ---------- Account Lock Protection (Authentication Platform v3.0, spec section 9) ----------
+
+export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+export const LOCKOUT_MINUTES = 15;
+
+export interface LockStatus {
+  isLocked: boolean;
+  lockedUntil: string | null;
+}
+
+/** `locked_until` is only meaningful while it's still in the future - a
+ *  lock expires on its own the moment the window passes, no cron/manual
+ *  step required. */
+export function checkLockStatus(user: { locked_until: string | null }): LockStatus {
+  const isLocked = !!user.locked_until && new Date(user.locked_until).getTime() > Date.now();
+  return { isLocked, lockedUntil: isLocked ? user.locked_until : null };
+}
+
+/** Increments the failed-attempt counter and locks the account once it
+ *  reaches `MAX_FAILED_LOGIN_ATTEMPTS`. Returns the resulting lock state
+ *  so the caller can log ACCOUNT_LOCKED only on the transition, not every
+ *  subsequent failed attempt while already locked. */
+export async function recordFailedLogin(userId: string, currentAttempts: number): Promise<LockStatus> {
+  const supabase = getSupabase();
+  const attempts = currentAttempts + 1;
+  const willLock = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+  const lockedUntil = willLock ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString() : null;
+  const { error } = await supabase
+    .from('users')
+    .update({ failed_login_attempts: attempts, ...(willLock ? { locked_until: lockedUntil } : {}) })
+    .eq('id', userId);
+  if (error) throw error;
+  return { isLocked: willLock, lockedUntil };
+}
+
+/** Called on every successful login - a clean login always clears any
+ *  stale counter, even if the account was never actually locked. */
+export async function resetFailedLogins(userId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('users').update({ failed_login_attempts: 0, locked_until: null }).eq('id', userId);
+  if (error) throw error;
+}
+
+/** Admin-initiated manual unlock (spec section 9) - distinct from
+ *  `resetFailedLogins` only in who triggers it and that it's audited
+ *  under `ACCOUNT_UNLOCKED`, not folded into a login event. */
+export async function unlockUserAccount(userId: string, session: SessionUser): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('users')
+    .update({ failed_login_attempts: 0, locked_until: null, updated_by: session.username, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
 // ---------- Lookups ----------
 
 export async function listDealers(): Promise<Dealer[]> {
@@ -2222,7 +2277,7 @@ export async function updateTechnician(
 }
 
 const ADMIN_USER_COLUMNS =
-  'id, username, full_name, email, mobile, role, dealer_id, branch, active, created_at';
+  'id, username, full_name, email, mobile, role, dealer_id, branch, active, created_at, locked_until';
 
 export async function listAllUsersAdmin(dealerId: string | null): Promise<AdminUser[]> {
   const supabase = getSupabase();
