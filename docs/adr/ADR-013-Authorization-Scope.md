@@ -141,6 +141,26 @@ fired in production.
   infrastructure; removal is a separate decision, not part of an
   authorization fix.
 
+## TODO: documentation sync after PR #27 merges
+
+`docs/OPERATIONS.md` and the "Post-v2.3.1 Roadmap" section of
+`docs/ROADMAP.md` (Phase 1, PR #27) did not exist on `main` when this ADR
+was written — this ADR and `docs/architecture/PERMISSION_MATRIX.md`
+reference them as forward references, not yet-broken links. **Once PR #27
+merges**, update, in one small follow-up docs-only PR:
+
+- `docs/OPERATIONS.md` §8 (Security) — replace the "known, tracked gap"
+  description of the SuperAdmin dealer-scope bug with a reference to this
+  ADR and `PERMISSION_MATRIX.md`, marked resolved.
+- `docs/OPERATIONS.md` §10 (Technical Debt) — remove the now-fixed dealer
+  scope bug entry; keep the `MaintenanceRepository`/`NtrRepository`
+  optional-session and `MachineRepository` dead-code entries (still open).
+- `docs/ROADMAP.md`'s Phase 2 status line — change from "Next" to
+  "Complete."
+
+Do not duplicate content — link to this ADR and `PERMISSION_MATRIX.md`
+rather than restating their detail in `OPERATIONS.md`.
+
 ## Rollback
 
 Additive/renaming only — no schema, no data change. To roll back:
