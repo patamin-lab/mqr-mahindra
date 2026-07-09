@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { getRecordByJobId, updateRecord, softDeleteRecord } from '@/lib/db';
+import { getRecordByJobId, updateRecord, softDeleteRecord, getVehicleBySerial } from '@/lib/db';
+import { resolveDealerScope } from '@/lib/dealerBranchScope';
+import { calcWarranty } from '@/lib/warranty';
 import { MasterDataService } from '@/shared/master-data';
 import { canUpdateStatus, canDelete } from '@/lib/scope';
 import { PhotoLink, Severity } from '@/lib/types';
@@ -12,6 +14,7 @@ import { translate } from '@/lib/i18n/translate';
 const attachmentService = new AttachmentService();
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
+const THAI_MOBILE_RE = /^0[0-9]{9}$/;
 // Per spec section 8: the second notification email fires when a job is
 // closed out ("ปิดงาน" / ซ่อมสำเร็จ). Only fire once, on the transition into
 // this set — not on every subsequent edit while already closed.
@@ -54,6 +57,82 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
     const before = await getRecordByJobId(jobId, session);
     const wasAlreadyClosed = before ? CLOSING_STATUSES.has(before.status) : false;
 
+    // Edit Report (reuses the create form in edit mode - always sends
+    // `serial`, unlike the status-only Update Status form) - same
+    // validations as the create route (api/records/route.ts), applied
+    // here since this is the only other path that writes these fields.
+    let editFields: Record<string, unknown> = {};
+    if (body.serial !== undefined) {
+      const serial = String(body.serial ?? '').trim();
+      const foundDate = String(body.foundDate ?? '').trim();
+      const problemCode = String(body.problemCode ?? '').trim();
+      const customerName = String(body.customerName ?? '').trim();
+      const customerPhone = String(body.customerPhone ?? '').replace(/[^0-9]/g, '');
+      const reporterPhoneDigits = String(body.reporterPhone ?? '').replace(/[^0-9]/g, '');
+      const repairDate = String(body.repairDate ?? '').trim();
+
+      if (!serial || !foundDate || !problemCode) {
+        return NextResponse.json({ ok: false, error: translate(locale, 'validation.requiredVehicleFoundDateProblem') }, { status: 400 });
+      }
+      if (!customerName) {
+        return NextResponse.json({ ok: false, error: translate(locale, 'validation.enterCustomerName') }, { status: 400 });
+      }
+      if (customerPhone && !THAI_MOBILE_RE.test(customerPhone)) {
+        return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidCustomerPhone') }, { status: 400 });
+      }
+      if (reporterPhoneDigits && !THAI_MOBILE_RE.test(reporterPhoneDigits)) {
+        return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidReporterPhone') }, { status: 400 });
+      }
+      if (!repairDate) {
+        return NextResponse.json({ ok: false, error: translate(locale, 'validation.requiredRepairDate') }, { status: 400 });
+      }
+      if (repairDate < foundDate) {
+        return NextResponse.json({ ok: false, error: translate(locale, 'validation.repairDateBeforeFound') }, { status: 400 });
+      }
+      const hours = body.hours === '' || body.hours === undefined || body.hours === null ? null : Number(body.hours);
+      const hoursInForRepair =
+        body.hoursInForRepair === '' || body.hoursInForRepair === undefined || body.hoursInForRepair === null
+          ? null
+          : Number(body.hoursInForRepair);
+      if (hours !== null && hoursInForRepair !== null && hoursInForRepair < hours) {
+        return NextResponse.json({ ok: false, error: translate(locale, 'validation.repairHoursLessThanFound') }, { status: 400 });
+      }
+
+      // Same vehicle lookup pattern as the create route (api/records/route.ts) -
+      // used only to re-derive warranty status against the (possibly
+      // changed) vehicle/found date. Dealer is never reassigned via edit
+      // (see UpdateRecordInput's doc comment).
+      const vehicle = await getVehicleBySerial(serial, resolveDealerScope(session, null));
+      const problemSystem = body.problemSystem === 'powertrain' ? 'powertrain' : 'other';
+      const warranty = calcWarranty(vehicle?.delivery_date ?? null, foundDate, problemSystem);
+
+      editFields = {
+        serial,
+        model: String(body.model ?? vehicle?.model ?? ''),
+        hours,
+        foundDate,
+        problemCode,
+        problemSystem,
+        warrantyStatus: warranty.status,
+        customerName,
+        customerPhone,
+        reporterName: String(body.reporterName ?? ''),
+        reporterPhone: reporterPhoneDigits,
+        attachment: String(body.attachment ?? ''),
+        stockNote: body.stockNote ? String(body.stockNote) : null,
+        lat: body.lat === undefined || body.lat === null || body.lat === '' ? null : Number(body.lat),
+        lng: body.lng === undefined || body.lng === null || body.lng === '' ? null : Number(body.lng),
+        gpsAccuracy:
+          body.gpsAccuracy === undefined || body.gpsAccuracy === null || body.gpsAccuracy === '' ? null : Number(body.gpsAccuracy),
+        googleMapsUrl: body.googleMapsUrl ? String(body.googleMapsUrl) : null,
+        videoLink: body.videoLink ?? null,
+        videoAttachmentId: body.videoAttachmentId ?? null,
+        technicianId: body.technicianId ? String(body.technicianId) : null,
+        repairDate,
+        hoursInForRepair,
+      };
+    }
+
     const record = await updateRecord(
       jobId,
       {
@@ -67,6 +146,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
         preventiveAction: body.preventiveAction,
         addPhotoLinks,
         removePhotoUrls,
+        ...editFields,
       },
       session,
       locale

@@ -204,7 +204,6 @@
   "nav": {
     "dashboard": "Dashboard",
     "mqrRecords": "Market Quality Report",
-    "newReport": "New Quality Report",
     "pmRecords": "Preventive Maintenance",
     "newPm": "New PM Record",
     "ntrRecords": "New Tractor Registration",
@@ -545,6 +544,7 @@
     "noAttachments": "No attachments yet"
   },
   "recordDetail": {
+    "editReport": "Edit Report",
     "photosVideosTitle": "Photos / Video",
     "openVideoNewTab": "Open video in a new tab",
     "vehicleRepairHistory": "This vehicle's repair history ({count})",
