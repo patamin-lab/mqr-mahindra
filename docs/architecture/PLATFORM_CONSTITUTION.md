@@ -296,6 +296,69 @@ families). Binding rules:
    business rule as the default - importing the config module never
    throws before an optional override env var is configured.
 
+## Foundation Freeze
+
+**MASP Platform Foundation is complete.** As of `v1.2.1`
+(`c45c3ab584b0709e87cbdcd2fd98940aa3bfd0c0`, PR #18, plus its docs
+closeout `8d50363f9929b6e27039f0be0fcd335696e70ef8`, PR #19), the
+following platform layers are **frozen** - considered stable
+infrastructure every business module builds on top of, never
+reimplements:
+
+- Storage Platform
+- Authentication Platform
+- DealerBranchScope
+- Attachment Platform
+- Address Platform
+- MasterData Platform
+- Lookup Platform
+- Configuration Platform
+- Reference Data Platform
+
+Future modification to any of these nine is allowed **only** for:
+
+1. A confirmed defect.
+2. A security issue.
+3. A measurable performance improvement.
+4. A change carried by an approved ADR (per the Future extension rules
+   below - the same discipline that produced ADR-011's v1→v2 Address
+   Platform migration).
+
+Anything else - a redesign, a parallel implementation, a "nicer" API
+shape, a speculative new field - is out of scope until a real business
+requirement makes it in-scope, exactly as the Architecture Evolution
+Rule in `docs/architecture/MASP_ENTERPRISE_STANDARD.md` already states.
+Workflow Engine (and everything after it in `docs/ROADMAP.md`'s priority
+order) is a **consumer** of this frozen Foundation, not an occasion to
+revisit it.
+
+## Master Data Governance
+
+Province, District, and Subdistrict are **System Master Data** - the
+same category of "administered, not authored by any business module"
+data as `dealers`/`branches`/`technicians`/`product_families`, formalized
+here because the Address Platform migration (ADR-011 v2) made it
+concrete with real tables for the first time.
+
+1. **Business modules are read-only.** `MasterDataService` (via
+   `AddressRepository`) is the only path a business module has to this
+   data, and every method on that path is a read (`list*`/`find*`) -
+   there is no `create`/`update`/`delete` method, and none should be
+   added without the same ADR process any other platform-boundary change
+   requires.
+2. **No API may directly modify Address Master Data.** Verified: the
+   `provinces`/`districts`/`subdistricts` tables (and their `*_raw`
+   staging counterparts) have RLS `SELECT` policies only - no
+   `INSERT`/`UPDATE`/`DELETE` policy exists on any of the six tables,
+   and no route under `src/app/api/` writes to them.
+3. **Changes are allowed only through approved migrations or approved
+   administrative import procedures** - a corrected postal code, a
+   renamed subdistrict, or a re-import of updated Thai administrative
+   data all go through a reviewed Supabase migration (the same
+   `address_platform_canonical_tables`-style process ADR-011 used), never
+   an ad hoc `UPDATE` run against production, and never a change made
+   through application code.
+
 ## Future extension rules
 
 A future module or platform service must, before writing any code:
