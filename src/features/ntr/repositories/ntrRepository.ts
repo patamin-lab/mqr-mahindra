@@ -47,12 +47,6 @@ export interface NtrRepository {
    *  Tractor Registry list view and its Excel export - never returns the
    *  full table. */
   listHistory(filter: NtrHistoryFilter, session?: SessionUser): Promise<NtrHistoryResult>;
-  /** Distinct, non-blank `variant` ("Sub Model") values already recorded
-   *  for a given Product Family - powers the registration form's Sub
-   *  Model dropdown (NTR Form Update, 2026-07). No dedicated master-data
-   *  table exists for Sub Model; this reuses the data already captured on
-   *  `ntr_records` rather than introducing one. */
-  listDistinctVariants(productFamilyId: string): Promise<string[]>;
   /** Legacy Import's atomic per-row commit: Tractor + NTR + Timeline +
    *  Audit in one database transaction (the `commit_ntr_legacy_import_row`
    *  Postgres function - see docs/adr/ADR-008-Google-Drive-Decoupling.md).

@@ -35,6 +35,12 @@ export interface Vehicle {
   engine_number?: string | null;
   branch_id?: string | null;
   maintenance_program_version_id?: string | null;
+  /** Synced from the Tractor IN Google Sheet by the dedicated Tractor IN
+   *  sync service (`features/vehicle/services/tractorInSyncService.ts`) -
+   *  never derived ad hoc by a business module. Null until the sheet has
+   *  the corresponding columns and a sync has run for this vehicle. */
+  product_family_id?: string | null;
+  sub_model?: string | null;
 }
 
 export type Severity = 'Critical' | 'Major' | 'Minor';

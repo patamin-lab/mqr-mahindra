@@ -11,6 +11,13 @@ import Papa from 'papaparse';
  * code. Delivery date (for warranty calc) still comes from the Supabase
  * `vehicles` table when available - see the merge logic in
  * src/app/api/vehicles/[serial]/route.ts.
+ *
+ * `productFamily`/`subModel` (columns 8/9) are the Tractor IN sync's
+ * source of truth for `vehicles.product_family_id`/`vehicles.sub_model`
+ * (see `features/vehicle/services/tractorInSyncService.ts`) - added here
+ * as a manual prerequisite in the live sheet; until that column exists,
+ * this simply reads as an empty string (same graceful-absence handling
+ * every other column here already has).
  */
 
 const SHEET_ID = process.env.TRACTOR_SHEET_ID || '1v9AQRoBaOKCxp2W3IwG7H3895yCnjhLyJy3yh34zq84';
@@ -25,6 +32,10 @@ export interface TractorInRow {
   productModel: string;
   whArrivalDate: string;
   pdiStatus: string;
+  /** Must match an existing `product_families.code` or `.name` exactly -
+   *  the sync service never guesses/creates a Product Family. */
+  productFamily: string;
+  subModel: string;
 }
 
 let cache: { rows: TractorInRow[]; fetchedAt: number } | null = null;
@@ -43,7 +54,9 @@ async function fetchRows(): Promise<TractorInRow[]> {
   const parsed = Papa.parse<string[]>(text.trim(), { skipEmptyLines: true });
   const rows = (parsed.data as string[][]) ?? [];
   // Row 0 is the header: No. | Product Serial Number | Engine Serial Number |
-  // Product Code | Product Model | WH Arrival Date | PDI Status
+  // Product Code | Product Model | WH Arrival Date | PDI Status |
+  // Product Family | Sub Model (the last two are a manual prerequisite -
+  // see this file's module doc comment; read as '' until added).
   return rows
     .slice(1)
     .filter((r) => Array.isArray(r) && r[1])
@@ -55,6 +68,8 @@ async function fetchRows(): Promise<TractorInRow[]> {
       productModel: (r[4] ?? '').trim(),
       whArrivalDate: (r[5] ?? '').trim(),
       pdiStatus: (r[6] ?? '').trim(),
+      productFamily: (r[7] ?? '').trim(),
+      subModel: (r[8] ?? '').trim(),
     }));
 }
 

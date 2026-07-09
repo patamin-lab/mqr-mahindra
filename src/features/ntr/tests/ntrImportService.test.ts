@@ -143,7 +143,6 @@ function makeNtrRepository(overrides: Partial<NtrRepository> = {}): NtrRepositor
     update: vi.fn(),
     delete: vi.fn(),
     listHistory: vi.fn(),
-    listDistinctVariants: vi.fn().mockResolvedValue([]),
     commitLegacyImportRow: vi.fn().mockResolvedValue({ id: 'ntr-1' } as NtrRecord),
     ...overrides,
   };
