@@ -286,7 +286,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
 
       {/* Footer */}
       <p className="text-center text-xs text-gray-400">
-        {t('ntr.footerAppName')} — {t('ntr.footerGeneratedAt')}: {formatDateTimeLocalized(new Date(), locale)} — {t('ntr.footerGeneratedBy')}: {session.username} — {t('ntr.footerSystemVersion')}: MASP v1.1
+        {t('ntr.footerAppName')} — {t('ntr.footerGeneratedAt')}: {formatDateTimeLocalized(new Date(), locale)} — {t('ntr.footerGeneratedBy')}: {session.username} — {t('ntr.footerSystemVersion')}: MSEAL DMS v1.1
       </p>
     </div>
   );

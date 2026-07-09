@@ -27,7 +27,7 @@ export async function buildNtrImportResultWorkbook(
   warnings: ImportWarning[]
 ): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MASP - NTR Legacy Import';
+  wb.creator = 'MSEAL DMS - NTR Legacy Import';
   wb.created = new Date();
   const sheet = wb.addWorksheet('Import Result');
 

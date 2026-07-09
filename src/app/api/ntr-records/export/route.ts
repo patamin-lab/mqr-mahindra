@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const records = await fetchAllMatchingPages(service, filter, session);
-    const filename = `MASP_Tractor_Registry_${formatBangkokFilenameTimestamp()}.xlsx`;
+    const filename = `MSEAL_DMS_Tractor_Registry_${formatBangkokFilenameTimestamp()}.xlsx`;
     const buf = await buildTractorRegistryWorkbook(records, locale);
 
     await logAuditEvent({

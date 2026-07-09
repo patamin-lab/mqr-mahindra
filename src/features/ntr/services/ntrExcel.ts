@@ -44,7 +44,7 @@ function columns(locale: Locale): { header: string; key: string; width: number }
 
 export async function buildTractorRegistryWorkbook(records: NtrRecord[], locale: Locale = 'th'): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MASP - New Tractor Registration';
+  wb.creator = 'MSEAL DMS - New Tractor Registration';
   wb.created = new Date();
   const sheet = wb.addWorksheet(translate(locale, 'nav.ntrRecords'));
   const cols = columns(locale);

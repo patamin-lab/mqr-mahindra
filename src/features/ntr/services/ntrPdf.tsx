@@ -325,7 +325,7 @@ function NtrDocument({
             {' — '}
             {translate(locale, 'ntr.footerGeneratedBy')}: {generatedBy}
             {' — '}
-            {translate(locale, 'ntr.footerSystemVersion')}: MASP v1.1
+            {translate(locale, 'ntr.footerSystemVersion')}: MSEAL DMS v1.1
           </Text>
         </View>
 

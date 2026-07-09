@@ -59,7 +59,7 @@ export default function Sidebar({ session, open, onClose }: SidebarProps) {
         }`}
       >
         <div className="p-4 border-b border-white/10 flex items-center justify-between md:hidden">
-          <div className="font-bold text-white text-sm">MASP</div>
+          <div className="font-bold text-white text-sm">MSEAL DMS</div>
           <button
             onClick={onClose}
             aria-label={t('nav.closeMenu')}

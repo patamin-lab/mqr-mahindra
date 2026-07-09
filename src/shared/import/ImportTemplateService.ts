@@ -22,7 +22,7 @@ export interface BuildTemplateOptions {
 export async function buildImportTemplate(options: BuildTemplateOptions): Promise<Buffer> {
   const { contract } = options;
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MASP';
+  wb.creator = 'MSEAL DMS';
   wb.created = new Date();
 
   const instructionsSheet = wb.addWorksheet('Instructions');

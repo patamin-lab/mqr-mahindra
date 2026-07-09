@@ -64,7 +64,7 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
         </button>
 
         <div className="font-bold text-sm sm:text-base shrink-0 hidden sm:block">
-          MASP <span className="text-brand-red">•</span>
+          MSEAL DMS <span className="text-brand-red">•</span>
         </div>
 
         <nav aria-label="Breadcrumb" className="min-w-0 flex items-center gap-1.5 text-sm text-white/90 truncate">
