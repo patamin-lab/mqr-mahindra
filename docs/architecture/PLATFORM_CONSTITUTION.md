@@ -306,7 +306,11 @@ infrastructure every business module builds on top of, never
 reimplements:
 
 - Storage Platform
-- Authentication Platform
+- Authentication Platform (reopened once, deliberately, for the v3.0
+  Login/Password/Session/Invitation/Lockout build - see
+  `docs/adr/ADR-014-Authentication-Platform-v3.md` and
+  `docs/architecture/AUTHENTICATION_PLATFORM.md`; the same four-condition
+  bar below still applies to any change after that)
 - DealerBranchScope
 - Attachment Platform
 - Address Platform

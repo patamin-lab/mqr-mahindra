@@ -30,6 +30,8 @@ const dealerAdmin: SessionUser = {
   dealerId: 'D1',
   branch: null,
   branchId: null,
+  sessionId: 'test-session',
+  forcePasswordChange: false,
 };
 
 describe('listRecordsPaginated', () => {

@@ -11,8 +11,10 @@
  * `AppShell`, passed in as `onOpenMenu`.
  */
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
+import { CSRF_HEADER, CSRF_HEADER_VALUE } from '@/lib/fetchJson';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { APP_NAME } from '@/lib/branding';
 import LanguageSelector from '@/components/shared/i18n/LanguageSelector';
@@ -42,7 +44,7 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
   }, []);
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/api/auth/logout', { method: 'POST', headers: { [CSRF_HEADER]: CSRF_HEADER_VALUE } });
     router.push('/login');
     router.refresh();
   }
@@ -127,6 +129,14 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
                 {branchName ? ` · ${branchName}` : ''}
               </div>
             </div>
+            <Link
+              href="/profile/security"
+              role="menuitem"
+              onClick={() => setMenuOpen(false)}
+              className="block w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100"
+            >
+              {t('nav.security')}
+            </Link>
             <button
               type="button"
               role="menuitem"

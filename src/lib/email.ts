@@ -84,3 +84,100 @@ export async function sendRecordNotification(
     console.error('sendRecordNotification error', err);
   }
 }
+
+// ---------- Authentication Platform v3.0 email templates (spec section 12) ----------
+
+/** Shared layout every auth email (Reset, Invitation, Password Changed,
+ *  Account Locked) renders through - reuses the same brand-red inline-
+ *  style pattern `buildHtml()` above already established, rather than
+ *  introducing a template engine/React Email for just these four. */
+function buildEmailLayout(title: string, bodyHtml: string): string {
+  return `
+    <div style="font-family:sans-serif;font-size:14px;color:#1a1a1a">
+      <h2 style="color:#9c1c1c;margin-bottom:4px">${title}</h2>
+      ${bodyHtml}
+    </div>
+  `;
+}
+
+/** Never throws, never blocks the caller - same contract as
+ *  `sendRecordNotification` above. Every auth email function below wraps
+ *  this once instead of repeating the try/catch + no-op-when-unconfigured
+ *  boilerplate four times. */
+async function sendAuthEmail(to: string, subject: string, html: string): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn('RESEND_API_KEY not set — skipping auth email:', subject);
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to,
+      subject,
+      html,
+    });
+  } catch (err) {
+    console.error('sendAuthEmail error', err);
+  }
+}
+
+export async function sendPasswordResetEmail(to: string, resetUrl: string): Promise<void> {
+  await sendAuthEmail(
+    to,
+    '[MQR] คำขอตั้งรหัสผ่านใหม่',
+    buildEmailLayout(
+      'ตั้งรหัสผ่านใหม่',
+      `
+        <p>มีการร้องขอตั้งรหัสผ่านใหม่สำหรับบัญชี MQR ของคุณ</p>
+        <p><a href="${resetUrl}" style="color:#9c1c1c">คลิกที่นี่เพื่อตั้งรหัสผ่านใหม่ →</a></p>
+        <p style="color:#666;font-size:12px">ลิงก์นี้จะหมดอายุภายใน 30 นาทีและใช้ได้เพียงครั้งเดียว หากคุณไม่ได้ร้องขอ กรุณาเพิกเฉยต่ออีเมลนี้</p>
+      `
+    )
+  );
+}
+
+export async function sendInvitationEmail(to: string, fullName: string, inviteUrl: string): Promise<void> {
+  await sendAuthEmail(
+    to,
+    '[MQR] คุณได้รับเชิญให้เข้าใช้งานระบบ',
+    buildEmailLayout(
+      'คำเชิญเข้าใช้งานระบบ MQR',
+      `
+        <p>สวัสดีคุณ ${fullName}</p>
+        <p>ผู้ดูแลระบบได้สร้างบัญชีให้คุณในระบบ Market Quality Report</p>
+        <p><a href="${inviteUrl}" style="color:#9c1c1c">คลิกที่นี่เพื่อตั้งรหัสผ่านและเปิดใช้งานบัญชี →</a></p>
+        <p style="color:#666;font-size:12px">ลิงก์นี้จะหมดอายุภายใน 7 วันและใช้ได้เพียงครั้งเดียว</p>
+      `
+    )
+  );
+}
+
+export async function sendPasswordChangedEmail(to: string): Promise<void> {
+  await sendAuthEmail(
+    to,
+    '[MQR] รหัสผ่านของคุณถูกเปลี่ยน',
+    buildEmailLayout(
+      'รหัสผ่านถูกเปลี่ยนแล้ว',
+      `
+        <p>รหัสผ่านสำหรับบัญชี MQR ของคุณเพิ่งถูกเปลี่ยน</p>
+        <p style="color:#666;font-size:12px">หากคุณไม่ได้เป็นผู้ดำเนินการนี้ กรุณาติดต่อผู้ดูแลระบบทันที</p>
+      `
+    )
+  );
+}
+
+export async function sendAccountLockedEmail(to: string, lockoutMinutes: number): Promise<void> {
+  await sendAuthEmail(
+    to,
+    '[MQR] บัญชีของคุณถูกล็อกชั่วคราว',
+    buildEmailLayout(
+      'บัญชีถูกล็อกชั่วคราว',
+      `
+        <p>บัญชี MQR ของคุณถูกล็อกชั่วคราวเนื่องจากมีการเข้าสู่ระบบผิดพลาดหลายครั้งติดต่อกัน</p>
+        <p>คุณสามารถลองเข้าสู่ระบบใหม่ได้ภายใน ${lockoutMinutes} นาที หรือติดต่อผู้ดูแลระบบเพื่อปลดล็อกบัญชี</p>
+        <p style="color:#666;font-size:12px">หากคุณไม่ได้เป็นผู้พยายามเข้าสู่ระบบ กรุณาติดต่อผู้ดูแลระบบ</p>
+      `
+    )
+  );
+}

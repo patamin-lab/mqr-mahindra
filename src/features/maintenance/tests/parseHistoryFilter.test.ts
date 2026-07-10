@@ -3,7 +3,7 @@ import { parseMaintenanceHistoryFilterFromSearchParams } from '../utils/parseHis
 import type { SessionUser } from '@/lib/types';
 
 function session(overrides: Partial<SessionUser> = {}): SessionUser {
-  return { username: 'alice', fullName: 'Alice', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: null, ...overrides };
+  return { username: 'alice', fullName: 'Alice', role: 'DealerUser', dealerId: 'D1', branch: null, branchId: null, sessionId: 'test-session', forcePasswordChange: false, ...overrides };
 }
 
 describe('parseMaintenanceHistoryFilterFromSearchParams', () => {

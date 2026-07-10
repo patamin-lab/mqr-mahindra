@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { AdminUser, Dealer, Role } from '@/lib/types';
-import { assignableRoles, canDeleteUsers, canManageRoleTarget, roleLabelTh } from '@/lib/scope';
+import { assignableRoles, canDeleteUsers, canInviteUsers, canManageRoleTarget, canUnlockAccounts, roleLabelTh } from '@/lib/scope';
 import { swalConfirm, swalError, swalSuccess, swalPrompt, swalLoading, swalClose } from '@/lib/swal';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 
@@ -26,6 +26,8 @@ export default function UsersTable({
 
   const myAssignableRoles = assignableRoles(actorRole);
   const iCanDelete = canDeleteUsers(actorRole);
+  const iCanUnlock = canUnlockAccounts(actorRole);
+  const iCanInvite = canInviteUsers(actorRole);
 
   const [newUser, setNewUser] = useState({
     username: '',
@@ -36,6 +38,10 @@ export default function UsersTable({
     role: myAssignableRoles[myAssignableRoles.length - 1] ?? 'DealerUser',
     dealer_id: lockedDealerId ?? '',
     branch: '',
+    /** User Invitation (spec section 8) - admin never sees/sets a
+     *  password; the user sets their own via the emailed link. Requires
+     *  `email` instead. Mutually exclusive with the `password` field. */
+    invite: false,
   });
 
   async function showError(err: any) {
@@ -56,8 +62,9 @@ export default function UsersTable({
       });
       if (!json.ok) throw new Error(json.error);
       setUsers((prev) => [...prev, json.user].sort((a, b) => a.username.localeCompare(b.username)));
-      setNewUser({ ...newUser, username: '', full_name: '', password: '', email: '', mobile: '', branch: '' });
+      setNewUser({ ...newUser, username: '', full_name: '', password: '', email: '', mobile: '', branch: '', invite: false });
       swalClose();
+      if (newUser.invite) await swalSuccess('ส่งคำเชิญทางอีเมลเรียบร้อยแล้ว');
     } catch (err: any) {
       swalClose();
       await showError(err);
@@ -130,6 +137,25 @@ export default function UsersTable({
     }
   }
 
+  async function unlockAccount(u: AdminUser) {
+    const confirmed = await swalConfirm(`ปลดล็อกบัญชี ${u.username}?`, { title: 'ปลดล็อกบัญชี', confirmText: 'ปลดล็อก' });
+    if (!confirmed) return;
+    setBusy(true);
+    swalLoading('กำลังปลดล็อกบัญชี...');
+    try {
+      const json = await fetchJson<{ ok: boolean; error?: string }>(`/api/admin/users/${u.id}/unlock`, { method: 'POST' });
+      if (!json.ok) throw new Error(json.error);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, locked_until: null } : x)));
+      swalClose();
+      await swalSuccess('ปลดล็อกบัญชีสำเร็จ');
+    } catch (err: any) {
+      swalClose();
+      await showError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function removeUser(u: AdminUser) {
     const confirmed = await swalConfirm(`ยืนยันการลบผู้ใช้ ${u.username}? การลบนี้ไม่สามารถย้อนกลับได้`, {
       title: 'ลบผู้ใช้',
@@ -156,7 +182,11 @@ export default function UsersTable({
       <div className="card p-4 grid grid-cols-2 md:grid-cols-4 gap-2">
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อผู้ใช้ (username)" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value.trim() })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="ชื่อ-สกุล" value={newUser.full_name} onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })} />
-        <input className="border rounded px-2 py-1.5 text-sm" placeholder="รหัสผ่านเริ่มต้น" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+        {newUser.invite ? (
+          <div className="text-xs text-gray-400 flex items-center px-2 border rounded bg-gray-50">ผู้ใช้จะตั้งรหัสผ่านเอง</div>
+        ) : (
+          <input className="border rounded px-2 py-1.5 text-sm" placeholder="รหัสผ่านเริ่มต้น" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+        )}
         <select className="border rounded px-2 py-1.5 text-sm" value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value as Role })}>
           {myAssignableRoles.map((r) => (
             <option key={r} value={r}>
@@ -164,9 +194,19 @@ export default function UsersTable({
             </option>
           ))}
         </select>
-        <input className="border rounded px-2 py-1.5 text-sm" placeholder="อีเมล" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+        <input className="border rounded px-2 py-1.5 text-sm" placeholder={newUser.invite ? 'อีเมล (จำเป็น)' : 'อีเมล'} value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="เบอร์โทร" value={newUser.mobile} onChange={(e) => setNewUser({ ...newUser, mobile: e.target.value })} />
         <input className="border rounded px-2 py-1.5 text-sm" placeholder="สาขา (ถ้ามี)" value={newUser.branch} onChange={(e) => setNewUser({ ...newUser, branch: e.target.value })} />
+        {iCanInvite && (
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 px-2">
+            <input
+              type="checkbox"
+              checked={newUser.invite}
+              onChange={(e) => setNewUser({ ...newUser, invite: e.target.checked, password: '' })}
+            />
+            เชิญทางอีเมลแทนการตั้งรหัสผ่าน
+          </label>
+        )}
         {!lockedDealerId ? (
           <select className="border rounded px-2 py-1.5 text-sm" value={newUser.dealer_id} onChange={(e) => setNewUser({ ...newUser, dealer_id: e.target.value })}>
             <option value="">ไม่ระบุดีลเลอร์ (ส่วนกลาง)</option>
@@ -250,6 +290,9 @@ export default function UsersTable({
                     <span className={`px-2 py-0.5 rounded text-xs ${u.active === false ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
                       {u.active === false ? 'ปิดใช้งาน' : 'ใช้งาน'}
                     </span>
+                    {u.locked_until && new Date(u.locked_until).getTime() > Date.now() && (
+                      <span className="ml-1 px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700">ถูกล็อก</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 space-x-2 whitespace-nowrap">
                     {!manageable ? (
@@ -274,6 +317,11 @@ export default function UsersTable({
                         <button disabled={busy} onClick={() => resetPassword(u)} className="text-amber-600 text-xs">
                           รีเซ็ตรหัสผ่าน
                         </button>
+                        {iCanUnlock && u.locked_until && new Date(u.locked_until).getTime() > Date.now() && (
+                          <button disabled={busy} onClick={() => unlockAccount(u)} className="text-orange-600 text-xs font-medium">
+                            ปลดล็อกบัญชี
+                          </button>
+                        )}
                         {iCanDelete && u.username !== currentUsername && (
                           <button disabled={busy} onClick={() => removeUser(u)} className="text-red-600 text-xs">
                             ลบ

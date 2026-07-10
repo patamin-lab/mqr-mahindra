@@ -221,6 +221,7 @@
     "adminProductFamilyModels": "Model to Product Family Mapping",
     "adminMaintenancePrograms": "Maintenance Programs",
     "logout": "Log out",
+    "security": "Security",
     "masterData": "Master Data",
     "openMenu": "Open menu",
     "closeMenu": "Close menu"

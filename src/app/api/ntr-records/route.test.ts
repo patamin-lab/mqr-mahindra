@@ -34,6 +34,8 @@ function session(overrides: Record<string, unknown> = {}) {
     dealerId: 'D1',
     branch: null,
     branchId: null,
+    sessionId: 'test-session',
+    forcePasswordChange: false,
     ...overrides,
   };
 }

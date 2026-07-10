@@ -34,6 +34,8 @@ const dealerUserSession = {
   dealerId: 'D1',
   branch: null,
   branchId: null,
+  sessionId: 'test-session',
+  forcePasswordChange: false,
 };
 
 const superAdminSession = {
@@ -43,6 +45,8 @@ const superAdminSession = {
   dealerId: null,
   branch: null,
   branchId: null,
+  sessionId: 'test-session',
+  forcePasswordChange: false,
 };
 
 const activeEvent = {

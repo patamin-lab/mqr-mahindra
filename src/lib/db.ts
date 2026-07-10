@@ -46,6 +46,21 @@ export async function findUserByUsername(username: string) {
   return data;
 }
 
+/** Forgot Password accepts "Username or Email" (spec section 2) - tries
+ *  username first (the common case), falls back to email. Never throws
+ *  on "not found" (returns `null`) - the caller must always answer with
+ *  the same generic message either way, never revealing which happened. */
+export async function findUserByUsernameOrEmail(identifier: string) {
+  const supabase = getSupabase();
+  const trimmed = identifier.trim();
+  const byUsername = await supabase.from('users').select('*').ilike('username', escapeIlike(trimmed)).maybeSingle();
+  if (byUsername.error) throw byUsername.error;
+  if (byUsername.data) return byUsername.data;
+  const byEmail = await supabase.from('users').select('*').ilike('email', escapeIlike(trimmed)).maybeSingle();
+  if (byEmail.error) throw byEmail.error;
+  return byEmail.data;
+}
+
 export async function insertLoginLog(entry: {
   username: string;
   role: string;
@@ -85,6 +100,69 @@ export async function upgradePasswordHash(id: string, passwordHash: string, pass
     .update({ password_hash: passwordHash, password_salt: passwordSalt, password_algo: 'scrypt' })
     .eq('id', id);
   if (error) console.error('password upgrade error', error);
+}
+
+// ---------- Account Lock Protection (Authentication Platform v3.0, spec section 9) ----------
+
+export const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+export const LOCKOUT_MINUTES = 15;
+
+export interface LockStatus {
+  isLocked: boolean;
+  lockedUntil: string | null;
+}
+
+/** `locked_until` is only meaningful while it's still in the future - a
+ *  lock expires on its own the moment the window passes, no cron/manual
+ *  step required. */
+export function checkLockStatus(user: { locked_until: string | null }): LockStatus {
+  const isLocked = !!user.locked_until && new Date(user.locked_until).getTime() > Date.now();
+  return { isLocked, lockedUntil: isLocked ? user.locked_until : null };
+}
+
+/** Increments the failed-attempt counter and locks the account once it
+ *  reaches `MAX_FAILED_LOGIN_ATTEMPTS`. Returns the resulting lock state
+ *  so the caller can log ACCOUNT_LOCKED only on the transition, not every
+ *  subsequent failed attempt while already locked. */
+export async function recordFailedLogin(userId: string, currentAttempts: number): Promise<LockStatus> {
+  const supabase = getSupabase();
+  const attempts = currentAttempts + 1;
+  const willLock = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+  const lockedUntil = willLock ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000).toISOString() : null;
+  const { error } = await supabase
+    .from('users')
+    .update({ failed_login_attempts: attempts, ...(willLock ? { locked_until: lockedUntil } : {}) })
+    .eq('id', userId);
+  if (error) throw error;
+  return { isLocked: willLock, lockedUntil };
+}
+
+/** Called on every successful login - a clean login always clears any
+ *  stale counter, even if the account was never actually locked. */
+export async function resetFailedLogins(userId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('users').update({ failed_login_attempts: 0, locked_until: null }).eq('id', userId);
+  if (error) throw error;
+}
+
+/** Admin-initiated manual unlock (spec section 9) - distinct from
+ *  `resetFailedLogins` only in who triggers it and that it's audited
+ *  under `ACCOUNT_UNLOCKED`, not folded into a login event. */
+export async function unlockUserAccount(userId: string, session: SessionUser): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('users')
+    .update({ failed_login_attempts: 0, locked_until: null, updated_by: session.username, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+/** User Invitation (spec section 8) - "Account activated" is this one
+ *  flip, the moment the user's own accept-invitation submission succeeds. */
+export async function activateUserAccount(userId: string): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase.from('users').update({ active: true }).eq('id', userId);
+  if (error) throw error;
 }
 
 // ---------- Lookups ----------
@@ -2222,7 +2300,7 @@ export async function updateTechnician(
 }
 
 const ADMIN_USER_COLUMNS =
-  'id, username, full_name, email, mobile, role, dealer_id, branch, active, created_at';
+  'id, username, full_name, email, mobile, role, dealer_id, branch, active, created_at, locked_until';
 
 export async function listAllUsersAdmin(dealerId: string | null): Promise<AdminUser[]> {
   const supabase = getSupabase();
@@ -2250,6 +2328,16 @@ export async function createUserAdmin(
     role: Role;
     dealerId: string | null;
     branch: string | null;
+    /** User Invitation (spec section 8): the account stays inactive - and
+     *  its `passwordHash` an unusable placeholder - until the invite is
+     *  accepted. Defaults to `true` (existing admin-sets-temp-password
+     *  behavior, unchanged). */
+    active?: boolean;
+    /** First Login Password Change (spec section 7) - set when the admin
+     *  hands the user a temporary password directly. Never set together
+     *  with `active: false` (the invitation path forces its own change
+     *  via account activation, not this flag). */
+    forcePasswordChange?: boolean;
   },
   session: SessionUser
 ): Promise<AdminUser> {
@@ -2265,7 +2353,8 @@ export async function createUserAdmin(
       role: input.role,
       dealer_id: input.dealerId,
       branch: input.branch,
-      active: true,
+      active: input.active ?? true,
+      force_password_change: input.forcePasswordChange ?? false,
       created_by: session.username,
       updated_by: session.username,
     })
@@ -2318,6 +2407,24 @@ export async function resetUserPassword(
     .from('users')
     .update({
       password_hash: passwordHash,
+      // Authentication Platform v3.0: this route writes a plain sha256
+      // hash (matching the existing temp-password convention), so
+      // password_algo/salt must be reset in the same write - otherwise a
+      // user already upgraded to scrypt (which happens on every
+      // successful login, see passwordService.ts) would stay flagged
+      // password_algo='scrypt' with a stale salt while password_hash is
+      // now a sha256 digest, and verifyPassword()'s scrypt branch would
+      // compare against a byte-length mismatch and never succeed -
+      // permanently locking the account out of this specific new
+      // password. Resetting to 'sha256'/null here restores the same
+      // opportunistic upgrade-on-next-login path every other admin-set
+      // temporary password already goes through.
+      password_algo: 'sha256',
+      password_salt: null,
+      // "Force password reset" (spec section 13's RBAC list) - an
+      // admin-driven reset always forces a change on the account's next
+      // login, same as a brand-new temp password at creation time.
+      force_password_change: true,
       updated_by: session.username,
       updated_at: new Date().toISOString(),
     })

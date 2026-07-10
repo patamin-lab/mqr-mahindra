@@ -3,9 +3,17 @@ import { NextRequest } from 'next/server';
 
 const mockFindUserByUsername = vi.fn();
 const mockInsertLoginLog = vi.fn();
+const mockUpgradePasswordHash = vi.fn().mockResolvedValue(undefined);
+const mockRecordFailedLogin = vi.fn().mockResolvedValue({ isLocked: false, lockedUntil: null });
+const mockResetFailedLogins = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/db', () => ({
   findUserByUsername: mockFindUserByUsername,
   insertLoginLog: mockInsertLoginLog,
+  upgradePasswordHash: mockUpgradePasswordHash,
+  checkLockStatus: () => ({ isLocked: false, lockedUntil: null }),
+  recordFailedLogin: mockRecordFailedLogin,
+  resetFailedLogins: mockResetFailedLogins,
+  LOCKOUT_MINUTES: 15,
 }));
 
 const mockSignSession = vi.fn().mockResolvedValue('signed-token');
@@ -14,6 +22,29 @@ vi.mock('@/lib/auth', () => ({
   signSession: mockSignSession,
   SESSION_COOKIE: 'mqr_session',
   SESSION_MINUTES: 180,
+}));
+
+const mockCreateSession = vi.fn().mockResolvedValue({ sessionId: 'test-session', expiresAt: new Date().toISOString() });
+vi.mock('@/lib/authServices/sessionService', () => ({
+  createSession: mockCreateSession,
+  clientIpFrom: () => '127.0.0.1',
+}));
+
+vi.mock('@/lib/authServices/auditService', () => ({
+  logAuthEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+// lib/email.ts pulls in exportPdf.tsx (react-pdf JSX) at module scope,
+// which the Vitest/Vite transform for this .ts test can't parse - mocked
+// out entirely rather than letting it load for real, same as every other
+// sibling module this route imports.
+vi.mock('@/lib/email', () => ({
+  sendAccountLockedEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
+const mockIsRateLimited = vi.fn().mockResolvedValue(false);
+vi.mock('@/lib/authServices/rateLimitService', () => ({
+  isRateLimited: mockIsRateLimited,
 }));
 
 const { POST } = await import('./route');
@@ -30,6 +61,12 @@ describe('POST /api/auth/login — branchId population', () => {
     mockFindUserByUsername.mockReset();
     mockInsertLoginLog.mockReset();
     mockSignSession.mockClear();
+    mockCreateSession.mockClear();
+    mockUpgradePasswordHash.mockClear();
+    mockRecordFailedLogin.mockClear();
+    mockResetFailedLogins.mockClear();
+    mockIsRateLimited.mockClear();
+    mockIsRateLimited.mockResolvedValue(false);
   });
 
   it('populates sessionUser.branchId from the user row\'s branch_id', async () => {
@@ -69,5 +106,14 @@ describe('POST /api/auth/login — branchId population', () => {
 
     expect(json.ok).toBe(true);
     expect(json.user.branchId).toBeNull();
+  });
+
+  it('returns 429 and never even looks up the user when the requesting IP is rate-limited', async () => {
+    mockIsRateLimited.mockResolvedValue(true);
+
+    const res = await POST(loginRequest('anyone', 'whatever'));
+
+    expect(res.status).toBe(429);
+    expect(mockFindUserByUsername).not.toHaveBeenCalled();
   });
 });

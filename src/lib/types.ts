@@ -16,6 +16,17 @@ export interface SessionUser {
    *  for branch-scoped access to work — `null` means "no accessible
    *  branch yet," never "unrestricted"). */
   branchId: string | null;
+  /** Opaque `user_sessions.session_id` this JWT was issued for — the
+   *  Authentication Platform v3.0 session-revocation mechanism
+   *  (`lib/authServices/sessionService.ts`). Every session-issuing path
+   *  (login, invitation-accept, password reset) must set this. */
+  sessionId: string;
+  /** True until the user completes a required password change (first
+   *  login with an admin-set temporary password, or an admin-forced
+   *  reset) — `middleware.ts` blocks every route except `/change-password`
+   *  while this is true. Re-signed to `false` the moment the change
+   *  succeeds (see `passwordService.ts`). */
+  forcePasswordChange: boolean;
 }
 
 export interface Dealer {
@@ -166,6 +177,9 @@ export interface AdminUser {
   branch: string | null;
   active: boolean;
   created_at: string;
+  /** Set while Account Lock Protection has this account locked (spec
+   *  section 9) - `null`/a past timestamp both mean "not locked." */
+  locked_until: string | null;
 }
 
 export type PhotoCategory =
