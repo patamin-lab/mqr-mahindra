@@ -244,8 +244,15 @@ is the documented fallback, not a redesign.
 | Rate limiting (per-IP) | `rateLimitService.ts` - counts `auth_audit_log` rows by IP within a window (DB-backed, not in-memory, since Vercel serverless functions don't share memory across invocations). Login: 30 attempts/15m; Forgot Password: 5 requests/hour - catches distributed attempts across many usernames from one IP, which per-account lockout can't see. |
 | Session revocation | Real, DB-backed, checked on every request via `middleware.ts` - not merely "wait for the JWT to expire." |
 | CSRF | Custom-header check on every mutating `/api/*` request (Legacy Import explicitly, narrowly exempted - see ADR-014). |
-| RBAC | Invite/unlock/force-reset/force-logout-all gated by dedicated `scope.ts` predicates, checked server-side in every route - never UI-only. |
+| RBAC | Invite (`/api/admin/users` invite mode) and unlock (`/api/admin/users/[id]/unlock`) are gated by dedicated `scope.ts` predicates (`canInviteUsers`/`canUnlockAccounts`), checked server-side - never UI-only. `canForceResetPassword`/`canForceLogoutAllSessions` were added per spec section 13's RBAC list but are **not yet wired to any route** in this PR - see Remaining technical debt below. |
 | Email enumeration via invite/reset | Both flows require the actor to already know a valid identifier or have admin access; neither leaks account existence beyond the deliberately-generic Forgot Password response. |
+
+## Backward compatibility
+
+- **Password verification**: `verifyPassword()` branches on `password_algo` - every existing `users` row (`password_algo` defaults to `'sha256'`) verifies exactly as it did before this PR; nothing is force-migrated. A row upgrades to `scrypt` only opportunistically, on its own next successful login.
+- **No breaking schema change**: every new column is nullable or defaulted (`force_password_change boolean default false`, `failed_login_attempts int default 0`, etc.) and every new table is additive - no existing table/column is altered or dropped (11's Database Evolution Strategy discipline, applied here first).
+- **Admin-set temporary passwords** (`/api/admin/users/[id]/reset-password`, pre-existing route) write a plain sha256 hash, matching the existing convention - and now explicitly reset `password_algo`/`password_salt` back to that legacy shape in the same write, so an account already opportunistically upgraded to `scrypt` is not left in an inconsistent, unrecoverable state after an admin resets its password (fixed during this PR's final production-readiness review - see `resetUserPassword()` in `lib/db.ts`).
+- **One-time side effect on deploy**: every JWT issued before this PR ships has no `sessionId` claim. `middleware.ts` treats that as an invalid session, so **every currently logged-in user is signed out once, the first time they load any page after this deploys**, and must log in again (which immediately issues a session-backed JWT). This is expected, unavoidable given the session model change, and should be communicated to users/support ahead of the production deploy - it is not a bug.
 
 ## Remaining technical debt
 
@@ -263,3 +270,11 @@ is the documented fallback, not a redesign.
 5. The invited-but-not-yet-accepted state shows in the admin Users table
    as a plain "inactive" badge, identical to a manually-disabled account -
    a future enhancement could distinguish "pending invitation" visually.
+6. `canForceResetPassword`/`canForceLogoutAllSessions` (`scope.ts`) are
+   defined per spec section 13's RBAC list but have no route wired to
+   them yet - the existing `/api/admin/users/[id]/reset-password` route
+   uses `canManageUsers` (unchanged from before this PR), and there is no
+   admin "force logout all of this user's sessions" route at all yet
+   (only self-service `/api/auth/sessions/revoke-all` for one's own
+   sessions). Extension point, not a gap in what shipped - see
+   `AUTHENTICATION_PLATFORM.md`'s Extension points section above.

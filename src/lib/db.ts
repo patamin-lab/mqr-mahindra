@@ -2407,6 +2407,20 @@ export async function resetUserPassword(
     .from('users')
     .update({
       password_hash: passwordHash,
+      // Authentication Platform v3.0: this route writes a plain sha256
+      // hash (matching the existing temp-password convention), so
+      // password_algo/salt must be reset in the same write - otherwise a
+      // user already upgraded to scrypt (which happens on every
+      // successful login, see passwordService.ts) would stay flagged
+      // password_algo='scrypt' with a stale salt while password_hash is
+      // now a sha256 digest, and verifyPassword()'s scrypt branch would
+      // compare against a byte-length mismatch and never succeed -
+      // permanently locking the account out of this specific new
+      // password. Resetting to 'sha256'/null here restores the same
+      // opportunistic upgrade-on-next-login path every other admin-set
+      // temporary password already goes through.
+      password_algo: 'sha256',
+      password_salt: null,
       // "Force password reset" (spec section 13's RBAC list) - an
       // admin-driven reset always forces a change on the account's next
       // login, same as a brand-new temp password at creation time.
