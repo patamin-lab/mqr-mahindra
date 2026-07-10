@@ -2311,6 +2311,31 @@ export async function listAllUsersAdmin(dealerId: string | null): Promise<AdminU
   return (data ?? []) as AdminUser[];
 }
 
+/** User Email Completeness (Authentication Platform v3.0.1, Issue 5) -
+ *  the most recent EMAIL_SEND_SUCCESS/EMAIL_SEND_FAILURE outcome per
+ *  user, derived from `auth_audit_log` (`email.ts`'s `recordEmailOutcome`).
+ *  Ordered newest-first so the first row seen per `user_id` is always
+ *  the latest - no window function needed at this data volume (01
+ *  Principle 9 in the Architecture Blueprint). */
+export async function getLatestEmailOutcomesForUsers(userIds: string[]): Promise<Map<string, boolean>> {
+  const result = new Map<string, boolean>();
+  if (userIds.length === 0) return result;
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('auth_audit_log')
+    .select('user_id, event_type, created_at')
+    .in('user_id', userIds)
+    .in('event_type', ['EMAIL_SEND_SUCCESS', 'EMAIL_SEND_FAILURE'])
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  for (const row of (data ?? []) as { user_id: string; event_type: string }[]) {
+    if (!result.has(row.user_id)) {
+      result.set(row.user_id, row.event_type === 'EMAIL_SEND_SUCCESS');
+    }
+  }
+  return result;
+}
+
 export async function getUserById(id: string): Promise<AdminUser | null> {
   const supabase = getSupabase();
   const { data, error } = await supabase.from('users').select(ADMIN_USER_COLUMNS).eq('id', id).maybeSingle();

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, sha256Hex } from '@/lib/auth';
-import { listAllUsersAdmin, createUserAdmin, findUserByUsername } from '@/lib/db';
+import { listAllUsersAdmin, createUserAdmin, findUserByUsername, getLatestEmailOutcomesForUsers } from '@/lib/db';
 import { canInviteUsers, canManageUsers, assignableRoles } from '@/lib/scope';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { Role } from '@/lib/types';
 import { generateInvitationToken, unusablePlaceholderPasswordHash } from '@/lib/authServices/invitationService';
 import { sendInvitationEmail } from '@/lib/email';
 import { logAuthEvent } from '@/lib/authServices/auditService';
+import { ensureCompletion } from '@/lib/authServices/reliability';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
@@ -17,7 +18,19 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const { dealerId } = resolveDealerScope(session, searchParams.get('dealerId'));
   const users = await listAllUsersAdmin(dealerId);
-  return NextResponse.json({ ok: true, users, assignableRoles: assignableRoles(session.role) });
+
+  // User Email Completeness (Authentication Platform v3.0.1, Issue 5) -
+  // computed, read-only fields; batched into one extra query rather than
+  // one per user.
+  const emailOutcomes = await getLatestEmailOutcomesForUsers(users.map((u) => u.id));
+  const usersWithEmailStatus = users.map((u) => ({
+    ...u,
+    emailMissing: !u.email,
+    forgotPasswordAvailable: !!u.email && u.active !== false,
+    emailVerified: emailOutcomes.has(u.id) ? (emailOutcomes.get(u.id) as boolean) : null,
+  }));
+
+  return NextResponse.json({ ok: true, users: usersWithEmailStatus, assignableRoles: assignableRoles(session.role) });
 }
 
 export async function POST(req: NextRequest) {
@@ -85,8 +98,16 @@ export async function POST(req: NextRequest) {
       const token = await generateInvitationToken(user.id, session.username);
       const baseUrl = new URL(req.url).origin;
       const inviteUrl = `${baseUrl}/accept-invitation?token=${encodeURIComponent(token)}`;
-      sendInvitationEmail(email!, fullName, inviteUrl).catch(() => {});
-      logAuthEvent('USER_INVITED', { username: user.username, userId: user.id, metadata: { invitedBy: session.username } }).catch(() => {});
+      // v3.0.1: awaited, not fire-and-forget - guarantees the send and its
+      // audit record both complete before the response is returned.
+      await ensureCompletion(sendInvitationEmail(email!, fullName, inviteUrl, user.id), {
+        task: 'sendInvitationEmail',
+        userId: user.id,
+      });
+      await ensureCompletion(
+        logAuthEvent('USER_INVITED', { username: user.username, userId: user.id, metadata: { invitedBy: session.username } }),
+        { task: 'logAuthEvent:USER_INVITED', userId: user.id }
+      );
     }
 
     return NextResponse.json({ ok: true, user });

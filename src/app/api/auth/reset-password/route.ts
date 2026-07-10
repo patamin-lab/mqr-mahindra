@@ -11,6 +11,7 @@ import {
 import { revokeAllSessions } from '@/lib/authServices/sessionService';
 import { sendPasswordChangedEmail } from '@/lib/email';
 import { logAuthEvent } from '@/lib/authServices/auditService';
+import { ensureCompletion } from '@/lib/authServices/reliability';
 
 const TOKEN_ERROR_MESSAGES: Record<NonNullable<Awaited<ReturnType<typeof validateResetToken>>['reason']>, string> = {
   not_found: 'ลิงก์ไม่ถูกต้อง กรุณาขอลิงก์ใหม่',
@@ -55,11 +56,25 @@ export async function POST(req: NextRequest) {
 
     // A password reset is a strong enough signal to treat every existing
     // session as compromised-by-default, unlike a voluntary change (which
-    // only offers an opt-in "logout other devices" checkbox).
-    await revokeAllSessions(validation.userId, 'password_reset').catch(() => {});
+    // only offers an opt-in "logout other devices" checkbox). v3.0.1:
+    // awaited, not fire-and-forget - guarantees completion before the
+    // response is returned (see forgot-password/route.ts's doc comment
+    // for the production incident that motivated this).
+    await ensureCompletion(revokeAllSessions(validation.userId, 'password_reset'), {
+      task: 'revokeAllSessions',
+      userId: validation.userId,
+    });
 
-    if (user.email) sendPasswordChangedEmail(user.email).catch(() => {});
-    logAuthEvent('PASSWORD_RESET_SUCCESS', { username: user.username, userId: user.id }).catch(() => {});
+    if (user.email) {
+      await ensureCompletion(sendPasswordChangedEmail(user.email, user.id), {
+        task: 'sendPasswordChangedEmail',
+        userId: user.id,
+      });
+    }
+    await ensureCompletion(logAuthEvent('PASSWORD_RESET_SUCCESS', { username: user.username, userId: user.id }), {
+      task: 'logAuthEvent:PASSWORD_RESET_SUCCESS',
+      userId: user.id,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

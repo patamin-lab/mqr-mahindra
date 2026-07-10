@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getSupabase } from '../supabase';
 import { parseUserAgent } from './userAgentParser';
 import { logAuthEvent } from './auditService';
+import { ensureCompletion } from './reliability';
 
 /**
  * Session Platform Foundation (Authentication Platform v3.0). Before this,
@@ -73,7 +74,10 @@ export async function createSession(
     expires_at: expiresAt,
   });
   if (error) throw error;
-  logAuthEvent('SESSION_CREATED', { userId, ipAddress, userAgent, metadata: { sessionId } }).catch(() => {});
+  await ensureCompletion(logAuthEvent('SESSION_CREATED', { userId, ipAddress, userAgent, metadata: { sessionId } }), {
+    task: 'logAuthEvent:SESSION_CREATED',
+    userId,
+  });
   return { sessionId, expiresAt };
 }
 
@@ -96,7 +100,12 @@ export async function revokeSession(sessionId: string, reason: string): Promise<
     .select('user_id')
     .maybeSingle();
   if (error) throw error;
-  if (data) logAuthEvent('SESSION_REVOKED', { userId: data.user_id, metadata: { sessionId, reason } }).catch(() => {});
+  if (data) {
+    await ensureCompletion(logAuthEvent('SESSION_REVOKED', { userId: data.user_id, metadata: { sessionId, reason } }), {
+      task: 'logAuthEvent:SESSION_REVOKED',
+      userId: data.user_id,
+    });
+  }
 }
 
 /** Used by "Logout all other devices" (a checkbox on Change Password) and
@@ -110,7 +119,10 @@ export async function revokeAllOtherSessions(userId: string, exceptSessionId: st
     .neq('session_id', exceptSessionId)
     .is('revoked_at', null);
   if (error) throw error;
-  logAuthEvent('SESSION_REVOKED_ALL', { userId, metadata: { reason, exceptSessionId } }).catch(() => {});
+  await ensureCompletion(logAuthEvent('SESSION_REVOKED_ALL', { userId, metadata: { reason, exceptSessionId } }), {
+    task: 'logAuthEvent:SESSION_REVOKED_ALL',
+    userId,
+  });
 }
 
 /** Used by the admin's "force logout all sessions" action. */
@@ -122,7 +134,10 @@ export async function revokeAllSessions(userId: string, reason: string): Promise
     .eq('user_id', userId)
     .is('revoked_at', null);
   if (error) throw error;
-  logAuthEvent('SESSION_REVOKED_ALL', { userId, metadata: { reason } }).catch(() => {});
+  await ensureCompletion(logAuthEvent('SESSION_REVOKED_ALL', { userId, metadata: { reason } }), {
+    task: 'logAuthEvent:SESSION_REVOKED_ALL',
+    userId,
+  });
 }
 
 export async function listSessionsForUser(userId: string): Promise<SessionRecord[]> {

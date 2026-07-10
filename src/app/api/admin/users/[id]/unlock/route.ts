@@ -4,6 +4,7 @@ import { getUserById, unlockUserAccount } from '@/lib/db';
 import { canUnlockAccounts, canManageRoleTarget } from '@/lib/scope';
 import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { logAuthEvent } from '@/lib/authServices/auditService';
+import { ensureCompletion } from '@/lib/authServices/reliability';
 
 /** Admin-initiated manual unlock (spec section 9) - mirrors the existing
  *  reset-password admin route's permission checks exactly. */
@@ -23,11 +24,14 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์ปลดล็อกผู้ใช้นี้' }, { status: 403 });
     }
     await unlockUserAccount(params.id, session);
-    logAuthEvent('ACCOUNT_UNLOCKED', {
-      username: target.username,
-      userId: target.id,
-      metadata: { unlockedBy: session.username },
-    }).catch(() => {});
+    await ensureCompletion(
+      logAuthEvent('ACCOUNT_UNLOCKED', {
+        username: target.username,
+        userId: target.id,
+        metadata: { unlockedBy: session.username },
+      }),
+      { task: 'logAuthEvent:ACCOUNT_UNLOCKED', userId: target.id }
+    );
     return NextResponse.json({ ok: true });
   } catch (err: any) {
     console.error('unlock account error', err);

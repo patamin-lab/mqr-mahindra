@@ -3,6 +3,7 @@ import { activateUserAccount, getUserById } from '@/lib/db';
 import { consumeInvitationToken, validateInvitationToken } from '@/lib/authServices/invitationService';
 import { applyNewPassword, hashPassword, validateComplexity } from '@/lib/authServices/passwordService';
 import { logAuthEvent } from '@/lib/authServices/auditService';
+import { ensureCompletion } from '@/lib/authServices/reliability';
 
 const TOKEN_ERROR_MESSAGES: Record<NonNullable<Awaited<ReturnType<typeof validateInvitationToken>>['reason']>, string> = {
   not_found: 'ลิงก์คำเชิญไม่ถูกต้อง กรุณาติดต่อผู้ดูแลระบบ',
@@ -40,7 +41,10 @@ export async function POST(req: NextRequest) {
     await activateUserAccount(validation.userId);
     await consumeInvitationToken(token);
 
-    logAuthEvent('INVITATION_ACCEPTED', { username: user.username, userId: user.id }).catch(() => {});
+    await ensureCompletion(logAuthEvent('INVITATION_ACCEPTED', { username: user.username, userId: user.id }), {
+      task: 'logAuthEvent:INVITATION_ACCEPTED',
+      userId: user.id,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

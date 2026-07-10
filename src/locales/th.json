@@ -215,6 +215,7 @@
     "adminBranches": "สาขา",
     "adminTechnicians": "ช่างบริการ",
     "adminUsers": "ผู้ใช้งาน",
+    "adminEmailHealth": "สถานะระบบอีเมล",
     "adminProblemCodes": "รหัสปัญหา",
     "adminPmIntervals": "รอบงานเช็คระยะ",
     "adminProductFamilies": "กลุ่มผลิตภัณฑ์",
