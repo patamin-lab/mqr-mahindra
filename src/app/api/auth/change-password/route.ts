@@ -12,6 +12,7 @@ import {
 } from '@/lib/authServices/passwordService';
 import { revokeAllOtherSessions, clientIpFrom } from '@/lib/authServices/sessionService';
 import { logAuthEvent } from '@/lib/authServices/auditService';
+import { ensureCompletion } from '@/lib/authServices/reliability';
 import { SessionUser } from '@/lib/types';
 
 /** Self-service Change Password (spec section 4) and the same route the
@@ -59,12 +60,15 @@ export async function POST(req: NextRequest) {
   const { hash, salt } = await hashPassword(newPassword);
   await applyNewPassword(user.id, hash, salt, { clearForcePasswordChange: true });
   await recordPasswordHistory(user.id, hash, salt);
-  logAuthEvent(wasForced ? 'FORCE_PASSWORD_CHANGE_COMPLETED' : 'PASSWORD_CHANGED', {
-    username: user.username,
-    userId: user.id,
-    ipAddress: clientIpFrom(req),
-    userAgent: req.headers.get('user-agent'),
-  }).catch(() => {});
+  await ensureCompletion(
+    logAuthEvent(wasForced ? 'FORCE_PASSWORD_CHANGE_COMPLETED' : 'PASSWORD_CHANGED', {
+      username: user.username,
+      userId: user.id,
+      ipAddress: clientIpFrom(req),
+      userAgent: req.headers.get('user-agent'),
+    }),
+    { task: 'logAuthEvent:PASSWORD_CHANGED', userId: user.id }
+  );
 
   if (logoutOtherDevices) {
     await revokeAllOtherSessions(user.id, session.sessionId, 'password_changed');

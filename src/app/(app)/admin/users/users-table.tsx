@@ -234,6 +234,7 @@ export default function UsersTable({
               <th className="px-3 py-2">ดีลเลอร์</th>
               <th className="px-3 py-2">สาขา</th>
               <th className="px-3 py-2">ติดต่อ</th>
+              <th className="px-3 py-2">อีเมล</th>
               <th className="px-3 py-2">สถานะ</th>
               <th className="px-3 py-2">จัดการ</th>
             </tr>
@@ -285,6 +286,40 @@ export default function UsersTable({
                         <div>{u.mobile ?? '-'}</div>
                       </>
                     )}
+                  </td>
+                  <td className="px-3 py-2 text-xs space-y-1 whitespace-nowrap">
+                    {(() => {
+                      // POST/PATCH responses don't recompute these fields
+                      // (only GET's initial server render does) - derive
+                      // the same values from `email`/`active` directly so
+                      // a just-created/edited row never shows a stale or
+                      // incorrect badge before the next full page load.
+                      const emailMissing = u.emailMissing ?? !u.email;
+                      const forgotPasswordAvailable = u.forgotPasswordAvailable ?? (!!u.email && u.active !== false);
+                      const emailVerified = u.emailVerified ?? null;
+                      return (
+                        <>
+                          {emailMissing ? (
+                            <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-500 block w-fit">ไม่มีอีเมล</span>
+                          ) : (
+                            <span
+                              className={`px-2 py-0.5 rounded block w-fit ${
+                                emailVerified === true
+                                  ? 'bg-green-100 text-green-700'
+                                  : emailVerified === false
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {emailVerified === true ? 'ยืนยันแล้ว' : emailVerified === false ? 'ส่งล้มเหลวล่าสุด' : 'ยังไม่เคยส่ง'}
+                            </span>
+                          )}
+                          <span className={`px-2 py-0.5 rounded block w-fit ${forgotPasswordAvailable ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
+                            {forgotPasswordAvailable ? 'ลืมรหัสผ่านได้' : 'ลืมรหัสผ่านไม่ได้'}
+                          </span>
+                        </>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     <span className={`px-2 py-0.5 rounded text-xs ${u.active === false ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>

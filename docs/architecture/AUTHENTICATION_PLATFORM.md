@@ -4,6 +4,71 @@ The reopened, v3.0 evolution of the frozen Authentication Platform layer
 (`docs/architecture/PLATFORM_CONSTITUTION.md`'s Foundation Freeze list).
 Rationale for reopening it: `docs/adr/ADR-014-Authentication-Platform-v3.md`.
 
+## v3.0.1 — production reliability patch
+
+**Production bug, not a redesign.** A live incident traced Forgot
+Password not delivering email back to a real root cause: `sendEmail()`
+and `logAuthEvent()` calls after the last `await` in several routes were
+fire-and-forget (`.catch(() => {})`, never `await`ed). Vercel can freeze
+a serverless function's execution the instant its HTTP response is sent
+— neither call was guaranteed to run to completion before that happened.
+Direct evidence: a `PASSWORD_RESET_REQUEST` audit row that never got
+written despite the `auth_tokens` insert immediately before it (in the
+same code path) succeeding. Separately, the Resend SDK *resolves* (never
+throws) on provider-level errors — the old code never checked the
+resolved `error` field, so a provider rejection was indistinguishable
+from success.
+
+Six issues fixed, all reliability-only — **no change to any route's
+response shape, status codes, or the anti-enumeration security model**:
+
+1. **Fire-and-forget execution** — every background call in the
+   Authentication Platform (email sends, audit log writes, session
+   revocations) is now `await`ed through `authServices/reliability.ts`'s
+   `ensureCompletion()`, which never throws and never changes what the
+   caller returns, so completion is guaranteed without changing behavior.
+2. **Email provider result** — `email.ts`'s `sendAuthEmail()` now inspects
+   the Resend SDK's resolved `{ data, error }` response explicitly, wraps
+   the call in a 10s timeout (`withTimeout()`, since awaiting it per
+   Issue 1 means a hung provider could otherwise block the response
+   forever), and returns a structured `EmailSendResult` instead of `void`.
+3. **Email Health service** — `authServices/emailHealthService.ts`,
+   `GET /api/admin/email-health`. Exposes provider, sender, configuration,
+   a sandbox-sender heuristic ("Verification"), last send, last failure,
+   and an overall status, derived from env vars + `auth_audit_log`.
+4. **Admin Test Email** — `POST /api/admin/email-health/test` +
+   `/admin/email-health` page's "Send Test Email" button. Exercises the
+   exact same `sendAuthEmail` path as every real auth email.
+5. **User Email Completeness** — `GET /api/admin/users` and the admin
+   Users table now surface, per user: Email Missing, Email Verified
+   (derived from the latest `EMAIL_SEND_SUCCESS`/`EMAIL_SEND_FAILURE` for
+   that user — not a confirmation-link flow, which doesn't exist here),
+   and Forgot Password Available (the exact `eligible` check the route
+   itself uses).
+6. **Audit reliability** — `PASSWORD_RESET_REQUEST` is now logged for
+   *every* request that reaches the route (including an empty identifier
+   and the outer-catch error branch, both previously silent gaps), always
+   awaited.
+
+New, additive `AuthAuditEventType` values: `EMAIL_SEND_SUCCESS`,
+`EMAIL_SEND_FAILURE`. New scope predicate: `canManageEmailHealth`
+(`SuperAdmin`/`CentralAdmin` only — email configuration has no
+dealer-scoping to speak of, unlike the per-user admin actions).
+
+**Migration required and applied**: `auth_audit_log.event_type` has a
+Postgres CHECK constraint enumerating every valid value — additive
+`AuthAuditEventType` values in TypeScript do not, by themselves, update
+it. Caught live during this patch's own verification (every
+`EMAIL_SEND_SUCCESS`/`EMAIL_SEND_FAILURE` write failed with
+`violates check constraint "auth_audit_log_event_type_check"`, itself
+swallowed by `logAuthEvent`'s own never-throws contract — an ironic
+near-miss for a patch about not silently losing audit records). Fixed by
+migration `add_email_send_audit_event_types` (additive: drops and
+re-adds the constraint with the same 13 existing values plus the 2 new
+ones — no existing row is affected). Anyone adding a new
+`AuthAuditEventType` in the future must remember this same step, or the
+new event type will silently fail to insert exactly the same way.
+
 ## Architecture summary
 
 ```
@@ -42,7 +107,8 @@ interface AuthAuditEvent {
     | 'LOGIN_SUCCESS' | 'LOGIN_FAILED' | 'ACCOUNT_LOCKED' | 'ACCOUNT_UNLOCKED'
     | 'PASSWORD_RESET_REQUEST' | 'PASSWORD_RESET_SUCCESS' | 'PASSWORD_CHANGED'
     | 'SESSION_CREATED' | 'SESSION_REVOKED' | 'SESSION_REVOKED_ALL'
-    | 'USER_INVITED' | 'INVITATION_ACCEPTED' | 'FORCE_PASSWORD_CHANGE_COMPLETED';
+    | 'USER_INVITED' | 'INVITATION_ACCEPTED' | 'FORCE_PASSWORD_CHANGE_COMPLETED'
+    | 'EMAIL_SEND_SUCCESS' | 'EMAIL_SEND_FAILURE'; // v3.0.1, additive
   username: string | null;
   user_id: string | null;
   ip_address: string | null;
@@ -164,7 +230,8 @@ sequenceDiagram
 
     B->>F: POST identifier (username or email)
     F->>D: find user, generateResetToken (if found+active+has email)
-    F->>E: sendPasswordResetEmail (fire-and-forget)
+    F->>E: await sendPasswordResetEmail (v3.0.1 - awaited, not fire-and-forget)
+    F->>D: await logAuthEvent(PASSWORD_RESET_REQUEST) (always, every branch)
     F-->>B: 200 generic message (always, regardless of outcome)
 
     B->>Rs: POST token, newPassword, confirmPassword
@@ -246,6 +313,7 @@ is the documented fallback, not a redesign.
 | CSRF | Custom-header check on every mutating `/api/*` request (Legacy Import explicitly, narrowly exempted - see ADR-014). |
 | RBAC | Invite (`/api/admin/users` invite mode) and unlock (`/api/admin/users/[id]/unlock`) are gated by dedicated `scope.ts` predicates (`canInviteUsers`/`canUnlockAccounts`), checked server-side - never UI-only. `canForceResetPassword`/`canForceLogoutAllSessions` were added per spec section 13's RBAC list but are **not yet wired to any route** in this PR - see Remaining technical debt below. |
 | Email enumeration via invite/reset | Both flows require the actor to already know a valid identifier or have admin access; neither leaks account existence beyond the deliberately-generic Forgot Password response. |
+| Email delivery reliability (v3.0.1) | Every auth email send and its audit record are now `await`ed before the response returns (`ensureCompletion()`), with a 10s provider timeout and explicit inspection of the provider's resolved error response - closes the exact gap the production incident found (see "v3.0.1" above). |
 
 ## Backward compatibility
 
@@ -278,3 +346,26 @@ is the documented fallback, not a redesign.
    (only self-service `/api/auth/sessions/revoke-all` for one's own
    sessions). Extension point, not a gap in what shipped - see
    `AUTHENTICATION_PLATFORM.md`'s Extension points section above.
+7. **(v3.0.1)** `touchLastActivity()` in `lib/auth.ts`'s `getSession()`
+   remains intentionally fire-and-forget, not awaited - it runs on every
+   authenticated request in the entire app (not just Authentication
+   Platform routes), so awaiting it would add a DB round-trip to every
+   page load for a value (a "last seen" timestamp) that carries no
+   security or audit weight. A stale/lost update here is cosmetic; a lost
+   password-reset email or audit record is not. Scoped out of this patch
+   deliberately, not missed.
+8. **(v3.0.1)** "Email Verified" (Issue 5) is derived from this
+   platform's own send history, not a confirmation-link verification
+   flow - which does not exist in this system and was not added by this
+   patch (would be a new feature, not a reliability fix). A user who has
+   never triggered an auth email shows `Unknown`, not `false`.
+9. **(v3.0.1)** Email Health's "Verification" field is a heuristic (is a
+   custom `RESEND_FROM_EMAIL` configured, i.e. not the Resend sandbox
+   sender) rather than a live call to Resend's domain-verification API -
+   deliberately, to avoid a second external API dependency/failure mode
+   in a reliability patch whose whole point is reducing failure modes.
+10. **(v3.0.1)** The pre-existing MQR record-notification email path
+    (`sendRecordNotification`, `lib/email.ts`) was already `await`ed at
+    both call sites (`api/records/route.ts`, `api/records/[jobId]/
+    route.ts`) - not affected by, and out of scope for, this
+    Authentication-only patch.

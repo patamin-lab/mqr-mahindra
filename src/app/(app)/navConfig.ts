@@ -9,7 +9,7 @@
  * future modules and are intentionally not added here.
  */
 import { SessionUser } from '@/lib/types';
-import { canManageMasterData, canManageLegacyImport, seesAllDealers } from '@/lib/scope';
+import { canManageMasterData, canManageLegacyImport, canManageEmailHealth, seesAllDealers } from '@/lib/scope';
 import type { TranslationVars } from '@/lib/i18n/types';
 
 export interface NavItem {
@@ -42,6 +42,7 @@ export function getAdminNav(t: Translate, session: SessionUser): NavItem[] {
     ...(showDealers ? [{ href: '/admin/product-family-models', label: t('nav.adminProductFamilyModels') }] : []),
     ...(showDealers ? [{ href: '/admin/maintenance-programs', label: t('nav.adminMaintenancePrograms') }] : []),
     { href: '/admin/users', icon: '👥', label: t('nav.adminUsers') },
+    ...(canManageEmailHealth(session.role) ? [{ href: '/admin/email-health', label: t('nav.adminEmailHealth') }] : []),
   ];
 }
 

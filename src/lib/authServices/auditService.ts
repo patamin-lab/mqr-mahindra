@@ -21,7 +21,14 @@ export type AuthAuditEventType =
   | 'SESSION_REVOKED_ALL'
   | 'USER_INVITED'
   | 'INVITATION_ACCEPTED'
-  | 'FORCE_PASSWORD_CHANGE_COMPLETED';
+  | 'FORCE_PASSWORD_CHANGE_COMPLETED'
+  // Authentication Platform v3.0.1 (reliability patch) - additive, per
+  // 01 Principle 2 in the Architecture Blueprint: records whether an
+  // outbound auth email actually reached the provider successfully.
+  // Backs the Email Health service and the admin Users table's "Email
+  // Verified" column (`emailHealthService.ts`).
+  | 'EMAIL_SEND_SUCCESS'
+  | 'EMAIL_SEND_FAILURE';
 
 export interface AuthAuditContext {
   username?: string | null;

@@ -180,6 +180,23 @@ export interface AdminUser {
   /** Set while Account Lock Protection has this account locked (spec
    *  section 9) - `null`/a past timestamp both mean "not locked." */
   locked_until: string | null;
+  /** User Email Completeness (Authentication Platform v3.0.1, Issue 5) -
+   *  computed read-only fields, added by `GET /api/admin/users`, never
+   *  written by any PATCH/POST. Absent from any other endpoint that
+   *  returns `AdminUser` (e.g. create/update responses), so always guard
+   *  with `?.`/a default when reading them. */
+  emailMissing?: boolean;
+  /** Same eligibility check `/api/auth/forgot-password` itself uses -
+   *  surfaced here read-only so an admin can tell, per user, whether
+   *  Forgot Password could ever succeed for them, without guessing. */
+  forgotPasswordAvailable?: boolean;
+  /** `true` if the most recent auth email actually sent to this user's
+   *  address succeeded, `false` if it failed, `null` if none has ever
+   *  been attempted. Derived from `auth_audit_log`'s
+   *  EMAIL_SEND_SUCCESS/EMAIL_SEND_FAILURE events (`email.ts`) - not a
+   *  confirmation-link "verified email" flow, which does not exist in
+   *  this system. */
+  emailVerified?: boolean | null;
 }
 
 export type PhotoCategory =

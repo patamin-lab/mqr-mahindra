@@ -43,6 +43,14 @@ export const canUnlockAccounts = (role: Role) => role !== 'DealerUser';
 export const canForceResetPassword = (role: Role) => role !== 'DealerUser';
 export const canForceLogoutAllSessions = (role: Role) => role !== 'DealerUser';
 
+/** Authentication Platform v3.0.1 (Issue 3/4) - viewing Email Health and
+ *  sending a test email. Unlike the per-user admin actions above, there
+ *  is exactly one email provider configuration for the whole platform
+ *  (no dealer scoping is possible), so this is restricted to the roles
+ *  that already see cross-dealer/system-wide state (`seesAllDealers`),
+ *  not every non-DealerUser role. */
+export const canManageEmailHealth = (role: Role) => seesAllDealers(role);
+
 export const roleLabelTh: Record<Role, string> = {
   SuperAdmin: 'ผู้ดูแลระบบสูงสุด',
   CentralAdmin: 'ผู้ดูแลส่วนกลาง',
