@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
+import { APP_NAME } from '@/lib/branding';
 import { getPrimaryNav, getAdminNav, showMasterDataNav, showLegacyImportNav } from './navConfig';
 
 export interface SidebarProps {
@@ -59,7 +60,7 @@ export default function Sidebar({ session, open, onClose }: SidebarProps) {
         }`}
       >
         <div className="p-4 border-b border-white/10 flex items-center justify-between md:hidden">
-          <div className="font-bold text-white text-sm">MASP</div>
+          <div className="font-bold text-white text-sm">{APP_NAME}</div>
           <button
             onClick={onClose}
             aria-label={t('nav.closeMenu')}

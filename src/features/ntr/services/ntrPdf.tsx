@@ -26,6 +26,7 @@ import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 import { NtrRecord, NtrAttachmentType } from '../types';
 import type { VehicleEvent as PlatformVehicleEvent, VehicleSummary } from '@/features/vehicle/types';
+import { APP_NAME, APP_VERSION } from '@/lib/branding';
 
 const styles = StyleSheet.create({
   ...sharedPdfStyles,
@@ -321,11 +322,11 @@ function NtrDocument({
         {/* Footer */}
         <View style={{ marginTop: 10 }}>
           <Text style={styles.auditText}>
-            {translate(locale, 'ntr.footerAppName')} — {translate(locale, 'ntr.footerGeneratedAt')}: {formatDateTimeLocalized(new Date(), locale)}
+            {APP_NAME} — {translate(locale, 'ntr.footerGeneratedAt')}: {formatDateTimeLocalized(new Date(), locale)}
             {' — '}
             {translate(locale, 'ntr.footerGeneratedBy')}: {generatedBy}
             {' — '}
-            {translate(locale, 'ntr.footerSystemVersion')}: MASP v1.1
+            {translate(locale, 'ntr.footerSystemVersion')}: {APP_NAME} {APP_VERSION}
           </Text>
         </View>
 

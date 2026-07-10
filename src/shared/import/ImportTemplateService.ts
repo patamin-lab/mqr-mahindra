@@ -10,6 +10,7 @@
  */
 import ExcelJS from 'exceljs';
 import { ImportContract } from './ImportContract';
+import { APP_NAME } from '@/lib/branding';
 
 export interface BuildTemplateOptions {
   contract: ImportContract;
@@ -22,7 +23,7 @@ export interface BuildTemplateOptions {
 export async function buildImportTemplate(options: BuildTemplateOptions): Promise<Buffer> {
   const { contract } = options;
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MASP';
+  wb.creator = APP_NAME;
   wb.created = new Date();
 
   const instructionsSheet = wb.addWorksheet('Instructions');

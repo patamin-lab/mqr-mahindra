@@ -101,7 +101,7 @@ export function formatDateTimeLocalized(value: string | number | Date, locale: '
 }
 
 /** `YYYYMMDD_HHMM` in Thailand local time - for filenames (e.g.
- *  `MASP_Tractor_Registry_20260703_1430.xlsx`), never the server's own
+ *  `MSEAL_DMS_Tractor_Registry_20260703_1430.xlsx`), never the server's own
  *  (UTC) clock, same GMT+7 rule as every other displayed/exported
  *  timestamp in this app. */
 export function formatBangkokFilenameTimestamp(value: string | number | Date = new Date()): string {

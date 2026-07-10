@@ -13,6 +13,7 @@
 import ExcelJS from 'exceljs';
 import { NTR_IMPORT_FIELDS } from './ntrImportFields';
 import { NtrImportRow, NtrImportRowResult } from '../types';
+import { APP_NAME } from '@/lib/branding';
 import { ImportWarning } from '@/shared/import';
 
 function cellValue(row: NtrImportRow, canonicalKey: string): string | number {
@@ -27,7 +28,7 @@ export async function buildNtrImportResultWorkbook(
   warnings: ImportWarning[]
 ): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MASP - NTR Legacy Import';
+  wb.creator = `${APP_NAME} - NTR Legacy Import`;
   wb.created = new Date();
   const sheet = wb.addWorksheet('Import Result');
 

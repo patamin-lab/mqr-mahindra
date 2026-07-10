@@ -3,9 +3,10 @@ import './globals.css';
 import GoogleTranslateBridge from '@/components/shared/i18n/GoogleTranslateBridge';
 import { LocaleProvider } from '@/lib/i18n/LocaleProvider';
 import { getServerLocale } from '@/lib/i18n/server';
+import { APP_NAME } from '@/lib/branding';
 
 export const metadata: Metadata = {
-  title: 'Market Quality Report',
+  title: APP_NAME,
   description: 'ระบบรายงานปัญหาคุณภาพสำหรับรถในระยะรับประกัน',
 };
 

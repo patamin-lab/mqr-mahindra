@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
+import { APP_NAME } from '@/lib/branding';
 import LanguageSelector from '@/components/shared/i18n/LanguageSelector';
 import NotificationBell from '@/components/shared/layout/NotificationBell';
 import { getPrimaryNav, getAdminNav, findActiveNavItem } from '@/app/(app)/navConfig';
@@ -64,7 +65,7 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
         </button>
 
         <div className="font-bold text-sm sm:text-base shrink-0 hidden sm:block">
-          MASP <span className="text-brand-red">•</span>
+          {APP_NAME} <span className="text-brand-red">•</span>
         </div>
 
         <nav aria-label="Breadcrumb" className="min-w-0 flex items-center gap-1.5 text-sm text-white/90 truncate">

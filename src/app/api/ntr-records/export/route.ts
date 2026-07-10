@@ -10,6 +10,11 @@ import type { NtrRecord } from '@/features/ntr/types';
 import type { SessionUser } from '@/lib/types';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { APP_NAME } from '@/lib/branding';
+
+/** Filesystem-safe form of `APP_NAME` for the downloaded filename prefix
+ *  (spaces aren't valid/conventional in a filename segment). */
+const APP_NAME_FILE_SAFE = APP_NAME.replace(/\s+/g, '_');
 
 export const runtime = 'nodejs';
 
@@ -58,7 +63,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const records = await fetchAllMatchingPages(service, filter, session);
-    const filename = `MASP_Tractor_Registry_${formatBangkokFilenameTimestamp()}.xlsx`;
+    const filename = `${APP_NAME_FILE_SAFE}_Tractor_Registry_${formatBangkokFilenameTimestamp()}.xlsx`;
     const buf = await buildTractorRegistryWorkbook(records, locale);
 
     await logAuditEvent({
