@@ -13,6 +13,7 @@ import ExcelJS from 'exceljs';
 import { NtrRecord } from '../types';
 import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
 import { calcWarranty } from '@/lib/warranty';
+import { APP_NAME } from '@/lib/branding';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 
@@ -44,7 +45,7 @@ function columns(locale: Locale): { header: string; key: string; width: number }
 
 export async function buildTractorRegistryWorkbook(records: NtrRecord[], locale: Locale = 'th'): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MSEAL DMS - New Tractor Registration';
+  wb.creator = `${APP_NAME} - New Tractor Registration`;
   wb.created = new Date();
   const sheet = wb.addWorksheet(translate(locale, 'nav.ntrRecords'));
   const cols = columns(locale);

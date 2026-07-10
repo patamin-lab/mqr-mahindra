@@ -10,6 +10,7 @@ import { createNtrService } from '@/features/ntr/factory';
 import NtrDeleteButton from './delete-button';
 import NtrPrintButton from './print-button';
 import { t, getServerLocale } from '@/lib/i18n/server';
+import { APP_NAME, APP_VERSION } from '@/lib/branding';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import StatusPill from '@/components/shared/status/StatusPill';
@@ -286,7 +287,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
 
       {/* Footer */}
       <p className="text-center text-xs text-gray-400">
-        {t('ntr.footerAppName')} — {t('ntr.footerGeneratedAt')}: {formatDateTimeLocalized(new Date(), locale)} — {t('ntr.footerGeneratedBy')}: {session.username} — {t('ntr.footerSystemVersion')}: MSEAL DMS v1.1
+        {APP_NAME} — {t('ntr.footerGeneratedAt')}: {formatDateTimeLocalized(new Date(), locale)} — {t('ntr.footerGeneratedBy')}: {session.username} — {t('ntr.footerSystemVersion')}: {APP_NAME} {APP_VERSION}
       </p>
     </div>
   );

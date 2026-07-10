@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { MqrRecord } from './types';
 import { formatThaiDateTime } from './thaiDate';
+import { APP_NAME } from './branding';
 
 const LIST_COLUMNS: { header: string; key: string; width: number }[] = [
   { header: 'เลขที่งาน', key: 'job_id', width: 22 },
@@ -29,7 +30,7 @@ function problemSystemLabel(s: string | null) {
 
 export async function buildRecordsWorkbook(records: MqrRecord[]): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MSEAL DMS';
+  wb.creator = APP_NAME;
   wb.created = new Date();
   const sheet = wb.addWorksheet('รายงาน MQR');
   sheet.columns = LIST_COLUMNS;
@@ -69,7 +70,7 @@ export async function buildSingleRecordWorkbook(
   dealerName?: string
 ): Promise<ExcelJS.Buffer> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'MSEAL DMS';
+  wb.creator = APP_NAME;
   wb.created = new Date();
   const sheet = wb.addWorksheet(record.job_id.slice(0, 31));
   sheet.columns = [{ width: 24 }, { width: 60 }];
