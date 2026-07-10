@@ -1,4 +1,4 @@
-# Release Notes — Authentication Platform v3.0 & Architecture Blueprint v1.1
+# Release Notes — Authentication Platform v3.0(.1) & Architecture Blueprint v1.1
 
 No git tag created for this increment (not requested). This document
 records what shipped since `v2.4.0-foundation`
@@ -51,6 +51,28 @@ fits into ongoing planning.
   `docs/ROADMAP.md`'s Architecture Status section and the Blueprint's own
   `20-ARCHITECTURE-GOVERNANCE.md`.
 
+- **Authentication Platform v3.0.1 (reliability patch)** — PR #35, merge
+  commit `bad8734`. Production bug fix, not a redesign: Forgot Password's
+  silent email-delivery failure was traced to (1) fire-and-forget
+  `sendEmail()`/`logAuthEvent()` calls after the last `await` in several
+  auth routes - unsafe on Vercel serverless, which can freeze execution
+  the instant a response is sent - and (2) the Resend SDK resolving
+  (never throwing) on provider-level errors, so `await` alone never
+  meant the email was actually accepted. Fixed: every such call across
+  `login`/`forgot-password`/`reset-password`/`change-password`/
+  `accept-invitation`/`admin/users`/`sessionService` is now guaranteed to
+  complete (`authServices/reliability.ts`'s `ensureCompletion()`) before
+  the response returns; `email.ts` now inspects the provider's resolved
+  error, times out after 10s, and returns a structured `EmailSendResult`.
+  Also added: Email Health (`/admin/email-health`, SuperAdmin/
+  CentralAdmin only), Admin Test Email, and per-user Email Missing/
+  Verified/Forgot-Password-Available indicators in the admin Users
+  table. New, additive `auth_audit_log` event types
+  (`EMAIL_SEND_SUCCESS`/`EMAIL_SEND_FAILURE`) required a migration
+  (`add_email_send_audit_event_types`) to extend the table's CHECK
+  constraint - itself caught live during this patch's own verification.
+  `docs/architecture/AUTHENTICATION_PLATFORM.md`'s "v3.0.1" section.
+
 ## Known Issues
 
 Carried forward unchanged from `v2.4.0-foundation` (production alias
@@ -69,11 +91,23 @@ Additionally:
 - Knowledge Score (Blueprint 07) and Knowledge Maturity (Blueprint 07)
   are concepts only - no computation/promotion criteria defined, by this
   PR's explicit scope.
+- `touchLastActivity()` (v3.0.1) remains intentionally fire-and-forget -
+  runs on every authenticated request app-wide, carries no security/audit
+  weight, deliberately scoped out of the reliability patch.
+- "Email Verified" (v3.0.1) reflects this platform's own send history,
+  not a confirmation-link verification flow, which doesn't exist here.
+- Email Health's "Verification" (v3.0.1) is a sandbox-sender heuristic,
+  not a live call to Resend's domain-verification API.
 
 ## Verification
 
-Both PRs: lint clean (pre-existing warnings only), typecheck clean,
-full test suite passing (583/583 after Authentication Platform v3.0),
-production build succeeds, architecture check 5/5 PASS, production
-deployment verified via GitHub commit status (Vercel: success) for both
-merge commits.
+All three PRs: lint clean (pre-existing warnings only), typecheck clean,
+full test suite passing (601/601 after v3.0.1 - 18 new tests), production
+build succeeds, architecture check 5/5 PASS, production deployment
+verified via GitHub commit status (Vercel: success) for all three merge
+commits. v3.0.1 additionally live-verified end-to-end against the real
+dev environment (disposable `qa_test_temp` account): reset password with
+successful login on the new password, full audit trail, real/invalid/
+expired/reused token handling, per-IP rate limiting, and Email Health/
+Admin Test Email correctly surfacing a real "not configured" failure
+instead of silent success.
