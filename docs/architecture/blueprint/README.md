@@ -1,5 +1,7 @@
 # MSEAL DMS — Architecture Blueprint
 
+**Version: v1.1 (refinement pass — see Revision History below).**
+
 **Status: Design only. Nothing in this directory has been implemented.**
 No code was written, no table was migrated, no API was changed, and no
 existing module was renamed to produce this blueprint — see each
@@ -50,13 +52,46 @@ discard it and start over.
 | 05 | [Service & Quality Domains](05-SERVICE-AND-QUALITY-DOMAINS.md) | Registration/Maintenance/Warranty/Parts, Quality (MQR/PIP/ORC) |
 | 06 | [Event Model & Flow](06-EVENT-MODEL-AND-FLOW.md) | Event Model, Event Flow Diagram |
 | 07 | [Knowledge Domain & Graph](07-KNOWLEDGE-DOMAIN-AND-GRAPH.md) | Knowledge Model, Knowledge Graph, Knowledge Lifecycle, Knowledge Flow Diagram |
-| 08 | [Intelligence / AI Architecture](08-INTELLIGENCE-AI-ARCHITECTURE.md) | AI Service Architecture, AI Governance, Evidence-First AI, AI Decision Support Flow |
+| 08 | [Engineering Intelligence / AI Architecture](08-ENGINEERING-INTELLIGENCE-ARCHITECTURE.md) | AI Service Architecture, AI Governance, Evidence-First AI, AI Confidence Policy, AI Decision Support Flow |
 | 09 | [Analytics Architecture](09-ANALYTICS-ARCHITECTURE.md) | Analytics Architecture |
-| 10 | [Machine Profile](10-MACHINE-PROFILE.md) | Future Machine Profile aggregation |
+| 10 | [Machine Digital Passport & Machine Profile](10-MACHINE-PROFILE.md) | Machine Digital Passport (business object), Machine Profile (UI), Passport vs. Timeline |
 | 11 | [Database & API Evolution Strategy](11-DATABASE-AND-API-EVOLUTION-STRATEGY.md) | Database Evolution Strategy, API Evolution Strategy |
 | 12 | [Future Integrations Readiness](12-FUTURE-INTEGRATIONS-READINESS.md) | IoT/Telematics/Portals/ERP/BI readiness, without redesign |
 | 13 | [Roadmap & Migration Strategy](13-ROADMAP-AND-MIGRATION-STRATEGY.md) | Migration Roadmap, Recommended Implementation Order, Phase 1–8 roadmap |
 | 14 | [Risks & Technical Debt](14-RISKS-AND-TECHNICAL-DEBT.md) | Risks, Technical Debt |
+| 15 | [Future Vision](15-FUTURE-VISION.md) | Long-term evolution beyond the Roadmap, Digital Twin (explicitly out of current scope) |
+| 16 | [ADR Recommendations](16-ADR-RECOMMENDATIONS.md) | Recommended future ADRs (ADR-015 through ADR-021) — recommendation only, none created |
+
+## Revision History
+
+**v1.1 (this revision)** — an architectural refinement pass over the
+approved v1.0 concept, documentation only:
+
+1. Renamed the "Intelligence" domain to **Engineering Intelligence**
+   throughout (02, 06, 07, 08, 09, 10, 11, 13, 14) — makes explicit that
+   this domain supports engineering decisions, not general business
+   intelligence. Doc 08 renamed from `08-INTELLIGENCE-AI-ARCHITECTURE.md`
+   to `08-ENGINEERING-INTELLIGENCE-ARCHITECTURE.md`.
+2. Introduced the **Machine Digital Passport** (10) as the business
+   object — Machine Profile is now documented as its UI realization only.
+3. Introduced the **Knowledge Score** concept (07) — a per-machine
+   knowledge-completeness/confidence indicator, concept only, no
+   implementation.
+4. Expanded the feedback loop (07) from Engineer-only to **Technician,
+   Dealer, Customer feedback + Engineer Validation** — only Engineer
+   Validation can move a Knowledge Case's stored confidence.
+5. Added the **AI Confidence Policy** (08) — four named confidence bands,
+   explicitly presentation-only, never authorization.
+6. Added the **Platform Philosophy** statement and the **Engineering
+   Knowledge Loop** diagram (01).
+7. Added an explicit **Passport vs. Timeline** distinction (10, with a
+   cross-reference in 03).
+8. Added **15 — Future Vision**, naming Digital Twin as a coherent but
+   explicitly out-of-roadmap long-term direction.
+9. Added **16 — ADR Recommendations** (ADR-015 through ADR-021) —
+   recommended, not created.
+
+No code, database, or API changed in this revision — same as v1.0.
 
 ## Golden Rule
 

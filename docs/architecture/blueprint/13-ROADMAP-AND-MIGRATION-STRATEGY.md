@@ -97,5 +97,5 @@ tables, additive unions, no rename, no data migration of existing rows.
 - Exact sprint/quarter timing for any phase — a resourcing/business
   decision, not an architecture one.
 - Whether Phases 4–8 are built by the same team building Phases 1–3, or
-  a dedicated "Intelligence" team once Knowledge exists — an
+  a dedicated "Engineering Intelligence" team once Knowledge exists — an
   organizational decision outside this document's scope.

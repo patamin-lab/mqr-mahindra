@@ -15,7 +15,7 @@ codebase.
 | Service | The operational modules that touch a Machine (Registration/NTR, Maintenance/PM, Warranty, Parts, Quality) |
 | Inspection | Structured, timestamped evaluations of a Machine's condition (own domain — see 04) |
 | Knowledge | Reusable engineering judgment distilled from events (see 07) |
-| Intelligence | AI decision support consuming Knowledge (see 08) |
+| Engineering Intelligence | AI decision support for *engineering* decisions specifically, consuming Knowledge — not general business intelligence, see 08's naming rationale (see 08) |
 | Analytics | KPIs/dashboards/reports consuming Knowledge, not operational tables (see 09) |
 
 ## Domain Model
@@ -64,7 +64,7 @@ boundary convention (`.claude/rules/01-architecture-boundaries.md`):
 | Quality | `features/mqr/` (provider) + `src/app/(app)/records` | MQR record lifecycle |
 | Inspection | *(new)* `features/inspection/` | Inspection records across all inspection types (04) |
 | Knowledge | *(new)* `features/knowledge/` | Knowledge cases, confidence, feedback (07) |
-| Intelligence | *(new)* `features/intelligence/` | AI recommendation requests/responses, never raw model calls from a UI route (08) |
+| Engineering Intelligence | *(new)* `features/engineering-intelligence/` | AI recommendation requests/responses, never raw model calls from a UI route (08) |
 | Analytics | *(new)* `features/analytics/` | KPI/dashboard computation, reading only Knowledge + Events (09) |
 
 **Rule, unchanged from today**: a bounded context may import from
@@ -85,7 +85,7 @@ graph TD
     Quality["Quality\n(MQR / PIP)"]
     Inspection["Inspection"]
     Knowledge["Knowledge"]
-    Intelligence["Intelligence (AI)"]
+    EngIntel["Engineering Intelligence (AI)"]
     Analytics["Analytics"]
     Timeline["Timeline\n(shared component)"]
 
@@ -105,9 +105,9 @@ graph TD
     Quality -.->|Published Language: Event| Knowledge
     Inspection -.->|Published Language: Event| Knowledge
 
-    Knowledge -->|Open Host Service| Intelligence
+    Knowledge -->|Open Host Service| EngIntel
     Knowledge -->|Open Host Service| Analytics
-    Intelligence -.->|Customer/Supplier: feedback event| Knowledge
+    EngIntel -.->|Customer/Supplier: feedback event| Knowledge
 ```
 
 - **Conformist**: Registration/Maintenance/Quality/Inspection each
@@ -117,11 +117,15 @@ graph TD
   every context publishes into; Timeline and Knowledge are both
   consumers of the same events, never of each other.
 - **Open Host Service**: Knowledge exposes a stable read API that
-  Intelligence and Analytics both consume — neither ever queries
-  Knowledge's internal storage directly.
-- **Customer/Supplier**: Intelligence depends on Knowledge (supplier) for
-  its recommendations, and feeds engineer feedback back as a new event —
-  it is a customer of Knowledge, never the other way around.
+  Engineering Intelligence and Analytics both consume — neither ever
+  queries Knowledge's internal storage directly. This is the
+  `Knowledge → Engineering Intelligence → Analytics` pipeline named in
+  08's naming rationale, drawn here as the formal Context Map
+  relationship.
+- **Customer/Supplier**: Engineering Intelligence depends on Knowledge
+  (supplier) for its recommendations, and feeds stakeholder feedback
+  (07's Human Feedback Loop) back as a new event — it is a customer of
+  Knowledge, never the other way around.
 
 ## Aggregate Roots
 

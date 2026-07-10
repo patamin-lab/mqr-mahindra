@@ -6,7 +6,9 @@
 |---|---|---|
 | **Knowledge becomes MQR-shaped by accident** | The single biggest risk to this blueprint's actual value. If the first implementation of `KnowledgeCase` is built by extending MQR's own tables/types "just this once," it silently becomes module-owned knowledge, defeating 01's Principle 3/9. | `KnowledgeCase`'s schema (07) deliberately has no foreign key to any one module's table — only to `source_events` (generic `PlatformEvent` references). Enforce this in code review, not just in this document. |
 | **Empty Knowledge Base at launch** | Knowledge/AI features are only as good as the cases behind them; Phase 3–4 built too early looks broken, not innovative. | Recommended Implementation Order (13) deliberately sequences Inspection (a real, immediately useful feature on its own) before Knowledge, so there's real event volume before Knowledge/AI need to prove themselves. |
-| **AI governance erodes under delivery pressure** | "Just this once, let AI auto-close a duplicate MQR" is exactly how a Decision Support System quietly becomes a decision maker. | 08's AI Governance is written as an architectural boundary (no privileged write path for Intelligence), not a policy note — the enforcement is structural (same RBAC/API routes every human action already goes through), not procedural. |
+| **AI governance erodes under delivery pressure** | "Just this once, let AI auto-close a duplicate MQR" is exactly how a Decision Support System quietly becomes a decision maker. | 08's AI Governance is written as an architectural boundary (no privileged write path for Engineering Intelligence), not a policy note — the enforcement is structural (same RBAC/API routes every human action already goes through), not procedural. The AI Confidence Policy (08) reinforces this: even a >95% "Strong Recommendation" only changes wording, never authorization. |
+| **Non-engineer feedback silently treated as validated** | The Human Feedback Loop (07) now accepts Technician/Dealer/Customer feedback, not just Engineer feedback. If an implementation ever lets non-Engineer feedback move `confidence` directly (skipping `validated`), Knowledge quietly becomes crowd-sourced instead of engineering-validated. | 07's `KnowledgeCase.feedback` schema makes `validated` a field only an Engineer Validation event can set to `true` — enforce this in code review as carefully as the "no FK to one module's table" rule already is. |
+| **Knowledge Score misread as a machine health/quality score** | The name invites the same misreading "Confidence" once risked in 08 — a low Knowledge Score could be mistaken for "this is a bad machine" rather than its actual meaning, "we don't know much about this machine yet." | 07 states the distinction explicitly; any UI surfacing Knowledge Score (10's Machine Digital Passport) must label it as a knowledge-completeness indicator, never alongside language implying machine quality. |
 | **`AuditModule`/event-union sprawl** | Every new domain adding its own event types could eventually make the union unwieldy. | Not a blocker at the scale this platform operates at (a handful of dealer accounts, per Authentication Platform v3.0's own documented traffic assumption) — revisit only if it becomes a real problem, per 01 Principle 9. |
 | **Machine identity ambiguity (`serial` vs `machine_id` vs future multi-serial scenarios, e.g. an engine swap)** | Not addressed by this blueprint — a real-world Machine's identity can outlive a component swap (engine/serial change), and none of the domain model in 02 designs for that case. | Flagged here as unresolved, not guessed at. Needs a business-confirmed answer (does an engine swap create a new Machine record, or does Ownership/Configuration history absorb it?) before Inspection/Knowledge tables key too rigidly on today's 1:1 `vehicles.serial` assumption. |
 | **Warranty/Parts have no real module yet** | Several diagrams (Machine Lifecycle 03, Machine Profile 10) reference "Warranty Activated"/Parts data that doesn't exist as first-class data today. | Explicitly called out in 05/10 wherever referenced — this blueprint does not pretend these modules exist, and does not design their schemas speculatively (matches `PLATFORM_CONSTITUTION.md`'s Architecture Evolution Rule). |
@@ -54,6 +56,20 @@
    listed again here because it is both a risk *and* a concrete design
    gap someone needs to close before Inspection/Knowledge tables are
    built, not just something to watch.
+9. **Knowledge Score has no defined computation yet** (07/08) — this
+   blueprint defines the concept and its inputs deliberately, per this
+   PR's "concept only, not an implementation" scope, but the actual
+   scoring formula/weighting across lifecycle completeness, inspection
+   history, repair history, PM history, quality history, and validated
+   feedback is unresolved by design — a real design task for whichever
+   phase (13) first needs it, not guessed at here.
+10. **Machine Digital Passport is a named aggregation, not yet a real
+    service method** — `getMachineDigitalPassport()` (10) is a naming
+    convention over calls that already exist as separate `MachineService`
+    methods; it does not yet exist as a single callable API. No debt is
+    created by naming it, but implementing it should not become "one
+    more god-method" — 10's "Composition, not a god-service" section is
+    the guardrail to enforce at that time.
 
 ## What this blueprint deliberately leaves unresolved (by design, not oversight)
 

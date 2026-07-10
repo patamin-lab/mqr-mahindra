@@ -84,7 +84,7 @@ flowchart LR
     EVT --> TL[Machine Timeline]
     EVT --> KN[Knowledge Domain]
     EVT --> AN[Analytics]
-    EVT --> AI[Intelligence / AI]
+    EVT --> AI[Engineering Intelligence / AI]
 
     KN --> AI
     KN --> AN
@@ -115,9 +115,9 @@ flowchart LR
 - **Analytics (09)** consumes Knowledge, not raw events directly, per 01
   Principle 9 and 09's own scope note.
 - **AI (08)** consumes Knowledge, never raw events directly — this is
-  intentional and load-bearing: Intelligence must never become a second
-  interpretation of raw data independent from Knowledge, or two systems
-  end up disagreeing about what a symptom means.
+  intentional and load-bearing: Engineering Intelligence must never
+  become a second interpretation of raw data independent from Knowledge,
+  or two systems end up disagreeing about what a symptom means.
 
 ## Explicitly not designed here
 

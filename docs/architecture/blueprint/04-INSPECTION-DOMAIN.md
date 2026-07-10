@@ -106,7 +106,7 @@ InspectionRepository (new) — the only reader/writer of the `inspections` table
   observation input — "this symptom showed up at Dealer PDI on N
   machines of this model" is exactly the kind of pattern Knowledge is
   meant to surface.
-- **Intelligence (08)**: "Inspection Recommendation" (suggest which
+- **Engineering Intelligence (08)**: "Inspection Recommendation" (suggest which
   checklist items are highest-risk for this model/symptom combination)
   is a named AI capability that depends entirely on Inspection data
   existing in structured form first.

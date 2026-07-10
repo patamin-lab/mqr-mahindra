@@ -38,12 +38,12 @@ day-to-day operational counts.
   Warranty is a real module — 05, 14)
 - Trend Analysis
 - PIP Effectiveness (repeat-failure-rate before/after a PIP ships — 05)
-- Predictive Quality (consumes Intelligence's Quality Trend
+- Predictive Quality (consumes Engineering Intelligence's Quality Trend
   Detection/Predictive Quality Analytics outputs, 08 — Analytics is
-  itself also a *consumer* of Intelligence for this one capability,
-  which is the one place the arrow in 02's Context Map runs
-  Intelligence → Analytics instead of the more common Knowledge →
-  Analytics)
+  itself also a *consumer* of Engineering Intelligence for this one
+  capability, which is the one place the arrow in 02's Context Map runs
+  Engineering Intelligence → Analytics instead of the more common
+  Knowledge → Engineering Intelligence → Analytics pipeline named in 08)
 
 ## Architecture
 
@@ -51,7 +51,7 @@ day-to-day operational counts.
 flowchart LR
     KnowSvc[KnowledgeService] --> AnalyticsSvc[AnalyticsService]
     Events[Platform Event Log] --> AnalyticsSvc
-    IntelSvc[IntelligenceService] -.predictive outputs.-> AnalyticsSvc
+    IntelSvc[EngineeringIntelligenceService] -.predictive outputs.-> AnalyticsSvc
     AnalyticsSvc --> KPI[KPI Engine]
     AnalyticsSvc --> Dashboards
     AnalyticsSvc --> Reports[Executive Reports]

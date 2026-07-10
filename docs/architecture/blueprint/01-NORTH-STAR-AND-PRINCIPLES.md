@@ -32,9 +32,48 @@ Every other document in this blueprint is a restatement of this rule at
 a different layer of the system — the Domain Model (02) says which
 entity everything hangs off; the Event Model (06) says how a fact
 becomes visible platform-wide the moment it happens; the Knowledge Domain
-(07) says how facts become reusable judgment; the Intelligence Domain
-(08) says how that judgment gets surfaced back to an engineer, without
-ever replacing them.
+(07) says how facts become reusable judgment; the Engineering Intelligence
+Domain (08) says how that judgment gets surfaced back to an engineer,
+without ever replacing them.
+
+## Platform Philosophy
+
+> Every machine has a history.
+> Every history creates knowledge.
+> Every piece of knowledge improves engineering.
+> Every engineering decision improves the next machine.
+
+This is the Golden Rule restated as a chain of custody, not a slogan —
+each line above is a named handoff between two sections of this
+blueprint: "history" is the Machine Timeline (03), "knowledge" is the
+Knowledge Domain (07), "engineering" is the Engineering Intelligence
+Domain (08) surfacing that knowledge to an engineer, and "the next
+machine" is the Knowledge Score (07)/Machine Digital Passport (10) of
+whatever machine benefits from it next. No line in this chain is
+optional — a platform that captures history but never turns it into
+Knowledge, or turns it into Knowledge that never reaches an engineer, has
+broken the chain silently, even if every individual module still works.
+
+## Engineering Knowledge Loop
+
+```mermaid
+flowchart TD
+    M[Machine] --> EV[Event]
+    EV --> KN[Knowledge]
+    KN --> EI[Engineering Intelligence]
+    EI --> REC[Recommendation]
+    REC --> ED[Engineer Decision]
+    ED --> RO[Repair Outcome]
+    RO --> KI[Knowledge Improvement]
+    KI -.closes the loop.-> KN
+```
+
+This is the same loop as 07's Knowledge Lifecycle diagram, drawn at
+platform scale rather than per-case: **every** phase in the Roadmap (13)
+either builds one arrow in this loop or strengthens an existing one —
+that is the test for whether a proposed feature belongs in this platform
+at all. A feature that cannot be placed on this diagram is very likely
+the isolated-module anti-pattern Principle 9 warns against.
 
 ## Architecture Principles
 
@@ -48,18 +87,24 @@ ever replacing them.
 3. **Every Event creates Knowledge.** Not every event is *interesting*
    knowledge on its own, but every event is a candidate observation the
    Knowledge domain can fold into a case. See 07.
-4. **Knowledge continuously improves AI.** The Intelligence domain has no
-   independent data of its own — it is a consumer of Knowledge, never a
-   second source of truth. See 08.
-5. **Engineers continuously improve Knowledge.** Feedback (did this
-   recommendation work? was this root cause right?) is itself an event
-   that updates Knowledge's confidence — the loop closes back to humans,
-   not around them. See 07's Knowledge Lifecycle.
+4. **Knowledge continuously improves AI.** The Engineering Intelligence
+   domain has no independent data of its own — it is a consumer of
+   Knowledge, never a second source of truth. It exists to support
+   *engineering* decisions specifically, not general business
+   intelligence — see 08's naming rationale. See 08.
+5. **Everyone who touches a Machine continuously improves Knowledge.**
+   Feedback (did this recommendation work? was this root cause right?) is
+   itself an event that updates Knowledge's confidence — the loop closes
+   back to humans, not around them. Feedback is no longer engineer-only:
+   Technician, Dealer, and Customer feedback all feed Knowledge too, with
+   Engineer Validation remaining the one step that can actually raise a
+   Knowledge Case's confidence. See 07's Human Feedback Loop.
 6. **AI assists engineers. AI never replaces engineering judgment.** See
    08's AI Governance — a hard boundary, not a tuning parameter.
 7. **Every recommendation must be explainable.** No output from the
-   Intelligence domain is ever a bare score — it always carries the
-   reasoning that produced it.
+   Engineering Intelligence domain is ever a bare score — it always
+   carries the reasoning that produced it, and its confidence is
+   presented per 08's AI Confidence Policy, never as a raw number alone.
 8. **Every recommendation must be traceable.** Every recommendation
    resolves back to the source events and knowledge records that
    produced it, on demand, not just in an audit log no one reads.

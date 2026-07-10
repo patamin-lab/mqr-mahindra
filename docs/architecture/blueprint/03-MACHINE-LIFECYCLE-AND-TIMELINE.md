@@ -87,3 +87,15 @@ The Machine Lifecycle diagram above is the canonical version referenced
 by every other document in this blueprint (02's Domain Model, 06's Event
 Model, 13's Roadmap). Keep it in this one file — do not let a second,
 slightly-different copy drift into another document.
+
+## Relationship to the Machine Digital Passport
+
+The Machine Timeline described in this document is **one of the contents
+of the Machine Digital Passport** (10) — the Passport's Timeline section
+embeds this exact component/data unchanged. This document remains the
+canonical source for how the Timeline itself works (event sourcing,
+component reuse, entity scoping); 10 is the canonical source for how the
+Timeline fits alongside Identity, Warranty, Knowledge Score, and
+everything else the Passport aggregates. See 10's "Passport vs. Timeline"
+section for the full distinction — in short, this document answers "what
+happened, in order"; the Passport answers "what do we know right now."

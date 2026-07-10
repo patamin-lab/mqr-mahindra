@@ -89,7 +89,7 @@ instead of tables.
 
 Every new route is a thin Next.js Route Handler calling a service
 (`InspectionService`, `KnowledgeService`, `PipService`,
-`IntelligenceService`, `AnalyticsService`) — the exact convention
+`EngineeringIntelligenceService`, `AnalyticsService`) — the exact convention
 Authentication Platform v3.0 just re-established at scale
 (`authServices/*`, thin `/api/auth/*` routes). No new architectural
 pattern is introduced; this blueprint's job is to keep applying the one
@@ -97,8 +97,8 @@ that already works.
 
 ### Rule 3: Cross-domain reads are services calling services, never a route calling another route
 
-The Machine Profile (10) needs data from Inspection, Knowledge, PIP,
-Intelligence simultaneously. That composition happens in
+The Machine Digital Passport (10) needs data from Inspection, Knowledge,
+PIP, Engineering Intelligence simultaneously. That composition happens in
 `MachineService` (a service calling other services in-process), never in
 an API route that internally issues HTTP requests to other API routes on
 the same app — consistent with `MachineService.getMachineAttachments()`

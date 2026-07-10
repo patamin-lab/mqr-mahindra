@@ -3,9 +3,10 @@
 ## Knowledge is created from
 
 Import PDI, Dealer PDI, PM, Warranty, MQR, PIP, Repairs, Parts, Timeline,
-Engineer Feedback — i.e. every domain in this blueprint, via the Event
-Model (06). **Knowledge must be reusable. Knowledge never belongs to one
-module.** This is the single most important architectural boundary in
+and Human Feedback (Technician, Dealer, Customer, and Engineer — see the
+Human Feedback Loop below) — i.e. every domain in this blueprint, via the
+Event Model (06). **Knowledge must be reusable. Knowledge never belongs
+to one module.** This is the single most important architectural boundary in
 this entire blueprint: if a "Knowledge" table ends up with a foreign key
 to `records.id` (MQR's own table) as its primary way of being found, it
 has silently become MQR's knowledge, not the platform's — the same
@@ -24,7 +25,7 @@ flowchart TD
     Inspection --> Repair
     Repair --> Parts
     Parts --> Outcome
-    Outcome --> Feedback[Engineer Feedback]
+    Outcome --> Feedback[Stakeholder Feedback]
     Feedback --> Knowledge
     Knowledge --> Confidence
     Confidence -.reinforces.-> Causes
@@ -57,8 +58,15 @@ interface KnowledgeCase {
   repair_summary: string | null;
   parts_used: string[] | null;      // part numbers, once Parts (05) is a real module
   outcome: 'Resolved' | 'Unresolved' | 'Recurred';
-  confidence: number;               // 0-1, computed from corroborating cases + engineer feedback (see Lifecycle below)
-  engineer_feedback: { username: string; rating: 'Helpful' | 'NotHelpful'; note: string | null; at: string }[];
+  confidence: number;               // 0-1, computed from corroborating cases + stakeholder feedback (see Human Feedback Loop below)
+  feedback: {
+    username: string;
+    role: 'Technician' | 'Dealer' | 'Customer' | 'Engineer';
+    rating: 'Helpful' | 'NotHelpful';
+    note: string | null;
+    validated: boolean;              // true only for an Engineer entry that has gone through Engineer Validation — see Human Feedback Loop
+    at: string;
+  }[];
   created_at: string;
   updated_at: string;
 }
@@ -77,10 +85,13 @@ Design choices:
   confidence is a value that *changes over time* as more cases
   corroborate or contradict it, which means it needs to be written, not
   just derived.
-- **`engineer_feedback` lives on the case itself.** This is the
-  mechanism behind Principle 5 ("Engineers continuously improve
-  Knowledge") — feedback is not a separate, disconnected log; it's the
-  input that moves `confidence`.
+- **`feedback` lives on the case itself, from every stakeholder who
+  touched the underlying event — not only engineers.** This is the
+  mechanism behind Principle 5 ("Everyone who touches a Machine
+  continuously improves Knowledge") — feedback is not a separate,
+  disconnected log; it's the input that moves `confidence`. See the
+  Human Feedback Loop below for why `validated` exists and who can set
+  it.
 
 ## Knowledge Lifecycle
 
@@ -106,27 +117,92 @@ Roadmap (13) either builds one segment of this loop or strengthens an
 existing segment — that's the test for whether a proposed feature
 belongs in this platform at all (01's Engineering Principles).
 
+## Human Feedback Loop
+
+Feedback is not engineer-only. Every stakeholder who interacts with a
+Machine or a Knowledge Case's recommendation can contribute an
+observation, but not every stakeholder's feedback carries the same
+authority:
+
+| Stakeholder | What they feed back | Effect on `confidence` |
+|---|---|---|
+| **Technician Feedback** | Did the suggested repair/inspection step actually apply in the field? | Corroborating signal — nudges confidence, never alone decisive |
+| **Dealer Feedback** | Was the recommendation practical at the dealer's actual parts/skill level? | Corroborating signal, same weight class as Technician |
+| **Customer Feedback** | Did the repair resolve the complaint from the customer's perspective (no repeat visit)? | Corroborating signal — the closest proxy this platform has to a real-world outcome check |
+| **Engineer Validation** | Confirms (or rejects) that the root cause and recommendation were actually correct | **The only feedback type that can raise or lower a Knowledge Case's stored `confidence` value directly** |
+
+This is not a demotion of Technician/Dealer/Customer input — it is the
+same AI Governance boundary from 08 applied to Knowledge instead of to a
+recommendation: **more voices can observe, only an Engineer can
+validate.** A Knowledge Case can accumulate any number of unvalidated
+`feedback` entries (`validated: false`) that Engineering Intelligence
+(08) may still surface as supporting color ("3 technicians confirmed
+this step worked"), but `confidence` itself only moves on an
+`Engineer Validation` event (`validated: true`) — matching 01 Principle
+6 ("AI assists engineers, AI never replaces engineering judgment")
+extended to say a *dealer or customer* opinion doesn't silently become
+platform-trusted knowledge either, without an engineer's confirmation.
+
+## Knowledge Score
+
+**Concept only — not an implementation.** Every Machine (via its
+Machine Digital Passport, 10) has a Knowledge Score: a single, explained
+indicator of *how much reliable knowledge this platform actually has
+about this specific machine*, not a quality or health score for the
+machine itself.
+
+Knowledge Score reflects:
+
+- Completeness of lifecycle (03) — how many expected stages actually have
+  a recorded event (a machine missing its Dealer PDI has a real gap, not
+  just an old record)
+- Inspection history (04) — how many inspections exist, and how recent
+  they are
+- Repair history — resolved vs. unresolved vs. recurred outcomes on this
+  machine's own Knowledge Cases (07)
+- PM history — maintenance compliance/frequency
+- Quality history — MQR/PIP involvement and resolution
+- Engineer feedback — how much of this machine's contributing Knowledge
+  has actually passed Engineer Validation (above), vs. still-unvalidated
+  stakeholder feedback
+- Confidence of available knowledge — the aggregate `confidence` (07's
+  `KnowledgeCase.confidence`) of the Knowledge Cases this machine's
+  history has contributed to or matches
+
+**How AI may use it**: Engineering Intelligence (08) may use a machine's
+Knowledge Score to adjust how *confidently* it presents a recommendation
+for that specific machine — a machine with a thin, incomplete history
+should produce a more hedged recommendation (per 08's AI Confidence
+Policy) even when a matched Knowledge Case itself has high confidence,
+because the case's applicability *to this machine* is less certain than
+its applicability in general. Knowledge Score adjusts presentation
+confidence only — it never gates whether a recommendation is shown, and
+it never substitutes for a Knowledge Case's own `confidence` field; the
+two are deliberately separate numbers answering separate questions ("how
+much do we trust this pattern" vs. "how much do we know about *this*
+machine").
+
 ## Knowledge Service Architecture
 
 ```
 KnowledgeService (new, features/knowledge/)
   ├── createOrUpdateCase(sourceEvent)   — called by the Event consumers (06)
   ├── recordFeedback(caseId, feedback)  — the loop-closing write
-  ├── findSimilarCases(symptom, machineContext) — the read path Intelligence (08) depends on
-  └── KnowledgeRepository — owns the new `knowledge_cases` table (11), never queried directly by Intelligence/Analytics
+  ├── findSimilarCases(symptom, machineContext) — the read path Engineering Intelligence (08) depends on
+  └── KnowledgeRepository — owns the new `knowledge_cases` table (11), never queried directly by Engineering Intelligence/Analytics
 ```
 
 Matches the "Open Host Service" relationship named in 02's Context Map:
-Intelligence and Analytics both depend on `KnowledgeService`'s public
-methods, never on `knowledge_cases` directly.
+Engineering Intelligence and Analytics both depend on `KnowledgeService`'s
+public methods, never on `knowledge_cases` directly.
 
 ## Explicitly not designed here
 
 - The actual matching/clustering algorithm behind
   `createOrUpdateCase`/`findSimilarCases` (rule-based vs. embedding-based
-  similarity) — that's an Intelligence-domain implementation detail
-  (08), and per this PR's explicit "do not select LLM vendors, do not
-  design prompts" scope boundary, not decided here either way.
+  similarity) — that's an Engineering Intelligence-domain implementation
+  detail (08), and per this PR's explicit "do not select LLM vendors, do
+  not design prompts" scope boundary, not decided here either way.
 - Whether `knowledge_cases` starts as a Postgres table (consistent with
   everything else in this platform) or something else — 11 recommends
   Postgres for the same reason every other domain in this platform
