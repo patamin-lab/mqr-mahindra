@@ -25,7 +25,7 @@ import { logAuditEvent } from '@/lib/db';
 import { getSupabase } from '@/lib/supabase';
 import { Dealer, Vehicle, Branch } from '@/lib/types';
 import { uploadFileToDrive } from '@/lib/googleDrive';
-import { ColumnMappingResult, ImportWarning, formatImportError } from '@/shared/import';
+import { ColumnMappingResult, ImportWarning, formatImportError, InFileDuplicateTracker } from '@/shared/import';
 import { NtrRepository } from '../repositories/ntrRepository';
 import { NtrImportSessionRepository } from '../repositories/ntrImportSessionRepository';
 import { mapNtrImportHeaders, parseNtrImportFile } from './ntrImportParser';
@@ -183,13 +183,17 @@ async function fetchVehiclesBySerials(serials: string[]): Promise<Map<string, Ve
 
 async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, mode: NtrImportMode): Promise<ValidatedRow[]> {
   const results: ValidatedRow[] = [];
-  // In-file duplicate tracking - "Duplicate inside import file" (serial,
-  // hard reject) and the warning-only phone/customer-name duplicates are
-  // both scoped to *this* file only, never a database-wide scan - keeps
-  // the 10,000-row performance target achievable without a per-row query.
-  const seenSerials = new Map<string, number>();
-  const seenPhones = new Map<string, number>();
-  const seenNames = new Map<string, number>();
+  // In-file duplicate tracking (Duplicate Detector, ADR-022 / Import
+  // Platform v2) - "Duplicate inside import file" (serial, hard reject)
+  // and the warning-only phone/customer-name duplicates are both scoped
+  // to *this* file only, never a database-wide scan - keeps the
+  // 10,000-row performance target achievable without a per-row query.
+  // `normalizeForDuplicateCompare` below matches the tracker's own
+  // default normalizer exactly; kept as a named local function since
+  // several other places in this file also call it directly.
+  const seenSerials = new InFileDuplicateTracker(normalizeForDuplicateCompare);
+  const seenPhones = new InFileDuplicateTracker(normalizeForDuplicateCompare);
+  const seenNames = new InFileDuplicateTracker(normalizeForDuplicateCompare);
 
   // Bulk-prefetch every dealer/vehicle/existing-NTR this file could
   // possibly reference, ONCE, before the per-row loop below - a
@@ -290,10 +294,9 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, 
       continue;
     }
 
-    const serialKey = normalizeForDuplicateCompare(row.serial);
-    const priorSerialRow = seenSerials.get(serialKey);
-    if (priorSerialRow !== undefined) {
-      results.push({ row, outcome: 'duplicate', reason: `Duplicate Product Serial Number - already used on row ${priorSerialRow} in this file` });
+    const serialCheck = seenSerials.peek(row.serial);
+    if (serialCheck.isDuplicate) {
+      results.push({ row, outcome: 'duplicate', reason: `Duplicate Product Serial Number - already used on row ${serialCheck.firstSeenAtRow} in this file` });
       continue;
     }
 
@@ -341,24 +344,28 @@ async function validateRows(rows: NtrImportRow[], ntrRepository: NtrRepository, 
     // own "Warnings must never block import." Checked last so a row that
     // already failed/duplicated above never also reports a spurious
     // phone/name warning on top of its real outcome.
-    const phoneKey = normalizeForDuplicateCompare(row.customer_phone);
-    const priorPhoneRow = seenPhones.get(phoneKey);
-    if (priorPhoneRow !== undefined) {
+    const phoneName = row.customer_name || `${row.customer_first_name ?? ''} ${row.customer_last_name ?? ''}`;
+    const phoneCheck = seenPhones.peek(row.customer_phone);
+    if (phoneCheck.isDuplicate) {
       warning = warning
-        ? `${warning}; Duplicate Customer Phone (also on row ${priorPhoneRow})`
-        : `Duplicate Customer Phone - also used on row ${priorPhoneRow} in this file`;
+        ? `${warning}; Duplicate Customer Phone (also on row ${phoneCheck.firstSeenAtRow})`
+        : `Duplicate Customer Phone - also used on row ${phoneCheck.firstSeenAtRow} in this file`;
     }
-    const nameKey = normalizeForDuplicateCompare(row.customer_name || `${row.customer_first_name ?? ''} ${row.customer_last_name ?? ''}`);
-    const priorNameRow = seenNames.get(nameKey);
-    if (priorNameRow !== undefined) {
+    const nameCheck = seenNames.peek(phoneName);
+    if (nameCheck.isDuplicate) {
       warning = warning
-        ? `${warning}; Duplicate Customer Name (also on row ${priorNameRow})`
-        : `Duplicate Customer Name - also used on row ${priorNameRow} in this file`;
+        ? `${warning}; Duplicate Customer Name (also on row ${nameCheck.firstSeenAtRow})`
+        : `Duplicate Customer Name - also used on row ${nameCheck.firstSeenAtRow} in this file`;
     }
 
-    seenSerials.set(serialKey, row.row);
-    seenPhones.set(phoneKey, row.row);
-    seenNames.set(nameKey, row.row);
+    // Only recorded now that the row is confirmed 'valid' - a row that
+    // failed/duplicated above (and `continue`d past this point) never
+    // "poisons" a later row's duplicate check with a key that was never
+    // actually accepted (see `InFileDuplicateTracker.peek()`'s doc
+    // comment - this is the exact behavior this refactor preserves).
+    seenSerials.recordSeen(row.serial, row.row);
+    seenPhones.recordSeen(row.customer_phone, row.row);
+    seenNames.recordSeen(phoneName, row.row);
 
     results.push({ row, outcome: 'valid', warning });
   }

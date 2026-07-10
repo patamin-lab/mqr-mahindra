@@ -86,6 +86,57 @@ export async function sendRecordNotification(
   }
 }
 
+// ---------- Import Platform v2 notification (ADR-022, Task 15) ----------
+
+/** Sent once an import session finishes (`NtrImportService.commit()`,
+ *  today's only real caller - any future module's import adopts this the
+ *  same way). Reuses the exact "never throws, warn-and-skip if
+ *  unconfigured" contract `sendRecordNotification()` above already
+ *  established - an unconfigured/failed notification email must never
+ *  block or fail an import that already committed. Deliberately not
+ *  routed through `sendAuthEmail()`/`EmailKind` below - that machinery
+ *  (structured result, `auth_audit_log` recording) is specific to the
+ *  Authentication Platform; an import's own outcome is already recorded
+ *  in `ntr_import_sessions`/`record_audit_log`, so this is a plain,
+ *  fire-and-forget-safe notification, not a second audit trail. */
+export async function sendImportCompletionEmail(
+  to: string,
+  summary: { filename: string; imported: number; skipped: number; failed: number; durationMs: number },
+  reportUrl: string
+): Promise<void> {
+  const resend = getResend();
+  if (!resend) {
+    console.warn('RESEND_API_KEY not set — skipping import completion email');
+    return;
+  }
+  try {
+    const rows: [string, string][] = [
+      ['ไฟล์', summary.filename],
+      ['นำเข้าสำเร็จ', String(summary.imported)],
+      ['ข้าม', String(summary.skipped)],
+      ['ล้มเหลว', String(summary.failed)],
+      ['ระยะเวลา', `${(summary.durationMs / 1000).toFixed(1)} วินาที`],
+    ];
+    const rowsHtml = rows
+      .map(([label, value]) => `<tr><td style="padding:4px 10px;color:#666;white-space:nowrap">${label}</td><td style="padding:4px 10px">${value}</td></tr>`)
+      .join('');
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to,
+      subject: `[MQR] นำเข้าข้อมูลเสร็จสิ้น — ${summary.filename}`,
+      html: `
+        <div style="font-family:sans-serif;font-size:14px;color:#1a1a1a">
+          <h2 style="color:#9c1c1c;margin-bottom:4px">นำเข้าข้อมูลเสร็จสิ้น</h2>
+          <table style="border-collapse:collapse;margin:12px 0">${rowsHtml}</table>
+          <p><a href="${reportUrl}" style="color:#9c1c1c">เปิดรายงานการนำเข้า →</a></p>
+        </div>
+      `,
+    });
+  } catch (err) {
+    console.error('sendImportCompletionEmail error', err);
+  }
+}
+
 // ---------- Authentication Platform v3.0 email templates (spec section 12) ----------
 
 /** Shared layout every auth email (Reset, Invitation, Password Changed,

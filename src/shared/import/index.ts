@@ -9,3 +9,5 @@ export * from './ImportErrorFormatter';
 export * from './ImportPreviewBuilder';
 export * from './ImportHistoryService';
 export * from './ImportMetrics';
+export * from './TransformationLibrary';
+export * from './DuplicateDetector';

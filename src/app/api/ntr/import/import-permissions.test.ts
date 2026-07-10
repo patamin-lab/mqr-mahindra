@@ -22,6 +22,20 @@ vi.mock('@/lib/googleDrive', () => ({
   uploadFileToDrive: vi.fn(),
 }));
 
+// commit/route.ts sends an Import Completion Notification (ADR-022) after
+// a successful commit - lib/db.ts and lib/email.ts are both mocked here
+// so this permissions-only test suite never makes a real Supabase/Resend
+// call, and lib/email.ts's own module-scope import of exportPdf.tsx
+// (react-pdf JSX, which Vitest's transform can't parse for this test
+// file's dependency graph) is never loaded at all - same pattern already
+// used by login/route.test.ts and forgot-password/route.test.ts.
+vi.mock('@/lib/db', () => ({
+  findUserByUsername: vi.fn().mockResolvedValue(null),
+}));
+vi.mock('@/lib/email', () => ({
+  sendImportCompletionEmail: vi.fn().mockResolvedValue(undefined),
+}));
+
 const { getSession } = await import('@/lib/auth');
 const { POST: previewPOST } = await import('./preview/route');
 const { POST: commitPOST } = await import('./commit/route');
