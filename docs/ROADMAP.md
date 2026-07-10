@@ -36,6 +36,43 @@ it shipped and moved to maintenance.
 - **Production Rollout Documentation** — v2.3.1 Sync Hardening's real
   production execution results recorded end-to-end.
   `docs/releases/RELEASE_CHECKLIST_V2.3.1_SYNC_HARDENING.md`.
+- **Platform Branding (MSEAL DMS)** — legacy "MASP"/"Market Quality
+  Report" platform branding replaced with "MSEAL DMS" wherever it
+  represents the application (login, browser title, app shell, sidebar,
+  navbar, footer, metadata, email templates, loading/empty states);
+  centralized in `src/lib/branding.ts` (`APP_NAME`, `APP_VERSION`). The
+  MQR module name, record IDs, database, API routes, and business
+  document titles were deliberately left unchanged.
+- **Authentication Platform v3.0** — session management (revocable,
+  device-aware `user_sessions`), self-service Password Reset/Change,
+  User Invitation, First Login forced change, Account Lock Protection,
+  IP-based rate limiting, CSRF header enforcement, and a dedicated
+  `auth_audit_log` covering all 13 spec event types.
+  `docs/adr/ADR-014-Authentication-Platform-v3.md`,
+  `docs/architecture/AUTHENTICATION_PLATFORM.md`.
+- **Architecture Blueprint v1.1** — the long-term architecture for MSEAL
+  DMS as an Engineering Intelligence Platform: Domain Model, Event Model,
+  Knowledge Domain, Engineering Intelligence, Analytics, Machine Digital
+  Passport, Business Capability Map, Canonical Event Catalog, Integration
+  Boundary, and Architecture Governance. Design-only — no code, database,
+  or API changed. `docs/architecture/blueprint/README.md`. **Status:
+  APPROVED — see "Architecture Status" below.**
+
+## Architecture Status
+
+**Architecture Blueprint v1.1 is APPROVED. The Architecture Baseline is
+FROZEN**, effective at this blueprint's merge
+(`docs/architecture/blueprint/20-ARCHITECTURE-GOVERNANCE.md`). Frozen
+specifically: Machine as the platform's aggregate root, the bounded
+context list, the `PlatformEvent` envelope and Canonical Event Catalog's
+event ownership, Engineering Intelligence's AI Governance boundary, and
+the Integration Boundary rule (no external system reads internal tables
+directly). **Any future change to one of these five requires an ADR, an
+Architecture Review, and Architecture Approval** per the Blueprint's
+governance doc — not a routine PR. Everything else in the Blueprint
+(field-level detail, capability-to-module mappings, specific table
+shapes) remains a normal design detail, refined freely during
+implementation.
 
 ## Known Issues (carried forward, not blocking)
 
@@ -69,6 +106,34 @@ Full operational detail: `docs/OPERATIONS.md`.
 | 7 | Technical Debt — close every item tracked in `docs/OPERATIONS.md` §10 | Not started |
 | 8 | v3.0 — Digital Tractor Passport (one tractor, one lifetime record, QR-code entry point spanning the same Vehicle → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History chain as Phase 3) | Not started |
 | + | Collaboration Layer — `activity_notes` table, comments, internal/customer notes, @mentions, pinned events, notification hooks (issue #30) | Not started |
+
+**Forward reference**: Phase 3 (Vehicle 360) and Phase 8 (v3.0 Digital
+Tractor Passport) above are the near-term start of a longer-term
+architecture — see `docs/architecture/blueprint/README.md` (APPROVED,
+Architecture Baseline FROZEN — see "Architecture Status" above) for the
+full long-term design, including how these phases map onto the
+Blueprint's own Machine Digital Passport (10)/Machine Timeline (03)/
+Knowledge Domain (07) sections. Reconciliation detail:
+`docs/architecture/blueprint/13-ROADMAP-AND-MIGRATION-STRATEGY.md`.
+
+**Recommended next implementation order** (platform-wide, supersedes the
+per-phase table above as the actual build sequence once Phase 1-2 sync
+work clears):
+
+1. Machine Digital Passport
+2. Machine Timeline
+3. Knowledge Engine
+4. Engineering Intelligence
+5. PIP
+6. Predictive Quality
+
+This is the sequence to build against going forward. It reorders the
+Blueprint's own 13-section dependency-ordered list (which sequences
+Machine Timeline before Machine Digital Passport, reasoning that Timeline
+should exist first so Passport has something to aggregate) — noted here
+explicitly, not silently, per 13's own "say so, don't silently reorder"
+convention. Each item is its own future milestone requiring its own plan
+and approval, per the Working rules below.
 
 **Working rules for every phase** (binding, from the project owner):
 
