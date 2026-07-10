@@ -61,6 +61,10 @@ discard it and start over.
 | 14 | [Risks & Technical Debt](14-RISKS-AND-TECHNICAL-DEBT.md) | Risks, Technical Debt |
 | 15 | [Future Vision](15-FUTURE-VISION.md) | Long-term evolution beyond the Roadmap, Digital Twin (explicitly out of current scope) |
 | 16 | [ADR Recommendations](16-ADR-RECOMMENDATIONS.md) | Recommended future ADRs (ADR-015 through ADR-021) — recommendation only, none created |
+| 17 | [Business Capability Map](17-BUSINESS-CAPABILITY-MAP.md) | Capability → Business Module → Implementation, business-facing capability list |
+| 18 | [Canonical Event Catalog](18-CANONICAL-EVENT-CATALOG.md) | Governed, named Machine Lifecycle events and their single owning module |
+| 19 | [Integration Boundary](19-INTEGRATION-BOUNDARY.md) | The Integration Layer — no external system reads internal tables directly |
+| 20 | [Architecture Governance](20-ARCHITECTURE-GOVERNANCE.md) | Architecture Baseline, Architecture Freeze, ADR Process, Breaking Change Process, Architecture Review, Architecture Approval |
 
 ## Revision History
 
@@ -91,7 +95,45 @@ approved v1.0 concept, documentation only:
 9. Added **16 — ADR Recommendations** (ADR-015 through ADR-021) —
    recommended, not created.
 
+**v1.1, final pre-merge additions (same PR, same version)** — a second
+architect-review pass, before merge:
+
+10. Added **17 — Business Capability Map** — a business-facing
+    Capability → Business Module → Implementation layering above 02's
+    Domain Model.
+11. Added **18 — Canonical Event Catalog** — the 13 named Machine
+    Lifecycle events (`MachineImported` … `Retired`), each with exactly
+    one owning module; supersedes 06's representative catalog for these
+    events specifically.
+12. Added **19 — Integration Boundary** — the Integration Layer sitting
+    between the Event Model and every external system (ERP, Power BI,
+    Dealer Portal, Customer Portal, Technician Mobile, Future APIs); the
+    hard rule that no external system reads internal tables directly.
+13. Added **Knowledge Maturity** (07) — Draft → Validated → Trusted →
+    Best Practice → Retired, explicitly distinct from Knowledge
+    Confidence.
+14. Added **20 — Architecture Governance** — Architecture Baseline,
+    Architecture Freeze, ADR Process, Breaking Change Process,
+    Architecture Review, Architecture Approval.
+15. Added the **Value Creation Flow** diagram (01) — the Engineering
+    Knowledge Loop reframed in business-outcome terms, tied explicitly to
+    the existing Success Metrics table.
+
 No code, database, or API changed in this revision — same as v1.0.
+
+## Architecture Status
+
+**Architecture Blueprint v1.1 — APPROVED. Architecture Baseline —
+FROZEN** as of this blueprint's merge (20's Architecture Baseline/
+Architecture Freeze). The five frozen items are listed in 20 — Machine as
+aggregate root, the bounded context list, the `PlatformEvent`
+envelope/Canonical Event Catalog ownership, Engineering Intelligence's AI
+Governance boundary, and the Integration Boundary rule. **Any future
+change to one of these requires an ADR, an Architecture Review, and
+Architecture Approval per 20 — not a routine PR.** Everything else in
+this blueprint (field-level detail, capability-to-module mappings,
+specific table shapes) remains a normal, freely-refined design detail
+during implementation.
 
 ## Golden Rule
 

@@ -44,6 +44,14 @@ Registration/Owner Transfer) [work] without redesign." `PlatformEvent`
 
 ## Event Catalog (representative, not exhaustive — additive per 01 Principle 2)
 
+**Superseded for the Machine Lifecycle events specifically by 18's
+Canonical Event Catalog**, which names each Machine Lifecycle event
+(`MachineImported`, `MQROpened`, etc.) and its single owning module —
+governed going forward per 20's Breaking Change Process. This section
+remains correct for the general shape/mechanism and for event types
+outside the Machine Lifecycle (e.g. the already-shipped Auth events
+below).
+
 ```
 Machine Imported                Ownership Changed
 Import PDI Completed            NTR Created

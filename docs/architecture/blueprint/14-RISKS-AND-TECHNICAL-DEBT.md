@@ -9,6 +9,8 @@
 | **AI governance erodes under delivery pressure** | "Just this once, let AI auto-close a duplicate MQR" is exactly how a Decision Support System quietly becomes a decision maker. | 08's AI Governance is written as an architectural boundary (no privileged write path for Engineering Intelligence), not a policy note — the enforcement is structural (same RBAC/API routes every human action already goes through), not procedural. The AI Confidence Policy (08) reinforces this: even a >95% "Strong Recommendation" only changes wording, never authorization. |
 | **Non-engineer feedback silently treated as validated** | The Human Feedback Loop (07) now accepts Technician/Dealer/Customer feedback, not just Engineer feedback. If an implementation ever lets non-Engineer feedback move `confidence` directly (skipping `validated`), Knowledge quietly becomes crowd-sourced instead of engineering-validated. | 07's `KnowledgeCase.feedback` schema makes `validated` a field only an Engineer Validation event can set to `true` — enforce this in code review as carefully as the "no FK to one module's table" rule already is. |
 | **Knowledge Score misread as a machine health/quality score** | The name invites the same misreading "Confidence" once risked in 08 — a low Knowledge Score could be mistaken for "this is a bad machine" rather than its actual meaning, "we don't know much about this machine yet." | 07 states the distinction explicitly; any UI surfacing Knowledge Score (10's Machine Digital Passport) must label it as a knowledge-completeness indicator, never alongside language implying machine quality. |
+| **Canonical Event Catalog (18) drifts from what code actually emits** | A named, governed event list only has value if implementation keeps emitting exactly those names with exactly one owning module — the same risk 06's own additive-only guarantee already names, now sharper because 18 asserts single ownership specifically. | 20's Breaking Change Process requires an ADR to add/reassign an event's owning module — enforce that no PR silently adds a second producer for an existing event name. |
+| **Integration Layer (19) has no real consumer yet to validate it against** | The rule ("no external system reads internal tables directly") is easy to state and easy to quietly violate the first time a real integration is under deadline pressure ("just this once, give the BI tool a read replica connection"). | Same structural-not-procedural enforcement pattern as 08's AI Governance — the rule is written as an architecture boundary reviewable at Architecture Review (20) time, not a guideline a stressed integration project can reason its way around. |
 | **`AuditModule`/event-union sprawl** | Every new domain adding its own event types could eventually make the union unwieldy. | Not a blocker at the scale this platform operates at (a handful of dealer accounts, per Authentication Platform v3.0's own documented traffic assumption) — revisit only if it becomes a real problem, per 01 Principle 9. |
 | **Machine identity ambiguity (`serial` vs `machine_id` vs future multi-serial scenarios, e.g. an engine swap)** | Not addressed by this blueprint — a real-world Machine's identity can outlive a component swap (engine/serial change), and none of the domain model in 02 designs for that case. | Flagged here as unresolved, not guessed at. Needs a business-confirmed answer (does an engine swap create a new Machine record, or does Ownership/Configuration history absorb it?) before Inspection/Knowledge tables key too rigidly on today's 1:1 `vehicles.serial` assumption. |
 | **Warranty/Parts have no real module yet** | Several diagrams (Machine Lifecycle 03, Machine Profile 10) reference "Warranty Activated"/Parts data that doesn't exist as first-class data today. | Explicitly called out in 05/10 wherever referenced — this blueprint does not pretend these modules exist, and does not design their schemas speculatively (matches `PLATFORM_CONSTITUTION.md`'s Architecture Evolution Rule). |
@@ -70,6 +72,19 @@
     created by naming it, but implementing it should not become "one
     more god-method" — 10's "Composition, not a god-service" section is
     the guardrail to enforce at that time.
+11. **Knowledge Maturity has no defined promotion criteria yet** (07) —
+    how many corroborating validated cases move a case from Draft to
+    Validated to Trusted to Best Practice is unresolved by design, same
+    class of gap as Knowledge Score's undefined computation (item 9).
+12. **Several Business Capabilities (17) have no owning Business Module
+    or Implementation at all** — Warranty, Parts Management, Notification,
+    and Integration are named as real business capabilities in 17 with no
+    corresponding module/table/service today. Not new debt (Warranty/
+    Parts are already tracked, items 1/2), but 17 makes the gap visible
+    at the business-capability level for the first time, including two
+    genuinely new gaps: Notification has no shared service (every module
+    calls `lib/email.ts` directly) and Integration has no implementation
+    of any kind yet (19 is design-only).
 
 ## What this blueprint deliberately leaves unresolved (by design, not oversight)
 

@@ -182,6 +182,41 @@ two are deliberately separate numbers answering separate questions ("how
 much do we trust this pattern" vs. "how much do we know about *this*
 machine").
 
+## Knowledge Maturity
+
+**Knowledge Confidence != Knowledge Maturity.** These are two different
+numbers/values answering two different questions, and conflating them is
+a real risk (14):
+
+- **Confidence** (`KnowledgeCase.confidence`, above) answers *"how sure
+  are we this cause/fix is correct?"* — it can move quickly: one strong,
+  Engineer-validated case can already carry high confidence.
+- **Maturity** answers *"how proven and institutionalized is this
+  knowledge over time and across machines?"* — it can only advance
+  slowly, through repeated corroboration and usage, never through a
+  single validation event alone.
+
+A Knowledge Case moves through five maturity stages:
+
+| Stage | Meaning |
+|---|---|
+| **Draft** | Newly created from a single source event or observation — not yet corroborated |
+| **Validated** | At least one Engineer Validation (07's Human Feedback Loop) confirms the case is correct |
+| **Trusted** | Corroborated across multiple independent machines/dealers/occurrences, not just re-confirmed once |
+| **Best Practice** | Proven enough, over enough time and repair volume, that Engineering Intelligence (08) can present it as institutional guidance, not just a matched case |
+| **Retired** | Superseded — e.g. a PIP (05) shipped a fix so the symptom is not expected to recur, or the affected product line is discontinued. Retired cases are never deleted (matching this platform's existing soft-delete convention, root `CLAUDE.md` §8.5) — they remain queryable for historical/audit purposes, just excluded from active recommendation matching |
+
+**A case can have high confidence and low maturity at the same time** —
+a single, well-validated observation on one machine is trustworthy
+enough to confidence-score highly, but has not yet been proven across
+enough machines/time to be a Best Practice. Engineering Intelligence (08)
+should account for both independently: confidence affects the AI
+Confidence Policy's presentation band; maturity affects whether a
+recommendation is framed as "one validated case" versus "established
+best practice" — a wording distinction, matching 08's own principle that
+confidence-related language must never imply authorization it doesn't
+have.
+
 ## Knowledge Service Architecture
 
 ```

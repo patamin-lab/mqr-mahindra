@@ -75,6 +75,36 @@ that is the test for whether a proposed feature belongs in this platform
 at all. A feature that cannot be placed on this diagram is very likely
 the isolated-module anti-pattern Principle 9 warns against.
 
+## Value Creation Flow
+
+The Engineering Knowledge Loop above is this platform's *technical*
+flow. The same loop, read in business-outcome terms instead of
+architectural terms, is why it is worth building at all:
+
+```mermaid
+flowchart TD
+    M[Machine] --> EV[Events]
+    EV --> KN[Knowledge]
+    KN --> EI[Engineering Intelligence]
+    EI --> ED[Engineer Decision]
+    ED --> IM[Improved Machine]
+    IM --> CS[Customer Satisfaction]
+    CS --> BV[Business Value]
+    BV --> NK[New Knowledge]
+    NK -.closes the loop.-> KN
+```
+
+Each arrow here is a named Success Metric above, not a new claim: a
+better Engineer Decision produces a better repair outcome (Improved
+Machine — First-time Fix Rate, Mean Repair Time), which improves Customer
+Satisfaction (its own listed metric), which *is* Business Value (Warranty
+Cost down, Repeat Failure Rate down) — and the resulting outcome becomes
+New Knowledge (07's Human Feedback Loop), closing the loop again. This is
+the concrete answer to "why does an architecture blueprint matter to the
+business": every arrow in this diagram is a place this platform either
+creates value or fails to, and the Success Metrics table above is how
+that gets measured, not asserted.
+
 ## Architecture Principles
 
 1. **Machine is the primary entity.** Every domain either belongs to a
