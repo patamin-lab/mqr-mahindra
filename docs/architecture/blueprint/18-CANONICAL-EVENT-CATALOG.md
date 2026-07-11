@@ -78,6 +78,20 @@ superseded by this document for the 13 Machine Lifecycle events above;
 outside the Machine Lifecycle (e.g., the already-shipped
 `SESSION_CREATED`/`LOGIN_SUCCESS` auth events).
 
+## Relationship to `docs/standards/EVENT_CATALOG.md`
+
+**Added by ADR-025 (Canonical Event Catalog Consolidation) - purely
+additive documentation cross-reference; no event name or ownership
+assignment above is changed by this section.** `docs/standards/
+EVENT_CATALOG.md` is the DB-level index of `event_definitions`'
+UPPER_SNAKE_CASE `event_code`s (e.g. `MQR_OPENED`) - a different naming
+layer for several of the same facts named above in PascalCase (e.g.
+`MQROpened`). This document remains authoritative for event *name* and
+*ownership*; that document is authoritative for the literal `event_code`
+and Timeline display metadata neither this document nor 06 defines. See
+`docs/governance/EVENT_OWNERSHIP.md` for the full name-mapping table
+between the two.
+
 ## Explicitly not decided here
 
 - The exact `PlatformEvent.metadata` shape per event type (e.g. what

@@ -7,6 +7,53 @@ of truth; if they ever disagree, the database is authoritative (per
 `docs/standards/MODULE_DEVELOPMENT_STANDARD.md`'s source-of-truth
 priority) and this file should be corrected to match.
 
+## Relationship to the Canonical Event Catalog (blueprint 18)
+
+**Consolidated by ADR-025 (`docs/adr/ADR-025-Canonical-Event-Catalog-Consolidation.md`)
+— read that ADR and `docs/governance/EVENT_OWNERSHIP.md` for the full
+reasoning; this section states only the resulting rule.**
+
+This file and `docs/architecture/blueprint/18-CANONICAL-EVENT-CATALOG.md`
+govern two different layers of the *same* underlying facts, not two
+competing catalogs:
+
+- **18 is authoritative for event *name* and *ownership*** (frozen, one of
+  `20-ARCHITECTURE-GOVERNANCE.md`'s 5 Architecture Freeze items) — the
+  `PlatformEventType` PascalCase name (e.g. `MQROpened`) and which single
+  module may produce it.
+- **This file is authoritative for the literal, DB-level `event_code`**
+  (UPPER_SNAKE_CASE, e.g. `MQR_OPENED`) that the same fact is stored and
+  queried as, plus the Thai/English display label and Timeline display
+  order — none of which 18 defines, since 18 is architecture-level, not
+  implementation-level.
+
+Where both catalogs describe the same real-world fact, the mapping is:
+
+| 18's `PlatformEventType` | This file's `event_code` | Relationship |
+|---|---|---|
+| `DealerReceived` | `DEALER_RECEIVED` | Same fact, two naming conventions (architecture name vs. DB code) |
+| `PMCompleted` | `MAINTENANCE_COMPLETED` | Same fact |
+| `MQROpened` | `MQR_OPENED` | Same fact |
+| `MQRClosed` | `MQR_CLOSED` | Same fact |
+| `MachineDelivered` | `NTR_COMPLETED` | Same fact (NTR is today's one Registration implementation - "New Tractor Registration completing" *is* "Machine Delivered" per `docs/standards/DOMAIN_LANGUAGE_STANDARD.md`'s Acceptance Date section) |
+| `MachineImported` | `FACTORY_BUILD` | Related but not identical - `MachineImported` is the Tractor-IN sync import event; `FACTORY_BUILD` is reserved for a literal factory-build feed that doesn't exist yet. Do not treat these as the same fact without re-checking 18 when a real producer is built |
+| `ImportPDICompleted` / `DealerPDICompleted` | `PDI_COMPLETED` | 18 splits PDI into two sub-stages (Import PDI vs. Dealer PDI); this file has one generic `PDI_COMPLETED` reserved slot. When PDI is actually built, prefer 18's two-stage split and add a second `event_code` here rather than collapsing back to one - this file's single row today reflects "not built yet," not a deliberate simplification |
+
+Events with **no equivalent in 18** (this file only - operational/
+non-Machine-Lifecycle events, or reserved for modules 18 doesn't name at
+all): `NTR_CREATED`, `CAMPAIGN_ASSIGNED`, `CAMPAIGN_COMPLETED`,
+`PART_REQUESTED`, `PART_DELIVERED`, `INSPECTION` (generic),
+`SOFTWARE_UPDATE`, `RECALL`, `TELEMATICS_ALERT`, `OTHER`. These remain
+governed by this file alone.
+
+Events with **no equivalent here** (18 only - not yet wired to
+`event_definitions`/`VehicleEventPublisher`): `WarrantyActivated`,
+`PIPCreated`, `PIPCompleted`, `OwnershipTransferred`, `Retired`. When any
+of these gets a real producer, add its `event_code` here following this
+file's existing naming convention, and add the mapping row above -
+**check this table before picking a new event name so a fifth
+independent naming scheme doesn't appear.**
+
 **Every module publishes to the timeline through `VehicleEventPublisher`
 (`src/features/vehicle-event/publisher.ts`) only — never by inserting into
 `vehicle_events` directly.** A new event code is added by (1) inserting a

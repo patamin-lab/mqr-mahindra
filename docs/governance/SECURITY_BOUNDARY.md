@@ -84,8 +84,9 @@ own email address, not their full profile).
 ## Import
 
 New since `SECURITY_STANDARD.md` was last written - the Import Platform
-(ADR-009 Universal Import Framework; ADR-022 Import Platform v2,
-proposed) introduces a security-relevant surface `SECURITY_STANDARD.md`
+(ADR-024 Universal Import Framework, renumbered from ADR-009 - see
+`docs/adr/README.md`; ADR-022 Import Platform v2, proposed) introduces a
+security-relevant surface `SECURITY_STANDARD.md`
 predates: a bulk-write path from an uploaded file. Governance rule,
 consistent with existing SECURITY_STANDARD.md principles applied to this
 new surface: **an import's server-side re-validation (dealer/branch

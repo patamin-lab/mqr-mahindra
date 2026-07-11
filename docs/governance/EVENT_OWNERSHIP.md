@@ -1,47 +1,36 @@
 # Event Ownership
 
-## Relationship to existing documents (a real, pre-existing drift)
+## Relationship to existing documents (a real drift, now consolidated)
 
-Two documents already claim to be a canonical event catalog, and they
-disagree:
+Two documents both claimed to be a canonical event catalog and
+disagreed. **Resolved by `docs/adr/ADR-025-Canonical-Event-Catalog-
+Consolidation.md`** (this same PR) - both catalogs remain, reclassified
+as governing two different layers of the same facts, with an explicit
+mapping table added to `docs/standards/EVENT_CATALOG.md` and a purely
+-additive cross-reference added to the frozen
+`docs/architecture/blueprint/18-CANONICAL-EVENT-CATALOG.md` (no existing
+name/ownership row in 18 was changed - see the ADR's "Decision" section
+for why this counts as a documentation correction, not a Breaking
+Change).
 
 | | `docs/standards/EVENT_CATALOG.md` | `docs/architecture/blueprint/18-CANONICAL-EVENT-CATALOG.md` |
 |---|---|---|
-| Status | Binding-but-secondary ("human-readable index... if they [this doc and the DB] ever disagree, the database is authoritative") | Frozen (event *ownership* is one of 20's 5 Architecture Freeze items) |
-| Naming convention | `event_code`, UPPER_SNAKE_CASE (`MQR_OPENED`, `FACTORY_BUILD`) | `PlatformEventType`, PascalCase (`MQROpened`, `MachineImported`) |
-| Scope | Vehicle Life Cycle Timeline events - broad, includes `NTR_CREATED`/`NTR_COMPLETED`, `CAMPAIGN_*`, `PART_*`, `TELEMATICS_ALERT`, `SOFTWARE_UPDATE` | Machine Lifecycle events specifically - 13 named types, includes `ImportPDICompleted`, `DealerPDICompleted`, `WarrantyActivated`, `PIPCreated`/`PIPCompleted`, `OwnershipTransferred` |
-| Cross-references the other? | No | No - it does say 06 (Event Model) is superseded for these 13 events, but never mentions `docs/standards/EVENT_CATALOG.md` at all |
-| Ownership statement | Publisher status per event ("MQR/PM not yet wired; NTR is first end-to-end") | "Every event type has exactly one owning module - the only bounded context permitted to emit it" (quoted) |
+| Status | Binding-but-secondary to the DB | Frozen (event ownership, one of 20's 5 Freeze items) |
+| Naming convention | `event_code`, UPPER_SNAKE_CASE | `PlatformEventType`, PascalCase |
+| Scope | Vehicle Life Cycle Timeline (broad - includes NTR/Campaign/Parts/Telematics/Software-Update) | Machine Lifecycle specifically (13 named types) |
+| Cross-references the other? | **Yes, now** (ADR-025) | **Yes, now** (ADR-025, additive only) |
+| Authoritative for | `event_code` + Timeline display metadata (label, order) | Event *name* and *ownership* |
 
-**This document does not merge them, rewrite either of them, or pick a
-winner unilaterally** - 18's content is frozen (one of 20's 5 Freeze
-items), so changing its event names/ownership is a Breaking Change per
-20's own process, not something a documentation-only governance pass
-does. Instead, this document names the drift precisely and proposes a
-reconciliation rule for whoever holds the authority to act on it.
+## Canonical Events
 
-## Canonical Events (as they exist today, both catalogs)
-
-For any new event, check **both** catalogs before naming it - a name
-that exists in one under a different casing/spelling than the other
-(e.g. `PMCompleted` in spirit vs. `MAINTENANCE_COMPLETED` literally) is
-exactly the kind of silent duplication this framework exists to prevent.
-
-- **`docs/architecture/blueprint/18-CANONICAL-EVENT-CATALOG.md`** governs
-  Machine Lifecycle event *names* and *ownership* - one owning module per
-  event type, frozen.
-- **`docs/standards/EVENT_CATALOG.md`** governs the Activity Timeline's
-  broader `event_code` taxonomy (which includes non-lifecycle,
-  operational events like `TELEMATICS_ALERT`) - the database
-  (`event_definitions` table) is authoritative over this document itself.
+Both catalogs are canonical, for different layers - see ADR-025. Do not
+pick one over the other; check both, per the mapping table in
+`docs/standards/EVENT_CATALOG.md`.
 
 ## Owners (per 18, unchanged, cited not restated)
 
 Each of 18's 13 `PlatformEventType`s has exactly one owning module (the
-sole permitted producer) - see 18 directly for the full table. This
-document does not reproduce it verbatim to avoid the two documents
-drifting further apart the next time one of them is edited and the other
-isn't.
+sole permitted producer) - see 18 directly for the full table.
 
 ## Publishers / Consumers
 
@@ -55,59 +44,43 @@ isn't.
   Knowledge only, never events directly - 08's "no independent data of
   its own" rule applies here too).
 
-## Naming Standards (proposed, not yet binding - see reconciliation below)
+## Naming Standards (now binding, per ADR-025)
 
-Until the two catalogs are reconciled, a new event should:
-
-1. Check both catalogs for an existing name for the same fact - do not
-   invent a third naming convention for a fourth "index."
-2. If the event is a Machine Lifecycle event (fits one of 18's 13
-   named stages), extend 18 - PascalCase, past tense, one owning module
-   (18's existing convention).
-3. If the event is a Timeline/operational event outside Machine
-   Lifecycle scope, extend `docs/standards/EVENT_CATALOG.md` -
-   UPPER_SNAKE_CASE `event_code`, added to the `event_definitions` table
-   first (DB is authoritative).
-4. Never emit an event that already has a name in the *other* catalog
-   under different casing for the same fact - if in doubt, this is
-   exactly the kind of ambiguity to raise before writing code, not after.
+1. **Check the mapping table in `docs/standards/EVENT_CATALOG.md` first**
+   - a name that exists in one catalog under different casing for the
+   same fact must not get a third name; extend the mapping table instead.
+2. If the event is a Machine Lifecycle event (fits one of 18's 13 named
+   stages), extend 18 - PascalCase, past tense, one owning module (18's
+   existing convention) - requires 20's ADR process (18 is frozen).
+3. If the event is a Timeline/operational event outside Machine Lifecycle
+   scope, extend `docs/standards/EVENT_CATALOG.md` - UPPER_SNAKE_CASE
+   `event_code`, added to `event_definitions` first (DB is authoritative).
+4. When a currently-18-only event gets a real producer
+   (`WarrantyActivated`, `PIPCreated`, `PIPCompleted`,
+   `OwnershipTransferred`, `Retired`), add its `event_code` and mapping
+   row to `EVENT_CATALOG.md` at the same time - don't let the two drift
+   apart again.
 
 ## Versioning Rules
 
-Neither existing catalog states an explicit event-versioning rule (both
-are silent on "what happens when an event's shape/metadata needs to
-change"). Proposed, consistent with 20's Breaking Change Process: an
-event's **name and ownership** are frozen (18) - changing either is
+An event's **name and ownership** are frozen (18) - changing either is
 always a Breaking Change, full ADR process, no exception. An event's
 **metadata shape** is not itself frozen (18 explicitly leaves "exact
 `metadata` shape per event" undecided) - additive metadata fields are a
 domain-local change for the owning module; removing or renaming an
 existing metadata field is a Breaking Change (it can silently break every
-consumer that reads it).
-
-## Proposed Reconciliation (recommendation only - not executed here)
-
-1. Add an explicit cross-reference from `docs/standards/EVENT_CATALOG.md`
-   to 18, and vice versa, stating which one governs which event scope
-   (as this document already does above) - a documentation-only fix,
-   low risk.
-2. For the events that exist in both under different names for the same
-   real-world fact, pick one canonical name and alias the other as
-   deprecated - this **is** a Breaking Change for 18's frozen content, so
-   it needs 20's ADR process even though the fix looks trivial.
-3. Do not attempt step 2 as part of a documentation-only pass (this one)
-   - flagged in `README.md`'s Governance Roadmap as a "Next" item, owned
-   by whoever holds 18's Breaking Change authority.
+consumer that reads it). Formalized by ADR-025 alongside the
+consolidation itself.
 
 ## Gap Analysis
 
-- The drift itself (two catalogs, no cross-reference, overlapping but
-  non-identical event sets) is the primary finding of this document -
-  see table above.
+- The drift is resolved at the documentation layer (ADR-025); no code
+  changed - `VehicleEventPublisher`, `event_definitions`, and every
+  existing `event_code` are untouched.
 - No machine-readable `PlatformEventType` union type exists yet (18
   explicitly leaves this undecided) - a real future gap, not resolved
   here.
-- No versioning rule existed before this document; the "Versioning
-  Rules" section above is new governance guidance, not a restatement of
-  an existing rule - flag it as *proposed* until whoever owns 18/20
-  confirms it.
+- `MachineImported`/`FACTORY_BUILD` is flagged in the mapping table as
+  "related but not identical" rather than a clean 1:1 pair - re-verify
+  when a real Machine-import producer is built, don't assume the mapping
+  holds without checking.

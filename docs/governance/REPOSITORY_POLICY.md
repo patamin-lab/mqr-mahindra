@@ -10,26 +10,34 @@ duplicate.
 
 ## 1. Public vs. Private
 
-**Open item, not resolved here.** Root `CLAUDE.md` states: *"Repo:
-`github.com/patamin-lab/mqr-mahindra` (**private**)."* A prior session's
-`gh repo view patamin-lab/mqr-mahindra --json visibility,isPrivate` check
-returned `{"isPrivate": false, "visibility": "PUBLIC"}` - the repository
-is, in fact, public. This is a real, material discrepancy between
-documented and actual state:
+**Documentation drift resolved this pass.** Root `CLAUDE.md` previously
+stated: *"Repo: `github.com/patamin-lab/mqr-mahindra` (**private**)."*
+Re-verified directly against GitHub (`gh repo view patamin-lab/
+mqr-mahindra --json visibility,isPrivate`, checked twice, in two
+separate sessions, same result both times): `{"isPrivate": false,
+"visibility": "PUBLIC"}` - the repository is, and has been, public.
+**`CLAUDE.md` is now corrected to state public**, matching verified
+reality - documentation and actual state agree as of this pass.
 
-- If public is intentional, `CLAUDE.md` is stale and should be corrected.
-- If public is not intentional, this is a real exposure - every commit
+The separate, business-level question this does **not** answer - "is
+public the visibility this repository is *supposed* to have" - remains
+open and is the repository owner's call, not a documentation fix:
+
+- If public is intentional, nothing further is needed - the documentation
+  now correctly reflects it.
+- If public was never intended, this is a real exposure - every commit
   ever pushed (including commit messages, which in this repository's
-  convention are often detailed architecture rationale) is publicly
-  readable, and the repository should be set back to private by whoever
-  owns it.
+  convention are often detailed architecture rationale) has been publicly
+  readable this whole time, and the repository should be set to private
+  by whoever owns it. Making a public repository private again does not
+  un-index anything a search engine or fork already captured - the
+  exposure window doesn't close retroactively.
 
-**This framework does not change repository visibility** - that is an
-irreversible-feeling, owner-level decision (changing a public repo back
-to private does not un-index anything a search engine or fork already
-captured), consistent with this repository's own "Executing actions with
-care" operating principle. Recorded here as the single most important
-open item in this policy; see `README.md`'s Gap Analysis.
+**This framework does not change repository visibility** - flipping the
+actual GitHub setting is an irreversible-feeling, owner-level
+infrastructure action, consistent with this repository's own "Executing
+actions with care" operating principle. Recorded here as the single most
+important open item in this policy; see `README.md`'s Gap Analysis.
 
 ## 2. Secrets
 

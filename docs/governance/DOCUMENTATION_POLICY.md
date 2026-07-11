@@ -16,9 +16,11 @@ found while grounding this governance framework, both of which a simple
 documentation policy would have caught:
 
 1. **Duplicate ADR number** - `docs/adr/ADR-009-Machine-Domain.md` and
-   `docs/adr/ADR-009-Universal-Import-Framework.md` both exist on `main`
-   with the same number. A one-line "check existing ADR numbers before
-   assigning a new one" rule would have prevented this.
+   `docs/adr/ADR-009-Universal-Import-Framework.md` both existed on
+   `main` with the same number (fixed in this same pass - the latter is
+   now `ADR-024`, see `docs/adr/README.md`). A one-line "check existing
+   ADR numbers before assigning a new one" rule would have prevented
+   this in the first place.
 2. **Two disagreeing event catalogs** - see `EVENT_OWNERSHIP.md` in
    full. A one-line "check for an existing canonical doc before creating
    a second one with a similar name/purpose" rule would have caught this
