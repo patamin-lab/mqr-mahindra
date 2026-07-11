@@ -42,3 +42,23 @@ logic) rather than rendered empty.
 PDI and Parts Request have no nav entry (real or Coming Soon) today - see
 `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2/§7. Don't silently add or
 silently continue omitting them - it's a named, open product decision.
+
+## Domain ownership (pre-merge refinement, ADR-023 addendum)
+
+- **Engineering Intelligence owns PIP.** PIP is produced from Quality
+  Cases/Knowledge but is an Engineering deliverable - it has exactly one
+  nav entry, under Engineering Intelligence (alongside Knowledge Engine,
+  Troubleshooting, AI Analysis, Prediction, Insights), never a second copy
+  under Quality. Quality's own group comment states it produces Cases a
+  PIP is built from but does not own the PIP page. (Service > Campaigns'
+  separate, unchanged PIP entry represents a different relationship -
+  Service tracking a PIP as a campaign, not a duplicate page - see
+  `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2a.)
+- **Troubleshooting** (Engineering Intelligence, Coming Soon) is
+  architecture-reserved only - future AI-assisted troubleshooting,
+  knowledge-guided diagnostics, failure trees, decision trees, repair
+  procedures. No functionality.
+- **Reports is cross-cutting, not a domain** - it consumes data from every
+  domain group above it, owns none of its own. It gets a nav group for the
+  same reason Administration does, not because it's a domain like
+  Machines/Service/Quality (§2b in the framework doc).

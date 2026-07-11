@@ -10,6 +10,8 @@
   "common": {
     "notifications": "การแจ้งเตือน",
     "notificationsComingSoon": "เร็วๆ นี้",
+    "globalSearch": "ค้นหา",
+    "globalSearchComingSoon": "ค้นหาทั่วทั้งระบบ - เร็ว ๆ นี้",
     "vehicle": "รถแทรกเตอร์",
     "owner": "เจ้าของรถ",
     "maintenance": "การบำรุงรักษา",
@@ -235,6 +237,7 @@
     "qualityKnowledge": "คลังความรู้คุณภาพ",
     "engineeringIntelligence": "ปัญญาประดิษฐ์ด้านวิศวกรรม",
     "knowledgeEngine": "เครื่องมือความรู้",
+    "troubleshooting": "การวินิจฉัยปัญหา",
     "aiAnalysis": "การวิเคราะห์ด้วย AI",
     "prediction": "การพยากรณ์",
     "insights": "ข้อมูลเชิงลึก",

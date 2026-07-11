@@ -1,12 +1,15 @@
 import { getSession } from '@/lib/auth';
-import { countVehiclesForSession, countOpenQualityCases, getTractorInSyncHealth } from '@/lib/db';
+import { countVehiclesForSession, countOpenQualityCases, getTractorInSyncHealth, listTodaysAuditLog } from '@/lib/db';
 import { createNtrImportService } from '@/features/ntr/factory';
 import { canManageLegacyImport, seesAllDealers } from '@/lib/scope';
 import PageHeader from '@/components/shared/layout/PageHeader';
+import Card from '@/components/shared/layout/Card';
 import KpiCard from '@/components/shared/dashboard/KpiCard';
 import QuickActionCard from '@/components/shared/dashboard/QuickActionCard';
 import HealthCard, { HealthStatus } from '@/components/shared/dashboard/HealthCard';
 import EmptyState from '@/components/shared/layout/EmptyState';
+import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTimeline';
+import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import Link from 'next/link';
 
 /**
@@ -20,12 +23,24 @@ import Link from 'next/link';
  * Dashboard Philosophy: a dashboard is a decision center, not a statistics
  * page - every widget here either answers "what should I do next" (Quick
  * Actions) or is a real number backed by a real query. Widgets with no real
- * data source yet (Active Warranty, Open PM, Open PIP, Recall Campaigns,
- * Notifications, cross-module Latest Activities - none of Warranty/PM-due
- * aggregation/PIP/Recall/Notifications/cross-module activity feed exist as
- * queryable data today, see `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`'s
- * Gap Analysis) render as a named, explained Coming Soon `EmptyState`
- * rather than a fabricated "0" or a silent omission.
+ * data source yet (Active Warranty, Open PM, Recall/Service Campaigns -
+ * PIP now lives under Engineering Intelligence, see `navConfig.ts` - none of
+ * Warranty/PM-due aggregation/Recall exist as queryable data today, see
+ * `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`'s Gap Analysis) render as a
+ * named, explained Coming Soon `EmptyState` rather than a fabricated "0" or
+ * a silent omission.
+ *
+ * "Today's Activities" (ADR-023 refinement) reuses the same
+ * `<ActivityTimeline>` platform standard every module's own record detail
+ * page already uses - no second timeline component - fed by
+ * `listTodaysAuditLog()` + `mapMixedAuditLogToActivityEvents()` (see
+ * `lib/db.ts`/`activity-timeline/mapAuditLogToActivityEvents.ts`).
+ * Deliberately gated to `seesAllDealers` roles only, same as System Health
+ * below: `record_audit_log` carries no dealer/branch column of its own, so
+ * a platform-wide feed cannot be safely scoped to a DealerAdmin/DealerUser's
+ * own dealer without an additional join this pass doesn't build - shown
+ * only to roles that already see platform-wide data everywhere else on this
+ * page, never unscoped-leaked to a role that shouldn't see it.
  */
 export default async function PlatformOverviewPage() {
   const session = await getSession();
@@ -33,16 +48,19 @@ export default async function PlatformOverviewPage() {
 
   const canSeeImports = canManageLegacyImport(session.role);
   const canSeeSystemHealth = seesAllDealers(session.role);
+  const canSeeTodaysActivities = seesAllDealers(session.role);
 
-  const [registeredMachines, openQualityCases, pendingImports, syncHealth] = await Promise.all([
+  const [registeredMachines, openQualityCases, pendingImports, syncHealth, todaysAuditLog] = await Promise.all([
     countVehiclesForSession(session),
     countOpenQualityCases(session),
     canSeeImports ? createNtrImportService().listSessions().then((rows) => rows.filter((r) => r.status === 'Pending').length) : Promise.resolve(null),
     canSeeSystemHealth ? getTractorInSyncHealth() : Promise.resolve(null),
+    canSeeTodaysActivities ? listTodaysAuditLog() : Promise.resolve(null),
   ]);
 
   const syncStatus: HealthStatus =
     syncHealth?.syncStatus === 'success' ? 'healthy' : syncHealth?.syncStatus === 'partial_failure' ? 'degraded' : 'unknown';
+  const todaysActivityEvents = todaysAuditLog ? mapMixedAuditLogToActivityEvents(todaysAuditLog) : [];
 
   return (
     <div className="space-y-8">
@@ -100,6 +118,16 @@ export default async function PlatformOverviewPage() {
         </div>
       </div>
 
+      {/* ---------- Today's Activities (real, reuses ActivityTimeline) ---------- */}
+      {canSeeTodaysActivities && (
+        <div>
+          <h2 className="text-lg font-semibold text-brand-dark mb-3">Today&apos;s Activities</h2>
+          <Card variant="flat" className="p-5">
+            <ActivityTimeline events={todaysActivityEvents} entityLabel="Record" />
+          </Card>
+        </div>
+      )}
+
       {/* ---------- Reserved for domains with no real data source yet ---------- */}
       <div>
         <h2 className="text-lg font-semibold text-brand-dark mb-3">Coming Soon</h2>
@@ -120,9 +148,9 @@ export default async function PlatformOverviewPage() {
           />
           <EmptyState
             icon="📢"
-            title="Recall Campaigns / PIP"
-            reason="No Recall, Service Campaign, or PIP module exists yet."
-            nextStep="Planned under Service > Campaigns and Quality > PIP."
+            title="Recall / Service Campaigns"
+            reason="No Recall or Service Campaign module exists yet."
+            nextStep="Planned under Service > Campaigns. (Product Improvement Plans moved to Engineering Intelligence - see nav.)"
             comingSoon
           />
         </div>

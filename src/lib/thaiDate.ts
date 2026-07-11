@@ -63,8 +63,11 @@ const ENGLISH_MONTHS_SHORT = [
 ];
 
 /** Parts (day/month/year) of `value` as they read in Thailand local time,
- *  independent of the server's own timezone. */
-function bangkokDateParts(value: string | number | Date): { day: number; month: number; year: number } {
+ *  independent of the server's own timezone. Exported for callers that need
+ *  a Bangkok-local day boundary (not just a formatted display string) - e.g.
+ *  `lib/db.ts`'s `listTodaysAuditLog()`, which needs "today" to mean the
+ *  Thailand calendar day, not the server's UTC day. */
+export function bangkokDateParts(value: string | number | Date): { day: number; month: number; year: number } {
   const d = value instanceof Date ? value : new Date(value);
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: BANGKOK_TZ,

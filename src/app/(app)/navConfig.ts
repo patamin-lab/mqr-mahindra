@@ -101,6 +101,12 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       ],
     },
     {
+      // Product Improvement Plan (PIP) does NOT live here (architecture
+      // refinement, ADR-023 addendum) - PIP is an Engineering activity, not
+      // a Quality one: Quality Cases -> Knowledge -> Engineering Analysis ->
+      // PIP -> Recall. See the `engineering-intelligence` group below.
+      // Quality *produces* the Cases a PIP is built from but does not own
+      // or duplicate the PIP page/nav entry itself.
       key: 'quality',
       icon: '⚠️',
       label: t('nav.qualityGroup'),
@@ -109,21 +115,34 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
         { href: '/records', label: t('nav.qualityCases') },
         comingSoon(undefined, t('nav.qualityAnalytics')),
         comingSoon(undefined, t('nav.qualityKnowledge')),
-        comingSoon(undefined, t('nav.pip')),
       ],
     },
     {
+      // Owns the Knowledge -> Engineering Analysis -> PIP -> Recall chain
+      // (architecture refinement, ADR-023 addendum) - PIP is produced FROM
+      // Quality Cases/Knowledge but is itself an Engineering deliverable,
+      // not a Quality one; it has exactly one nav entry, here, not a second
+      // copy under Quality.
       key: 'engineering-intelligence',
       icon: '🧠',
       label: t('nav.engineeringIntelligence'),
       items: [
         comingSoon(undefined, t('nav.knowledgeEngine')),
+        comingSoon(undefined, t('nav.troubleshooting')),
         comingSoon(undefined, t('nav.aiAnalysis')),
         comingSoon(undefined, t('nav.prediction')),
+        comingSoon(undefined, t('nav.pip')),
         comingSoon(undefined, t('nav.insights')),
       ],
     },
     {
+      // Reports is a cross-cutting capability, not a business domain
+      // (architecture refinement, ADR-023 addendum) - it consumes data FROM
+      // every domain above (Machines, Service/PM, Warranty, Quality,
+      // Engineering Intelligence, Import Platform) rather than owning any
+      // data of its own. It gets a nav group because every other cross-
+      // cutting concern (Administration) does too, not because it's a
+      // domain like Machines/Service/Quality are.
       key: 'reports',
       icon: '📊',
       label: t('nav.reportsGroup'),

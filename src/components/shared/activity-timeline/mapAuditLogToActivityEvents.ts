@@ -190,3 +190,42 @@ function photoCountSummary(photoChanges: ActivityPhotoChange[] | null): string {
   const n = photoChanges?.length ?? 0;
   return `${n} photo${n === 1 ? '' : 's'} updated`;
 }
+
+/**
+ * Cross-record variant for a mixed, multi-module feed (MSEAL Design
+ * Framework, ADR-023 refinement - Platform Overview's "Today's Activities"
+ * widget). Each `AuditLogEntry` already carries its own `module`/`recordId`/
+ * `recordRef` (see `AuditLogEntry`), so - unlike the single-record
+ * `mapAuditLogToActivityEvents()` above - no external `ActivityContext` is
+ * needed; this groups entries into per-record batches first (the same
+ * "one save = one event" collapsing rule), maps each batch through the
+ * existing single-record function, then merges and re-sorts by timestamp.
+ * `vehicleSerial`/`closingStatusValues` aren't known across arbitrary
+ * records here, so a status change renders with the generic 🔄 icon rather
+ * than a module-aware ✅/↩ - an acceptable, honest limitation for a
+ * cross-module summary feed (a single record's own timeline still gets the
+ * richer rendering via the function above).
+ */
+export function mapMixedAuditLogToActivityEvents(entries: AuditLogEntry[]): ActivityEvent[] {
+  const byRecord = new Map<string, AuditLogEntry[]>();
+  for (const entry of entries) {
+    const key = `${entry.module}:${entry.recordId}`;
+    if (!byRecord.has(key)) byRecord.set(key, []);
+    byRecord.get(key)!.push(entry);
+  }
+
+  const events: ActivityEvent[] = [];
+  for (const rows of byRecord.values()) {
+    events.push(
+      ...mapAuditLogToActivityEvents(rows, {
+        entityType: rows[0].module,
+        entityId: rows[0].recordId,
+        entityRef: rows[0].recordRef,
+        vehicleSerial: null,
+      })
+    );
+  }
+
+  events.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
+  return events;
+}

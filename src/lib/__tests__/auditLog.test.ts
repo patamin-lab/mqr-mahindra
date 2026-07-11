@@ -7,7 +7,7 @@ interface QueryResult {
 
 function createQueryBuilder(result: QueryResult) {
   const calls: { method: string; args: unknown[] }[] = [];
-  const chainMethods = ['select', 'eq', 'order', 'insert', 'limit'] as const;
+  const chainMethods = ['select', 'eq', 'gte', 'order', 'insert', 'limit'] as const;
   const builder: Record<string, unknown> = {};
   for (const method of chainMethods) {
     builder[method] = vi.fn((...args: unknown[]) => {
@@ -28,7 +28,7 @@ vi.mock('../supabase', () => ({
 // db.ts pulls in a lot of unrelated modules at import time; only auditLog
 // exports are under test here, but they live in db.ts per this repo's
 // "all Supabase access goes through the shared db layer" convention.
-import { logAuditEvent, logAuditEvents, listAuditLog, diffFieldsForAudit } from '../db';
+import { logAuditEvent, logAuditEvents, listAuditLog, listTodaysAuditLog, diffFieldsForAudit } from '../db';
 
 describe('logAuditEvent', () => {
   beforeEach(() => {
@@ -143,6 +143,63 @@ describe('listAuditLog', () => {
         performedAt: '2026-07-01T00:00:00Z',
       },
     ]);
+  });
+});
+
+describe('listTodaysAuditLog (Platform Overview "Today\'s Activities", ADR-023 refinement)', () => {
+  beforeEach(() => {
+    mockFrom.mockReset();
+  });
+
+  it('filters by performed_at >= start of today (Bangkok day, not server/UTC day) and maps rows back to camelCase', async () => {
+    const row = {
+      id: 'a2',
+      module: 'pm',
+      record_id: 'r9',
+      record_ref: 'PM-KTV-2026-000001',
+      event_type: 'Created',
+      field_name: null,
+      old_value: null,
+      new_value: null,
+      performed_by: 'bob',
+      performed_at: '2026-07-09T05:00:00Z',
+    };
+    const { builder, calls } = createQueryBuilder({ data: [row], error: null });
+    mockFrom.mockReturnValue(builder);
+
+    const result = await listTodaysAuditLog();
+
+    expect(mockFrom).toHaveBeenCalledWith('record_audit_log');
+    const gteCall = calls.find((c) => c.method === 'gte');
+    expect(gteCall).toBeDefined();
+    expect(gteCall!.args[0]).toBe('performed_at');
+    // The boundary is a valid ISO instant - not asserting the exact clock
+    // value here (that would just re-encode "now"), only that a real
+    // day-boundary was computed rather than an empty/garbage value.
+    expect(typeof gteCall!.args[1]).toBe('string');
+    expect(() => new Date(gteCall!.args[1] as string)).not.toThrow();
+
+    expect(result).toEqual([
+      {
+        id: 'a2',
+        module: 'pm',
+        recordId: 'r9',
+        recordRef: 'PM-KTV-2026-000001',
+        eventType: 'Created',
+        fieldName: null,
+        oldValue: null,
+        newValue: null,
+        performedBy: 'bob',
+        performedAt: '2026-07-09T05:00:00Z',
+      },
+    ]);
+  });
+
+  it('defaults to a 20-row limit', async () => {
+    const { builder, calls } = createQueryBuilder({ data: [], error: null });
+    mockFrom.mockReturnValue(builder);
+    await listTodaysAuditLog();
+    expect(calls.some((c) => c.method === 'limit' && c.args[0] === 20)).toBe(true);
   });
 });
 

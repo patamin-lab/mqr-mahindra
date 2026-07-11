@@ -10,6 +10,8 @@
   "common": {
     "notifications": "Notifications",
     "notificationsComingSoon": "Coming soon",
+    "globalSearch": "Search",
+    "globalSearchComingSoon": "Global Search - Coming soon",
     "vehicle": "Tractor",
     "owner": "Owner",
     "maintenance": "Maintenance",
@@ -235,6 +237,7 @@
     "qualityKnowledge": "Knowledge",
     "engineeringIntelligence": "Engineering Intelligence",
     "knowledgeEngine": "Knowledge Engine",
+    "troubleshooting": "Troubleshooting",
     "aiAnalysis": "AI Analysis",
     "prediction": "Prediction",
     "insights": "Insights",

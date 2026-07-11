@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { bangkokDateParts } from './thaiDate';
 import { seesAllDealers, canDelete } from './scope';
 import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch, assertBranchAccess, AuthorizationScope } from './dealerBranchScope';
 import { translate } from './i18n/translate';
@@ -1821,6 +1822,51 @@ export async function listAuditLog(module: AuditModule, recordId: string): Promi
     .eq('record_id', recordId)
     .order('performed_at', { ascending: false })
     .limit(AUDIT_LOG_MAX_ENTRIES);
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    module: row.module,
+    recordId: row.record_id,
+    recordRef: row.record_ref,
+    eventType: row.event_type,
+    fieldName: row.field_name,
+    oldValue: row.old_value,
+    newValue: row.new_value,
+    performedBy: row.performed_by,
+    performedAt: row.performed_at,
+  }));
+}
+
+/** Start of "today" as the Thailand calendar day means it (GMT+7, no DST) -
+ *  returned as a UTC ISO instant so it compares correctly against
+ *  `performed_at` (stored/queried in UTC). Thailand has no DST, so a fixed
+ *  +7h offset is exact, not an approximation. */
+function startOfTodayBangkokIso(): string {
+  const { day, month, year } = bangkokDateParts(new Date());
+  return new Date(Date.UTC(year, month - 1, day, -7, 0, 0)).toISOString();
+}
+
+/**
+ * Platform Overview's "Today's Activities" widget (MSEAL Design Framework,
+ * ADR-023 refinement) - every `record_audit_log` row from today across every
+ * module, newest first. Deliberately platform-wide/unscoped: callers must
+ * only invoke this for a role that already sees platform-wide data
+ * (`seesAllDealers`) - the same gate already used for this page's System
+ * Health widget - since `record_audit_log` carries no `dealer_id`/`branch_id`
+ * of its own to scope by. Reuses the exact row shape `listAuditLog()`
+ * already returns; the caller maps it to `ActivityEvent[]` via
+ * `mapMixedAuditLogToActivityEvents()` (see `activity-timeline/
+ * mapAuditLogToActivityEvents.ts`) - no new event shape or duplicated
+ * mapping logic here.
+ */
+export async function listTodaysAuditLog(limit = 20): Promise<AuditLogEntry[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('record_audit_log')
+    .select('*')
+    .gte('performed_at', startOfTodayBangkokIso())
+    .order('performed_at', { ascending: false })
+    .limit(limit);
   if (error) throw error;
   return (data ?? []).map((row: any) => ({
     id: row.id,

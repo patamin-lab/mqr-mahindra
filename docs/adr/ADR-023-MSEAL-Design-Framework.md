@@ -225,3 +225,59 @@ column - is unchanged, per this task's explicit instruction).
   `MSEAL_DESIGN_FRAMEWORK.md`'s Migration Roadmap and Technical Debt
   sections - consistent with the Architecture Evolution Rule's "no
   speculative infrastructure," not an admission of incomplete work.
+
+## Addendum: pre-merge architecture refinement
+
+Applied as a direct amendment to this same ADR/PR (PR #37, not yet
+merged) rather than a new ADR - per this refinement's own instruction to
+preserve this ADR and open commits against the existing PR, not a new
+one. Four changes:
+
+1. **Product Improvement Plan (PIP) moves from Quality to Engineering
+   Intelligence.** PIP is an Engineering deliverable, not a Quality one -
+   it is *produced from* Quality Cases and Knowledge, but the plan itself
+   (Quality Cases → Knowledge → Engineering Analysis → PIP → Recall) is
+   Engineering Intelligence's output. The original navigation placed a
+   Coming Soon PIP entry under both Service > Campaigns and Quality -
+   this refinement removes the Quality copy entirely (PIP now has exactly
+   one nav entry, under Engineering Intelligence, alongside the new
+   Troubleshooting entry) and leaves the Service > Campaigns one
+   unchanged (that one represents a different relationship - PIP as a
+   campaign-adjacent deliverable Service tracks, not a duplicate page).
+   Quality's nav group comment now explicitly states it produces Cases a
+   PIP is built from but does not own the PIP page.
+2. **Troubleshooting added to Engineering Intelligence**, Coming Soon,
+   architecture-reserved only (no functionality) - future AI-assisted
+   troubleshooting, knowledge-guided diagnostics, failure trees, decision
+   trees, repair procedures. Same "Coming Soon" nav treatment as every
+   other not-yet-built leaf, nothing new invented for it.
+3. **Reports formally documented as a cross-cutting capability, not a
+   business domain** - it consumes data from Machines, Service/PM,
+   Warranty, Quality, Engineering Intelligence, and the Import Platform,
+   and owns no data of its own. It keeps its nav group (the same way
+   Administration - also cross-cutting - keeps one) but is now explicitly
+   labeled as such in `navConfig.ts`'s own comments and
+   `MSEAL_DESIGN_FRAMEWORK.md`. No existing report was touched or
+   redesigned.
+4. **Platform Overview gains "Today's Activities"** (a real widget, not
+   Coming Soon) reusing `<ActivityTimeline>` - the same platform-standard
+   component every module's own record page already uses, not a second
+   timeline. Fed by two small, additive functions: `listTodaysAuditLog()`
+   (`lib/db.ts`) and `mapMixedAuditLogToActivityEvents()`
+   (`activity-timeline/mapAuditLogToActivityEvents.ts`, a cross-record
+   sibling to the existing single-record mapper - no duplicated event
+   logic, same collapsing rule, just orchestrated across many records).
+   Gated to `seesAllDealers` roles only: `record_audit_log` has no
+   dealer/branch column to scope by, so - to avoid a permission
+   regression - this widget is shown only to roles that already see
+   platform-wide data everywhere else on this same page (System Health,
+   the unscoped Registered Machines total), never to a DealerAdmin/
+   DealerUser who would otherwise see other dealers' activity. Also added:
+   a **Global Search UI placeholder** (`GlobalSearchButton`, `PlatformHeader`) -
+   disabled, tooltip-only, mirroring `NotificationBell`'s exact existing
+   placeholder pattern - no backend, no index, no query; the data contract
+   it will eventually wire into is `docs/SEARCH_MODEL.md`, unchanged.
+
+No visual redesign, no change to any existing route's permission gate, no
+second copy of any existing page or component - see the Regression Report
+in this PR's description for verification evidence.
