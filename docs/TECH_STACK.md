@@ -15,7 +15,7 @@ This document defines the official platform stack and records what is actually i
 | Reporting / Daily Snapshot | Google Sheets |
 | PDF Generation | React PDF |
 | Charts | Recharts |
-| Icons | Lucide React |
+| Icons | None - inline SVG / emoji (ADR-023) |
 
 These are the platform's official choices for all future module development. New modules should not introduce an alternative framework, styling approach, charting library, or icon set without an ADR justifying the exception.
 
@@ -46,7 +46,12 @@ As of this sprint, `package.json` (`mqr-webapp`, current version `0.1.0`) confir
 
 These are noted explicitly rather than glossed over, per this sprint's documentation-first principle:
 
-- **Icons — Lucide React is not yet installed.** It is adopted here as the platform standard going forward; existing screens that use other icon sources are not required to be changed by this sprint (no production code is touched), but new shared UI components should use Lucide React.
+- **Icons — corrected by ADR-023** (`docs/adr/ADR-023-MSEAL-Design-Framework.md`).
+  This row and the "Known Gap" below it previously named Lucide React as
+  the adopted-going-forward icon standard; that was never acted on
+  (Lucide is still not installed) and directly contradicted
+  `docs/UI_STANDARD.md`'s current-state rule. The actual standard,
+  reconciled by ADR-023, is: no icon library - inline SVG or emoji.
 - **Authentication — "Supabase Auth" is the target principle, not a literal description of today's implementation.** The current codebase (`src/lib/auth.ts`, `src/lib/supabase.ts`) implements a custom session/JWT layer (signed with `jose`) on top of Supabase as the data store, rather than using Supabase's hosted Auth client directly. `docs/adr/ADR-001-Supabase.md` and `docs/PLATFORM_SERVICES.md` record this distinction. Whether the platform standardizes on Supabase's native Auth product or formalizes the existing custom session approach as the shared `auth` service is a decision for a future sprint, not this one.
 - **Google Sheets integration today is read-only and narrow in scope.** `src/lib/tractorSheet.ts` reads one existing reference sheet (read-only, via a public CSV export endpoint, no service account). It is not the same thing as the Supabase → Sheets daily reporting sync described in `docs/DATA_SYNCHRONIZATION.md`, which does not exist yet. The two should not be confused: the daily sync is new, forward-looking architecture; `tractorSheet.ts` is an existing, narrower integration that may eventually be superseded by it.
 - **Google Drive integration already has a starting point.** `src/lib/googleDrive.ts` and `scripts/get-google-refresh-token.mjs` (OAuth2) already exist. `docs/GOOGLE_DRIVE_ARCHITECTURE.md` defines the target folder structure and conventions this existing integration should grow into.

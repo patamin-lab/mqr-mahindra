@@ -106,7 +106,14 @@ A consistent application shell wraps every module: a fixed header, a collapsible
 
 ## Icons
 
-- Lucide React is the platform's icon set (see `docs/TECH_STACK.md`). One icon library means one visual weight and style across every module, rather than mixed icon sets accumulating module by module.
+- **Corrected by ADR-023** (`docs/adr/ADR-023-MSEAL-Design-Framework.md`):
+  this line previously named Lucide React as the platform's icon set,
+  contradicting `docs/UI_STANDARD.md`'s current-state, binding rule - no
+  icon library has, in fact, ever been introduced. The actual, current
+  standard is: **no icon library - inline SVG or emoji**, matching every
+  shared component shipped to date (including this framework's own new
+  widgets). Do not introduce an icon library without an explicit,
+  documented ADR decision.
 
 ## Responsive Rules / Mobile-First Considerations
 

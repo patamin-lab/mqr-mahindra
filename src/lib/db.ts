@@ -2180,6 +2180,42 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
   };
 }
 
+/**
+ * Platform Overview KPI (MSEAL Design Framework, ADR-023): total machines
+ * visible to this session. Deliberately a plain `dealer_id` filter, not
+ * `applyScope()` - the `vehicles` table has no `record_status` column
+ * (`applyScope()` assumes one), and every other vehicles query in this file
+ * already scopes the same simple way (`listVehicles()`, `searchVehicles()`).
+ * Not branch-scoped: no existing vehicles query filters by branch either
+ * (Vehicle Master is dealer-level in every current read path).
+ */
+export async function countVehiclesForSession(session: SessionUser): Promise<number> {
+  const supabase = getSupabase();
+  const { dealerId } = resolveDealerScope(session, null);
+  let query = supabase.from('vehicles').select('*', { count: 'exact', head: true });
+  if (dealerId) {
+    query = query.eq('dealer_id', dealerId);
+  } else if (!seesAllDealers(session.role)) {
+    query = query.eq('dealer_id', '__none__');
+  }
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Platform Overview KPI: open MQR cases visible to this session - same
+ *  "open" definition and same dealer/branch scope as `dashboardStats()`'s
+ *  backlog, but a `head: true` count instead of fetching full rows, since
+ *  this KPI needs only the number. */
+export async function countOpenQualityCases(session: SessionUser): Promise<number> {
+  const supabase = getSupabase();
+  let query = supabase.from('records').select('*', { count: 'exact', head: true }).in('status', OPEN_STATUSES);
+  query = applyScope(query, session);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
 // ---------- Master data management (Phase 2) ----------
 // All writes here are scoped/permission-checked again at the API route layer —
 // never rely on the frontend alone (spec section 27).

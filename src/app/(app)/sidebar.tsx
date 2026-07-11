@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { APP_NAME } from '@/lib/branding';
-import { getPrimaryNav, getAdminNav, showMasterDataNav, showLegacyImportNav } from './navConfig';
+import { getNavGroups, NavItem } from './navConfig';
 
 export interface SidebarProps {
   session: SessionUser;
@@ -17,18 +17,26 @@ export default function Sidebar({ session, open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { t } = useTranslation();
 
-  const showMasterData = showMasterDataNav(session);
-  // Legacy Import is hidden completely from every role except Super
-  // Administrator - not just visually de-emphasized. Every route it calls
-  // re-checks this same predicate server-side; hiding the menu entry is
-  // UX only, never the actual enforcement (see
-  // docs/standards/SECURITY_STANDARD.md §Application-layer authorization).
-  const showLegacyImport = showLegacyImportNav(session);
+  const groups = getNavGroups(t, session);
 
-  const NAV = getPrimaryNav(t);
-  const adminNav = getAdminNav(t, session);
-
-  function NavLink({ href, icon, label }: { href: string; icon?: string; label: string }) {
+  function NavLink({ href, icon, label, comingSoon }: NavItem) {
+    if (comingSoon || !href) {
+      return (
+        <div
+          aria-disabled="true"
+          title={t('nav.comingSoon')}
+          className="flex items-center justify-between px-3 py-2 rounded text-sm text-white/30 cursor-not-allowed select-none"
+        >
+          <span>
+            {icon && <span className="mr-2">{icon}</span>}
+            {label}
+          </span>
+          <span className="text-[10px] uppercase tracking-wide border border-white/20 rounded px-1 py-0.5 shrink-0 ml-2">
+            {t('nav.comingSoon')}
+          </span>
+        </div>
+      );
+    }
     const active = pathname === href || pathname.startsWith(href + '/');
     return (
       <Link
@@ -72,23 +80,26 @@ export default function Sidebar({ session, open, onClose }: SidebarProps) {
           </button>
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {NAV.map((item) => (
-            <NavLink key={item.href} {...item} />
-          ))}
-          {showMasterData && (
-            <>
-              <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">⚙️ {t('nav.masterData')}</div>
-              {adminNav.map((item) => (
-                <NavLink key={item.href} {...item} />
+          {groups.map((group) => (
+            <div key={group.key} className="pt-3 first:pt-0">
+              <div className="px-3 pb-1 text-[11px] uppercase tracking-wide text-white/40">
+                {group.icon} {group.label}
+              </div>
+              {(group.items ?? []).map((item) => (
+                <NavLink key={item.href ?? item.label} {...item} />
               ))}
-            </>
-          )}
-          {showLegacyImport && (
-            <>
-              <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wide text-white/40">🔧 {t('nav.systemSettings')}</div>
-              <NavLink href="/admin/legacy-import" label={t('nav.legacyImport')} />
-            </>
-          )}
+              {(group.subgroups ?? []).map((sub) => (
+                <div key={sub.label} className="mt-1">
+                  <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-white/30">{sub.label}</div>
+                  <div className="pl-2">
+                    {sub.items.map((item) => (
+                      <NavLink key={item.href ?? item.label} {...item} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
         </nav>
       </aside>
     </>
