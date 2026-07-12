@@ -1,0 +1,190 @@
+# Release Notes — Foundation v1.0
+
+Four PRs, merged in dependency order to `main` on 2026-07-12, completing
+the MSEAL DMS Foundation. See `docs/releases/FOUNDATION_FREEZE_v1.0.md`
+for what's now frozen and the process to reopen any of it.
+
+## Architecture
+
+- **Architecture Blueprint v1.1** (pre-existing, unchanged this release) —
+  Machine as the platform's aggregate root, the bounded context list, the
+  `PlatformEvent` envelope, Engineering Intelligence's AI Governance
+  boundary, and the Integration Boundary rule remain the frozen
+  Architecture Baseline.
+- **ADR numbering normalized** — a real duplicate ADR number was found and
+  fixed: `ADR-009` had been independently reused by both
+  `Universal-Import-Framework` (2026-07-03) and `Machine-Domain`
+  (2026-07-04, frozen, ~25 cross-references in the Blueprint). Resolved by
+  renumbering the Import Framework ADR to `ADR-024`, leaving Machine
+  Domain's frozen content untouched. `docs/adr/README.md` is now the
+  canonical ADR Index — one ADR, one number, one topic, going forward.
+- **Canonical Event Catalog consolidated** (ADR-025) — `18-CANONICAL-EVENT-CATALOG.md`
+  (frozen, name + ownership) and `docs/standards/EVENT_CATALOG.md`
+  (event_code + display metadata) reclassified as two layers of the same
+  facts, with explicit cross-references in both directions.
+
+## Governance
+
+- **Platform Governance Framework v1.1** — `docs/governance/` established
+  as the canonical home for Documentation Policy, Documentation Hierarchy,
+  Domain/Data Ownership Matrices, Capability Map/Dependency Map, Module
+  Maturity Matrix, Change Management, Security Boundary, API Governance,
+  AI Governance, and Repository Policy/Structure Map.
+- **Skill Governance** — `docs/governance/SKILL_GOVERNANCE.md` establishes
+  how `.claude/skills/` content stays in sync with its `docs/` source of
+  truth.
+
+## Design
+
+- **MSEAL Design Framework v1.0** (ADR-023) — Navigation Standard
+  (Group/Item/Subgroup taxonomy, Coming Soon convention), Dashboard
+  Standard (Platform Overview vs. domain dashboards, decision-center
+  philosophy), and the Screen Contract template every new screen now
+  documents against.
+- **Platform Overview** — `/dashboard` is now a small set of real,
+  role-aware KPIs (Registered Machines, Open Quality Cases, Pending
+  Imports, System Health, Today's Activities) plus Quick Actions, split
+  out from MQR's own analytics (moved unchanged to `/quality/dashboard`).
+- New shared components: `HealthCard`, `KpiCard` (extended), `ChartCard`,
+  `NotificationCard`, `ProgressCard`, `QuickActionCard`, `EmptyState`,
+  `ErrorState`, `Skeleton`, `GlobalSearchButton` — several ship ahead of a
+  second real consumer, the same "build the reusable primitive first"
+  precedent already established for the Import Framework (ADR-009/024).
+
+## Authentication Platform
+
+Unchanged this release — v3.0 (session management, password reset,
+invitations, account lockout, CSRF, `auth_audit_log`) remains frozen per
+ADR-014, carried forward from the prior release.
+
+## Import Platform Foundation
+
+- **Import Platform v2** (ADR-022) — four new, module-agnostic shared
+  services added to the existing Universal Import Framework (ADR-024):
+  Thailand Address Resolver, Master Data Resolver, Transformation
+  Library, and Duplicate Detector (`InFileDuplicateTracker`). NTR Legacy
+  Import migrated onto all four as the first adopting example; its own
+  42-test suite passes unmodified.
+- **Import Completion Notification** — `sendImportCompletionEmail()`,
+  wired into the commit route; the one genuinely new user-facing
+  capability this pass added (per-row Timeline/Audit already existed).
+- **Security fix**: a stored-HTML-injection vulnerability in the import
+  completion email (the uploader's own client-supplied filename was
+  interpolated into the email HTML unescaped) was found during this PR's
+  independent security review, fixed with a shared `escapeHtml()` utility
+  applied everywhere the same file builds HTML (including one other
+  pre-existing unescaped field, `sendInvitationEmail`'s `fullName`), and
+  covered by 8 new regression tests. Confirmed resolved before merge.
+- **New**: Admin Import History page (`/admin/import-history`), separate
+  from the Legacy Import wizard's own latest-3 summary.
+
+## Machine Domain v1.0
+
+- **Machine Digital Passport** (ADR-026) — `/machines` and
+  `/machines/[machineId]`, aggregating Identity, Ownership, Lifecycle
+  Timeline, Warranty, PM History, Quality Cases, Documents, Activity, and
+  Related Records for one machine in one place, reusing existing widgets
+  (Card, HealthCard, KpiCard, EmptyState, Timeline/TimelineItem) with no
+  new database tables and no authorization changes.
+- **Documented placeholders, not fabricated data**: Machine Health,
+  Knowledge Score, Machine Completeness, Next Recommended Action, and the
+  Reserved AI panels (Diagnostic Assistant, Predictive Failure Alert,
+  Root Cause Suggestion) all render as named, explained "Coming Soon"
+  states — each documents what's missing and where it's planned
+  (`docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`'s Gap Analysis),
+  never a silent zero or invented number.
+- **Documentation drift corrected**: NTR's `variant`/`manufacturing_year`
+  fields were previously (incorrectly) documented as not existing
+  anywhere in the data model. `docs/architecture/MACHINE_DATA_OWNERSHIP.md`
+  now documents the Current Source of Truth (sparse, NTR-entered) versus
+  the Future Source of Truth (Tractor IN sync, once populated) — no data
+  model or UI behavior changed, documentation only.
+
+## Security Improvements
+
+- Stored-HTML-injection fix in `src/lib/email.ts` (see Import Platform
+  Foundation above) — the release's one confirmed, fixed vulnerability.
+  Independent `/security-review` re-run after the fix found zero
+  surviving findings.
+- Independent multi-agent code review (8 finder angles + verify) run
+  against all four PRs before merge, since every PR was solely
+  agent-authored with no separate human review. Findings that were
+  CONFIRMED/PLAUSIBLE and cheap/safe to fix were fixed pre-merge (see
+  each PR's own commit history); the rest are carried forward below.
+
+## Known Technical Debt (carried forward, not fixed this release)
+
+Scope-limited per this release's own instruction — this is not a general
+audit of every review finding from every PR, only what's genuinely worth
+tracking:
+
+- **`docs/release/` vs. `docs/releases/` duplication** — two differently-named
+  release-notes directories exist (`docs/release/STORAGE_PLATFORM_RELEASE.md`
+  alone in the singular form; six files + an archive in the plural form,
+  now including this release's own two documents). Needs a decision on
+  which is canonical and a one-time consolidation — not done here to avoid
+  unrelated churn during a freeze.
+- **Sparse Manufacturing Year / Variant data ownership** — see Machine
+  Domain v1.0 above; the *documentation* is now correct, but the
+  underlying data itself remains sparse until Tractor IN sync populates
+  it (tracked as a Next Milestone, blocked on external sheet-owner
+  action, same as the pre-existing Product Family/Sub Model gap).
+- **Remaining planned capabilities** — every placeholder panel named
+  above (Machine Health scoring, Knowledge Score, Next Recommended
+  Action, Reserved AI panels) is real, scoped future work, not filler;
+  see `docs/ROADMAP.md`'s "Recommended next implementation order" for
+  sequencing.
+- **Machine Timeline audit cap** — `listAuditLogForRecords()`'s 300-row
+  cap is now correctly global-across-modules (fixed pre-merge during
+  PR #39's review — see its commit history), but the cap itself, and the
+  same defensive cap on `fetchMaintenanceHistoryForSerial`/
+  `fetchNtrRecordsForSerial`'s hardcoded `pageSize: 200`, remain a latent
+  truncation risk for a machine with an unusually long service history.
+  Low likelihood given typical PM/NTR volume per machine; not fixed this
+  release to avoid touching a shared utility used elsewhere.
+- **Machine Passport panel duplication** — four of the Passport's new
+  list panels (Warranty, PM History, Quality Cases, Related Records)
+  hand-roll their own row markup instead of the shared `Timeline`/
+  `TimelineItem` components, even though a fifth panel (Lifecycle) in the
+  same PR demonstrates they fit. Confirmed during review as a small,
+  mechanical follow-up (a few hours of prop remapping, no redesign), not
+  done here to avoid non-essential refactoring during the freeze.
+- **`listAuditLogForRecords()` has no defense-in-depth scoping** — it
+  trusts that the record refs handed to it by its three callers are
+  already dealer/branch-scoped (verified correct today), since
+  `record_audit_log` itself has no dealer/branch column to scope by. Not
+  currently exploitable (traced end-to-end during review), but a future
+  regression in any one of the three upstream fetches would have nothing
+  to catch it. Matches an existing, already-accepted pattern
+  (`listTodaysAuditLog()` has the same shape) rather than a new gap
+  introduced by this release.
+- **Repeated per-serial data fetches on the Machine Passport page** — the
+  Warranty/Quality/Related Records/Activity sections each independently
+  re-fetch the same MQR/PM/NTR records for a given serial (up to 4-5x per
+  page load), and Documents aggregation issues one attachment lookup per
+  record (N+1). Efficiency, not correctness; not fixed this release.
+
+## Deferred Items
+
+Explicitly named, not silently dropped — each is real, scoped future
+work:
+
+- Knowledge Engine v1.0 (recommended next epic — see below).
+- Engineering Intelligence, PIP, Predictive Quality, Dealer Portal,
+  Customer Portal, IoT — the chain of epics after Knowledge Engine
+  (`docs/ROADMAP.md`'s "Recommended next implementation order").
+- Universal Search (`docs/architecture/blueprint`'s Search section) —
+  `GlobalSearchButton` ships as a disabled placeholder this release.
+- Multiple new shared components (`NotificationCard`, `ProgressCard`,
+  `ErrorState`) ship with zero current consumers, built ahead of the
+  first real one — matches the existing "build ahead of a second
+  consumer" precedent, not a defect.
+
+## Recommendation
+
+**FOUNDATION COMPLETE.** All four PRs merged, independently reviewed,
+gate-verified (typecheck/lint/tests/build/architecture check), and
+production-deployment-verified. Recommend proceeding to **Knowledge
+Engine v1.0** as the next epic, per `docs/ROADMAP.md`'s recommended
+implementation order — not started as part of this release, per this
+freeze's own scope.

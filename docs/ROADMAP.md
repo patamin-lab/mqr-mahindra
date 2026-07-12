@@ -1,14 +1,44 @@
 # Roadmap
 
-## Release: v2.4.0-foundation
+## Release: Foundation v1.0
 
-Tag `v2.4.0-foundation` marks the current baseline. Full release notes:
+**Foundation Freeze v1.0 declared 2026-07-12** — Architecture Blueprint
+v1.1, Platform Governance v1.1, Design Framework v1.1, Navigation
+Standard, Dashboard Standard, Authentication Platform, Import Platform
+Foundation, and Machine Domain v1.0 are all now frozen. See
+`docs/releases/FOUNDATION_FREEZE_v1.0.md` (what's frozen, how to reopen
+it) and `docs/releases/RELEASE_NOTES_FOUNDATION_v1.0.md` (full release
+notes). Prior baseline: tag `v2.4.0-foundation`,
 `docs/releases/RELEASE_NOTES_V2.4.0_FOUNDATION.md`. The sections below
-reflect that baseline — completed work is out of "next" planning, not
-because it's finished forever (see the Working rules below), but because
-it shipped and moved to maintenance.
+reflect the current baseline — completed work is out of "next" planning,
+not because it's finished forever (see the Working rules below), but
+because it shipped and moved to maintenance.
 
 ## Completed Milestones
+
+- ✓ **Import Platform Foundation** (PR #36) — Import Platform v2's four
+  module-agnostic shared services (Thailand Address Resolver, Master Data
+  Resolver, Transformation Library, Duplicate Detector) added to the
+  Universal Import Framework; NTR Legacy Import migrated onto all four.
+  `docs/adr/ADR-022-Import-Platform-v2.md`,
+  `docs/architecture/IMPORT_PLATFORM.md`.
+- ✓ **Platform Design Framework** (PR #37) — Navigation Standard,
+  Dashboard Standard, Platform Overview, and the Screen Contract
+  convention every new screen now documents against.
+  `docs/adr/ADR-023-MSEAL-Design-Framework.md`,
+  `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`.
+- ✓ **Platform Governance** (PR #38) — `docs/governance/` established as
+  the canonical home for Documentation Policy, Ownership Matrices,
+  Capability Map, Module Maturity Matrix, and Security/API/AI Governance;
+  ADR numbering normalized (duplicate `ADR-009` resolved).
+  `docs/governance/README.md`, `docs/adr/README.md`.
+- ✓ **Machine Digital Passport** (PR #39) — `/machines`,
+  `/machines/[machineId]`: Identity, Ownership, Lifecycle, Warranty, PM,
+  Quality, Documents, Activity, and Related Records in one place, with
+  documented (not fabricated) placeholders for Machine Health, Knowledge
+  Score, Next Recommended Action, and Reserved AI panels.
+  `docs/adr/ADR-026-Machine-Digital-Passport.md`,
+  `docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`.
 
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),
@@ -74,6 +104,14 @@ governance doc — not a routine PR. Everything else in the Blueprint
 shapes) remains a normal design detail, refined freely during
 implementation.
 
+**Foundation Freeze v1.0** (`docs/releases/FOUNDATION_FREEZE_v1.0.md`)
+extends this same freeze discipline across every Foundation layer, not
+just the Architecture Baseline: Platform Governance v1.1, Design
+Framework v1.1, Navigation Standard, Dashboard Standard, Authentication
+Platform, Import Platform Foundation, and Machine Domain v1.0 are all now
+frozen under the identical ADR + Architecture Review + Architecture
+Approval process.
+
 ## Known Issues (carried forward, not blocking)
 
 - Production alias `mqr-mahindra.vercel.app` returns `DEPLOYMENT_NOT_FOUND`
@@ -120,20 +158,28 @@ Knowledge Domain (07) sections. Reconciliation detail:
 per-phase table above as the actual build sequence once Phase 1-2 sync
 work clears):
 
-1. Machine Digital Passport
-2. Machine Timeline
-3. Knowledge Engine
-4. Engineering Intelligence
-5. PIP
-6. Predictive Quality
+1. ✓ Machine Digital Passport — **done, PR #39, Foundation v1.0**
+2. **Knowledge Engine v1.0 — recommended next epic**
+3. Engineering Intelligence
+4. PIP
+5. Predictive Quality
+6. Dealer Portal
+7. Customer Portal
+8. IoT
 
 This is the sequence to build against going forward. It reorders the
 Blueprint's own 13-section dependency-ordered list (which sequences
 Machine Timeline before Machine Digital Passport, reasoning that Timeline
 should exist first so Passport has something to aggregate) — noted here
 explicitly, not silently, per 13's own "say so, don't silently reorder"
-convention. Each item is its own future milestone requiring its own plan
-and approval, per the Working rules below.
+convention. Machine Digital Passport shipped without a separate Machine
+Timeline milestone first (the Passport's own Lifecycle/Activity panels
+absorbed that need — see `docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`),
+so it's dropped from this list rather than carried forward as a stale
+separate item. Each remaining item is its own future milestone requiring
+its own plan and approval, per the Working rules below. **Knowledge
+Engine v1.0 is recommended, not started** — this document only
+recommends it, per Foundation Freeze v1.0's own scope.
 
 **Working rules for every phase** (binding, from the project owner):
 
