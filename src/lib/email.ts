@@ -12,6 +12,30 @@ function getResend(): Resend | null {
   return client;
 }
 
+/**
+ * Escapes a plain-text value for safe interpolation into an HTML email
+ * body (and, incidentally, a `Subject` header - also strips CR/LF so a
+ * crafted value can't inject extra header lines). This repository has no
+ * existing HTML-escaping utility (confirmed via a repo-wide search before
+ * adding this one) and no templating engine that would escape by default
+ * - every value interpolated into any of this file's hand-built HTML
+ * strings must be passed through this first unless it's a server-
+ * generated value with no user input in it (a reset/invite URL token, an
+ * ISO timestamp, a numeric count). Found during the PR #36 security
+ * review: `sendImportCompletionEmail()`'s `summary.filename` (the
+ * uploader's own client-supplied file name) and `sendInvitationEmail()`'s
+ * `fullName` were being interpolated unescaped.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/[\r\n]/g, ' ');
+}
+
 /** Per the spec (section 8): PDF report email fires at two points —
  *  "แจ้งซ่อม" (new record created) and "ปิดงาน" (job closed / repair result
  *  recorded). The recipient is the central/admin notification address. */
@@ -32,15 +56,20 @@ function buildHtml(record: MqrRecord, dealerName: string | undefined, kind: Noti
     ['สถานะ', record.status],
     ['ลูกค้า', record.customer_name ?? '-'],
   ];
+  // Every `value` here is either dealer/staff-entered free text
+  // (customer_name, model/serial stock notes) or master data an admin
+  // controls (dealerName) - none of it is safe to interpolate into HTML
+  // unescaped (see `escapeHtml()`'s doc comment for why this file needs
+  // its own escaping, not a templating engine).
   const rowsHtml = rows
     .map(
       ([label, value]) =>
-        `<tr><td style="padding:4px 10px;color:#666;white-space:nowrap">${label}</td><td style="padding:4px 10px">${value}</td></tr>`
+        `<tr><td style="padding:4px 10px;color:#666;white-space:nowrap">${label}</td><td style="padding:4px 10px">${escapeHtml(value)}</td></tr>`
     )
     .join('');
   return `
     <div style="font-family:sans-serif;font-size:14px;color:#1a1a1a">
-      <h2 style="color:#9c1c1c;margin-bottom:4px">${SUBJECT_PREFIX[kind]} — ${record.job_id}</h2>
+      <h2 style="color:#9c1c1c;margin-bottom:4px">${SUBJECT_PREFIX[kind]} — ${escapeHtml(record.job_id)}</h2>
       <p style="color:#666;margin-top:0">ดูรายละเอียดฉบับเต็มในไฟล์ PDF ที่แนบมา หรือเปิดลิงก์ด้านล่าง</p>
       <table style="border-collapse:collapse;margin:12px 0">${rowsHtml}</table>
       <p><a href="${recordUrl}" style="color:#9c1c1c">เปิดรายงานในระบบ →</a></p>
@@ -110,6 +139,11 @@ export async function sendImportCompletionEmail(
     return;
   }
   try {
+    // `summary.filename` is the uploader's own client-supplied file name
+    // (`File.name` from the browser's multipart upload, stored verbatim
+    // on the import session) - genuinely attacker-controlled text, not
+    // server-generated. Found unescaped during the PR #36 security
+    // review; every value below goes through `escapeHtml()`.
     const rows: [string, string][] = [
       ['ไฟล์', summary.filename],
       ['นำเข้าสำเร็จ', String(summary.imported)],
@@ -118,12 +152,12 @@ export async function sendImportCompletionEmail(
       ['ระยะเวลา', `${(summary.durationMs / 1000).toFixed(1)} วินาที`],
     ];
     const rowsHtml = rows
-      .map(([label, value]) => `<tr><td style="padding:4px 10px;color:#666;white-space:nowrap">${label}</td><td style="padding:4px 10px">${value}</td></tr>`)
+      .map(([label, value]) => `<tr><td style="padding:4px 10px;color:#666;white-space:nowrap">${label}</td><td style="padding:4px 10px">${escapeHtml(value)}</td></tr>`)
       .join('');
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to,
-      subject: `[MQR] นำเข้าข้อมูลเสร็จสิ้น — ${summary.filename}`,
+      subject: `[MQR] นำเข้าข้อมูลเสร็จสิ้น — ${escapeHtml(summary.filename)}`,
       html: `
         <div style="font-family:sans-serif;font-size:14px;color:#1a1a1a">
           <h2 style="color:#9c1c1c;margin-bottom:4px">นำเข้าข้อมูลเสร็จสิ้น</h2>
@@ -319,7 +353,7 @@ export async function sendInvitationEmail(to: string, fullName: string, inviteUr
     buildEmailLayout(
       'คำเชิญเข้าใช้งานระบบ MQR',
       `
-        <p>สวัสดีคุณ ${fullName}</p>
+        <p>สวัสดีคุณ ${escapeHtml(fullName)}</p>
         <p>ผู้ดูแลระบบได้สร้างบัญชีให้คุณในระบบ Market Quality Report</p>
         <p><a href="${inviteUrl}" style="color:#9c1c1c">คลิกที่นี่เพื่อตั้งรหัสผ่านและเปิดใช้งานบัญชี →</a></p>
         <p style="color:#666;font-size:12px">ลิงก์นี้จะหมดอายุภายใน 7 วันและใช้ได้เพียงครั้งเดียว</p>
