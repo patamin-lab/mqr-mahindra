@@ -1,7 +1,8 @@
 # Machine Digital Passport — Architecture
 
-v1.0. See `docs/adr/ADR-026-Machine-Digital-Passport.md` for the decision
-record this document expands on. Builds directly on the frozen foundation:
+v1.1 (refined post-PR #39 review; v1.0 baseline unchanged in shape). See
+`docs/adr/ADR-026-Machine-Digital-Passport.md` for the decision record
+this document expands on. Builds directly on the frozen foundation:
 Architecture Blueprint v1.1, Platform Governance v1.1, MSEAL Design
 Framework v1.1, Navigation Standard, Dashboard Standard, Authentication
 Platform v3.x, Import Platform Foundation. No frozen document was modified
@@ -11,11 +12,63 @@ to build this.
 
 `/machines/[machineId]` (`machineId` = Serial Number) is the permanent home
 of one machine across its whole lifecycle - Identity, Lifecycle, Ownership,
-Warranty, Preventive Maintenance, Quality, Documents, an Activity Timeline,
-and placeholder Knowledge Integration / Future IoT sections. It is an
-**aggregation layer**, exactly like Vehicle 360 before it: it owns no data
-of its own and runs no query that isn't already scoped by an existing
-module's own read function.
+Machine Health, Warranty, Preventive Maintenance, Quality, Related Records,
+Documents, an Activity Timeline, and placeholder Knowledge Integration /
+Reserved AI / Future IoT sections. It is an **aggregation layer**, exactly
+like Vehicle 360 before it: it owns no data of its own and runs no query
+that isn't already scoped by an existing module's own read function.
+
+## v1.1 refinement (5 additions, no redesign)
+
+A post-PR #39 review asked for five additions before merge, each reusing
+an existing MSEAL widget, adding no table, and changing no authorization
+path. None of them alter the v1.0 page shape described below - they slot
+into the existing core-fetch/Suspense-section structure:
+
+| # | Addition | Reuses | Fetch path | Future capability documented |
+|---|---|---|---|---|
+| 1 | Machine Health panel | `HealthCard` widget | Core (already-fetched `MachineSummary.healthScore`/`healthStatus` - zero new query) | Today's single computed signal is reserved to grow into trend history, sensor-driven inputs (once Future IoT lands), and predictive scoring |
+| 2 | Knowledge Score tile | `EmptyState` (`comingSoon`), added to the existing Knowledge Integration grid | None (placeholder) | A documentation-completeness metric - no scoring logic exists yet |
+| 3 | Lifecycle Timeline filtering | The existing `Timeline`/`TimelineItem`/`MachineTimelineRow` rows, `data-category` DOM hook | Client-side only, over the already-fetched milestone `timeline` array | N/A - a UI affordance, not a placeholder |
+| 4 | Related Records panel | The existing list-row pattern (same shape as Warranty Claims/PM History/Quality Cases) | New `<Suspense>` section, reusing `fetchMqrRecords`/`fetchMaintenanceHistoryForSerial`/`fetchNtrRecordsForSerial` (same three reads Warranty/PM/Quality/Activity already call) | N/A - a real, working cross-module list |
+| 5 | Reserved AI panels | `EmptyState` (`comingSoon`) | None (placeholder) | Machine Intelligence phase of `docs/ROADMAP.md`'s Next Development Phase order |
+
+Items 2 and 5 are pure UI placeholders (no data source exists to back
+them); items 1 and 4 use real, already-available data through existing
+reads; item 3 is a real client-side feature over already-fetched data.
+None introduce a new widget type (MSEAL Widget Guidelines' seven
+contracts already covered every case).
+
+### 3. Timeline filtering, in detail
+
+`MachineTimelineFilterBar` (`features/machine/components/`, `'use client'`)
+wraps the Lifecycle panel's existing server-rendered `Timeline` output -
+it receives the already-rendered `MachineTimelineRow` JSX as `children`
+(a Server Component's output can be passed into a Client Component as
+children/props in the App Router) and only toggles each row's inline
+`display` via a DOM effect, keyed off a `data-category` attribute each row
+now carries (`TimelineItem`'s new optional `dataCategory` prop, purely a
+pass-through - every existing caller omits it and is unaffected).
+
+This shape was chosen specifically to avoid a second, client-rendered
+timeline: `MachineTimelineRow` renders through the server-only
+`lib/i18n/server` translator, so a client-side re-render of the same rows
+would require either duplicating the row component with a client-side
+translator (rejected - "no duplicate timeline") or this DOM-toggle
+approach (chosen). Filter categories (`all`/`ntr`/`pm`/`mqr`/`other`) are a
+fixed lookup from `MachineEventType` - not a new classification system.
+
+### 4. Related Records, in detail
+
+`MachineService.getMachineRelatedRecords()` re-runs the same three scoped
+reads `getMachineWarrantySummary()`/`getMachineQualitySummary()`/
+`getMachineAuditTimeline()` already call, and flattens the result into one
+`MachineRelatedRecord[]` list (module + reference + status + date + link
+to that record's own detail page). This is an accepted, pre-existing
+trade-off, not a new one: this page already re-fetches the same MQR/PM/NTR
+record sets independently per Suspense section (no request-level cache
+exists yet - see "Known gaps"); Related Records is a fourth independent
+consumer of the same pattern, not a new one.
 
 ## Data flow
 

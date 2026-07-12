@@ -20,7 +20,7 @@ import { calcWarranty } from '@/lib/warranty';
 import { listAuditLogForRecords } from '@/lib/db';
 import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import type { ActivityEvent } from '@/components/shared/activity-timeline/types';
-import { MachineEvent, MachineSummary, MachineWarrantySummary, MachineQualitySummary } from './types';
+import { MachineEvent, MachineSummary, MachineWarrantySummary, MachineQualitySummary, MachineRelatedRecord } from './types';
 
 export class MachineService {
   constructor(private readonly attachmentService: AttachmentService = new AttachmentService()) {}
@@ -153,5 +153,51 @@ export class MachineService {
 
     const entries = await listAuditLogForRecords(refs);
     return mapMixedAuditLogToActivityEvents(entries);
+  }
+
+  /**
+   * Machine Digital Passport v1.1 refinement - Related Records panel.
+   * Reuses the exact same three scoped "records for this serial" reads
+   * `getMachineAttachments()`/`getMachineAuditTimeline()` already call
+   * (`fetchMqrRecords`, `fetchMaintenanceHistoryForSerial`,
+   * `fetchNtrRecordsForSerial`) - no new query, no new table - just
+   * flattened into one cross-module list with a link to each record's own
+   * detail page, instead of scattering job/PM/NTR references across
+   * Warranty Claims/PM History/Quality Cases with no single place that
+   * lists them all together.
+   */
+  async getMachineRelatedRecords(serial: string, session: SessionUser): Promise<MachineRelatedRecord[]> {
+    const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
+      fetchMqrRecords(serial, session),
+      fetchMaintenanceHistoryForSerial(serial, session),
+      fetchNtrRecordsForSerial(serial, session),
+    ]);
+
+    return [
+      ...mqrRecords.map((r) => ({
+        module: 'mqr' as const,
+        recordId: r.id,
+        reference: r.job_id,
+        status: r.status,
+        date: r.found_date,
+        href: `/records/${encodeURIComponent(r.job_id)}`,
+      })),
+      ...pmRecords.map((r) => ({
+        module: 'pm' as const,
+        recordId: r.id,
+        reference: r.pm_number ?? r.id,
+        status: null,
+        date: r.performed_date,
+        href: `/pm-records/${r.id}`,
+      })),
+      ...ntrRecords.map((r) => ({
+        module: 'ntr' as const,
+        recordId: r.id,
+        reference: r.ntr_number,
+        status: r.status,
+        date: r.delivery_date,
+        href: `/ntr/${r.id}`,
+      })),
+    ];
   }
 }

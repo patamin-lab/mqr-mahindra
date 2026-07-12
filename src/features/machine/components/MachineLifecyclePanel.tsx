@@ -2,13 +2,36 @@ import Card from '@/components/shared/layout/Card';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Timeline from '@/components/shared/timeline/Timeline';
 import MachineTimelineRow from './MachineTimelineRow';
+import MachineTimelineFilterBar, { TimelineFilterCategory } from './MachineTimelineFilterBar';
 import { t } from '@/lib/i18n/server';
-import { MachineEvent, MachineSummary } from '../types';
+import { MachineEvent, MachineEventType, MachineSummary } from '../types';
 
 interface StageFlag {
   labelKey: string;
   reached: boolean | 'comingSoon';
 }
+
+/** Maps every `MachineEventType` onto one of the four Timeline filter
+ *  categories (v1.1 refinement) - a simple, fixed lookup, not a new
+ *  classification system: NTR/PM/MQR events map to their own module,
+ *  everything else (factory/PDI/campaign/parts/inspection/other) is
+ *  "Other". */
+const CATEGORY_BY_EVENT_TYPE: Record<MachineEventType, Exclude<TimelineFilterCategory, 'all'>> = {
+  FactoryBuild: 'other',
+  DealerReceive: 'other',
+  PdiCompleted: 'other',
+  NtrCreated: 'ntr',
+  NtrCompleted: 'ntr',
+  MaintenanceCompleted: 'pm',
+  MqrOpened: 'mqr',
+  MqrClosed: 'mqr',
+  CampaignAssigned: 'other',
+  CampaignCompleted: 'other',
+  PartsRequested: 'other',
+  PartsDelivered: 'other',
+  Inspection: 'other',
+  Other: 'other',
+};
 
 /**
  * Machine Digital Passport - Lifecycle section. Two distinct pieces, both
@@ -74,11 +97,17 @@ export default function MachineLifecyclePanel({ summary, timeline }: { summary: 
       {timeline.length === 0 ? (
         <p className="py-6 text-center text-sm text-gray-400">{t('vehicle360.noTimelineEvents')}</p>
       ) : (
-        <Timeline className="space-y-3">
-          {timeline.map((event, idx) => (
-            <MachineTimelineRow key={`${event.type}-${event.referenceNumber}-${idx}`} event={event} />
-          ))}
-        </Timeline>
+        <MachineTimelineFilterBar>
+          <Timeline className="space-y-3">
+            {timeline.map((event, idx) => (
+              <MachineTimelineRow
+                key={`${event.type}-${event.referenceNumber}-${idx}`}
+                event={event}
+                category={CATEGORY_BY_EVENT_TYPE[event.type]}
+              />
+            ))}
+          </Timeline>
+        </MachineTimelineFilterBar>
       )}
     </Card>
   );

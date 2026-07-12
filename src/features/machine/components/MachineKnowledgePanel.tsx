@@ -8,6 +8,11 @@ import { t } from '@/lib/i18n/server';
  * platform's one `EmptyState` component in its `comingSoon` tone (MSEAL
  * Design Framework, ADR-023, EMPTY_STATE_GUIDELINE.md) rather than a new
  * "coming soon" treatment invented for this page.
+ *
+ * v1.1 refinement adds Knowledge Score - a single reserved metric tile
+ * (how well-documented/understood this machine's known issues are),
+ * same placeholder treatment as the other five tiles - no scoring logic
+ * exists anywhere to back it yet.
  */
 const ITEMS: { icon: string; titleKey: string }[] = [
   { icon: '🧠', titleKey: 'machinePassport.knowledgeCases' },
@@ -15,6 +20,7 @@ const ITEMS: { icon: string; titleKey: string }[] = [
   { icon: '🛠️', titleKey: 'machinePassport.troubleshooting' },
   { icon: '🤖', titleKey: 'machinePassport.aiRecommendation' },
   { icon: '🔮', titleKey: 'machinePassport.prediction' },
+  { icon: '📈', titleKey: 'machinePassport.knowledgeScore' },
 ];
 
 export default function MachineKnowledgePanel() {

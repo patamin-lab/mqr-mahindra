@@ -115,3 +115,32 @@ instruction.
 - `navConfig.ts`'s Machines → Machine Passport entry is now a real route
   (`/machines`), no longer Coming Soon; `navConfig.test.ts` updated to
   match.
+
+## Addendum: v1.1 refinement (pre-merge review of PR #39)
+
+Before merge, a review requested five additions: a Machine Health
+placeholder, a Knowledge Score placeholder, Lifecycle Timeline filtering,
+a Related Records panel, and Reserved AI panels. All five reuse existing
+MSEAL widgets (`HealthCard`, `EmptyState`, the existing list-row pattern),
+add no table, and change no authorization path - see
+`docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`'s "v1.1 refinement"
+section and `docs/architecture/MACHINE_PASSPORT_SCREEN_CONTRACT.md`'s
+updated section table for the full detail. Two small, additive component
+changes were needed to support Timeline filtering without duplicating the
+timeline: `TimelineItem` gained an optional `dataCategory` prop (a
+`data-*` DOM attribute, default omitted, zero behavior change for its
+other caller in `ntr/[id]/page.tsx`), and `MachineTimelineRow` gained an
+optional `category` pass-through of the same shape.
+
+One data-model correction was found during this refinement, flagged here
+rather than silently fixed (per the Grounding/Scope rules): `NtrRecord`
+(`features/ntr/types/index.ts`) actually carries `variant` and
+`manufacturing_year` columns - contradicting this document's original
+"no column exists anywhere" claim about Manufacturing Year and Variant.
+Both are populated by Legacy Import but **not** by the current manual NTR
+registration form (a 2026-07 form change dropped them), so they are real
+but sparse. Wiring Identity to read them was deliberately left out of this
+refinement (out of the five requested items, and Identity is on the
+page's blocking core-fetch path - adding an NTR read there is a separate,
+larger decision) - flagged for a future pass, not silently corrected or
+silently left wrong.

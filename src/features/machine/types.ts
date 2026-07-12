@@ -52,3 +52,20 @@ export interface MachineQualitySummary {
   criticalCount: number;
   cases: MachineQualityCase[];
 }
+
+/**
+ * Machine Digital Passport v1.1 refinement - Related Records panel. Not a
+ * new data source: each record is one of the same MQR/PM/NTR rows already
+ * read by `getMachineWarrantySummary()`/`getMachineQualitySummary()`/
+ * `getMachineAuditTimeline()`, just surfaced as one flat cross-module list
+ * with a link to that record's own detail page - see
+ * `MachineService.getMachineRelatedRecords()`.
+ */
+export interface MachineRelatedRecord {
+  module: 'mqr' | 'pm' | 'ntr';
+  recordId: string;
+  reference: string;
+  status: string | null;
+  date: string | null;
+  href: string;
+}

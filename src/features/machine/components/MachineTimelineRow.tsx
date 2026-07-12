@@ -10,8 +10,13 @@ import { MachineEvent } from '../types';
  * same milestone row, not a second copy - both pages import this one
  * component. Server-only (`lib/i18n/server`'s `t()`), matching where it
  * was already used.
+ *
+ * `category` (v1.1 refinement) is an optional pass-through to
+ * `TimelineItem`'s `dataCategory` - purely a DOM hook for
+ * `MachineTimelineFilterBar`'s client-side show/hide filter, so filtering
+ * never needs a second, client-side row renderer.
  */
-export default function MachineTimelineRow({ event }: { event: MachineEvent }) {
+export default function MachineTimelineRow({ event, category }: { event: MachineEvent; category?: string }) {
   return (
     <TimelineItem
       liClassName="rounded border border-gray-100 p-3 hover:bg-gray-50"
@@ -20,6 +25,7 @@ export default function MachineTimelineRow({ event }: { event: MachineEvent }) {
       badge={t(`vehicleEventType.${event.type}`)}
       leadingExtra={<span className="text-xs text-brand-red">{event.referenceNumber}</span>}
       trailing={event.status && <span className="text-xs text-gray-500">{event.status}</span>}
+      dataCategory={category}
     >
       <p className="mt-1 text-sm text-gray-800">{event.description}</p>
       {event.user && <p className="mt-0.5 text-xs text-gray-400">{t('vehicle360.byUser', { user: event.user })}</p>}
