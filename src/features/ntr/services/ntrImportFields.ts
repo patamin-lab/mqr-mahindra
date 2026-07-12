@@ -9,7 +9,7 @@
  * touching the shared framework or the generic parser - only this file
  * and, if the field is genuinely new, `NtrImportRow`/`ntrImportService.ts`.
  */
-import { ImportContract, ImportFieldDefinition, ImportTemplateMeta } from '@/shared/import';
+import { ImportContract, ImportFieldDefinition, ImportTemplateMeta, toNumberOrNull, toStringOrNull, normalizeDate } from '@/shared/import';
 import { MasterDataService } from '@/shared/master-data';
 
 export const NTR_IMPORT_TEMPLATE_META: ImportTemplateMeta = {
@@ -18,60 +18,15 @@ export const NTR_IMPORT_TEMPLATE_META: ImportTemplateMeta = {
   templateVersion: '1.2',
 };
 
-const toNumberOrNull = (raw: string): number | null => (raw.trim() ? Number(raw.trim()) : null);
-const toStringOrNull = (raw: string): string | null => (raw.trim() ? raw.trim() : null);
-
-const MONTH_NAMES: Record<string, number> = {
-  jan: 1, january: 1,
-  feb: 2, february: 2,
-  mar: 3, march: 3,
-  apr: 4, april: 4,
-  may: 5,
-  jun: 6, june: 6,
-  jul: 7, july: 7,
-  aug: 8, august: 8,
-  sep: 9, sept: 9, september: 9,
-  oct: 10, october: 10,
-  nov: 11, november: 11,
-  dec: 12, december: 12,
-};
-
-const pad2 = (n: number): string => (n < 10 ? `0${n}` : String(n));
-
 /** Real dealer spreadsheets have been seen using "31 Oct 2025"/"31 October
  *  2025", "31/10/2025", and "31-10-2025" alongside already-ISO dates -
- *  normalizes any of those to ISO `YYYY-MM-DD`, the format every downstream
- *  consumer assumes (`calcWarranty()`, the manual-entry `<input
- *  type="date">`). Returns `null` for anything else, so an unparseable
- *  date fails validation as a missing/invalid field (delivery_date is
- *  required - see `ntrImportService.ts`'s `isBlankRow`/preview checks)
- *  rather than being stored as garbage text. */
-export function parseImportDate(raw: string): string | null {
-  const value = raw.trim();
-  if (!value) return null;
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-
-  const dmyName = value.match(/^(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})$/);
-  if (dmyName) {
-    const day = Number(dmyName[1]);
-    const month = MONTH_NAMES[dmyName[2].toLowerCase()];
-    const year = Number(dmyName[3]);
-    if (!month || day < 1 || day > 31) return null;
-    return `${year}-${pad2(month)}-${pad2(day)}`;
-  }
-
-  const dmySlash = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-  if (dmySlash) {
-    const day = Number(dmySlash[1]);
-    const month = Number(dmySlash[2]);
-    const year = Number(dmySlash[3]);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-    return `${year}-${pad2(month)}-${pad2(day)}`;
-  }
-
-  return null;
-}
+ *  `normalizeDate()` (Transformation Library, ADR-022) normalizes any of
+ *  those to ISO `YYYY-MM-DD`, the format every downstream consumer
+ *  assumes (`calcWarranty()`, the manual-entry `<input type="date">`).
+ *  `parseImportDate` is kept as a re-exported alias - this file's own
+ *  name for the shared function, so existing imports of it don't need to
+ *  change - rather than every module reimplementing date coercion. */
+export const parseImportDate = normalizeDate;
 
 export const NTR_IMPORT_FIELDS: ImportFieldDefinition[] = [
   { canonicalKey: 'dealer_id', displayLabel: 'Dealer Code', required: true, aliases: ['Dealer', 'Dealer_ID', 'DealerCode', 'dealer_code'] },

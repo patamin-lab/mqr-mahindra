@@ -66,6 +66,17 @@ export class AddressRepository {
   private provinceCache: ProvinceRef[] | null = null;
   private districtCache = new Map<string, DistrictRef[]>();
   private subdistrictCache = new Map<string, SubdistrictRef[]>();
+  /** Every district, regardless of province - only populated on first
+   *  cross-province lookup (`findDistrictsByName`, Import Platform v2 /
+   *  ADR-022's bottom-up address resolution). `listDistricts(provinceId)`
+   *  above remains the province-scoped cache `AddressSelector` uses;
+   *  this is a second, table-wide cache, not a replacement. */
+  private allDistrictsCache: DistrictRef[] | null = null;
+  /** Every subdistrict, regardless of district - same reasoning as
+   *  `allDistrictsCache`. 7,436 rows, the same table `listSubdistricts`
+   *  already reads a slice of; fetched once, whole, only when a caller
+   *  actually needs a cross-district name search. */
+  private allSubdistrictsCache: SubdistrictRef[] | null = null;
 
   async listProvinces(): Promise<ProvinceRef[]> {
     if (this.provinceCache) return this.provinceCache;
@@ -131,5 +142,91 @@ export class AddressRepository {
     const target = normalizeThaiAddressValue(name);
     const subdistricts = await this.listSubdistricts(districtId);
     return subdistricts.find((s) => normalizeThaiAddressValue(s.tambonThai) === target) ?? null;
+  }
+
+  /** Whole-table fetch, cached - see `allDistrictsCache`'s doc comment.
+   *  Not used by `AddressSelector`'s cascading dropdown (which only ever
+   *  needs one province's districts); this backs cross-province name
+   *  search for bottom-up address resolution (ADR-022). */
+  private async listAllDistricts(): Promise<DistrictRef[]> {
+    if (this.allDistrictsCache) return this.allDistrictsCache;
+    const { data, error } = await getSupabase()
+      .from('districts')
+      .select('district_id, district_name_th, province_id')
+      .order('district_name_th', { ascending: true });
+    if (error) throw error;
+    this.allDistrictsCache = (data ?? []).map((r) => ({
+      districtId: String(r.district_id),
+      districtThai: r.district_name_th as string,
+      provinceId: String(r.province_id),
+    }));
+    return this.allDistrictsCache;
+  }
+
+  private async listAllSubdistricts(): Promise<SubdistrictRef[]> {
+    if (this.allSubdistrictsCache) return this.allSubdistrictsCache;
+    const { data, error } = await getSupabase()
+      .from('subdistricts')
+      .select('subdistrict_id, subdistrict_name_th, district_id, postcode')
+      .order('subdistrict_name_th', { ascending: true });
+    if (error) throw error;
+    this.allSubdistrictsCache = (data ?? []).map((r) => ({
+      tambonId: String(r.subdistrict_id),
+      tambonThai: r.subdistrict_name_th as string,
+      districtId: String(r.district_id),
+      postalCodes: r.postcode != null ? [String(r.postcode)] : [],
+    }));
+    return this.allSubdistrictsCache;
+  }
+
+  /** Every district (in any province) whose normalized name exactly
+   *  matches - a name that isn't unique nationally (e.g. two provinces
+   *  each having a district of the same name) returns more than one
+   *  entry; the caller (`ThailandAddressResolver`) treats 2+ as
+   *  ambiguous, never guesses which one was meant. */
+  async findDistrictsByName(name: string): Promise<DistrictRef[]> {
+    const target = normalizeThaiAddressValue(name);
+    const all = await this.listAllDistricts();
+    return all.filter((d) => normalizeThaiAddressValue(d.districtThai) === target);
+  }
+
+  /** Every subdistrict (in any district/province) whose normalized name
+   *  exactly matches - same "2+ matches is ambiguous" contract as
+   *  `findDistrictsByName`. This is the entry point for "resolve from
+   *  Subdistrict alone" (ADR-022's Subdistrict -> District -> Province
+   *  priority) - subdistrict names are the most specific and least
+   *  ambiguous of the three levels in practice, but still not guaranteed
+   *  unique nationally. */
+  async findSubdistrictsByName(name: string): Promise<SubdistrictRef[]> {
+    const target = normalizeThaiAddressValue(name);
+    const all = await this.listAllSubdistricts();
+    return all.filter((s) => normalizeThaiAddressValue(s.tambonThai) === target);
+  }
+
+  /** All provinces whose normalized name *starts with* the given
+   *  (already-normalized) prefix - backs the "ฯ truncation" alias
+   *  pattern (e.g. "นครศรีฯ" -> strip the ฯ -> prefix-match
+   *  "นครศรี" -> "นครศรีธรรมราช") without hardcoding every province's
+   *  possible abbreviation. 2+ matches is ambiguous, 0 is not found -
+   *  the same contract as the exact-match finders above. */
+  async findProvincesByPrefix(prefix: string): Promise<ProvinceRef[]> {
+    const target = normalizeThaiAddressValue(prefix);
+    if (!target) return [];
+    const all = await this.listProvinces();
+    return all.filter((p) => normalizeThaiAddressValue(p.provinceThai).startsWith(target));
+  }
+
+  /** By-id lookups, backed by the same whole-table caches - used to walk
+   *  "up" from a resolved subdistrict/district to its parent(s) (ADR-022's
+   *  bottom-up resolution needs a district's `provinceId` once it has
+   *  matched a subdistrict by name alone). */
+  async findDistrictById(districtId: string): Promise<DistrictRef | null> {
+    const all = await this.listAllDistricts();
+    return all.find((d) => d.districtId === districtId) ?? null;
+  }
+
+  async findProvinceById(provinceId: string): Promise<ProvinceRef | null> {
+    const all = await this.listProvinces();
+    return all.find((p) => p.provinceId === provinceId) ?? null;
   }
 }

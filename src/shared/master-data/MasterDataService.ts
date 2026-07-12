@@ -20,6 +20,7 @@
  */
 import { AddressRepository, normalizeThaiAddressValue, type ProvinceRef, type DistrictRef, type SubdistrictRef } from './address/AddressRepository';
 import { validateThaiAddress, type AddressValidationInput, type AddressValidationResult } from './address/addressValidation';
+import { resolveThaiAddress, type ThaiAddressResolutionInput, type ThaiAddressResolution } from './address/ThailandAddressResolver';
 
 const addressRepository = new AddressRepository();
 import {
@@ -41,6 +42,7 @@ import { SEVERITY_VALUES, SEVERITY_LABELS, type Severity } from './lookup/severi
 import { STATUS_VALUES, STATUS_LABELS, OPEN_STATUSES, canTransitionMqrStatus, type StatusValue } from './lookup/status';
 import { getWarrantyLimitMonths, type WarrantyProblemSystem } from './config/businessConfig';
 import * as reference from './reference/referenceData';
+import { resolveDealer, resolveBranch, resolveProductFamily, type MasterDataResolution } from './MasterDataResolver';
 
 export class MasterDataService {
   // ---- Address Platform ----
@@ -68,6 +70,15 @@ export class MasterDataService {
   static normalizeThaiAddressValue = normalizeThaiAddressValue;
   static validateThaiAddress(input: AddressValidationInput): Promise<AddressValidationResult> {
     return validateThaiAddress(input);
+  }
+  /** Thailand Address Resolver (Import Platform v2, ADR-022) - bottom-up
+   *  (Subdistrict -> District -> Province) resolution with confidence/
+   *  resolution-method, for import pipelines that want to auto-correct
+   *  and continue rather than accept-or-reject a whole triple. See
+   *  `address/ThailandAddressResolver.ts`'s doc comment for how this
+   *  differs from `validateThaiAddress()` above. */
+  static resolveThaiAddress(input: ThaiAddressResolutionInput): Promise<ThaiAddressResolution> {
+    return resolveThaiAddress(input);
   }
 
   // ---- Lookup Platform ----
@@ -122,4 +133,14 @@ export class MasterDataService {
   static getTechniciansForDealer = reference.getTechniciansForDealer;
   static getActiveProductFamilies = reference.getActiveProductFamilies;
   static getProductFamilyById = reference.getProductFamilyById;
+
+  // ---- Master Data Resolver (Import Platform v2, ADR-022) ----
+  // ID -> Exact Name -> Alias -> Unique Fuzzy Match, over the same
+  // Reference Data Platform reads above - never a new query path, never
+  // a write path (matches, never creates, Master Data).
+  static resolveDealer = resolveDealer;
+  static resolveBranch = resolveBranch;
+  static resolveProductFamily = resolveProductFamily;
 }
+
+export type { MasterDataResolution, MasterDataResolutionMethod } from './MasterDataResolver';

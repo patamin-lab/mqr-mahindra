@@ -4,6 +4,8 @@ import { canManageLegacyImport } from '@/lib/scope';
 import { createNtrImportService } from '@/features/ntr/factory';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { findUserByUsername } from '@/lib/db';
+import { sendImportCompletionEmail } from '@/lib/email';
 
 /**
  * Legacy Import step 2/2: Import -> Summary -> Audit. Only ever called
@@ -42,6 +44,29 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await createNtrImportService().commit(body.sessionId, { username: session.username }, importMode);
+
+    // Import Completion Notification (ADR-022, Task 15) - best-effort,
+    // awaited so it's guaranteed to at least attempt before the response
+    // returns (the same reliability principle Authentication Platform
+    // v3.0.1 established for background sends), but a failure here must
+    // never fail an import that already committed - `sendImportCompletionEmail`
+    // itself never throws, this try/catch is defense in depth only.
+    try {
+      const importer = await findUserByUsername(session.username);
+      if (importer?.email) {
+        const baseUrl = new URL(req.url).origin;
+        const durationMs =
+          result.completed_at && result.started_at ? new Date(result.completed_at).getTime() - new Date(result.started_at).getTime() : 0;
+        await sendImportCompletionEmail(
+          importer.email,
+          { filename: result.filename, imported: result.valid_count, skipped: result.skipped_count, failed: result.failed_count, durationMs },
+          `${baseUrl}/admin/legacy-import?session=${encodeURIComponent(body.sessionId)}`
+        );
+      }
+    } catch (notifyErr) {
+      console.error('import completion notification error', notifyErr);
+    }
+
     return NextResponse.json({ ok: true, data: result }, { status: 200 });
   } catch (error) {
     console.error('NTR legacy import commit error', error);
