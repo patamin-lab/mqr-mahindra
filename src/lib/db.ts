@@ -1869,6 +1869,14 @@ export async function listAuditLogForRecords(
     byModule.get(ref.module)!.push(ref.recordId);
   }
 
+  // Each module's own query is still capped at AUDIT_LOG_MAX_ENTRIES (so no
+  // single module can return an unbounded response), but the final result
+  // is re-sorted and re-sliced to the same cap *across all modules combined*
+  // - otherwise a machine with >300 audit rows in one module (e.g. many
+  // MQR jobs, each edited/re-opened several times) would silently drop that
+  // module's oldest rows while a second module with far fewer rows keeps
+  // all of its history untouched, producing a per-module cutoff instead of
+  // a true "newest 300 overall" one.
   const supabase = getSupabase();
   const results = await Promise.all(
     Array.from(byModule.entries()).map(async ([module, recordIds]) => {
@@ -1883,7 +1891,10 @@ export async function listAuditLogForRecords(
       return (data ?? []).map(mapAuditLogRow);
     })
   );
-  return results.flat();
+  return results
+    .flat()
+    .sort((a, b) => (a.performedAt < b.performedAt ? 1 : a.performedAt > b.performedAt ? -1 : 0))
+    .slice(0, AUDIT_LOG_MAX_ENTRIES);
 }
 
 /** Start of "today" as the Thailand calendar day means it (GMT+7, no DST) -
