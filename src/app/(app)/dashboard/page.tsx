@@ -2,6 +2,7 @@ import { getSession } from '@/lib/auth';
 import { countVehiclesForSession, countOpenQualityCases, getTractorInSyncHealth, listTodaysAuditLog } from '@/lib/db';
 import { createNtrImportService } from '@/features/ntr/factory';
 import { canManageLegacyImport, seesAllDealers } from '@/lib/scope';
+import { formatThaiDateTime } from '@/lib/thaiDate';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import KpiCard from '@/components/shared/dashboard/KpiCard';
@@ -50,13 +51,23 @@ export default async function PlatformOverviewPage() {
   const canSeeSystemHealth = seesAllDealers(session.role);
   const canSeeTodaysActivities = seesAllDealers(session.role);
 
-  const [registeredMachines, openQualityCases, pendingImports, syncHealth, todaysAuditLog] = await Promise.all([
-    countVehiclesForSession(session),
-    countOpenQualityCases(session),
-    canSeeImports ? createNtrImportService().listSessions().then((rows) => rows.filter((r) => r.status === 'Pending').length) : Promise.resolve(null),
-    canSeeSystemHealth ? getTractorInSyncHealth() : Promise.resolve(null),
-    canSeeTodaysActivities ? listTodaysAuditLog() : Promise.resolve(null),
-  ]);
+  // Promise.allSettled, not Promise.all: these five widgets are independent
+  // and each already renders its own "no data" fallback - one query failing
+  // (e.g. a transient DB error) must never take down the other four.
+  const [registeredMachinesResult, openQualityCasesResult, pendingImportsResult, syncHealthResult, todaysAuditLogResult] =
+    await Promise.allSettled([
+      countVehiclesForSession(session),
+      countOpenQualityCases(session),
+      canSeeImports ? createNtrImportService().listSessions().then((rows) => rows.filter((r) => r.status === 'Pending').length) : Promise.resolve(null),
+      canSeeSystemHealth ? getTractorInSyncHealth() : Promise.resolve(null),
+      canSeeTodaysActivities ? listTodaysAuditLog() : Promise.resolve(null),
+    ]);
+
+  const registeredMachines = registeredMachinesResult.status === 'fulfilled' ? registeredMachinesResult.value : 0;
+  const openQualityCases = openQualityCasesResult.status === 'fulfilled' ? openQualityCasesResult.value : 0;
+  const pendingImports = pendingImportsResult.status === 'fulfilled' ? pendingImportsResult.value : null;
+  const syncHealth = syncHealthResult.status === 'fulfilled' ? syncHealthResult.value : null;
+  const todaysAuditLog = todaysAuditLogResult.status === 'fulfilled' ? todaysAuditLogResult.value : null;
 
   const syncStatus: HealthStatus =
     syncHealth?.syncStatus === 'success' ? 'healthy' : syncHealth?.syncStatus === 'partial_failure' ? 'degraded' : 'unknown';
@@ -99,7 +110,7 @@ export default async function PlatformOverviewPage() {
               status={syncStatus}
               statusLabel={syncHealth.syncStatus === 'never_run' ? 'Never run' : undefined}
               detail={`${syncHealth.totalVehicles.toLocaleString()} machines synced`}
-              lastCheckedAt={syncHealth.lastSyncTime ? new Date(syncHealth.lastSyncTime).toLocaleString() : undefined}
+              lastCheckedAt={syncHealth.lastSyncTime ? formatThaiDateTime(syncHealth.lastSyncTime) : undefined}
             />
           )}
         </div>

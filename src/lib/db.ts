@@ -2018,12 +2018,22 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
     new Set((optionsRows ?? []).map((r: any) => r.model).filter((m: any): m is string => !!m))
   ).sort();
 
-  // 2. Current backlog — open jobs right now, never date-filtered.
+  // 2. Current backlog — open jobs right now, never date-filtered. The row
+  // fetch is capped at 5000 (only used for the status/aging/SLA breakdowns
+  // below, which are necessarily approximate past that many open rows), but
+  // `totalOpen` itself is a separate uncapped exact count so it never
+  // silently disagrees with Platform Overview's `countOpenQualityCases()`
+  // KPI, which counts the same "open" definition/scope with no cap.
   let backlogQuery = supabase.from('records').select('*').in('status', OPEN_STATUSES);
   backlogQuery = applyDealerModelScope(backlogQuery, session, filters);
   const { data: backlogRows, error: backlogErr } = await backlogQuery.limit(5000);
   if (backlogErr) throw backlogErr;
   const backlog = (backlogRows ?? []) as MqrRecord[];
+
+  let totalOpenQuery = supabase.from('records').select('*', { count: 'exact', head: true }).in('status', OPEN_STATUSES);
+  totalOpenQuery = applyDealerModelScope(totalOpenQuery, session, filters);
+  const { count: totalOpenCount, error: totalOpenErr } = await totalOpenQuery;
+  if (totalOpenErr) throw totalOpenErr;
 
   const now = new Date();
   const nowIso = now.toISOString().slice(0, 10);
@@ -2200,7 +2210,7 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
   const technicianLeaderboard = buildLeaderboard((r) => r.technician_name ?? null);
 
   return {
-    totalOpen: backlog.length,
+    totalOpen: totalOpenCount ?? backlog.length,
     statusBacklog,
     agingBuckets: agingCounts,
     slaBreachCount,
@@ -2228,12 +2238,13 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
 
 /**
  * Platform Overview KPI (MSEAL Design Framework, ADR-023): total machines
- * visible to this session. Deliberately a plain `dealer_id` filter, not
- * `applyScope()` - the `vehicles` table has no `record_status` column
- * (`applyScope()` assumes one), and every other vehicles query in this file
- * already scopes the same simple way (`listVehicles()`, `searchVehicles()`).
- * Not branch-scoped: no existing vehicles query filters by branch either
- * (Vehicle Master is dealer-level in every current read path).
+ * visible to this session. Deliberately a plain `dealer_id`/`branch_id`
+ * filter, not `applyScope()` - the `vehicles` table has no `record_status`
+ * column (`applyScope()` assumes one) - but branch-scoped the same way
+ * `searchVehiclesForPm()`/`searchVehiclesForNtr()` already do (`vehicles`
+ * has a real `branch_id` column), so a DealerUser pinned to one branch of a
+ * multi-branch dealer sees the same branch's machine count here as in
+ * every other branch-scoped KPI on this page, not the whole dealer's.
  */
 export async function countVehiclesForSession(session: SessionUser): Promise<number> {
   const supabase = getSupabase();
@@ -2241,6 +2252,12 @@ export async function countVehiclesForSession(session: SessionUser): Promise<num
   let query = supabase.from('vehicles').select('*', { count: 'exact', head: true });
   if (dealerId) {
     query = query.eq('dealer_id', dealerId);
+    const { branchId } = resolveBranchScope(session, dealerId, null);
+    if (branchId) {
+      query = query.eq('branch_id', branchId);
+    } else if (session.role === 'DealerUser') {
+      query = query.eq('branch_id', '00000000-0000-0000-0000-000000000000');
+    }
   } else if (!seesAllDealers(session.role)) {
     query = query.eq('dealer_id', '__none__');
   }

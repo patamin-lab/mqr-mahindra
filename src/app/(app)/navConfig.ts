@@ -177,7 +177,7 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
     ...(isAdminRole ? [{ href: '/admin/users', icon: '👥', label: t('nav.adminUsers') }] : []),
     ...(canManageLegacyImport(session.role) ? [{ href: '/admin/import-history', label: t('nav.adminImportHistory') }] : []),
     ...(isAdminRole ? [comingSoon(undefined, t('nav.adminAudit')), comingSoon(undefined, t('nav.adminSessions'))] : []),
-    ...(canManageEmailHealth(session.role) ? [{ href: '/admin/email-health', label: t('nav.adminSystemHealth') }] : []),
+    ...(canManageEmailHealth(session.role) ? [{ href: '/admin/email-health', label: t('nav.adminEmailHealth') }] : []),
     ...(isAdminRole ? [comingSoon(undefined, t('nav.adminSettings'))] : []),
   ];
 
