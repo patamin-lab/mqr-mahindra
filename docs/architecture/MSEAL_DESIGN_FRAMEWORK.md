@@ -53,7 +53,7 @@ never a fake/broken link. Implementation: `src/app/(app)/navConfig.ts`'s
 | ⚠️ Quality | Dashboard (แดชบอร์ดคุณภาพ) | `/quality/dashboard` | Real (moved MQR dashboard) |
 | | Cases (รายงานปัญหาคุณภาพ) | `/records` | Real (existing) |
 | | Analytics (การวิเคราะห์) | - | Coming Soon |
-| | Troubleshooting | - | Coming Soon (moved here from Engineering Intelligence - see §2a) |
+| | Troubleshooting (การแก้ไขปัญหา) | - | Coming Soon (moved here from Engineering Intelligence - see §2a) |
 | | Knowledge (องค์ความรู้) | - | Coming Soon |
 | 🧠 Engineering Intelligence | AI Engineering | - | Coming Soon |
 | | Product Improvement Plans (PIP) | - | Coming Soon |

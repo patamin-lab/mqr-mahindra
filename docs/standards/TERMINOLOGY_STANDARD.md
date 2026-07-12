@@ -24,7 +24,7 @@ type stays `MqrRecord` - only the *label a user sees* changed).
 | Quality Dashboard (nav item, `/quality/dashboard`) | แดชบอร์ดคุณภาพ | `th`; `en` keeps "Quality Dashboard" |
 | Quality Analytics (nav item, Coming Soon) | การวิเคราะห์ | `th`; `en` keeps "Analytics" |
 | Quality Knowledge (nav item, Coming Soon) | องค์ความรู้ | `th`; `en` keeps "Knowledge" |
-| Troubleshooting (nav item under Quality, Coming Soon; Machine Passport reserved section) | Troubleshooting | Both `en` and `th` - intentional English exception (see below) |
+| **Troubleshooting** (nav item under Quality, Coming Soon; Machine Passport reserved section; also the official term for this capability in breadcrumbs, search, Related Records, and empty-state copy - see Consistency requirement below) | **Troubleshooting (การแก้ไขปัญหา)** | Both `en` and `th` - fixed compound term (see below) |
 | AI Engineering (nav item under Engineering Intelligence, Coming Soon) | AI Engineering | Both `en` and `th` - intentional English exception |
 | PIP / Product Improvement Plan (nav item under Engineering Intelligence and under Service > Campaigns, Coming Soon) | แผนปรับปรุงผลิตภัณฑ์ (PIP) | Both `en` and `th` - fixed term |
 | Predictive Quality (nav item under Engineering Intelligence, Coming Soon) | Predictive Quality | Both `en` and `th` - intentional English exception |
@@ -58,6 +58,50 @@ UI language happens to be toggled on - the same way `MQR`/`NTR`/`PM`
 already appear unchanged in both locales elsewhere in this app. Every
 *other* label in the tables above still translates normally per locale.
 
+**Troubleshooting is a compound term, not an English-only exception**:
+the official wording is the single fixed string **"Troubleshooting
+(การแก้ไขปัญหา)"** - English term followed by its Thai gloss in
+parentheses - shown identically in both locales, never split into two
+separate per-locale values and never shortened to just "Troubleshooting"
+or just "การแก้ไขปัญหา" on their own.
+
+### Consistency requirement: Troubleshooting
+
+"Troubleshooting (การแก้ไขปัญหา)" is the one official term for this
+capability, wherever it appears. It must render identically across:
+
+- **Navigation** - the Quality group's nav entry (`nav.troubleshooting`).
+- **Machine Passport** - the reserved section's heading and `EmptyState`
+  title (`machinePassport.troubleshootingTitle`).
+- **Dashboard** - if a Troubleshooting widget/link is ever added to
+  Platform Overview or a domain dashboard.
+- **Breadcrumbs** - `PlatformHeader`'s breadcrumb/title lookup
+  (`flattenRealNavItems`/`findActiveNavItem`) derives its text directly
+  from the same nav item label, so once Troubleshooting becomes a real
+  route, its breadcrumb is automatically correct with no separate
+  implementation - as long as no one hardcodes a second, differently-
+  worded breadcrumb string for it.
+- **Search** - the Universal Search data contract
+  (`.claude/skills/mseal-platform-design/SEARCH_GUIDELINES.md`), once
+  built, indexes/displays this capability under this exact term.
+- **Related Records** - if a Related Records panel (Machine Passport or
+  elsewhere) ever links to or labels a Troubleshooting record/category.
+- **Empty States** - any `EmptyState` referencing this capability (title,
+  reason, or next step copy) names it this way, not a paraphrase.
+- **Documentation references** - `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`,
+  `.claude/skills/mseal-platform-design/NAVIGATION_GUIDELINES.md`, and any
+  other doc declaring this as *the UI term* (not casual prose describing
+  the underlying concept - see Translation Rule 5) use the same exact
+  string.
+
+None of the surfaces above except Navigation and Machine Passport
+currently render this term - Dashboard/Breadcrumbs/Search/Related Records
+have no Troubleshooting content today (no new placeholder was added to
+any of them by this rule; see Forbidden wording and Translation Rule 6).
+This section exists so that whenever one of them *does* gain
+Troubleshooting content, the wording is already decided rather than
+invented ad hoc.
+
 ## Forbidden wording
 
 Never use the following in new or edited UI text - if you find one,
@@ -76,6 +120,9 @@ replace it with the official term above in the same change:
 - **"Insights"** / **"AI Analysis"** as separate Engineering Intelligence
   nav entries - consolidated into the single "AI Engineering" entry.
   Do not re-split them without a product decision.
+- **Plain "Troubleshooting"** or plain **"การแก้ไขปัญหา"** alone, as a UI
+  label - replaced by the single fixed term "Troubleshooting
+  (การแก้ไขปัญหา)" everywhere (see Consistency requirement above).
 - **"No Data"** / **"ไม่มีข้อมูล"** as empty-state copy - unrelated to this
   pass but already forbidden platform-wide, see
   `.claude/skills/mseal-platform-design/EMPTY_STATE_GUIDELINES.md`.
