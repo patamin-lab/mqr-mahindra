@@ -1,6 +1,10 @@
-# ADR-009: Universal Import Framework
+# ADR-024: Universal Import Framework
 
 Note: requested as `ADR-008-Universal-Import-Framework.md`; renumbered to `ADR-009` because `ADR-008-Google-Drive-Decoupling.md` (this same branch's prior commit) already occupies that slot.
+
+**Renumbered again, `ADR-009` → `ADR-024`, by the Platform Governance Framework's ADR normalization pass** (`docs/governance/DOCUMENTATION_POLICY.md`, `docs/adr/README.md`): `ADR-009-Machine-Domain.md` was committed one day after this file and independently reused the same number, producing a real duplicate-ADR-number defect on `main`. Machine-Domain's number is cross-referenced roughly 25 times across the frozen Architecture Blueprint itself (chapters 02/10/11/13/14/16/17/20, its README) plus `PLATFORM_CONSTITUTION.md`, `PERMISSION_MATRIX.md`, `DOMAIN_LANGUAGE_STANDARD.md`, `ADR-013`, `AI_CONTEXT.md`, and `PROJECT_STATE.md` - renumbering it would mean editing frozen Baseline content, which itself requires 20's Breaking Change Process for a documentation-hygiene fix, wildly disproportionate to the problem. This file's only real cross-reference outside its own filename was `docs/engineering/IMPORT_FRAMEWORK.md` (one line, now updated) - renumbering it instead resolves the duplicate with the Baseline itself untouched. `ADR-024` was chosen because `ADR-015`-`ADR-021` are reserved by `16-ADR-RECOMMENDATIONS.md` for specific named future blueprint-domain ADRs this file isn't one of, and `ADR-022`/`ADR-023` are already claimed by other in-flight PRs (#36, #37) at the time of this renumbering - `ADR-024` was the next number free on all three counts.
+
+**Known follow-up, not fixable from this branch**: `docs/adr/ADR-022-Import-Platform-v2.md` (proposed, PR #36) references this ADR by its old number ("ADR-009-Universal-Import-Framework") since it was written before this renumbering and lives on an independent branch. Whoever merges this PR should update PR #36's reference to `ADR-024` before PR #36 itself merges - tracked in `docs/adr/README.md`'s own notes, not silently forgotten.
 
 ## Problem
 
