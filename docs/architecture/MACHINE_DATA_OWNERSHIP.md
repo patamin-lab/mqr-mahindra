@@ -1,10 +1,11 @@
 # Machine Data Ownership
 
-v1.0. Every field the Machine Digital Passport shows, where it actually
-comes from, and - honestly, not optimistically - which fields it *can't*
-show yet because no owning table/column exists. Written so a future
-contributor never has to grep the schema to find out whether a gap is a
-bug or a known, documented limit.
+v1.2 (drift correction - see "Documentation correction" below; v1.0/v1.1
+field ownership otherwise unchanged). Every field the Machine Digital
+Passport shows, where it actually comes from, and - honestly, not
+optimistically - which fields it *can't* show yet because no owning
+table/column exists. Written so a future contributor never has to grep the
+schema to find out whether a gap is a bug or a known, documented limit.
 
 ## Principle: the Passport owns nothing
 
@@ -22,9 +23,9 @@ membership) - or it is a documented gap.
 | Engine Number | `vehicles.engine_number` | |
 | Model | `vehicles.model` | |
 | Product Family | `product_families` (via `vehicles.product_family_id`) | |
-| Variant | `vehicles.sub_model` | Closest existing analog - **not** a true "Variant" concept (see Gaps) |
-| Manufacturing Year | — | **Gap** - no column anywhere |
-| Manufacturing Country | — | **Gap** - no column anywhere |
+| Variant | Displayed from `vehicles.sub_model`; `NtrRecord.variant` also exists but is not yet the Identity source (see "Documentation correction" below) | Two real sources, not one - `vehicles.sub_model` is the closest always-populated analog; `NtrRecord.variant` is a genuine "Variant" column but sparse |
+| Manufacturing Year | Exists on `NtrRecord.manufacturing_year` but not yet wired to Identity (see "Documentation correction" below) | Sparse (Legacy Import only) - displayed as "not tracked yet" until promoted to a reliable source |
+| Manufacturing Country | — | **Gap** - no column anywhere (the one field in this row group with no real source at all) |
 | Current Owner / Owner Phone | Latest MQR/PM/NTR record's `customer_name`/`customer_phone` | Derived read-time, not a stored FK - see "Ownership has no identity" below |
 | Owner History | — | **Gap** - no ownership-history table |
 | Dealer / Branch | `vehicles.dealer_id`/`branch_id` (resolved to names via `dealers`/`branches`) | |
@@ -37,6 +38,53 @@ membership) - or it is a documented gap.
 | Documents/Photos | `AttachmentService` (ADR-010) across this machine's MQR/PM/NTR records | Split into Photos/Other by MIME type, not a real document-category field (see Gaps) |
 | Activity Timeline | `record_audit_log` across this machine's MQR/PM/NTR records | New bulk read (`listAuditLogForRecords`), same table/shape as every other `<ActivityTimeline>` consumer |
 | Milestone timeline | `vehicle_events` (existing, unchanged) | |
+
+## Documentation correction: Variant / Manufacturing Year
+
+The v1.0/v1.1 versions of this document claimed "no column exists
+anywhere" for both Variant and Manufacturing Year. That claim was wrong,
+found during the PR #39 pre-merge review: `NtrRecord`
+(`features/ntr/types/index.ts`) has carried `variant: string | null` and
+`manufacturing_year: number | null` since NTR was built. This section
+resolves that drift - the data model itself is **not** changed by this
+correction, only the documentation.
+
+**Current Source of Truth**: `NtrRecord.variant`/`NtrRecord.manufacturing_year`,
+populated only by Legacy Import (`ntrImportService.ts`). The current
+manual NTR registration form (NTR Form Update, 2026-07) does **not**
+collect either field - see that migration's own comment in
+`features/ntr/types/index.ts`. Practically: a machine registered before
+the 2026-07 form change may have real values here; a machine registered
+after does not. Because coverage is partial and depends entirely on
+*when* a machine was registered (not on anything about the machine
+itself), these two fields are **not** promoted to the Identity section
+today - Identity still reads Variant from `vehicles.sub_model` (always
+populated, but not a true "Variant" concept) and renders Manufacturing
+Year as "not tracked yet," exactly as before this correction. Displaying a
+sparse, registration-date-dependent field as if it were reliable machine
+data would be a worse failure mode than showing "not tracked yet"
+consistently.
+
+**Future Source of Truth (undecided, flagged for a future architecture
+pass - not resolved by this correction)**: two candidate directions exist
+and neither is chosen here:
+
+1. **Re-add both fields to the manual NTR registration form** and treat
+   `NtrRecord` as the authoritative per-registration source - consistent
+   with NTR already being the point where a machine's delivery/retail
+   date and customer are captured.
+2. **Promote both fields to `vehicles`** (Tractor-IN sheet master data),
+   treating them as machine-level attributes captured once at import
+   time rather than per-registration-event data - consistent with how
+   Serial/Engine Number/Model already live there.
+
+Which of these (or a third option) is correct depends on a business
+question this document can't answer alone: is Variant/Manufacturing Year
+a property of the *physical machine* (favors option 2) or of the
+*registration transaction* (favors option 1, and would need a defined
+rule for what happens if a machine is re-registered with different
+values). Recommended next step: raise this with whoever owns the NTR Form
+Update decision before writing a migration either way.
 
 ## Ownership has no identity table
 
@@ -85,13 +133,17 @@ taxonomy, and should not be read as one by a future caller.
 
 ## Summary of genuine gaps (not fabricated, not silently dropped)
 
-1. Manufacturing Year - no column.
-2. Manufacturing Country - no column.
-3. A true "Variant" field distinct from `sub_model` - no column.
-4. Region - no column on `dealers`/`branches`/`vehicles`.
-5. Owner History - no ownership-history table, no Customer entity.
-6. A dedicated Warranty table (policies/claims) - status is computed, not stored.
-7. A document category/taxonomy field on attachments - MIME type is a heuristic stand-in.
+1. Manufacturing Country - no column anywhere (unlike Manufacturing
+   Year, this one has no source at all, sparse or otherwise).
+2. Region - no column on `dealers`/`branches`/`vehicles`.
+3. Owner History - no ownership-history table, no Customer entity.
+4. A dedicated Warranty table (policies/claims) - status is computed, not stored.
+5. A document category/taxonomy field on attachments - MIME type is a heuristic stand-in.
 
 Every one of these renders honestly in the UI ("not tracked yet" / "not
 available") rather than a fake or guessed value.
+
+Manufacturing Year and a true Variant field are **not** in this list
+anymore - they exist (sparsely, on `NtrRecord`), which is a different
+kind of problem (unreliable/partial coverage, not "no column"). See
+"Documentation correction" above.

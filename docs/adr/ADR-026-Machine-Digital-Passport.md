@@ -107,11 +107,14 @@ instruction.
   (a "View Machine Digital Passport →" link on Vehicle 360); nothing about
   Vehicle 360 changed beyond the extraction of its `TimelineRow` helper
   into the shared `MachineTimelineRow` component and that one added link.
-- Four genuine, honestly-documented data-model gaps exist and are **not**
+- Genuine, honestly-documented data-model gaps exist and are **not**
   fabricated to fill the Passport's Identity/Ownership sections:
-  Manufacturing Year, Manufacturing Country, a true "Variant" field, and
-  an Ownership History table. See
-  `docs/architecture/MACHINE_DATA_OWNERSHIP.md`.
+  Manufacturing Country and an Ownership History table have no column/
+  table anywhere; Manufacturing Year and a true "Variant" field do exist
+  (sparsely, on `NtrRecord`) but aren't yet a reliable-enough source to
+  promote to Identity - see the v1.2 addendum below and
+  `docs/architecture/MACHINE_DATA_OWNERSHIP.md` for the corrected,
+  current account.
 - `navConfig.ts`'s Machines → Machine Passport entry is now a real route
   (`/machines`), no longer Coming Soon; `navConfig.test.ts` updated to
   match.
@@ -144,3 +147,51 @@ refinement (out of the five requested items, and Identity is on the
 page's blocking core-fetch path - adding an NTR read there is a separate,
 larger decision) - flagged for a future pass, not silently corrected or
 silently left wrong.
+
+## Addendum: v1.2 refinement (second pre-merge review of PR #39)
+
+A second review, before the v1.1 refinement above was merged, requested
+four more items:
+
+1. **Resolve the documentation drift** flagged in the v1.1 addendum. Done
+   in `docs/architecture/MACHINE_DATA_OWNERSHIP.md`'s new "Documentation
+   correction" section: the Current Source of Truth for Variant/
+   Manufacturing Year is `NtrRecord.variant`/`NtrRecord.manufacturing_year`
+   (Legacy-Import-only, sparse); the Future Source of Truth is
+   deliberately left as an open, two-option question (re-collect on the
+   NTR form vs. promote to `vehicles` master data) rather than picked
+   here - it's a business decision this ADR isn't positioned to make
+   alone. **The data model itself was not touched** - Identity still reads
+   `vehicles.sub_model`/"not tracked yet" exactly as before, since sparse,
+   registration-date-dependent data is a worse Identity source than an
+   honest "not tracked yet."
+2. **Machine Completeness placeholder** (`MachineCompletenessPanel`) -
+   names the seven dimensions (Identity/Ownership/Warranty/PM/Quality/
+   Documents/Knowledge) as a future Data Quality indicator via `StatusPill`
+   badges (the same pattern Lifecycle's stage badges already use) plus an
+   `EmptyState`. No scoring algorithm exists - naming the dimensions
+   without scoring any of them, same "don't fake it" treatment as
+   Knowledge Score/Reserved AI.
+3. **Next Recommended Action placeholder** (`MachineNextActionPanel`) -
+   one `EmptyState` tile, positioned near the top of the page (right after
+   the header, before Identity) since it's meant to be the single, most
+   prominent "what should I do next" prompt once Machine Intelligence
+   ships - distinct from the broader Reserved AI panels section further
+   down the page. No backend, no model, no recommendation logic.
+4. **Related Records split into Open/History** -
+   `MachineService.getMachineRelatedRecords()` gained a `bucket` field,
+   reusing the exact `OPEN_STATUSES` classification
+   `getMachineQualitySummary()` already applies to MQR. PM and NTR records
+   always bucket as `'history'`: neither module has a genuine "open"
+   workflow state in this schema (a `pm_records` row is only created once
+   a visit is performed; every NTR write path sets `status: 'Completed'`
+   at creation) - bucketing them as always-history is the honest read of
+   the existing data, not an invented distinction. No new query - the same
+   three scoped reads from v1.1 are reused, just tagged with one more
+   computed field.
+
+All four remain additive: no new table, no authorization change, no
+redesign of the v1.0/v1.1 page shape. See
+`docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`'s "v1.2 refinement"
+section and `docs/architecture/MACHINE_PASSPORT_SCREEN_CONTRACT.md`'s
+updated section table for the full detail.

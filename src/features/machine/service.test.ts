@@ -136,3 +136,29 @@ describe('MachineService.getMachineAuditTimeline', () => {
     expect(result).toEqual([{ eventId: 'entry-1' }]);
   });
 });
+
+describe('MachineService.getMachineRelatedRecords', () => {
+  it('buckets MQR by the shared OPEN_STATUSES rule, and PM/NTR always as history', async () => {
+    mockFetchMqrRecords.mockResolvedValue([
+      { id: 'mqr-1', job_id: 'QIR-1', status: 'Open', found_date: '2026-01-01' },
+      { id: 'mqr-2', job_id: 'QIR-2', status: 'Closed', found_date: '2026-01-02' },
+    ]);
+    mockFetchMaintenanceHistory.mockResolvedValue([{ id: 'pm-1', pm_number: 'PM-1', performed_date: '2026-01-03' }]);
+    mockFetchNtrRecords.mockResolvedValue([{ id: 'ntr-1', ntr_number: 'NTR-1', status: 'Completed', delivery_date: '2026-01-04' }]);
+
+    const result = await service.getMachineRelatedRecords('S1', session());
+
+    const mqrOpen = result.find((r) => r.recordId === 'mqr-1')!;
+    const mqrClosed = result.find((r) => r.recordId === 'mqr-2')!;
+    const pm = result.find((r) => r.recordId === 'pm-1')!;
+    const ntr = result.find((r) => r.recordId === 'ntr-1')!;
+
+    expect(mqrOpen.bucket).toBe('open');
+    expect(mqrClosed.bucket).toBe('history');
+    expect(pm.bucket).toBe('history');
+    expect(ntr.bucket).toBe('history');
+    expect(pm.href).toBe('/pm-records/pm-1');
+    expect(ntr.href).toBe('/ntr/ntr-1');
+    expect(mqrOpen.href).toBe('/records/QIR-1');
+  });
+});

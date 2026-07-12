@@ -1,22 +1,23 @@
 # Machine Digital Passport — Architecture
 
-v1.1 (refined post-PR #39 review; v1.0 baseline unchanged in shape). See
-`docs/adr/ADR-026-Machine-Digital-Passport.md` for the decision record
-this document expands on. Builds directly on the frozen foundation:
-Architecture Blueprint v1.1, Platform Governance v1.1, MSEAL Design
-Framework v1.1, Navigation Standard, Dashboard Standard, Authentication
-Platform v3.x, Import Platform Foundation. No frozen document was modified
-to build this.
+v1.2 (refined across two pre-merge PR #39 reviews; v1.0 baseline unchanged
+in shape). See `docs/adr/ADR-026-Machine-Digital-Passport.md` for the
+decision record this document expands on. Builds directly on the frozen
+foundation: Architecture Blueprint v1.1, Platform Governance v1.1, MSEAL
+Design Framework v1.1, Navigation Standard, Dashboard Standard,
+Authentication Platform v3.x, Import Platform Foundation. No frozen
+document was modified to build this.
 
 ## What this is
 
 `/machines/[machineId]` (`machineId` = Serial Number) is the permanent home
-of one machine across its whole lifecycle - Identity, Lifecycle, Ownership,
-Machine Health, Warranty, Preventive Maintenance, Quality, Related Records,
-Documents, an Activity Timeline, and placeholder Knowledge Integration /
-Reserved AI / Future IoT sections. It is an **aggregation layer**, exactly
-like Vehicle 360 before it: it owns no data of its own and runs no query
-that isn't already scoped by an existing module's own read function.
+of one machine across its whole lifecycle - Next Recommended Action,
+Identity, Lifecycle, Ownership, Machine Health, Warranty, Preventive
+Maintenance, Quality, Related Records, Documents, an Activity Timeline,
+and placeholder Knowledge Integration / Reserved AI / Machine Completeness
+/ Future IoT sections. It is an **aggregation layer**, exactly like
+Vehicle 360 before it: it owns no data of its own and runs no query that
+isn't already scoped by an existing module's own read function.
 
 ## v1.1 refinement (5 additions, no redesign)
 
@@ -70,6 +71,37 @@ record sets independently per Suspense section (no request-level cache
 exists yet - see "Known gaps"); Related Records is a fourth independent
 consumer of the same pattern, not a new one.
 
+## v1.2 refinement (4 more additions, no redesign)
+
+A second pre-merge review asked for four more items, again each reusing
+an existing MSEAL widget and touching no table/authorization path:
+
+| # | Addition | Reuses | Fetch path | Future capability documented |
+|---|---|---|---|---|
+| 1 | Documentation drift resolution (Variant/Manufacturing Year) | N/A - doc-only | N/A | See `MACHINE_DATA_OWNERSHIP.md`'s "Documentation correction" - Current/Future Source of Truth |
+| 2 | Machine Completeness panel | `StatusPill` (same pattern as Lifecycle's stage badges) + `EmptyState` | None (placeholder) | A Data Quality indicator across all seven Passport data dimensions - no scoring algorithm exists yet |
+| 3 | Next Recommended Action panel | `EmptyState` (`comingSoon`) | None (placeholder) | The future AI entry point (Machine Intelligence) - positioned near the top of the page, distinct from Reserved AI panels lower down |
+| 4 | Related Records Open/History split | The same list-row pattern, split into two `<h3>`-headed groups | None (client-side split of the already-fetched `MachineRelatedRecord[]`) | N/A - a real split of already-fetched data |
+
+Item 1 is the only non-code item - it corrects a documentation claim, not
+the data model (explicitly out of scope for this refinement). Item 4
+reuses the same `OPEN_STATUSES` classification `getMachineQualitySummary()`
+already applies to MQR; PM and NTR records always bucket as `'history'`
+since neither has a genuine "open" workflow state in this schema (see
+`docs/architecture/MACHINE_DATA_OWNERSHIP.md`).
+
+### 3. Next Recommended Action, placement rationale
+
+Positioned directly after the page header, before Identity - the one
+place on the page a user's eye lands first. This is deliberate: once
+Machine Intelligence exists, "what should I do about this machine right
+now" is meant to be the very first thing shown, not buried among the
+other placeholder sections. Reserved AI panels (v1.1, §12 of the Screen
+Contract) remain lower on the page as the broader set of future AI
+capabilities (diagnostic assistant, predictive failure alert, root cause
+suggestion) - Next Recommended Action is the single, prominent entry
+point into that broader set, not a duplicate of it.
+
 ## Data flow
 
 ```
@@ -95,10 +127,11 @@ getVehicleSummary   getVehicleTimeline  fetchMqrRecords   fetchMaintenance   fet
 ```
 
 Nothing here bypasses an existing module's own scoped read. `MachineService`
-is the *only* new query surface, and it is three thin aggregation methods
+is the *only* new query surface, and it is four thin aggregation methods
 (`getMachineWarrantySummary`, `getMachineQualitySummary`,
-`getMachineAuditTimeline`) plus the two that already existed
-(`getMachine360`, `getMachineTimeline`, both pre-dating this build).
+`getMachineAuditTimeline`, `getMachineRelatedRecords`) plus the two that
+already existed (`getMachine360`, `getMachineTimeline`, both pre-dating
+this build).
 
 ## Page composition & lazy loading
 

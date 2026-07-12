@@ -7,12 +7,14 @@ import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Skeleton from '@/components/shared/layout/Skeleton';
+import MachineNextActionPanel from '@/features/machine/components/MachineNextActionPanel';
 import MachineIdentityPanel from '@/features/machine/components/MachineIdentityPanel';
 import MachineLifecyclePanel from '@/features/machine/components/MachineLifecyclePanel';
 import MachineOwnershipPanel from '@/features/machine/components/MachineOwnershipPanel';
 import MachineHealthPanel from '@/features/machine/components/MachineHealthPanel';
 import MachineKnowledgePanel from '@/features/machine/components/MachineKnowledgePanel';
 import MachineAiInsightsPanel from '@/features/machine/components/MachineAiInsightsPanel';
+import MachineCompletenessPanel from '@/features/machine/components/MachineCompletenessPanel';
 import MachineIotPanel from '@/features/machine/components/MachineIotPanel';
 import MachineWarrantySection from '@/features/machine/components/sections/MachineWarrantySection';
 import MachinePmSection from '@/features/machine/components/sections/MachinePmSection';
@@ -30,22 +32,27 @@ interface RouteParams {
 const machineService = new MachineService();
 
 /**
- * Machine Digital Passport v1.1 (ADR-026, refined) - the permanent home
- * for one machine, aggregating Identity/Lifecycle/Ownership/Health/
- * Warranty/PM/Quality/Related Records/Documents/Activity/Knowledge/
- * Reserved AI/Future IoT. `machineId` is the machine's Serial Number (same
- * identifier `/vehicles/[serial]` already keys on) - not the `vehicles.id`
- * UUID, since a search result can reference a Tractor-IN-sheet row that
- * hasn't synced into `vehicles` yet and would have no `id` to route on.
- * See `docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`.
+ * Machine Digital Passport v1.2 (ADR-026, refined) - the permanent home
+ * for one machine, aggregating Next Recommended Action/Identity/Lifecycle/
+ * Ownership/Health/Warranty/PM/Quality/Related Records/Documents/Activity/
+ * Knowledge/Reserved AI/Machine Completeness/Future IoT. `machineId` is
+ * the machine's Serial Number (same identifier `/vehicles/[serial]`
+ * already keys on) - not the `vehicles.id` UUID, since a search result can
+ * reference a Tractor-IN-sheet row that hasn't synced into `vehicles` yet
+ * and would have no `id` to route on. See
+ * `docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`.
  *
  * v1.1 refinement (post-PR #39 review) added Machine Health, Knowledge
- * Score, Lifecycle Timeline filtering, Related Records, and Reserved AI -
- * every new widget reuses an existing MSEAL primitive
- * (`HealthCard`/`EmptyState`/the existing list-row pattern), no new table,
- * no new authorization surface, and the Lifecycle milestone timeline is
- * still the one `MachineService.getMachineTimeline()` feed (filtering is
- * a client-side show/hide over the same rows, not a second timeline).
+ * Score, Lifecycle Timeline filtering, Related Records, and Reserved AI.
+ * v1.2 refinement added Machine Completeness (a Data Quality placeholder),
+ * Next Recommended Action (a future AI entry point placeholder), and split
+ * Related Records into Open/History. Every new widget across both
+ * refinements reuses an existing MSEAL primitive
+ * (`HealthCard`/`EmptyState`/`StatusPill`/the existing list-row pattern),
+ * no new table, no new authorization surface, and the Lifecycle milestone
+ * timeline is still the one `MachineService.getMachineTimeline()` feed
+ * (filtering is a client-side show/hide over the same rows, not a second
+ * timeline).
  *
  * Every section below is either read from `MachineService` (a thin facade
  * over existing module reads - ADR-009) or is a self-contained async
@@ -100,6 +107,8 @@ export default async function MachinePassportPage({ params }: RouteParams) {
         }
       />
 
+      <MachineNextActionPanel />
+
       <MachineIdentityPanel summary={summary} subModel={vehicleRow?.sub_model ?? null} />
       <MachineLifecyclePanel summary={summary} timeline={timeline} />
       <MachineOwnershipPanel summary={summary} />
@@ -131,6 +140,7 @@ export default async function MachinePassportPage({ params }: RouteParams) {
 
       <MachineKnowledgePanel />
       <MachineAiInsightsPanel />
+      <MachineCompletenessPanel />
       <MachineIotPanel />
     </div>
   );

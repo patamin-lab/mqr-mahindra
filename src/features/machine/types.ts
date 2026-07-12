@@ -60,6 +60,13 @@ export interface MachineQualitySummary {
  * `getMachineAuditTimeline()`, just surfaced as one flat cross-module list
  * with a link to that record's own detail page - see
  * `MachineService.getMachineRelatedRecords()`.
+ *
+ * `bucket` (v1.2 refinement) reuses the same `OPEN_STATUSES` classification
+ * `getMachineQualitySummary()` already applies to MQR - PM and NTR records
+ * have no genuine "open" workflow state in this schema (a PM record only
+ * exists once a visit is performed; NTR records are created already
+ * `status: 'Completed'`), so both always bucket as `'history'`. See
+ * `docs/architecture/MACHINE_DATA_OWNERSHIP.md` for the full reasoning.
  */
 export interface MachineRelatedRecord {
   module: 'mqr' | 'pm' | 'ntr';
@@ -68,4 +75,5 @@ export interface MachineRelatedRecord {
   status: string | null;
   date: string | null;
   href: string;
+  bucket: 'open' | 'history';
 }

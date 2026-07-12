@@ -156,7 +156,7 @@ export class MachineService {
   }
 
   /**
-   * Machine Digital Passport v1.1 refinement - Related Records panel.
+   * Machine Digital Passport v1.1/v1.2 refinement - Related Records panel.
    * Reuses the exact same three scoped "records for this serial" reads
    * `getMachineAttachments()`/`getMachineAuditTimeline()` already call
    * (`fetchMqrRecords`, `fetchMaintenanceHistoryForSerial`,
@@ -165,6 +165,17 @@ export class MachineService {
    * detail page, instead of scattering job/PM/NTR references across
    * Warranty Claims/PM History/Quality Cases with no single place that
    * lists them all together.
+   *
+   * `bucket` (v1.2) splits the list into Open/History for display, reusing
+   * the same `OPEN_STATUSES` constant `getMachineQualitySummary()` already
+   * uses for MQR - no second "what counts as open" rule invented. PM and
+   * NTR always bucket as `'history'`: a `pm_records` row only exists once
+   * a visit has actually been performed (there is no "scheduled, not yet
+   * done" PM record in this schema - `next_pm_due` is a separate projected
+   * date, not a record), and every NTR write path sets
+   * `status: 'Completed'` at creation (`supabaseNtrRepository.ts`) - there
+   * is no genuine open NTR workflow state observed anywhere to bucket
+   * against. See `docs/architecture/MACHINE_DATA_OWNERSHIP.md`.
    */
   async getMachineRelatedRecords(serial: string, session: SessionUser): Promise<MachineRelatedRecord[]> {
     const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
@@ -172,6 +183,7 @@ export class MachineService {
       fetchMaintenanceHistoryForSerial(serial, session),
       fetchNtrRecordsForSerial(serial, session),
     ]);
+    const openStatuses = new Set<string>(OPEN_STATUSES);
 
     return [
       ...mqrRecords.map((r) => ({
@@ -181,6 +193,7 @@ export class MachineService {
         status: r.status,
         date: r.found_date,
         href: `/records/${encodeURIComponent(r.job_id)}`,
+        bucket: (openStatuses.has(r.status) ? 'open' : 'history') as 'open' | 'history',
       })),
       ...pmRecords.map((r) => ({
         module: 'pm' as const,
@@ -189,6 +202,7 @@ export class MachineService {
         status: null,
         date: r.performed_date,
         href: `/pm-records/${r.id}`,
+        bucket: 'history' as const,
       })),
       ...ntrRecords.map((r) => ({
         module: 'ntr' as const,
@@ -197,6 +211,7 @@ export class MachineService {
         status: r.status,
         date: r.delivery_date,
         href: `/ntr/${r.id}`,
+        bucket: 'history' as const,
       })),
     ];
   }

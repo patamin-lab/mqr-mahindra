@@ -5,13 +5,19 @@ import { MachineSummary } from '../types';
 
 /**
  * Machine Digital Passport - Identity section. Every field maps to an
- * existing `MachineSummary`/`vehicles` row column - no new query. Variant,
- * Manufacturing Year and Manufacturing Country have no column anywhere in
- * the schema today (confirmed against `lib/types.ts`'s `Vehicle` and
- * `VehicleSummary`) - shown honestly as "not tracked yet" rather than
- * invented, per `docs/architecture/MACHINE_DATA_OWNERSHIP.md`. `variant` is
- * the closest existing analog (`vehicles.sub_model`), passed in by the
- * caller since it isn't part of `MachineSummary` itself.
+ * existing `MachineSummary`/`vehicles` row column - no new query.
+ * Manufacturing Country has no column anywhere in the schema today
+ * (confirmed against `lib/types.ts`'s `Vehicle` and `VehicleSummary`) -
+ * shown honestly as "not tracked yet" rather than invented. Variant and
+ * Manufacturing Year are a different, more subtle case: `NtrRecord` does
+ * carry `variant`/`manufacturing_year` columns, but only Legacy-Import-era
+ * registrations have them populated (the current manual NTR form doesn't
+ * collect either) - too sparse/registration-date-dependent to promote to
+ * Identity yet, so this panel still shows `vehicles.sub_model` for Variant
+ * and "not tracked yet" for Manufacturing Year. See "Documentation
+ * correction" in `docs/architecture/MACHINE_DATA_OWNERSHIP.md` for the full
+ * Current/Future Source of Truth discussion - this is a deliberate choice,
+ * not an oversight.
  */
 export default function MachineIdentityPanel({ summary, subModel }: { summary: MachineSummary; subModel: string | null }) {
   return (
