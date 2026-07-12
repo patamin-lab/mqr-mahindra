@@ -318,8 +318,15 @@ reimplements:
 - Lookup Platform
 - Configuration Platform
 - Reference Data Platform
+- Design Framework (added by ADR-023 - navigation taxonomy, dashboard
+  composition rules, and the widget/screen-contract components under
+  `src/components/shared/dashboard/` and `src/components/shared/layout/`;
+  see `docs/adr/ADR-023-MSEAL-Design-Framework.md` and
+  `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`. Visual tokens/typography
+  themselves remain governed by `docs/UI_STANDARD.md` as before - this
+  layer is the structural rules on top, not a second token system.)
 
-Future modification to any of these nine is allowed **only** for:
+Future modification to any of these ten is allowed **only** for:
 
 1. A confirmed defect.
 2. A security issue.

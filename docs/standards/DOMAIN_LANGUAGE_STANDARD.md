@@ -112,6 +112,22 @@ Dealer Code.
 
 ## Official Menu Standard
 
+**Superseded by the Navigation Standard (ADR-023,
+`docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`).** The flat table below is
+kept for historical reference (icon/terminology provenance) but the
+platform's actual navigation is now the nested Group -> Item taxonomy in
+`src/app/(app)/navConfig.ts`'s `getNavGroups()`. Two real, named
+differences versus the table below: (1) navigation is now grouped
+(Dashboard/Machines/Service/Quality/Engineering Intelligence/Reports/
+Administration) rather than flat; (2) PDI and Parts Request have no entry
+in the new navigation (no Coming Soon placeholder either) - both remain
+recognized future modules elsewhere (Architecture Blueprint's Business
+Capability Map), this is a navigation-only gap, flagged as open in
+`MSEAL_DESIGN_FRAMEWORK.md`'s Gap Analysis rather than silently resolved.
+Every icon/terminology choice below that *is* still in use keeps its
+exact icon and business term - this document remains the terminology
+source of truth for anything the Navigation Standard doesn't override.
+
 | Icon | Thai | English |
 |---|---|---|
 | 🏠 | แดชบอร์ด | Dashboard |

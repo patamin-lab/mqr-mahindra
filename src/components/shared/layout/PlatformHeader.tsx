@@ -19,7 +19,8 @@ import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { APP_NAME } from '@/lib/branding';
 import LanguageSelector from '@/components/shared/i18n/LanguageSelector';
 import NotificationBell from '@/components/shared/layout/NotificationBell';
-import { getPrimaryNav, getAdminNav, findActiveNavItem } from '@/app/(app)/navConfig';
+import GlobalSearchButton from '@/components/shared/layout/GlobalSearchButton';
+import { getNavGroups, flattenRealNavItems, findActiveNavItem } from '@/app/(app)/navConfig';
 
 export interface PlatformHeaderProps {
   session: SessionUser;
@@ -49,7 +50,7 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
     router.refresh();
   }
 
-  const navItems = [...getPrimaryNav(t), ...getAdminNav(t, session)];
+  const navItems = flattenRealNavItems(getNavGroups(t, session));
   const activeItem = findActiveNavItem(pathname, navItems);
   const moduleTitle = activeItem?.label ?? t('nav.dashboard');
 
@@ -78,6 +79,12 @@ export default function PlatformHeader({ session, dealerName, branchName, onOpen
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <LanguageSelector variant="header" />
+
+        <GlobalSearchButton
+          label={t('common.globalSearch')}
+          comingSoonLabel={t('common.globalSearchComingSoon')}
+          className="hidden sm:inline-flex"
+        />
 
         <NotificationBell
           label={t('common.notifications')}

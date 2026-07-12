@@ -1,4 +1,5 @@
 import { getSupabase } from './supabase';
+import { bangkokDateParts } from './thaiDate';
 import { seesAllDealers, canDelete } from './scope';
 import { resolveDealerScope, resolveBranchScope, canAccessDealerBranch, assertBranchAccess, AuthorizationScope } from './dealerBranchScope';
 import { translate } from './i18n/translate';
@@ -1836,6 +1837,51 @@ export async function listAuditLog(module: AuditModule, recordId: string): Promi
   }));
 }
 
+/** Start of "today" as the Thailand calendar day means it (GMT+7, no DST) -
+ *  returned as a UTC ISO instant so it compares correctly against
+ *  `performed_at` (stored/queried in UTC). Thailand has no DST, so a fixed
+ *  +7h offset is exact, not an approximation. */
+function startOfTodayBangkokIso(): string {
+  const { day, month, year } = bangkokDateParts(new Date());
+  return new Date(Date.UTC(year, month - 1, day, -7, 0, 0)).toISOString();
+}
+
+/**
+ * Platform Overview's "Today's Activities" widget (MSEAL Design Framework,
+ * ADR-023 refinement) - every `record_audit_log` row from today across every
+ * module, newest first. Deliberately platform-wide/unscoped: callers must
+ * only invoke this for a role that already sees platform-wide data
+ * (`seesAllDealers`) - the same gate already used for this page's System
+ * Health widget - since `record_audit_log` carries no `dealer_id`/`branch_id`
+ * of its own to scope by. Reuses the exact row shape `listAuditLog()`
+ * already returns; the caller maps it to `ActivityEvent[]` via
+ * `mapMixedAuditLogToActivityEvents()` (see `activity-timeline/
+ * mapAuditLogToActivityEvents.ts`) - no new event shape or duplicated
+ * mapping logic here.
+ */
+export async function listTodaysAuditLog(limit = 20): Promise<AuditLogEntry[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('record_audit_log')
+    .select('*')
+    .gte('performed_at', startOfTodayBangkokIso())
+    .order('performed_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    module: row.module,
+    recordId: row.record_id,
+    recordRef: row.record_ref,
+    eventType: row.event_type,
+    fieldName: row.field_name,
+    oldValue: row.old_value,
+    newValue: row.new_value,
+    performedBy: row.performed_by,
+    performedAt: row.performed_at,
+  }));
+}
+
 /** Compares `before`/`after` on each key in `fieldLabels` and returns one
  *  `FieldChanged` audit input per key whose stringified value actually
  *  changed (null/undefined both normalize to `null` so "cleared" is not
@@ -1972,12 +2018,22 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
     new Set((optionsRows ?? []).map((r: any) => r.model).filter((m: any): m is string => !!m))
   ).sort();
 
-  // 2. Current backlog — open jobs right now, never date-filtered.
+  // 2. Current backlog — open jobs right now, never date-filtered. The row
+  // fetch is capped at 5000 (only used for the status/aging/SLA breakdowns
+  // below, which are necessarily approximate past that many open rows), but
+  // `totalOpen` itself is a separate uncapped exact count so it never
+  // silently disagrees with Platform Overview's `countOpenQualityCases()`
+  // KPI, which counts the same "open" definition/scope with no cap.
   let backlogQuery = supabase.from('records').select('*').in('status', OPEN_STATUSES);
   backlogQuery = applyDealerModelScope(backlogQuery, session, filters);
   const { data: backlogRows, error: backlogErr } = await backlogQuery.limit(5000);
   if (backlogErr) throw backlogErr;
   const backlog = (backlogRows ?? []) as MqrRecord[];
+
+  let totalOpenQuery = supabase.from('records').select('*', { count: 'exact', head: true }).in('status', OPEN_STATUSES);
+  totalOpenQuery = applyDealerModelScope(totalOpenQuery, session, filters);
+  const { count: totalOpenCount, error: totalOpenErr } = await totalOpenQuery;
+  if (totalOpenErr) throw totalOpenErr;
 
   const now = new Date();
   const nowIso = now.toISOString().slice(0, 10);
@@ -2154,7 +2210,7 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
   const technicianLeaderboard = buildLeaderboard((r) => r.technician_name ?? null);
 
   return {
-    totalOpen: backlog.length,
+    totalOpen: totalOpenCount ?? backlog.length,
     statusBacklog,
     agingBuckets: agingCounts,
     slaBreachCount,
@@ -2178,6 +2234,49 @@ export async function dashboardStats(session: SessionUser, filters: DashboardFil
 
     filterOptions: { years, models },
   };
+}
+
+/**
+ * Platform Overview KPI (MSEAL Design Framework, ADR-023): total machines
+ * visible to this session. Deliberately a plain `dealer_id`/`branch_id`
+ * filter, not `applyScope()` - the `vehicles` table has no `record_status`
+ * column (`applyScope()` assumes one) - but branch-scoped the same way
+ * `searchVehiclesForPm()`/`searchVehiclesForNtr()` already do (`vehicles`
+ * has a real `branch_id` column), so a DealerUser pinned to one branch of a
+ * multi-branch dealer sees the same branch's machine count here as in
+ * every other branch-scoped KPI on this page, not the whole dealer's.
+ */
+export async function countVehiclesForSession(session: SessionUser): Promise<number> {
+  const supabase = getSupabase();
+  const { dealerId } = resolveDealerScope(session, null);
+  let query = supabase.from('vehicles').select('*', { count: 'exact', head: true });
+  if (dealerId) {
+    query = query.eq('dealer_id', dealerId);
+    const { branchId } = resolveBranchScope(session, dealerId, null);
+    if (branchId) {
+      query = query.eq('branch_id', branchId);
+    } else if (session.role === 'DealerUser') {
+      query = query.eq('branch_id', '00000000-0000-0000-0000-000000000000');
+    }
+  } else if (!seesAllDealers(session.role)) {
+    query = query.eq('dealer_id', '__none__');
+  }
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Platform Overview KPI: open MQR cases visible to this session - same
+ *  "open" definition and same dealer/branch scope as `dashboardStats()`'s
+ *  backlog, but a `head: true` count instead of fetching full rows, since
+ *  this KPI needs only the number. */
+export async function countOpenQualityCases(session: SessionUser): Promise<number> {
+  const supabase = getSupabase();
+  let query = supabase.from('records').select('*', { count: 'exact', head: true }).in('status', OPEN_STATUSES);
+  query = applyScope(query, session);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
 }
 
 // ---------- Master data management (Phase 2) ----------
