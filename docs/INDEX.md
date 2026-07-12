@@ -96,6 +96,15 @@ actually ship today — not a green-field proposal.
 - [`engineering/MACHINE_DOMAIN.md`](engineering/MACHINE_DOMAIN.md) —
   Phase 5B's Machine business entity: the `src/features/machine/` facade,
   what did/didn't get renamed, and the Product Hierarchy.
+- [`architecture/MACHINE_PASSPORT_ARCHITECTURE.md`](architecture/MACHINE_PASSPORT_ARCHITECTURE.md),
+  [`architecture/MACHINE_PASSPORT_SCREEN_CONTRACT.md`](architecture/MACHINE_PASSPORT_SCREEN_CONTRACT.md),
+  [`architecture/MACHINE_LIFECYCLE.md`](architecture/MACHINE_LIFECYCLE.md),
+  [`architecture/MACHINE_DATA_OWNERSHIP.md`](architecture/MACHINE_DATA_OWNERSHIP.md) —
+  Machine Digital Passport v1.0 (`docs/adr/ADR-026-Machine-Digital-Passport.md`):
+  the `/machines`/`/machines/[machineId]` aggregation layer built on top of
+  the Machine Domain facade, its screen contract, lifecycle-stage
+  derivation, and the honest data-model gaps (Manufacturing Year/Country,
+  Variant, Owner History, no dedicated Warranty table) it does not paper over.
 - [`engineering/ATTACHMENT_FRAMEWORK.md`](engineering/ATTACHMENT_FRAMEWORK.md),
   [`engineering/MEDIA_PLATFORM.md`](engineering/MEDIA_PLATFORM.md) —
   Phase 5B's shared file-storage platform (`src/shared/attachments/`):

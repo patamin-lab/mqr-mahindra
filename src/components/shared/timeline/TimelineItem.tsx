@@ -30,6 +30,12 @@ export interface TimelineItemProps {
   /** Body content below the top row (description paragraph / field-change
    *  diff line). */
   children?: ReactNode;
+  /** Optional `data-category` on the `<li>` - purely a DOM hook for a
+   *  caller-side filter (Machine Digital Passport's Timeline filtering,
+   *  `MachineTimelineFilterBar`) to show/hide rows without this component
+   *  knowing anything about filtering itself. Omitted entirely (no
+   *  attribute rendered) by every existing caller. */
+  dataCategory?: string;
 }
 
 export default function TimelineItem({
@@ -40,6 +46,7 @@ export default function TimelineItem({
   leadingExtra,
   trailing,
   children,
+  dataCategory,
 }: TimelineItemProps) {
   const topRow = (
     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -53,7 +60,7 @@ export default function TimelineItem({
   );
 
   return (
-    <li className={liClassName}>
+    <li className={liClassName} data-category={dataCategory}>
       {href ? (
         <Link href={href} className="block">
           {topRow}

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { MachineService } from '@/features/machine';
-import { MachineEvent } from '@/features/machine/types';
+import MachineTimelineRow from '@/features/machine/components/MachineTimelineRow';
 import type { MaintenanceDueColor } from '@/features/maintenance-due/types';
 import type { HealthStatus } from '@/features/vehicle-health/types';
 import { t } from '@/lib/i18n/server';
@@ -9,7 +9,6 @@ import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Card from '@/components/shared/layout/Card';
 import Timeline from '@/components/shared/timeline/Timeline';
-import TimelineItem from '@/components/shared/timeline/TimelineItem';
 import DetailRow from '@/components/shared/layout/DetailRow';
 import AttachmentViewer from '@/components/shared/attachments/AttachmentViewer';
 import { AttachmentService } from '@/shared/attachments';
@@ -183,7 +182,7 @@ export default async function Machine360Page({ params }: RouteParams) {
         ) : (
           <Timeline className="space-y-3">
             {timeline.map((event, idx) => (
-              <TimelineRow key={`${event.type}-${event.referenceNumber}-${idx}`} event={event} />
+              <MachineTimelineRow key={`${event.type}-${event.referenceNumber}-${idx}`} event={event} />
             ))}
           </Timeline>
         )}
@@ -193,22 +192,20 @@ export default async function Machine360Page({ params }: RouteParams) {
         <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('machine360.attachmentsTitle')}</h2>
         <AttachmentViewer items={attachmentItems} emptyMessage={t('attachmentViewer.noAttachments')} />
       </Card>
-    </div>
-  );
-}
 
-function TimelineRow({ event }: { event: MachineEvent }) {
-  return (
-    <TimelineItem
-      liClassName="rounded border border-gray-100 p-3 hover:bg-gray-50"
-      href={event.href}
-      date={event.date}
-      badge={t(`vehicleEventType.${event.type}`)}
-      leadingExtra={<span className="text-xs text-brand-red">{event.referenceNumber}</span>}
-      trailing={event.status && <span className="text-xs text-gray-500">{event.status}</span>}
-    >
-      <p className="mt-1 text-sm text-gray-800">{event.description}</p>
-      {event.user && <p className="mt-0.5 text-xs text-gray-400">{t('vehicle360.byUser', { user: event.user })}</p>}
-    </TimelineItem>
+      {/* Machine Digital Passport v1.0 - the new permanent home for this
+       *  machine (Identity/Ownership/Warranty/PM/Quality/Documents/IoT,
+       *  plus the field-level Activity Timeline this page doesn't show).
+       *  This page (Machine 360) is unchanged otherwise - not replaced,
+       *  not redirected - just cross-linked for discoverability. Keyed by
+       *  serial, same as this page, not the `vehicles.id` UUID - a search
+       *  result can reference a Tractor-IN-sheet row that hasn't synced
+       *  into `vehicles` (no `id`) yet, but always has a serial. */}
+      <div className="text-center">
+        <Link href={`/machines/${encodeURIComponent(serial)}`} className="text-sm text-brand-red hover:underline">
+          {t('machine360.viewPassportLink')}
+        </Link>
+      </div>
+    </div>
   );
 }

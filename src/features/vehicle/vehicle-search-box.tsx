@@ -5,6 +5,11 @@
  * Serial Number" bullet). Deliberately minimal - global cross-module search
  * (serial/engine/PM number/MQR number/customer/phone/dealer/branch) is
  * Phase 5c scope, not this page.
+ *
+ * `basePath` (default `/vehicles`) lets the Machine Digital Passport's
+ * `/machines` landing page reuse this exact search box - same
+ * `/api/vehicles/search` call, same debounce/result-list behaviour -
+ * pointed at `/machines/[machineId]` instead of duplicating the search UI.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,7 +17,7 @@ import { fetchJson } from '@/lib/fetchJson';
 import type { VehicleSearchResult } from '@/lib/db';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
-export default function VehicleSearchBox() {
+export default function VehicleSearchBox({ basePath = '/vehicles' }: { basePath?: string }) {
   const router = useRouter();
   const { t } = useTranslation();
   const [q, setQ] = useState('');
@@ -45,7 +50,7 @@ export default function VehicleSearchBox() {
   }, [q]);
 
   function goTo(serial: string) {
-    router.push(`/vehicles/${encodeURIComponent(serial)}`);
+    router.push(`${basePath}/${encodeURIComponent(serial)}`);
   }
 
   return (

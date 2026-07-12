@@ -76,7 +76,7 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       label: t('nav.machinesGroup'),
       items: [
         { href: '/vehicles', label: t('nav.vehicle360') },
-        comingSoon(undefined, t('nav.machinePassport')),
+        { href: '/machines', label: t('nav.machinePassport') },
         { href: '/ntr', label: t('nav.ntrRecords') },
         ...(canManageLegacyImport(session.role) ? [{ href: '/admin/legacy-import', label: t('nav.legacyImport') }] : []),
       ],
