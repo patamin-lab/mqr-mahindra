@@ -35,7 +35,7 @@ Unchanged from the existing Architecture Freeze process, now applied
 uniformly to every layer above:
 
 1. **ADR** proposing the change and grounding it in the current baseline.
-2. **Architecture Review** against `01-ENGINEERING-PRINCIPLES.md`,
+2. **Architecture Review** against `01-NORTH-STAR-AND-PRINCIPLES.md`,
    `20-ARCHITECTURE-GOVERNANCE.md`'s Freeze list, and
    `14-RISKS-AND-TECHNICAL-DEBT.md`.
 3. **Architecture Approval** — the same approval authority already defined

@@ -102,7 +102,7 @@ ADR-014, carried forward from the prior release.
 
 ## Security Improvements
 
-- Stored-HTML-injection fix in `lib/email.ts` (see Import Platform
+- Stored-HTML-injection fix in `src/lib/email.ts` (see Import Platform
   Foundation above) — the release's one confirmed, fixed vulnerability.
   Independent `/security-review` re-run after the fix found zero
   surviving findings.
@@ -170,9 +170,9 @@ Explicitly named, not silently dropped — each is real, scoped future
 work:
 
 - Knowledge Engine v1.0 (recommended next epic — see below).
-- AI Troubleshooting, Engineering Intelligence, PIP, Predictive Quality,
-  Dealer Portal, Customer Portal, IoT — the chain of epics after
-  Knowledge Engine (`docs/ROADMAP.md`).
+- Engineering Intelligence, PIP, Predictive Quality, Dealer Portal,
+  Customer Portal, IoT — the chain of epics after Knowledge Engine
+  (`docs/ROADMAP.md`'s "Recommended next implementation order").
 - Universal Search (`docs/architecture/blueprint`'s Search section) —
   `GlobalSearchButton` ships as a disabled placeholder this release.
 - Multiple new shared components (`NotificationCard`, `ProgressCard`,
