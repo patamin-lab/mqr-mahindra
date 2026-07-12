@@ -28,8 +28,10 @@ SAP/Dealer-Portal sources — "without architectural changes."
 
 **Grounding audit before any design work** (per this repo's own
 "never write code from memory" rule): `src/shared/import/` already exists
-(`docs/adr/ADR-009-Universal-Import-Framework.md`, built explicitly ahead
-of a second real consumer, exactly anticipating this kind of future
+(`docs/adr/ADR-024-Universal-Import-Framework.md`, renumbered from
+`ADR-009` by the Platform Governance Framework's ADR normalization pass
+after this ADR was written - see `docs/adr/README.md` - built explicitly
+ahead of a second real consumer, exactly anticipating this kind of future
 module). It already provides, module-agnostically:
 
 | Brief's ask | Already exists as |

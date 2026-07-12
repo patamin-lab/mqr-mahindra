@@ -4,7 +4,8 @@ Current-state architecture reference for the Import Platform - the
 decision record (why it looks like this, what was considered and
 rejected, what's deliberately deferred) lives in
 `docs/adr/ADR-022-Import-Platform-v2.md` (and, for the original
-framework, `docs/adr/ADR-009-Universal-Import-Framework.md`). This
+framework, `docs/adr/ADR-024-Universal-Import-Framework.md`, renumbered
+from `ADR-009` - see `docs/adr/README.md`). This
 document is the architecture/pipeline reference kept in sync with the
 code, matching the pattern `MASTER_DATA_PLATFORM.md`/`ADDRESS_PLATFORM.md`
 already follow for their own ADRs.
