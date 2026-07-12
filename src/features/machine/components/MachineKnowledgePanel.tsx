@@ -14,10 +14,13 @@ import { t } from '@/lib/i18n/server';
  * same placeholder treatment as the other five tiles - no scoring logic
  * exists anywhere to back it yet.
  */
+// Troubleshooting is deliberately not a tile here (UI Terminology &
+// Navigation Cleanup) - it now has its own reserved section/nav entry
+// (`MachineTroubleshootingPanel`, Quality-owned per navConfig.ts), so it
+// isn't duplicated inside Knowledge Integration too.
 const ITEMS: { icon: string; titleKey: string }[] = [
   { icon: '🧠', titleKey: 'machinePassport.knowledgeCases' },
   { icon: '📋', titleKey: 'machinePassport.knownProblems' },
-  { icon: '🛠️', titleKey: 'machinePassport.troubleshooting' },
   { icon: '🤖', titleKey: 'machinePassport.aiRecommendation' },
   { icon: '🔮', titleKey: 'machinePassport.prediction' },
   { icon: '📈', titleKey: 'machinePassport.knowledgeScore' },

@@ -97,17 +97,33 @@ describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', 
     expect(campaigns.items.some((i) => i.label === 'nav.pip' && i.comingSoon)).toBe(true);
   });
 
-  it('Engineering Intelligence includes a Coming Soon Troubleshooting entry', () => {
+  it('Engineering Intelligence exposes only AI Engineering, PIP, and Predictive Quality - no Knowledge Engine or Troubleshooting entry (owned by Quality instead)', () => {
     const groups = getNavGroups(t, session());
     const engineeringIntelligence = groups.find((g) => g.key === 'engineering-intelligence')!;
     expect(engineeringIntelligence.items).toEqual([
-      { href: null, icon: undefined, label: 'nav.knowledgeEngine', comingSoon: true },
-      { href: null, icon: undefined, label: 'nav.troubleshooting', comingSoon: true },
       { href: null, icon: undefined, label: 'nav.aiAnalysis', comingSoon: true },
-      { href: null, icon: undefined, label: 'nav.prediction', comingSoon: true },
       { href: null, icon: undefined, label: 'nav.pip', comingSoon: true },
-      { href: null, icon: undefined, label: 'nav.insights', comingSoon: true },
+      { href: null, icon: undefined, label: 'nav.prediction', comingSoon: true },
     ]);
+    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.knowledgeEngine')).toBe(false);
+    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.troubleshooting')).toBe(false);
+    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.insights')).toBe(false);
+  });
+
+  it('Quality owns exactly one Troubleshooting entry (execution), not duplicated under Engineering Intelligence (analysis)', () => {
+    const groups = getNavGroups(t, session());
+    const quality = groups.find((g) => g.key === 'quality')!;
+    const engineeringIntelligence = groups.find((g) => g.key === 'engineering-intelligence')!;
+
+    expect(quality.items!.some((i) => i.label === 'nav.troubleshooting' && i.comingSoon)).toBe(true);
+    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.troubleshooting')).toBe(false);
+  });
+
+  it('Service > Campaigns no longer includes Recall (removed - no Recall module/data exists)', () => {
+    const groups = getNavGroups(t, session());
+    const service = groups.find((g) => g.key === 'service')!;
+    const campaigns = service.subgroups!.find((s) => s.label === 'nav.campaigns')!;
+    expect(campaigns.items.some((i) => i.label === 'nav.recall')).toBe(false);
   });
 });
 

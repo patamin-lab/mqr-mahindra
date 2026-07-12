@@ -93,7 +93,9 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
         {
           label: t('nav.campaigns'),
           items: [
-            comingSoon(undefined, t('nav.recall')),
+            // Recall removed (UI Terminology & Navigation Cleanup) - no
+            // Recall module/data exists and it had no distinct destination
+            // from Service Campaign; not carried forward as Coming Soon.
             comingSoon(undefined, t('nav.serviceCampaign')),
             comingSoon(undefined, t('nav.pip')),
           ],
@@ -101,12 +103,17 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       ],
     },
     {
-      // Product Improvement Plan (PIP) does NOT live here (architecture
-      // refinement, ADR-023 addendum) - PIP is an Engineering activity, not
-      // a Quality one: Quality Cases -> Knowledge -> Engineering Analysis ->
-      // PIP -> Recall. See the `engineering-intelligence` group below.
-      // Quality *produces* the Cases a PIP is built from but does not own
-      // or duplicate the PIP page/nav entry itself.
+      // Domain ownership (UI Terminology & Navigation Cleanup, supersedes
+      // the ADR-023 addendum's original split): Quality owns Troubleshooting
+      // as an operational execution activity - technicians diagnosing an
+      // active quality problem - alongside Quality Cases and Knowledge.
+      // Engineering Intelligence consumes validated Quality/Knowledge/
+      // Troubleshooting data to produce analysis and improvement plans; it
+      // does not own execution. PIP remains an Engineering Intelligence
+      // deliverable (produced from Quality Cases/Knowledge, not owned or
+      // duplicated here) - see the `engineering-intelligence` group below.
+      // Troubleshooting has exactly one nav entry, here - never a second
+      // copy under Engineering Intelligence.
       key: 'quality',
       icon: '⚠️',
       label: t('nav.qualityGroup'),
@@ -114,25 +121,27 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
         { href: '/quality/dashboard', label: t('nav.qualityDashboard') },
         { href: '/records', label: t('nav.qualityCases') },
         comingSoon(undefined, t('nav.qualityAnalytics')),
+        comingSoon(undefined, t('nav.troubleshooting')),
         comingSoon(undefined, t('nav.qualityKnowledge')),
       ],
     },
     {
-      // Owns the Knowledge -> Engineering Analysis -> PIP -> Recall chain
-      // (architecture refinement, ADR-023 addendum) - PIP is produced FROM
-      // Quality Cases/Knowledge but is itself an Engineering deliverable,
-      // not a Quality one; it has exactly one nav entry, here, not a second
-      // copy under Quality.
+      // Engineering Intelligence exposes only real, distinct business
+      // capabilities (UI Terminology & Navigation Cleanup) - AI Engineering,
+      // PIP, and Predictive Quality. It consumes Quality's Cases/Knowledge/
+      // Troubleshooting to produce analysis; it does not own a separate
+      // "Knowledge Engine" entry (Knowledge lives under Quality, above) or
+      // a separate Troubleshooting entry (also Quality-owned). PIP is
+      // produced FROM Quality Cases/Knowledge but is itself an Engineering
+      // deliverable, not a Quality one; it has exactly one nav entry, here,
+      // not a second copy under Quality.
       key: 'engineering-intelligence',
       icon: '🧠',
       label: t('nav.engineeringIntelligence'),
       items: [
-        comingSoon(undefined, t('nav.knowledgeEngine')),
-        comingSoon(undefined, t('nav.troubleshooting')),
         comingSoon(undefined, t('nav.aiAnalysis')),
-        comingSoon(undefined, t('nav.prediction')),
         comingSoon(undefined, t('nav.pip')),
-        comingSoon(undefined, t('nav.insights')),
+        comingSoon(undefined, t('nav.prediction')),
       ],
     },
     {

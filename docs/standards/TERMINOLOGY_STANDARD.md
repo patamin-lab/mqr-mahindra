@@ -1,0 +1,126 @@
+# Terminology Standard
+
+Canonical UI wording for MSEAL DMS. Written as part of the **UI
+Terminology & Navigation Cleanup** pass - a terminology/wording/navigation
+change only, no architecture, no redesign, no new features. Where this
+document and a screen disagree, this document wins; fix the screen, not
+the wording, unless the drift reveals this document itself is wrong (then
+say so and update both, don't silently pick one).
+
+Scope: **user-facing UI text only** (labels, nav items, page titles,
+button/action text, empty-state copy). Code identifiers, routes, API
+endpoints, database tables/columns, and TypeScript types are **never**
+renamed to match this document - see `docs/standards/DOMAIN_LANGUAGE_STANDARD.md`
+and `docs/adr/ADR-026-Machine-Digital-Passport.md` for why UI wording and
+code naming are deliberately allowed to diverge (e.g. the route stays
+`/records`, the database table stays `records`/`record_audit_log`, the
+type stays `MqrRecord` - only the *label a user sees* changed).
+
+## Official UI wording
+
+| Concept | Official term | Locale |
+|---|---|---|
+| Quality Cases (nav item, `/records`) | รายงานปัญหาคุณภาพ | Both `en` and `th` - fixed term, not translated per-locale (matches this doc's own pre-existing Business Terminology table, which already defined รายงานปัญหาคุณภาพ as the canonical term for Market Quality Report/quality cases) |
+| Quality Dashboard (nav item, `/quality/dashboard`) | แดชบอร์ดคุณภาพ | `th`; `en` keeps "Quality Dashboard" |
+| Quality Analytics (nav item, Coming Soon) | การวิเคราะห์ | `th`; `en` keeps "Analytics" |
+| Quality Knowledge (nav item, Coming Soon) | องค์ความรู้ | `th`; `en` keeps "Knowledge" |
+| Troubleshooting (nav item under Quality, Coming Soon; Machine Passport reserved section) | Troubleshooting | Both `en` and `th` - intentional English exception (see below) |
+| AI Engineering (nav item under Engineering Intelligence, Coming Soon) | AI Engineering | Both `en` and `th` - intentional English exception |
+| PIP / Product Improvement Plan (nav item under Engineering Intelligence and under Service > Campaigns, Coming Soon) | แผนปรับปรุงผลิตภัณฑ์ (PIP) | Both `en` and `th` - fixed term |
+| Predictive Quality (nav item under Engineering Intelligence, Coming Soon) | Predictive Quality | Both `en` and `th` - intentional English exception |
+| Platform Overview (`/dashboard` page title) | ภาพรวมแพลตฟอร์ม | `th`; `en` keeps "Platform Overview" |
+| Platform KPIs (dashboard section heading) | ตัวชี้วัดหลักของแพลตฟอร์ม | `th`; `en` keeps "Platform KPIs" |
+| Registered Machines (KPI label) | เครื่องจักรที่ลงทะเบียน | `th`; `en` keeps "Registered Machines" |
+| Pending Imports (KPI label) | การนำเข้าที่รอดำเนินการ | `th`; `en` keeps "Pending Imports" |
+| System Health (KPI/HealthCard label) | สถานะระบบ (การซิงค์ข้อมูลเครื่องจักรหลัก) | `th`; `en` keeps "System Health (Vehicle Master sync)" |
+| Today's Activities (dashboard section heading) | กิจกรรมวันนี้ | `th`; `en` keeps "Today's Activities" |
+| Quick Actions (dashboard section heading) | การดำเนินการด่วน | `th`; `en` keeps "Quick Actions" |
+| "View ..." action links (e.g. View Machine Registry, View Quality Dashboard, View Import History) | ดู... | `th` translates per destination; `en` keeps "View ..." |
+| "Search ..." helper text (e.g. Search machines by serial/model) | ค้นหา... | `th` translates per context; `en` keeps "Search ..." |
+| "Register ..." action labels (e.g. Register New Tractor) | ลงทะเบียน... | `th` translates per context; `en` keeps "Register ..." |
+
+All values above live in `src/locales/en.json`/`th.json`'s `nav`/
+`dashboard`/`machinePassport` namespaces - see `src/lib/i18n/` for how a
+Server or Client Component looks one up via `t('namespace.key')`. Never
+hardcode one of these strings directly in a component; always add or
+reuse a locale key.
+
+### Why some terms are fixed across both locales
+
+A handful of terms above (Quality Cases, PIP, Troubleshooting, AI
+Engineering, Predictive Quality) show the *identical* string in both
+`en.json` and `th.json`, rather than a locale-appropriate translation.
+This is deliberate, not an oversight: this platform is Thai-first (Goal
+1 of this cleanup pass; `DEFAULT_LOCALE` in `src/lib/i18n/types.ts` is
+already `'th'`), and these specific terms are established, fixed business
+vocabulary the Thai-speaking user base already uses regardless of which
+UI language happens to be toggled on - the same way `MQR`/`NTR`/`PM`
+already appear unchanged in both locales elsewhere in this app. Every
+*other* label in the tables above still translates normally per locale.
+
+## Forbidden wording
+
+Never use the following in new or edited UI text - if you find one,
+replace it with the official term above in the same change:
+
+- **"Quality Cases"** (English) - replaced by "รายงานปัญหาคุณภาพ" everywhere.
+- **"กรณีปัญหา"** (Thai) - replaced by "รายงานปัญหาคุณภาพ" everywhere.
+- **"Recall"** as a standalone nav item or dashboard placeholder - removed
+  entirely (not carried forward as Coming Soon). No Recall module or data
+  exists, and it had no distinct destination from Service Campaign. If a
+  real Recall capability is ever built, it requires its own product
+  decision and ADR, not a silent re-add of the old placeholder.
+- **"Knowledge Engine"** as a separate Engineering Intelligence nav entry
+  - Knowledge is Quality-owned (see Domain ownership below); do not
+    reintroduce a duplicate Engineering Intelligence "Knowledge" entry.
+- **"Insights"** / **"AI Analysis"** as separate Engineering Intelligence
+  nav entries - consolidated into the single "AI Engineering" entry.
+  Do not re-split them without a product decision.
+- **"No Data"** / **"ไม่มีข้อมูล"** as empty-state copy - unrelated to this
+  pass but already forbidden platform-wide, see
+  `.claude/skills/mseal-platform-design/EMPTY_STATE_GUIDELINES.md`.
+
+## Domain ownership (binding, see `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2a)
+
+- **Quality owns execution**: Quality Cases, Knowledge, and
+  Troubleshooting (technicians diagnosing an active quality problem).
+- **Engineering Intelligence owns analysis**: AI Engineering, PIP,
+  Predictive Quality - consumes Quality's validated data, does not own a
+  second copy of Quality Cases/Knowledge/Troubleshooting.
+- Each of these concepts has **exactly one** nav entry platform-wide.
+  Never duplicate a concept's placeholder across two groups to "cover
+  both angles" - if a concept genuinely belongs in two places for two
+  different reasons (e.g. Service > Campaigns' own PIP entry, which
+  represents Service's campaign-tracking view of a PIP rather than a
+  second copy of the PIP page), document why in the nav config comment,
+  the same way `navConfig.ts` already does.
+
+## Translation rules
+
+1. **UI is Thai-first.** `DEFAULT_LOCALE` is `'th'` - write the Thai
+   value first, then the English value, not the other way around.
+2. **Code, API routes, database tables/columns, and TypeScript types stay
+   in English, always** - this document governs what a user reads, never
+   an identifier. Renaming `qualityCases` (the locale key) is fine;
+   renaming `/records` (the route) or `records`/`record_audit_log` (the
+   tables) is not in scope for a terminology change and requires its own
+   architecture-level decision.
+3. **Every user-facing string goes through `t('namespace.key')`** (server:
+   `@/lib/i18n/server`'s `t()`; client: `useTranslation()`) - never a
+   hardcoded string literal in JSX. `en.json` must define every key
+   `th.json` defines (`src/lib/i18n/dictionaries.ts`'s `satisfies
+   Dictionary` check enforces this at compile time) - adding a Thai-only
+   key without its English counterpart fails the build.
+4. **One official term per concept, reused everywhere it appears** - a
+   nav label, a KPI label, a QuickActionCard label/description, and a
+   page heading referring to the same business concept all use the exact
+   same locale value (or the same key), never independently-worded
+   near-synonyms that drift apart over time.
+5. **Comments and internal documentation are not UI text** - a code
+   comment or ADR prose describing "Quality Cases" as a concept is not
+   required to use the exact official UI string; only what a user actually
+   sees in the rendered app is governed by this document.
+6. **No new placeholder nav items without a real destination or an
+   explicit, already-approved Coming Soon per `NAVIGATION_GUIDELINES.md`**
+   - a wording/terminology cleanup renames, relocates, or removes existing
+   placeholders; it does not invent new ones.

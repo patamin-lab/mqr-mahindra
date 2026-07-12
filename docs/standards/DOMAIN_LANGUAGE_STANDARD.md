@@ -113,7 +113,8 @@ Dealer Code.
 ## Official Menu Standard
 
 **Superseded by the Navigation Standard (ADR-023,
-`docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`).** The flat table below is
+`docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`) and, for UI wording
+specifically, by `docs/standards/TERMINOLOGY_STANDARD.md`.** The flat table below is
 kept for historical reference (icon/terminology provenance) but the
 platform's actual navigation is now the nested Group -> Item taxonomy in
 `src/app/(app)/navConfig.ts`'s `getNavGroups()`. Two real, named
