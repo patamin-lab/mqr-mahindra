@@ -28,9 +28,16 @@ describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', 
 
   it('marks not-yet-built leaves as Coming Soon with a null href, never a fake route', () => {
     const groups = getNavGroups(t, session());
+    const service = groups.find((g) => g.key === 'service')!;
+    const warranty = service.items!.find((i) => i.label === 'nav.warranty');
+    expect(warranty).toEqual({ href: null, icon: undefined, label: 'nav.warranty', comingSoon: true });
+  });
+
+  it('activates Machine Passport as a real route (Machine Digital Passport v1.0) - no longer Coming Soon', () => {
+    const groups = getNavGroups(t, session());
     const machines = groups.find((g) => g.key === 'machines')!;
     const passport = machines.items!.find((i) => i.label === 'nav.machinePassport');
-    expect(passport).toEqual({ href: null, icon: undefined, label: 'nav.machinePassport', comingSoon: true });
+    expect(passport).toEqual({ href: '/machines', label: 'nav.machinePassport' });
   });
 
   it('hides Legacy Import (Machines group) from every role except SuperAdmin', () => {

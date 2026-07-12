@@ -1813,17 +1813,12 @@ export async function logAuditEvents(inputs: LogAuditEventInput[]): Promise<void
  *  than a human reviews in one sitting. */
 const AUDIT_LOG_MAX_ENTRIES = 300;
 
-export async function listAuditLog(module: AuditModule, recordId: string): Promise<AuditLogEntry[]> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from('record_audit_log')
-    .select('*')
-    .eq('module', module)
-    .eq('record_id', recordId)
-    .order('performed_at', { ascending: false })
-    .limit(AUDIT_LOG_MAX_ENTRIES);
-  if (error) throw error;
-  return (data ?? []).map((row: any) => ({
+/** Shared `record_audit_log` row -> `AuditLogEntry` mapper - extracted so
+ *  `listAuditLog()`, `listTodaysAuditLog()`, and `listAuditLogForRecords()`
+ *  (Machine Digital Passport) map the exact same shape from the exact same
+ *  place, rather than three independent copies drifting apart. */
+function mapAuditLogRow(row: any): AuditLogEntry {
+  return {
     id: row.id,
     module: row.module,
     recordId: row.record_id,
@@ -1834,7 +1829,61 @@ export async function listAuditLog(module: AuditModule, recordId: string): Promi
     newValue: row.new_value,
     performedBy: row.performed_by,
     performedAt: row.performed_at,
-  }));
+  };
+}
+
+export async function listAuditLog(module: AuditModule, recordId: string): Promise<AuditLogEntry[]> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from('record_audit_log')
+    .select('*')
+    .eq('module', module)
+    .eq('record_id', recordId)
+    .order('performed_at', { ascending: false })
+    .limit(AUDIT_LOG_MAX_ENTRIES);
+  if (error) throw error;
+  return (data ?? []).map(mapAuditLogRow);
+}
+
+/**
+ * Machine Digital Passport's "Machine Timeline" - every `record_audit_log`
+ * row belonging to any of this one machine's own records, across every
+ * module that has one (MQR/PM/NTR today). Dealer/branch scoping already
+ * happened one layer up, when the caller assembled `refs` from each
+ * module's own scoped "records for this serial" utility
+ * (`getVehicleHistory`, `fetchMaintenanceHistoryForSerial`,
+ * `fetchNtrRecordsForSerial`) - a record this session couldn't already see
+ * never has its id in `refs`, so this query never needs its own scope
+ * check. Reuses the exact same row shape/mapper as `listAuditLog()` -
+ * the caller maps the result to `ActivityEvent[]` via
+ * `mapMixedAuditLogToActivityEvents()`, same as Platform Overview's
+ * "Today's Activities" widget - no new event shape, no duplicated mapping.
+ */
+export async function listAuditLogForRecords(
+  refs: { module: AuditModule; recordId: string }[]
+): Promise<AuditLogEntry[]> {
+  if (refs.length === 0) return [];
+  const byModule = new Map<AuditModule, string[]>();
+  for (const ref of refs) {
+    if (!byModule.has(ref.module)) byModule.set(ref.module, []);
+    byModule.get(ref.module)!.push(ref.recordId);
+  }
+
+  const supabase = getSupabase();
+  const results = await Promise.all(
+    Array.from(byModule.entries()).map(async ([module, recordIds]) => {
+      const { data, error } = await supabase
+        .from('record_audit_log')
+        .select('*')
+        .eq('module', module)
+        .in('record_id', recordIds)
+        .order('performed_at', { ascending: false })
+        .limit(AUDIT_LOG_MAX_ENTRIES);
+      if (error) throw error;
+      return (data ?? []).map(mapAuditLogRow);
+    })
+  );
+  return results.flat();
 }
 
 /** Start of "today" as the Thailand calendar day means it (GMT+7, no DST) -
@@ -1868,18 +1917,7 @@ export async function listTodaysAuditLog(limit = 20): Promise<AuditLogEntry[]> {
     .order('performed_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    module: row.module,
-    recordId: row.record_id,
-    recordRef: row.record_ref,
-    eventType: row.event_type,
-    fieldName: row.field_name,
-    oldValue: row.old_value,
-    newValue: row.new_value,
-    performedBy: row.performed_by,
-    performedAt: row.performed_at,
-  }));
+  return (data ?? []).map(mapAuditLogRow);
 }
 
 /** Compares `before`/`after` on each key in `fieldLabels` and returns one
