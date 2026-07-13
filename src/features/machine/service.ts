@@ -20,10 +20,14 @@ import { calcWarranty } from '@/lib/warranty';
 import { listAuditLogForRecords } from '@/lib/db';
 import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import type { ActivityEvent } from '@/components/shared/activity-timeline/types';
+import { KnowledgeService, type MachineKnownIssue } from '@/features/knowledge';
 import { MachineEvent, MachineSummary, MachineWarrantySummary, MachineQualitySummary, MachineRelatedRecord } from './types';
 
 export class MachineService {
-  constructor(private readonly attachmentService: AttachmentService = new AttachmentService()) {}
+  constructor(
+    private readonly attachmentService: AttachmentService = new AttachmentService(),
+    private readonly knowledgeService: KnowledgeService = new KnowledgeService()
+  ) {}
 
   async getMachine360(serial: string, session: SessionUser): Promise<MachineSummary | null> {
     return getVehicleSummary(serial, session);
@@ -214,5 +218,19 @@ export class MachineService {
         bucket: 'history' as const,
       })),
     ];
+  }
+
+  /**
+   * Machine Digital Passport v1.4 - Knowledge section. A thin read
+   * through `KnowledgeService.getKnowledgeForMachine()` (Published cases
+   * whose Evidence names this serial) - Machine never queries
+   * `knowledge_cases`/`knowledge_evidence` directly, and owns no
+   * Knowledge data of its own (ch.07's central rule, ADR-018). Same
+   * "facade over another feature's service" shape as every other section
+   * above, just pointed at `features/knowledge` instead of a `vehicle/`
+   * event source.
+   */
+  async getMachineKnowledgeSummary(serial: string): Promise<MachineKnownIssue[]> {
+    return this.knowledgeService.getKnowledgeForMachine(serial);
   }
 }

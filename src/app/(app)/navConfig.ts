@@ -114,6 +114,12 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       // duplicated here) - see the `engineering-intelligence` group below.
       // Troubleshooting has exactly one nav entry, here - never a second
       // copy under Engineering Intelligence.
+      //
+      // Engineering Knowledge Platform (ADR-018): Knowledge flips from
+      // Coming Soon to a real route (`/quality/knowledge`) - same item,
+      // same label, same position; no nav restructuring. "Knowledge
+      // Candidate" and "Knowledge Case" are maturity states of the one
+      // Knowledge screen, not separate nav entries.
       key: 'quality',
       icon: '⚠️',
       label: t('nav.qualityGroup'),
@@ -122,7 +128,7 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
         { href: '/records', label: t('nav.qualityCases') },
         comingSoon(undefined, t('nav.qualityAnalytics')),
         comingSoon(undefined, t('nav.troubleshooting')),
-        comingSoon(undefined, t('nav.qualityKnowledge')),
+        { href: '/quality/knowledge', label: t('nav.qualityKnowledge') },
       ],
     },
     {

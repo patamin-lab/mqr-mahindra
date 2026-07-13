@@ -162,3 +162,16 @@ describe('MachineService.getMachineRelatedRecords', () => {
     expect(mqrOpen.href).toBe('/records/QIR-1');
   });
 });
+
+describe('MachineService.getMachineKnowledgeSummary (ADR-018)', () => {
+  it('is a thin passthrough to KnowledgeService.getKnowledgeForMachine - Machine never queries knowledge_cases/knowledge_evidence directly', async () => {
+    const knownIssues = [{ caseId: 'case-1', caseRef: 'KNOW-2026-000001', symptom: 'Stalls', confidence: 'High' as const, validatedFix: null, href: '/quality/knowledge/case-1' }];
+    const fakeKnowledgeService = { getKnowledgeForMachine: vi.fn(() => Promise.resolve(knownIssues)) };
+    const scopedService = new MachineService(undefined, fakeKnowledgeService as any);
+
+    const result = await scopedService.getMachineKnowledgeSummary('S1');
+
+    expect(fakeKnowledgeService.getKnowledgeForMachine).toHaveBeenCalledWith('S1');
+    expect(result).toEqual(knownIssues);
+  });
+});

@@ -125,6 +125,18 @@ describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', 
     const campaigns = service.subgroups!.find((s) => s.label === 'nav.campaigns')!;
     expect(campaigns.items.some((i) => i.label === 'nav.recall')).toBe(false);
   });
+
+  it('Knowledge (Engineering Knowledge Platform, ADR-018) is now a real route under Quality - same label, same position, no longer Coming Soon', () => {
+    const groups = getNavGroups(t, session());
+    const quality = groups.find((g) => g.key === 'quality')!;
+    expect(quality.items).toEqual([
+      { href: '/quality/dashboard', label: 'nav.qualityDashboard' },
+      { href: '/records', label: 'nav.qualityCases' },
+      { href: null, icon: undefined, label: 'nav.qualityAnalytics', comingSoon: true },
+      { href: null, icon: undefined, label: 'nav.troubleshooting', comingSoon: true },
+      { href: '/quality/knowledge', label: 'nav.qualityKnowledge' },
+    ]);
+  });
 });
 
 describe('flattenRealNavItems / findActiveNavItem', () => {

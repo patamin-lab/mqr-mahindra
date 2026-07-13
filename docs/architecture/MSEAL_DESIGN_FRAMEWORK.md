@@ -54,7 +54,7 @@ never a fake/broken link. Implementation: `src/app/(app)/navConfig.ts`'s
 | | Cases (รายงานปัญหาคุณภาพ) | `/records` | Real (existing) |
 | | Analytics (การวิเคราะห์) | - | Coming Soon |
 | | Troubleshooting (การแก้ไขปัญหา) | - | Coming Soon (moved here from Engineering Intelligence - see §2a) |
-| | Knowledge (องค์ความรู้) | - | Coming Soon |
+| | Knowledge (องค์ความรู้) | `/quality/knowledge` | **Real** (Engineering Knowledge Platform, ADR-018) |
 | 🧠 Engineering Intelligence | AI Engineering | - | Coming Soon |
 | | Product Improvement Plans (PIP) | - | Coming Soon |
 | | Predictive Quality | - | Coming Soon |
