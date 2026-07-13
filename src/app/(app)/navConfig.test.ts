@@ -125,13 +125,23 @@ describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', 
   });
 
   it('Knowledge (Engineering Knowledge Platform, ADR-018) is now a real route under Quality - same label, same position, no longer Coming Soon', () => {
-    const groups = getNavGroups(t, session());
+    const groups = getNavGroups(t, superAdmin());
     const quality = groups.find((g) => g.key === 'quality')!;
     expect(quality.items).toEqual([
       { href: '/quality/dashboard', label: 'nav.qualityDashboard' },
       { href: '/records', label: 'nav.qualityCases' },
       { href: null, icon: undefined, label: 'nav.qualityAnalytics', comingSoon: true },
       { href: null, icon: undefined, label: 'nav.troubleshooting', comingSoon: true },
+      { href: '/quality/knowledge', label: 'nav.qualityKnowledge' },
+    ]);
+  });
+
+  it('Knowledge being ACTIVE (not Coming Soon) means every role sees it, unlike Analytics/Troubleshooting which stay SuperAdmin-only', () => {
+    const groups = getNavGroups(t, session());
+    const quality = groups.find((g) => g.key === 'quality')!;
+    expect(quality.items).toEqual([
+      { href: '/quality/dashboard', label: 'nav.qualityDashboard' },
+      { href: '/records', label: 'nav.qualityCases' },
       { href: '/quality/knowledge', label: 'nav.qualityKnowledge' },
     ]);
   });
@@ -211,12 +221,13 @@ describe('Navigation Visibility Rule (capability status + authorization, post-Fo
     expect(service.subgroups).toBeUndefined();
   });
 
-  it('Quality keeps its two real items but hides Analytics/Troubleshooting/Knowledge (all Coming Soon) for non-SuperAdmin', () => {
+  it('Quality keeps its three real items (Dashboard, Cases, Knowledge) but hides Analytics/Troubleshooting (Coming Soon) for non-SuperAdmin', () => {
     const groups = getNavGroups(t, session({ role: 'DealerUser' }));
     const quality = groups.find((g) => g.key === 'quality')!;
     expect(quality.items).toEqual([
       { href: '/quality/dashboard', label: 'nav.qualityDashboard' },
       { href: '/records', label: 'nav.qualityCases' },
+      { href: '/quality/knowledge', label: 'nav.qualityKnowledge' },
     ]);
   });
 
