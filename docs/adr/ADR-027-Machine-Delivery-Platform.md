@@ -2,7 +2,9 @@
 
 ## Status
 
-Proposed (open branch `feature/machine-delivery-platform`, PR pending).
+Accepted (PR #45, merged 2026-07-13, SHA `de4d8cd`). See
+`docs/releases/FOUNDATION_FREEZE_v1.1.md` for what this ADR's
+architecture froze on merge.
 
 **Numbering note**: this is not one of the seven numbers
 `16-ADR-RECOMMENDATIONS.md` reserved (015 Machine Domain v2, 016 Event

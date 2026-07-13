@@ -14,6 +14,13 @@ Production).**
 > written while PR #42 was still open. Read it as "not frozen *by this
 > document*," not as "not frozen at all."
 
+> **Second amendment (2026-07-13): PR #45 (Machine Delivery Platform
+> v1.0, ADR-017/ADR-027) has since merged to `main` (SHA `de4d8cd`) and
+> is verified in Production.** This is a purely additive extension - see
+> "What is frozen (new in this amendment)," below. No content frozen by
+> v1.0, v1.1's original table, or the Knowledge Foundation Freeze is
+> modified.
+
 **Supersedes `docs/releases/FOUNDATION_FREEZE_v1.0.md` by extension, not
 replacement** - every layer v1.0 declared frozen remains frozen,
 unchanged, under the same reopening process. v1.0's own content is
@@ -52,6 +59,23 @@ already binding platform vocabulary per the PR #41 addendum to
 it first becomes a named row in a Foundation Freeze's own frozen-layer
 table, not a new decision.
 
+## What is frozen (new in this amendment - Machine Delivery Platform v1.0)
+
+| Layer | Version | Governing document | Established by |
+|---|---|---|---|
+| Inspection Domain (PDI) | v1.0 | `docs/adr/ADR-017-Inspection-Domain.md`, `docs/architecture/INSPECTION_PDI.md` | PR #45 |
+| Machine Delivery Platform (lifecycle orchestration) | v1.0 | `docs/adr/ADR-027-Machine-Delivery-Platform.md`, `docs/architecture/DELIVERY_PLATFORM.md` | PR #45 |
+| Service Construction Standard | v1.0 | `docs/standards/SERVICE_CONSTRUCTION_STANDARD.md` | PR #45 (platform-quality refinement pass) |
+| Architecture Check Rule 6 (no eager Repository/Service construction) | v1.0 | `scripts/architecture-check.ts`, `docs/engineering/ARCHITECTURE_ENFORCEMENT.md` | PR #45 (platform-quality refinement pass) |
+| Machine Delivery Dashboard KPI Contract | v1.0 | `docs/architecture/DELIVERY_PLATFORM.md` §8 | PR #45 (platform-quality refinement pass) |
+
+This is a purely additive extension - none of the layers named in v1.0's
+own table, v1.1's original table above, or the Knowledge Foundation
+Freeze are modified, reopened, or reinterpreted by this amendment.
+Frozen means the same thing it has meant since v1.0: feature-complete
+for this version, no further structural change without going through
+"What reopening requires," below.
+
 ## What is not frozen by this document
 
 **The Engineering Knowledge Platform (ADR-018, PR #42) is explicitly
@@ -89,24 +113,34 @@ now interpreted through.
 
 ## How this Foundation extension was assembled
 
-Three PRs, merged in sequence, each independently reviewed and
-production-verified before the next began (continuing the numbering from
-v1.0's own table):
+Merged in sequence, each independently reviewed and production-verified
+before the next began (continuing the numbering from v1.0's own table):
 
 | # | PR | Merge SHA | Deployment |
 |---|---|---|---|
 | 5 | #41 — UI Terminology & Navigation Cleanup + Business Terminology Governance | `8011a4d` | Verified success |
 | 6 | #43 — Navigation Visibility Refinement (Capability Status Model) | `3d85bfb` | Verified success |
 | 7 | #44 — Platform Constitution v1.0 / Platform Architecture Standards | `757ea9f` | Verified success |
+| 8 | #42 — Engineering Knowledge Platform v1.0 (ADR-018) | `ad34708` | Verified success |
+| 9 | #45 — Machine Delivery Platform v1.0 (ADR-017/ADR-027) | `de4d8cd` | Verified success |
 
 Full detail for each: `docs/releases/RELEASE_NOTES_FOUNDATION_v1.0.md`'s
-Post-Freeze Addenda (PR #41 and PR #43 sections) and this PR's own merge
-report (PR #44).
+Post-Freeze Addenda (PR #41 and PR #43 sections), this PR's own merge
+report (PR #44), `docs/releases/RELEASE_NOTES_KNOWLEDGE_v1.0.md` (PR #42),
+and `docs/releases/RELEASE_NOTES_DELIVERY_v1.0.md` (PR #45).
 
 ## Next Epic
 
-**Superseded by the amendment above.** PR #42 (ADR-018, Knowledge Engine
-v1.0) has merged; see `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`
-for its own frozen layers and Next Epic section. The recommended next
-epic is now **AI Troubleshooting** (`docs/ROADMAP.md`), bound by the
-Knowledge Foundation's AI Contract.
+**Superseded again by the second amendment above.** PR #42 (Knowledge)
+and PR #45 (Machine Delivery Platform) have both since merged. The
+Knowledge Foundation Freeze previously recommended **AI Troubleshooting**
+next; this second amendment's own task brief instead recommends
+**Service Platform v1.0** (Preventive Maintenance, Warranty, Campaign,
+Parts, Service Visit, Field Service, Service History, Technician) as the
+next epic - not a rejection of the AI Troubleshooting recommendation, but
+a sequencing call made at this amendment's own instruction, recorded here
+rather than silently overriding the prior one. Service Platform must
+reuse Machine Passport, Machine Delivery, Knowledge Platform, Activity
+Timeline, Attachment Platform, Authorization, and the Dashboard Framework
+- not rebuild any of them. See `docs/ROADMAP.md` for the living roadmap
+ordering.

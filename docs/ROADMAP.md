@@ -53,16 +53,18 @@ because it shipped and moved to maintenance.
   implemented in this PR. `docs/adr/ADR-018-Knowledge-Model.md`,
   `docs/architecture/KNOWLEDGE_PLATFORM.md`,
   `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`.
-- **Machine Delivery Platform v1.0** (open PR, `feature/machine-delivery-
-  platform` - **not yet merged**) — the complete digital delivery
-  lifecycle: Tractor In (reuses ADR-012), Stock Yard, PDI (ADR-017, new
-  `inspections` table), Dealer Preparation, Customer Delivery (links
-  NTR), Operator Training, Delivery Acceptance, and Warranty Activation
-  as a real point-in-time event for the first time (closing a named gap
-  in `03-MACHINE-LIFECYCLE-AND-TIMELINE.md`). New `delivery_records`/
-  `delivery_trainings` tables, Machine Passport integration, Knowledge
-  integration (Findings promote to Candidates), Delivery Dashboard/
-  Reports, reserved (Coming Soon) AI panels. `docs/adr/ADR-017-Inspection-
+- ✓ **Machine Delivery Platform v1.0** (PR #45) — the complete digital
+  delivery lifecycle: Tractor In (reuses ADR-012), Stock Yard, PDI
+  (ADR-017, new `inspections` table), Dealer Preparation, Customer
+  Delivery (links NTR), Operator Training, Delivery Acceptance, and
+  Warranty Activation as a real point-in-time event for the first time
+  (closing a named gap in `03-MACHINE-LIFECYCLE-AND-TIMELINE.md`). New
+  `delivery_records`/`delivery_trainings` tables, Machine Passport
+  integration, Knowledge integration (Findings promote to Candidates),
+  Delivery Dashboard (official 10-KPI contract) and Reports, reserved
+  (Coming Soon) AI panels. Platform-quality refinement pass added the
+  Service Construction Standard and Architecture Check Rule 6 (no eager
+  Repository/Service construction). `docs/adr/ADR-017-Inspection-
   Domain.md`, `docs/adr/ADR-027-Machine-Delivery-Platform.md`,
   `docs/architecture/INSPECTION_PDI.md`,
   `docs/architecture/DELIVERY_PLATFORM.md`.
@@ -190,13 +192,29 @@ work clears):
    `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`** — the final
    Foundation capability before AI; Knowledge is now the permanent
    engineering knowledge foundation every future AI capability consumes.
-3. **AI Troubleshooting — recommended next epic**
-4. Engineering Intelligence
-5. PIP
-6. Predictive Quality
-7. Dealer Portal
-8. Customer Portal
-9. IoT
+3. ✓ Machine Delivery Platform v1.0 — **done, PR #45, ADR-017/ADR-027,
+   `docs/releases/RELEASE_NOTES_DELIVERY_v1.0.md`** — the complete
+   digital delivery lifecycle, Tractor In through Warranty Activation.
+4. **Service Platform v1.0 — recommended next epic** (Preventive
+   Maintenance, Warranty, Campaign, Parts, Service Visit, Field Service,
+   Service History, Technician). Must reuse Machine Passport, Machine
+   Delivery, Knowledge Platform, Activity Timeline, Attachment Platform,
+   Authorization, and the Dashboard Framework - not rebuild any of them.
+   Not started; this is a recommendation, not a plan to implement from.
+5. AI Troubleshooting
+6. Engineering Intelligence
+7. PIP
+8. Predictive Quality
+9. Dealer Portal
+10. Customer Portal
+11. IoT
+
+**Resequencing note**: the Knowledge Foundation Freeze originally
+recommended AI Troubleshooting immediately after Knowledge Platform v1.0.
+This is not a rejection of that recommendation - it is a sequencing call
+made at the Machine Delivery Platform v1.0 merge's own explicit
+instruction, recorded here rather than silently overriding the prior
+one (see `docs/releases/FOUNDATION_FREEZE_v1.1.md`'s Next Epic section).
 
 Every epic from AI Troubleshooting onward is bound by the Knowledge
 Foundation Freeze's AI Contract (`docs/releases/
