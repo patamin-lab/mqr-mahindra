@@ -16,7 +16,6 @@ import DeliveryFutureAiPanel from '@/features/delivery/components/DeliveryFuture
 
 const service = new DeliveryService();
 const inspectionService = new InspectionService();
-const ntrService = createNtrService();
 
 /**
  * Delivery Record detail (ADR-027). Screen Contract (docs/architecture/
@@ -52,7 +51,7 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
     listAuditLog('delivery', delivery.id),
     inspectionService.listInspectionsForSerial(delivery.serial),
     delivery.pdiInspectionId ? inspectionService.getInspection(delivery.pdiInspectionId).catch(() => null) : Promise.resolve(null),
-    delivery.ntrId ? ntrService.getById(delivery.ntrId, session).catch(() => null) : Promise.resolve(null),
+    delivery.ntrId ? createNtrService().getById(delivery.ntrId, session).catch(() => null) : Promise.resolve(null),
   ]);
   const availableInspections = availableInspectionsRaw.map((i) => ({ id: i.id, inspectionRef: i.inspectionRef, status: i.status }));
   const activityEvents = mapAuditLogToActivityEvents(auditLog, {
