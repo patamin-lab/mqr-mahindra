@@ -16,6 +16,81 @@ code naming are deliberately allowed to diverge (e.g. the route stays
 `/records`, the database table stays `records`/`record_audit_log`, the
 type stays `MqrRecord` - only the *label a user sees* changed).
 
+## Terminology Governance
+
+Business terminology is part of the platform architecture. Official
+business terms must remain consistent across the entire platform to avoid
+user confusion, documentation drift, and inconsistent UI language. This
+section governs the subset of terms below that are frozen; everything
+else in this document (the wording tables, forbidden wording, domain
+ownership, translation rules) continues to apply as before and is not
+loosened by this section.
+
+### Frozen business terms
+
+The following business terms are officially frozen. They must not be
+translated, renamed, or replaced without an Architecture Review and a
+documentation update:
+
+- MQR
+- NTR
+- PM
+- PIP
+- AI Engineering
+- Predictive Quality
+- Troubleshooting (การแก้ไขปัญหา)
+
+These terms are platform vocabulary rather than ordinary UI labels - they
+identify a business concept the Thai-speaking user base already uses
+regardless of which UI language is toggled on (see "Why some terms are
+fixed across both locales" above).
+
+### Change governance
+
+Any future change to a frozen business term requires:
+
+- Architecture Review
+- Design Review
+- Documentation Review
+
+and updating every affected artifact, including:
+
+- Navigation
+- Design Framework
+- UI Standards
+- Translation Resources
+- User Documentation
+- Help Pages
+- Training Materials
+- Release Notes
+- This Terminology Standard
+
+### Consistency rule
+
+Frozen business terms must use exactly the same wording across:
+
+- Navigation
+- Dashboard
+- Machine Passport
+- Search
+- Breadcrumbs
+- Related Records
+- Empty States
+- Notifications
+- Reports
+- Documentation
+
+No alternative wording is permitted. For example, for the Troubleshooting
+term:
+
+- Correct: `Troubleshooting (การแก้ไขปัญหา)`
+- Incorrect: `การแก้ไขปัญหา`, `Troubleshooting`, `Diagnosis`, `Fault
+  Finding`, `วิเคราะห์ปัญหา`, `คู่มือแก้ปัญหา`
+
+This rule applies platform-wide, not only to the surfaces that currently
+render a frozen term - see "Consistency requirement: Troubleshooting"
+below for the current-vs-future distinction for that specific term.
+
 ## Official UI wording
 
 | Concept | Official term | Locale |
