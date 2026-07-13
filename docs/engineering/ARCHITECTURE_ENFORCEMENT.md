@@ -31,12 +31,13 @@ for.
 | 3 | Only `AttachmentService` (+ the documented operational-surface exception) references the `StorageProvider` interface directly. | `src/shared/attachments/*.ts` (excluding `__tests__`) | FAIL |
 | 4 | Only `StorageProviderFactory` constructs a concrete provider (`new SupabaseStorageProvider()`/`new GoogleDriveStorageProvider()`/`new CloudflareR2Provider()`). | All of `src/` (excluding `__tests__`) | FAIL |
 | 5 | No circular dependency exists among the (non-test) files inside `src/shared/attachments`. | `src/shared/attachments/*.ts` (excluding `__tests__`) | FAIL |
+| 6 | No `class *Repository`/`class *Service` defines a field initializer (or constructor-body statement) that performs eager runtime work - a direct lowercase-named function call (`getSupabase()`, `createClient()`, `fetch(...)`) or a direct `process.env` read - at the class's own body level. `new PascalCase(...)` is not flagged (recursively fine, checked when that class's own file is scanned); a lazy `get x()` accessor is the required, exempt pattern. See `docs/standards/SERVICE_CONSTRUCTION_STANDARD.md`. | All of `src/` (excluding `__tests__`) | FAIL (new violations); pre-existing legacy count is grandfathered per file, see below - it cannot increase |
 
 Every rule prints `PASS` (zero violations) or `FAIL` (one or more,
 listed by file). The script has no `WARNING`-producing rule of its own
 today - `WARNING` is currently used only for the one honest tooling gap
 noted below (CI integration), not for a source-code finding. Exit code
-is `1` if any of the five rules FAILs, `0` otherwise - safe to use as a
+is `1` if any of the six rules FAILs, `0` otherwise - safe to use as a
 CI gate.
 
 ## Rule 3's allowlist - the documented operational-surface exception
@@ -67,6 +68,46 @@ Adding a new file to this allowlist should always come with an update to
 `PLATFORM_ARCHITECTURE_STANDARDS.md` explaining why it needs the exception - the
 allowlist is meant to track the constitution, not drift ahead of it.
 
+## Rule 6's allowlist - grandfathered legacy debt, not a permanent exception
+
+A real bug of exactly this shape broke a production build (PR #45): a
+page constructed `NtrService` at module scope, and `SupabaseNtrRepository`
+eagerly calls `getSupabase()` in a class field initializer - the moment
+Next.js's build imported that page module (before any request, before
+any env var was necessarily available in that phase), the eager call
+threw. Rule 6 exists so this class of defect fails Architecture Check
+immediately, anywhere, rather than surfacing only when some future page's
+import order happens to trigger it again.
+
+Read completely literally against the *existing* codebase, Rule 6 would
+also FAIL four other files that already have this exact pattern, none of
+which this milestone introduced or touched:
+`supabaseMaintenanceRepository.ts`, `supabaseNtrImportSessionRepository.ts`,
+`supabaseNtrRepository.ts` (the one PR #45 actually tripped over),
+`supabaseRepository.ts` (Vehicle Event). Fixing all four in the same pass
+as this milestone would mean editing unrelated modules (Maintenance, NTR,
+Vehicle Event) for a documentation/tooling refinement - disproportionate
+scope creep, and exactly the kind of change this milestone's own brief
+says not to make ("do not redesign," "update the existing PR only").
+
+Rather than either (a) silently weakening the rule until it stops
+catching this shape at all, or (b) reporting a FAIL against code that
+predates this rule and isn't part of this change, the four are
+grandfathered via an explicit, per-file **count** allowlist
+(`EAGER_CONSTRUCTION_ALLOWLIST` in `scripts/architecture-check.ts`) -
+temporary technical debt, not a permanent exception:
+
+- The rule still FAILs immediately on any **new** file with this pattern
+  (not in the list) - the actual protection this milestone exists to add.
+- The rule still FAILs if any **already-listed** file's violation count
+  *increases* (e.g. a second eager field added to `supabaseNtrRepository.ts`)
+  - the grandfathered count can only shrink (as each file is migrated to
+    lazy initialization), never grow.
+- Per `docs/standards/SERVICE_CONSTRUCTION_STANDARD.md`'s Migration
+  Guidance: whoever next makes a *functional* (non-documentation) change
+  to one of these four files must migrate it to the required lazy
+  pattern first, as part of that change - not indefinitely deferred.
+
 ## Forbidden imports (full list)
 
 **Business modules must never import, from `@/shared/attachments`:**
@@ -95,6 +136,12 @@ the same as any other file under `src/app/api/`.)
   cycle inside `src/shared/attachments` would make the module graph hard
   to reason about and is exactly the kind of drift a freeze is meant to
   prevent, even though nothing here today has one.
+- Every Repository/Service is safe to construct anywhere, including at
+  module scope (Rule 6) - matching `docs/standards/
+  SERVICE_CONSTRUCTION_STANDARD.md`'s "constructors must be side-effect
+  free" rule. This is what makes the pervasive, otherwise-unremarkable
+  `const service = new XxxService();` pattern at the top of nearly every
+  page/route handler in this app safe in the first place.
 
 This script does not yet check the platform's other documented boundary
 rules (e.g. "a module may not import another module's internals
@@ -122,7 +169,7 @@ before spending time on the rest of the pipeline:
         run: npx tsc --noEmit
 ```
 
-`npm run architecture` exits non-zero on any Rule 1-5 FAIL (the `CI
+`npm run architecture` exits non-zero on any Rule 1-6 FAIL (the `CI
 Integration` WARNING the script itself prints does not affect its exit
 code), so this step fails the whole workflow run exactly like any other
 step here.

@@ -391,8 +391,11 @@ export const AUDIT_EVENT_LABELS_TH: Record<AuditEventType, string> = {
  *  and NTR (`ntr_records`), which is why it lives in the platform-wide
  *  `types.ts`/`db.ts` rather than any one module's own feature folder.
  *  Never edited or deleted after insert - see `record_audit_log`'s RLS
- *  policies (no UPDATE/DELETE policy exists at all). */
-export type AuditModule = 'mqr' | 'pm' | 'ntr' | 'knowledge';
+ *  policies (no UPDATE/DELETE policy exists at all).
+ *  `'pdi'` (ADR-017, Inspection Domain) and `'delivery'` (ADR-027, Machine
+ *  Delivery Platform) added without any `<ActivityTimeline>` component
+ *  change - the mapper is module-agnostic. */
+export type AuditModule = 'mqr' | 'pm' | 'ntr' | 'knowledge' | 'pdi' | 'delivery';
 
 export type AuditEventType =
   | 'Created'

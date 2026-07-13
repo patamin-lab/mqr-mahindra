@@ -165,6 +165,25 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       ],
     },
     {
+      // Machine Delivery Platform (ADR-017/ADR-027) - the complete digital
+      // delivery lifecycle from Tractor In through Warranty Activation.
+      // Its own nav group, distinct from Machines/Service/Quality (the
+      // Platform Constitution's "Navigation represents business
+      // capability" - Delivery is a lifecycle capability in its own
+      // right, not a sub-feature of any one domain). PDI is one stage
+      // inside this lifecycle, not a separate module - it has exactly
+      // one nav entry, here.
+      key: 'delivery',
+      icon: '🚚',
+      label: t('nav.deliveryGroup'),
+      items: [
+        { href: '/delivery/dashboard', label: t('nav.deliveryDashboard') },
+        { href: '/delivery/pdi', label: t('nav.deliveryPdi') },
+        { href: '/delivery/records', label: t('nav.deliveryRecords') },
+        { href: '/delivery/reports', label: t('nav.deliveryReports') },
+      ],
+    },
+    {
       key: 'service',
       icon: '🔧',
       label: t('nav.serviceGroup'),

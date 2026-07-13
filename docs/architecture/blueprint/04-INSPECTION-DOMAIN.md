@@ -1,5 +1,15 @@
 # 04 — Inspection Domain
 
+> **Amendment (ADR-017, Machine Delivery Platform)**: this chapter's
+> proposal is implemented as `docs/architecture/INSPECTION_PDI.md` and
+> the `inspections` table - reconciled, not replaced. `DEALER_PDI` is the
+> only inspection type with a real screen this epoch; `IMPORT_PDI`
+> remains schema-ready, no UI. Findings/Measurements/Parts Replacement/
+> Sign-off/Dealer Approval/Technician Certification/Checklist Version -
+> not named below - are additive columns on the same one-table shape this
+> chapter already proposed. Original content preserved below as the
+> historical record.
+
 ## Why Inspection is its own domain
 
 Inspection is **not** part of NTR, PM, or Warranty. Each of those

@@ -16,6 +16,7 @@ import MachineTroubleshootingPanel from '@/features/machine/components/MachineTr
 import MachineAiInsightsPanel from '@/features/machine/components/MachineAiInsightsPanel';
 import MachineCompletenessPanel from '@/features/machine/components/MachineCompletenessPanel';
 import MachineIotPanel from '@/features/machine/components/MachineIotPanel';
+import MachineDeliverySection from '@/features/machine/components/sections/MachineDeliverySection';
 import MachineWarrantySection from '@/features/machine/components/sections/MachineWarrantySection';
 import MachinePmSection from '@/features/machine/components/sections/MachinePmSection';
 import MachineQualitySection from '@/features/machine/components/sections/MachineQualitySection';
@@ -33,10 +34,11 @@ interface RouteParams {
 const machineService = new MachineService();
 
 /**
- * Machine Digital Passport v1.3 (ADR-026, refined) - the permanent home
+ * Machine Digital Passport v1.5 (ADR-026, refined) - the permanent home
  * for one machine, aggregating Next Recommended Action/Identity/Lifecycle/
- * Ownership/Health/Warranty/PM/Quality/Related Records/Documents/Activity/
- * Knowledge/Troubleshooting/Reserved AI/Machine Completeness/Future IoT.
+ * Ownership/Health/Delivery/Warranty/PM/Quality/Related Records/Documents/
+ * Activity/Knowledge/Troubleshooting/Reserved AI/Machine Completeness/
+ * Future IoT.
  * `machineId` is the machine's Serial Number (same identifier
  * `/vehicles/[serial]` already keys on) - not the `vehicles.id` UUID, since
  * a search result can reference a Tractor-IN-sheet row that hasn't synced
@@ -55,7 +57,12 @@ const machineService = new MachineService();
  * real Published Knowledge Cases via `MachineService.getMachineKnowledgeSummary()`
  * -> `KnowledgeService`, never a direct query - Machine still owns no
  * Knowledge data. AI Recommendation/Prediction/Knowledge Score stay
- * Coming Soon. Every new widget across all four refinements reuses an
+ * Coming Soon. v1.5 (Machine Delivery Platform, ADR-017/ADR-027) gives
+ * Delivery its own `<Suspense>` section, placed before Warranty to match
+ * the real-world chronology (Tractor In -> Stock Yard -> PDI -> Delivery
+ * -> Warranty) - reads via `MachineService.getMachineDeliverySummary()`
+ * -> `DeliveryService`, never a direct query; Machine still owns no
+ * Delivery data. Every new widget across all five refinements reuses an
  * existing MSEAL primitive
  * (`HealthCard`/`EmptyState`/`StatusPill`/the existing list-row pattern),
  * no new table, no new authorization surface, and the Lifecycle milestone
@@ -122,6 +129,10 @@ export default async function MachinePassportPage({ params }: RouteParams) {
       <MachineLifecyclePanel summary={summary} timeline={timeline} />
       <MachineOwnershipPanel summary={summary} />
       <MachineHealthPanel summary={summary} />
+
+      <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
+        <MachineDeliverySection serial={machineId} />
+      </Suspense>
 
       <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
         <MachineWarrantySection serial={machineId} session={session} />

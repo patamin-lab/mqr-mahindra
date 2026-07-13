@@ -21,12 +21,14 @@ import { listAuditLogForRecords } from '@/lib/db';
 import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import type { ActivityEvent } from '@/components/shared/activity-timeline/types';
 import { KnowledgeService, type MachineKnownIssue } from '@/features/knowledge';
+import { DeliveryService, type MachineDeliverySummary } from '@/features/delivery';
 import { MachineEvent, MachineSummary, MachineWarrantySummary, MachineQualitySummary, MachineRelatedRecord } from './types';
 
 export class MachineService {
   constructor(
     private readonly attachmentService: AttachmentService = new AttachmentService(),
-    private readonly knowledgeService: KnowledgeService = new KnowledgeService()
+    private readonly knowledgeService: KnowledgeService = new KnowledgeService(),
+    private readonly deliveryService: DeliveryService = new DeliveryService()
   ) {}
 
   async getMachine360(serial: string, session: SessionUser): Promise<MachineSummary | null> {
@@ -232,5 +234,17 @@ export class MachineService {
    */
   async getMachineKnowledgeSummary(serial: string): Promise<MachineKnownIssue[]> {
     return this.knowledgeService.getKnowledgeForMachine(serial);
+  }
+
+  /**
+   * Machine Digital Passport v1.5 - Delivery section (ADR-017/ADR-027,
+   * Machine Delivery Platform). A thin read through
+   * `DeliveryService.getDeliveryForMachine()` - Machine never queries
+   * `delivery_records`/`inspections` directly and owns none of that data,
+   * the same "facade over another feature's service" shape as
+   * `getMachineKnowledgeSummary()` above.
+   */
+  async getMachineDeliverySummary(serial: string): Promise<MachineDeliverySummary | null> {
+    return this.deliveryService.getDeliveryForMachine(serial);
   }
 }

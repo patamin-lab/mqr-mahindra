@@ -1,5 +1,18 @@
 # 03 — Machine Lifecycle & Timeline
 
+> **Amendment (ADR-027, Machine Delivery Platform)**: this chapter's two
+> named gaps are closed by `docs/architecture/DELIVERY_PLATFORM.md`.
+> "Customer Delivery needs an explicit event" - `delivery_records.stage`
+> advances to `CustomerDelivery` when an NTR record is linked, logged to
+> the shared Timeline (module `'delivery'`). "Warranty status is computed
+> on read, never emitted as a point-in-time event" - `delivery_records.
+> warranty_activated_at`/`warranty_activation_source` now capture the
+> real activation moment; `calcWarranty()`'s live computation is
+> unchanged. "Dealer PDI"/"Import PDI" are realized by ADR-017's
+> Inspection domain (`DEALER_PDI` has a real screen; `IMPORT_PDI` remains
+> schema-ready only). Original content preserved below as the historical
+> record.
+
 ## Machine Lifecycle
 
 ```mermaid

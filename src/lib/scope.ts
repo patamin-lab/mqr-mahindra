@@ -61,6 +61,15 @@ export const canManageEmailHealth = (role: Role) => seesAllDealers(role);
  *  gated here. */
 export const canReviewKnowledge = (role: Role) => seesAllDealers(role);
 
+/** Machine Delivery Platform (ADR-017/ADR-027) - Dealer Approval of a
+ *  completed PDI, and manually activating Warranty: SuperAdmin/
+ *  CentralAdmin/DealerAdmin, mirroring `canDelete`/`canManageMasterData`'s
+ *  shape (DealerUser excluded). Creating/editing an Inspection or
+ *  Delivery record while in progress is open to every role - only these
+ *  trust-conferring actions are gated. */
+export const canApproveDelivery = (role: Role) =>
+  role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';
+
 export const roleLabelTh: Record<Role, string> = {
   SuperAdmin: 'ผู้ดูแลระบบสูงสุด',
   CentralAdmin: 'ผู้ดูแลส่วนกลาง',

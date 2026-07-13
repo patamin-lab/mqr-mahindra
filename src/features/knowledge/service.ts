@@ -49,7 +49,7 @@ export interface UpdateCaseInput {
 
 export interface AddEvidenceInput {
   sourceType: KnowledgeEvidenceSourceType;
-  sourceModule: 'mqr' | 'pm' | 'ntr' | null;
+  sourceModule: 'mqr' | 'pm' | 'ntr' | 'pdi' | null;
   sourceRecordId: string | null;
   machineSerial: string | null;
   observedAt: string;

@@ -28,7 +28,10 @@ export type AttachmentType =
   | 'CustomerIdCardPhoto'
   | 'BookingDocumentPhoto'
   | 'TaxInvoicePhoto'
-  | 'CrmLeadScreenshotPhoto';
+  | 'CrmLeadScreenshotPhoto'
+  | 'InspectionEvidencePhoto'
+  | 'TrainingPhoto'
+  | 'TrainingVideo';
 
 /** `CLOUDFLARE_R2` is implemented (`CloudflareR2Provider`) but not yet
  *  used by `AttachmentService`'s default wiring - see that provider's own

@@ -88,7 +88,7 @@ export interface UpdateKnowledgeCaseInput {
 export interface CreateKnowledgeEvidenceInput {
   knowledgeCaseId: string;
   sourceType: KnowledgeEvidenceSourceType;
-  sourceModule: 'mqr' | 'pm' | 'ntr' | null;
+  sourceModule: 'mqr' | 'pm' | 'ntr' | 'pdi' | null;
   sourceRecordId: string | null;
   machineSerial: string | null;
   author: string;

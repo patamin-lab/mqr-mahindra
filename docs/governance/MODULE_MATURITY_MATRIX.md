@@ -37,6 +37,8 @@ two sources rather than re-deriving status from scratch.
 | Quality (MQR) | Production | Built (`records` table), oldest module in the platform |
 | Quality > PIP (as a Quality-adjacent reference) | Not started | No table; capability named only |
 | Knowledge | Partial | ADR-018 - `knowledge_cases`/`knowledge_evidence` tables live, `KnowledgeService`, `/quality/knowledge` list/create/detail screens, Machine Passport integration. Not built: AI consumption (Engineering Intelligence remains Not started, below), Knowledge Score, similarity matching |
+| Inspection (PDI) | Partial | ADR-017 (open PR, Machine Delivery Platform) - `inspections` table, `InspectionService`, `/delivery/pdi` list/new/detail screens (checklist/findings/measurements/parts replacement/sign-off/dealer approval), Machine Delivery integration. Not built: Import PDI UI, checklist template builder/admin UI, Technician Certification management beyond a free-text reference |
+| Delivery (Machine Delivery Platform) | Partial | ADR-027 (open PR) - `delivery_records`/`delivery_trainings` tables, `DeliveryService`, `/delivery/records`/`/delivery/dashboard`/`/delivery/reports` screens, Machine Passport integration, Warranty Activation as a real point-in-time event. Not built: AI Delivery Review/Risk/Readiness/Recommendation (reserved), full Warranty claims/policy ledger |
 | Engineering Intelligence | Design-only | 08 fully specifies AI Governance/Confidence Policy (frozen concept); `EngineeringIntelligenceService`/`ModelGateway` not built |
 | PIP (as an Engineering Intelligence deliverable) | Not started | No table; ownership assigned by ADR-023's addendum, nothing built |
 | Recall | Not started | Not named in 02/17 at all; first named in this governance framework |
