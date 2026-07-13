@@ -48,19 +48,16 @@ never a fake/broken link. Implementation: `src/app/(app)/navConfig.ts`'s
 | | Legacy Import | `/admin/legacy-import` | Real (existing, SuperAdmin) |
 | 🔧 Service | Preventive Maintenance | `/pm-records` | Real (existing) |
 | | Warranty | - | Coming Soon (no module/table) |
-| | Campaigns > Recall | - | Coming Soon |
 | | Campaigns > Service Campaign (Future) | - | Coming Soon |
 | | Campaigns > Product Improvement Plan (Future) | - | Coming Soon |
-| ⚠️ Quality | Dashboard | `/quality/dashboard` | Real (moved MQR dashboard) |
-| | Cases | `/records` | Real (existing) |
-| | Analytics | - | Coming Soon |
-| | Knowledge | - | Coming Soon |
-| 🧠 Engineering Intelligence | Knowledge Engine | - | Coming Soon |
-| | Troubleshooting | - | Coming Soon (added this refinement - see §2a) |
-| | AI Analysis | - | Coming Soon |
-| | Prediction | - | Coming Soon |
-| | Product Improvement Plans (PIP) | - | Coming Soon (moved here from Quality this refinement - see §2a) |
-| | Insights | - | Coming Soon |
+| ⚠️ Quality | Dashboard (แดชบอร์ดคุณภาพ) | `/quality/dashboard` | Real (moved MQR dashboard) |
+| | Cases (รายงานปัญหาคุณภาพ) | `/records` | Real (existing) |
+| | Analytics (การวิเคราะห์) | - | Coming Soon |
+| | Troubleshooting (การแก้ไขปัญหา) | - | Coming Soon (moved here from Engineering Intelligence - see §2a) |
+| | Knowledge (องค์ความรู้) | - | Coming Soon |
+| 🧠 Engineering Intelligence | AI Engineering | - | Coming Soon |
+| | Product Improvement Plans (PIP) | - | Coming Soon |
+| | Predictive Quality | - | Coming Soon |
 | 📊 Reports (cross-cutting, not a domain - see §2b) | Executive / Operations / Dealer / Export | - | Coming Soon (all four - no module) |
 | ⚙️ Administration | Users | `/admin/users` | Real (existing) |
 | | Master Data (subgroup: Dealers/Branches/Technicians/Problem Codes/PM Intervals/Product Families/Product Family Models/Maintenance Programs) | `/admin/*` | Real (existing) |
@@ -84,15 +81,31 @@ Role gating is unchanged in spirit from before: nav visibility is
 UX-only, every route re-checks the same `lib/scope.ts` predicate
 server-side (`docs/standards/SECURITY_STANDARD.md`).
 
-### 2a. Engineering Intelligence owns PIP (pre-merge refinement)
+### 2a. Quality owns execution, Engineering Intelligence owns analysis (UI Terminology & Navigation Cleanup)
 
-PIP is produced *from* Quality (Quality Cases → Knowledge → Engineering
-Analysis → PIP → Recall) but is itself an Engineering Intelligence
-deliverable, not a Quality one. This refinement removes the Coming Soon
-PIP entry that previously sat under Quality (Quality's own group now
-references, but does not own, PIP - see the comment in `navConfig.ts`)
-and adds one PIP entry, alongside a new Troubleshooting entry, under
-Engineering Intelligence. **PIP still also appears under Service >
+**Supersedes this section's original "pre-merge refinement" split.**
+Quality owns operational execution - Quality Cases (รายงานปัญหาคุณภาพ),
+Knowledge (องค์ความรู้), and **Troubleshooting**, the technician-facing
+activity of diagnosing an active quality problem. Engineering Intelligence
+consumes that validated Quality/Knowledge/Troubleshooting data to produce
+analysis and improvement plans - **AI Engineering**, **PIP**, and
+**Predictive Quality** - it does not own execution and does not get its
+own separate "Knowledge Engine" entry (Knowledge lives under Quality) or
+a second Troubleshooting entry. Troubleshooting has exactly one nav
+entry, under Quality - never a second copy under Engineering
+Intelligence.
+
+Engineering Intelligence also no longer carries separate "AI Analysis"
+and "Insights" entries - both are consolidated into the one **AI
+Engineering** entry, since neither represented a distinct, real
+capability beyond "AI-produced analysis." Engineering Intelligence now
+exposes exactly three items: AI Engineering, PIP, Predictive Quality
+(renamed from Prediction).
+
+PIP is produced *from* Quality Cases/Knowledge but is itself an
+Engineering Intelligence deliverable, not a Quality one - it has exactly
+one Quality-adjacent nav entry, under Engineering Intelligence, never
+duplicated under Quality. **PIP still also appears under Service >
 Campaigns** (`Product Improvement Plan (Future)`) - that entry is
 unchanged and is not a duplicate of the Engineering Intelligence one: it
 represents Service's own campaign-tracking view of a PIP once one exists,
@@ -100,9 +113,19 @@ not a second copy of the PIP page itself. Both are Coming Soon today, so
 there is no duplicated *page* either way - only a documentation
 distinction worth keeping straight once a real PIP module exists.
 
-Troubleshooting (new, Coming Soon) is architecture-reserved only: future
-AI-assisted troubleshooting, knowledge-guided diagnostics, failure trees,
-decision trees, repair procedures. No functionality is implemented.
+Troubleshooting (Coming Soon, Quality-owned) is architecture-reserved
+only: future AI-assisted troubleshooting, knowledge-guided diagnostics,
+failure trees, decision trees, repair procedures. No functionality is
+implemented. The Machine Digital Passport (`docs/architecture/
+MACHINE_PASSPORT_ARCHITECTURE.md`) reserves a matching single section for
+it, moved out of the Knowledge Integration tile grid so it is not
+duplicated there either.
+
+Recall was removed entirely (not carried forward as Coming Soon,
+including its former Service > Campaigns entry and the dashboard's
+"Recall / Service Campaigns" placeholder card, now just "Service
+Campaigns") - no Recall module or data exists, and it had no distinct
+destination from Service Campaign.
 
 ### 2b. Reports is cross-cutting, not a business domain
 
@@ -278,7 +301,7 @@ History, Legacy Import's trimmed history section):
 |---|---|---|
 | Active Warranty KPI | No Warranty table/module exists (`lib/warranty.ts` is pure calculation logic only) | Building a fake KPI around no data would violate the Dashboard Standard being established here |
 | Open PM KPI | No aggregate "PM due" query exists - due-date evaluation is per-vehicle (`MaintenanceDueService`), not batched | Real engineering effort (a new batched query), out of this pass's scope |
-| Recall / PIP / Knowledge / AI / Troubleshooting | No module exists for any of these (PIP now lives under Engineering Intelligence, §2a) | Named future modules, not built speculatively |
+| PIP / Knowledge / AI Engineering / Predictive Quality / Troubleshooting | No module exists for any of these (Quality vs. Engineering Intelligence ownership - §2a) | Named future modules, not built speculatively |
 | Cross-module Today's Activities scoping | **Partially resolved this pass** - `<ActivityTimeline>` now shows real, today-only, cross-module events, but only to `seesAllDealers` roles; `record_audit_log` carries no dealer/branch column, so a DealerAdmin/DealerUser-scoped version would need an additional per-module join this pass doesn't build | Scoping the feed per-dealer for every role is real engineering effort; showing it unscoped to a scoped role would be a permission regression, so it's gated off instead - named in Migration Roadmap |
 | Notifications | `NotificationBell` is a static placeholder, no backing query | Pre-existing gap, unchanged by this pass; `NotificationCard` is ready for whenever a real notification source exists |
 | Universal Search UI | `docs/SEARCH_MODEL.md` defines the data contract; no UI built | Genuinely greenfield - named in Migration Roadmap, not attempted this pass |
@@ -299,6 +322,16 @@ Phased, matching this repo's own "design-only-until-approved" precedent
    page, Archive Queue UI removal; pre-merge refinement: PIP moved to
    Engineering Intelligence, Troubleshooting added, Reports documented as
    cross-cutting, Today's Activities + Global Search placeholder added.
+   **UI Terminology & Navigation Cleanup pass (later)**: Quality Cases
+   standardized to "รายงานปัญหาคุณภาพ" everywhere in the UI; Recall removed
+   entirely (no Coming Soon carry-forward); Troubleshooting moved from
+   Engineering Intelligence to Quality (execution vs. analysis - see
+   §2a); Engineering Intelligence's "AI Analysis"/"Insights"/"Knowledge
+   Engine" entries consolidated/removed, leaving exactly AI Engineering/
+   PIP/Predictive Quality; Platform Overview's remaining hardcoded English
+   labels moved through the i18n system (`dashboard.*` namespace); Machine
+   Digital Passport gained a matching reserved Troubleshooting section.
+   See `docs/standards/TERMINOLOGY_STANDARD.md`.
 2. **Next**: retrofit the Screen Contract onto every existing detail page
    (records/[jobId], ntr/[id], pm-records/[id], vehicles/[serial]) -
    review each against the template rather than a mechanical stamp.

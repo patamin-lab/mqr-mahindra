@@ -13,6 +13,7 @@ import MachineLifecyclePanel from '@/features/machine/components/MachineLifecycl
 import MachineOwnershipPanel from '@/features/machine/components/MachineOwnershipPanel';
 import MachineHealthPanel from '@/features/machine/components/MachineHealthPanel';
 import MachineKnowledgePanel from '@/features/machine/components/MachineKnowledgePanel';
+import MachineTroubleshootingPanel from '@/features/machine/components/MachineTroubleshootingPanel';
 import MachineAiInsightsPanel from '@/features/machine/components/MachineAiInsightsPanel';
 import MachineCompletenessPanel from '@/features/machine/components/MachineCompletenessPanel';
 import MachineIotPanel from '@/features/machine/components/MachineIotPanel';
@@ -32,22 +33,25 @@ interface RouteParams {
 const machineService = new MachineService();
 
 /**
- * Machine Digital Passport v1.2 (ADR-026, refined) - the permanent home
+ * Machine Digital Passport v1.3 (ADR-026, refined) - the permanent home
  * for one machine, aggregating Next Recommended Action/Identity/Lifecycle/
  * Ownership/Health/Warranty/PM/Quality/Related Records/Documents/Activity/
- * Knowledge/Reserved AI/Machine Completeness/Future IoT. `machineId` is
- * the machine's Serial Number (same identifier `/vehicles/[serial]`
- * already keys on) - not the `vehicles.id` UUID, since a search result can
- * reference a Tractor-IN-sheet row that hasn't synced into `vehicles` yet
- * and would have no `id` to route on. See
+ * Knowledge/Troubleshooting/Reserved AI/Machine Completeness/Future IoT.
+ * `machineId` is the machine's Serial Number (same identifier
+ * `/vehicles/[serial]` already keys on) - not the `vehicles.id` UUID, since
+ * a search result can reference a Tractor-IN-sheet row that hasn't synced
+ * into `vehicles` yet and would have no `id` to route on. See
  * `docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`.
  *
  * v1.1 refinement (post-PR #39 review) added Machine Health, Knowledge
  * Score, Lifecycle Timeline filtering, Related Records, and Reserved AI.
  * v1.2 refinement added Machine Completeness (a Data Quality placeholder),
  * Next Recommended Action (a future AI entry point placeholder), and split
- * Related Records into Open/History. Every new widget across both
- * refinements reuses an existing MSEAL primitive
+ * Related Records into Open/History. v1.3 (UI Terminology & Navigation
+ * Cleanup) reserves a dedicated Troubleshooting section - Quality-owned,
+ * moved out of the Knowledge Integration tile grid so it isn't duplicated
+ * across both. Every new widget across all three refinements reuses an
+ * existing MSEAL primitive
  * (`HealthCard`/`EmptyState`/`StatusPill`/the existing list-row pattern),
  * no new table, no new authorization surface, and the Lifecycle milestone
  * timeline is still the one `MachineService.getMachineTimeline()` feed
@@ -139,6 +143,7 @@ export default async function MachinePassportPage({ params }: RouteParams) {
       </Suspense>
 
       <MachineKnowledgePanel />
+      <MachineTroubleshootingPanel />
       <MachineAiInsightsPanel />
       <MachineCompletenessPanel />
       <MachineIotPanel />

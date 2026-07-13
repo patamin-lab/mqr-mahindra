@@ -3,6 +3,7 @@ import { countVehiclesForSession, countOpenQualityCases, getTractorInSyncHealth,
 import { createNtrImportService } from '@/features/ntr/factory';
 import { canManageLegacyImport, seesAllDealers } from '@/lib/scope';
 import { formatThaiDateTime } from '@/lib/thaiDate';
+import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import KpiCard from '@/components/shared/dashboard/KpiCard';
@@ -24,12 +25,14 @@ import Link from 'next/link';
  * Dashboard Philosophy: a dashboard is a decision center, not a statistics
  * page - every widget here either answers "what should I do next" (Quick
  * Actions) or is a real number backed by a real query. Widgets with no real
- * data source yet (Active Warranty, Open PM, Recall/Service Campaigns -
- * PIP now lives under Engineering Intelligence, see `navConfig.ts` - none of
- * Warranty/PM-due aggregation/Recall exist as queryable data today, see
+ * data source yet (Active Warranty, Open PM, Service Campaigns - PIP lives
+ * under Engineering Intelligence, see `navConfig.ts` - none of Warranty/
+ * PM-due aggregation/Service Campaign exist as queryable data today, see
  * `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`'s Gap Analysis) render as a
  * named, explained Coming Soon `EmptyState` rather than a fabricated "0" or
- * a silent omission.
+ * a silent omission. Recall itself was removed as a nav/dashboard concept
+ * entirely (UI Terminology & Navigation Cleanup) - no Recall module/data
+ * exists and it had no distinct destination from Service Campaigns.
  *
  * "Today's Activities" (ADR-023 refinement) reuses the same
  * `<ActivityTimeline>` platform standard every module's own record detail
@@ -76,40 +79,40 @@ export default async function PlatformOverviewPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Platform Overview"
+        title={t('dashboard.title')}
         titleClassName="text-2xl font-bold text-brand-dark"
-        subtitle="MSEAL DMS platform-wide status - registered machines, open work, and what needs attention next."
+        subtitle={t('dashboard.subtitle')}
         className="block"
       />
 
       {/* ---------- Primary KPIs (real, role-aware) ---------- */}
       <div>
-        <h2 className="text-lg font-semibold text-brand-dark mb-3">Platform KPIs</h2>
+        <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.platformKpis')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard
-            label="Registered Machines"
+            label={t('dashboard.registeredMachines')}
             value={registeredMachines}
-            action={<Link href="/vehicles" className="text-brand-red hover:underline">View Machine Registry →</Link>}
+            action={<Link href="/vehicles" className="text-brand-red hover:underline">{t('dashboard.viewMachineRegistry')} →</Link>}
           />
           <KpiCard
-            label="Open Quality Cases"
+            label={t('dashboard.openQualityCases')}
             value={openQualityCases}
             accent={openQualityCases > 0 ? 'text-brand-red' : 'text-brand-dark'}
-            action={<Link href="/quality/dashboard" className="text-brand-red hover:underline">View Quality Dashboard →</Link>}
+            action={<Link href="/quality/dashboard" className="text-brand-red hover:underline">{t('dashboard.viewQualityDashboard')} →</Link>}
           />
           {canSeeImports && (
             <KpiCard
-              label="Pending Imports"
+              label={t('dashboard.pendingImports')}
               value={pendingImports ?? 0}
-              action={<Link href="/admin/import-history" className="text-brand-red hover:underline">View Import History →</Link>}
+              action={<Link href="/admin/import-history" className="text-brand-red hover:underline">{t('dashboard.viewImportHistory')} →</Link>}
             />
           )}
           {canSeeSystemHealth && syncHealth && (
             <HealthCard
-              label="System Health (Vehicle Master sync)"
+              label={t('dashboard.systemHealth')}
               status={syncStatus}
-              statusLabel={syncHealth.syncStatus === 'never_run' ? 'Never run' : undefined}
-              detail={`${syncHealth.totalVehicles.toLocaleString()} machines synced`}
+              statusLabel={syncHealth.syncStatus === 'never_run' ? t('dashboard.neverRun') : undefined}
+              detail={t('dashboard.machinesSynced', { count: syncHealth.totalVehicles.toLocaleString() })}
               lastCheckedAt={syncHealth.lastSyncTime ? formatThaiDateTime(syncHealth.lastSyncTime) : undefined}
             />
           )}
@@ -118,13 +121,13 @@ export default async function PlatformOverviewPage() {
 
       {/* ---------- Quick Actions ---------- */}
       <div>
-        <h2 className="text-lg font-semibold text-brand-dark mb-3">Quick Actions</h2>
+        <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.quickActions')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <QuickActionCard icon="📝" label="Register New Tractor" description="Start a New Tractor Registration" href="/ntr" />
-          <QuickActionCard icon="🚜" label="Machine Registry" description="Search machines by serial/model" href="/vehicles" />
-          <QuickActionCard icon="⚠️" label="Quality Cases" description="Review open quality cases" href="/records" />
+          <QuickActionCard icon="📝" label={t('dashboard.registerNewTractor')} description={t('dashboard.startNewTractorRegistration')} href="/ntr" />
+          <QuickActionCard icon="🚜" label={t('dashboard.machineRegistry')} description={t('dashboard.searchMachinesBySerialModel')} href="/vehicles" />
+          <QuickActionCard icon="⚠️" label={t('dashboard.qualityCasesAction')} description={t('dashboard.reviewOpenQualityCases')} href="/records" />
           {canSeeImports && (
-            <QuickActionCard icon="📥" label="Legacy Import" description="Import historical NTR data" href="/admin/legacy-import" />
+            <QuickActionCard icon="📥" label={t('dashboard.legacyImport')} description={t('dashboard.importHistoricalNtrData')} href="/admin/legacy-import" />
           )}
         </div>
       </div>
@@ -132,7 +135,7 @@ export default async function PlatformOverviewPage() {
       {/* ---------- Today's Activities (real, reuses ActivityTimeline) ---------- */}
       {canSeeTodaysActivities && (
         <div>
-          <h2 className="text-lg font-semibold text-brand-dark mb-3">Today&apos;s Activities</h2>
+          <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.todaysActivities')}</h2>
           <Card variant="flat" className="p-5">
             <ActivityTimeline events={todaysActivityEvents} entityLabel="Record" />
           </Card>
@@ -141,27 +144,27 @@ export default async function PlatformOverviewPage() {
 
       {/* ---------- Reserved for domains with no real data source yet ---------- */}
       <div>
-        <h2 className="text-lg font-semibold text-brand-dark mb-3">Coming Soon</h2>
+        <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.comingSoonTitle')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <EmptyState
             icon="🛡️"
-            title="Active Warranty"
-            reason="No Warranty module or table exists yet - src/lib/warranty.ts is pure calculation logic, not a queryable record."
-            nextStep="Planned once the Warranty module (Service domain) is built."
+            title={t('dashboard.activeWarrantyTitle')}
+            reason={t('dashboard.activeWarrantyReason')}
+            nextStep={t('dashboard.activeWarrantyNextStep')}
             comingSoon
           />
           <EmptyState
             icon="🔧"
-            title="Open PM"
-            reason="No aggregate 'PM due' query exists yet - due-date evaluation is per-vehicle (MaintenanceDueService), not batched."
-            nextStep="Planned as a Service dashboard widget once a batched due-PM query is built."
+            title={t('dashboard.openPmTitle')}
+            reason={t('dashboard.openPmReason')}
+            nextStep={t('dashboard.openPmNextStep')}
             comingSoon
           />
           <EmptyState
             icon="📢"
-            title="Recall / Service Campaigns"
-            reason="No Recall or Service Campaign module exists yet."
-            nextStep="Planned under Service > Campaigns. (Product Improvement Plans moved to Engineering Intelligence - see nav.)"
+            title={t('dashboard.serviceCampaignsTitle')}
+            reason={t('dashboard.serviceCampaignsReason')}
+            nextStep={t('dashboard.serviceCampaignsNextStep')}
             comingSoon
           />
         </div>
