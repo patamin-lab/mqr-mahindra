@@ -81,6 +81,53 @@ Role gating is unchanged in spirit from before: nav visibility is
 UX-only, every route re-checks the same `lib/scope.ts` predicate
 server-side (`docs/standards/SECURITY_STANDARD.md`).
 
+### 2c. Navigation Visibility Rule - capability status, not roadmap (post-Foundation Freeze refinement)
+
+**Navigation Principle**: Navigation represents platform capabilities.
+Users see available capabilities. SuperAdmin may see future
+capabilities. Navigation is never the roadmap.
+
+**Capability Principle**: Every capability has an Owner (the domain that
+owns it - §2a/§2b above), a Status (`CapabilityStatus`), a Permission
+(its `lib/scope.ts` predicate once real), and a Lifecycle (it moves
+through statuses via named releases, never silently). Visibility is
+always derived from capability state + authorization, never from
+hardcoded module names.
+
+**Navigation represents available business capability, not the product
+roadmap.** Every leaf in the table above carries a `CapabilityStatus`
+(`navConfig.ts`): `ACTIVE` for a real, built route; `COMING_SOON`,
+`PREVIEW`, `BETA`, or `DEVELOPMENT` for everything not yet a capability a
+regular user can act on (every "Coming Soon" row in the table above is
+`COMING_SOON` today - the other three statuses exist for a future
+capability that's further along than "Coming Soon" but not yet general-
+availability, without inventing a new flag or filter when that happens).
+
+`getNavGroups()` applies one rule, uniformly, to every leaf regardless of
+which group it belongs to: **SuperAdmin sees every status** (the full
+roadmap, exactly as this table documents it); **every other role sees
+only `ACTIVE` leaves** - an unfinished capability is hidden completely,
+never shown as a disabled placeholder. If every item in a group (or
+subgroup) is non-`ACTIVE`, the whole group is omitted for non-SuperAdmin
+roles - e.g. today, Engineering Intelligence (all three items Coming
+Soon) and Reports (all four items Coming Soon) are both invisible to
+every role except SuperAdmin, and Service's Campaigns subgroup and
+Quality's Analytics/Troubleshooting/Knowledge items disappear for
+non-SuperAdmin while Service/Quality's own real items remain. This is a
+generic, status-driven filter (`isCapabilityVisible()`,
+`filterGroupsByCapability()`) - there is no code naming "Engineering
+Intelligence" or any other module in the filtering logic itself, so a
+future capability (Dealer Portal, IoT, Predictive Maintenance,
+Notifications, ...) gets this same SuperAdmin-only treatment automatically
+the moment it's added at a non-`ACTIVE` status.
+
+This is a UX-visibility refinement only, not a new authorization
+boundary: every gated leaf already had `href: null` (no real route to
+protect) before this rule existed. Real routes continue to be enforced
+exclusively server-side, per `docs/standards/SECURITY_STANDARD.md`'s
+Application-layer authorization section, unaffected by what the nav
+shows.
+
 ### 2a. Quality owns execution, Engineering Intelligence owns analysis (UI Terminology & Navigation Cleanup)
 
 **Supersedes this section's original "pre-merge refinement" split.**

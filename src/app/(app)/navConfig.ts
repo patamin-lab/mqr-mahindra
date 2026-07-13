@@ -24,17 +24,76 @@
  * supersedes `docs/standards/DOMAIN_LANGUAGE_STANDARD.md`'s older flat
  * "Official Menu Standard" table - see that document's own updated note
  * pointing back here.
+ *
+ * Capability visibility (Navigation Visibility Refinement, post-Foundation
+ * Freeze): navigation represents available business capability, not the
+ * product roadmap. Every leaf has a `CapabilityStatus`; `getNavGroups`
+ * shows every status to SuperAdmin (who needs to see the whole roadmap:
+ * Coming Soon/Preview/Beta/Development) and only `ACTIVE` leaves to every
+ * other role (an unfinished capability is hidden completely, never shown
+ * disabled). This is one generic status-driven filter
+ * (`isCapabilityVisible`), applied uniformly to every group - there is no
+ * per-module special case (e.g. nothing named "Engineering Intelligence"
+ * or "Knowledge" anywhere in the filtering logic itself). A group or
+ * subgroup left with zero visible items after filtering is omitted
+ * entirely, the same "never render an empty container" rule the
+ * Administration group already used. This is a UX-visibility rule only -
+ * every gated leaf still has `href: null` (no route exists to protect);
+ * see `docs/standards/SECURITY_STANDARD.md`'s Application-layer
+ * authorization section for how *real* routes are separately enforced
+ * server-side regardless of what the nav shows.
  */
 import { SessionUser } from '@/lib/types';
 import { canManageMasterData, canManageLegacyImport, canManageEmailHealth, canManageUsers, seesAllDealers } from '@/lib/scope';
 import type { TranslationVars } from '@/lib/i18n/types';
 
+/**
+ * A capability's build/rollout state, independent of who may see it.
+ * `ACTIVE` is the only status visible to non-SuperAdmin roles - see
+ * `isCapabilityVisible`. The other four all mean "not yet a capability a
+ * regular user can act on," kept as distinct labels only because the
+ * roadmap badge SuperAdmin sees should say which one it is.
+ */
+export type CapabilityStatus = 'ACTIVE' | 'COMING_SOON' | 'PREVIEW' | 'BETA' | 'DEVELOPMENT';
+
 export interface NavItem {
-  /** `null` for a Coming Soon placeholder - never a fake/broken route. */
+  /** `null` for a not-yet-`ACTIVE` placeholder - never a fake/broken route. */
   href: string | null;
   icon?: string;
   label: string;
+  /** @deprecated Kept only as the Coming Soon rendering flag `Sidebar` reads
+   *  for its badge/disabled treatment; visibility itself is driven by
+   *  `status`, via `isCapabilityVisible` - never read this to decide
+   *  whether to show an item. */
   comingSoon?: boolean;
+  /** Explicit override for a non-Coming-Soon future status (Preview/Beta/
+   *  Development). Omitted on every item today (`effectiveStatus` derives
+   *  `ACTIVE`/`COMING_SOON` from `comingSoon` when this is unset) - reserved
+   *  for the next capability that needs a Preview/Beta/Development badge
+   *  instead of Coming Soon, without a new boolean flag or a new filter. */
+  status?: CapabilityStatus;
+}
+
+/** The one place that reads `comingSoon`/`status` to decide a leaf's actual
+ *  capability state - every other piece of code (filtering, rendering)
+ *  should call this rather than re-deriving it. */
+export function effectiveStatus(item: NavItem): CapabilityStatus {
+  if (item.status) return item.status;
+  return item.comingSoon ? 'COMING_SOON' : 'ACTIVE';
+}
+
+/**
+ * Navigation Visibility Rule (post-Foundation Freeze refinement):
+ * SuperAdmin sees every capability status (the full roadmap); every other
+ * role sees only `ACTIVE` capabilities. One generic rule, applied to every
+ * leaf regardless of which group/module it belongs to - adding a new
+ * future capability (Dealer Portal, IoT, Notifications, ...) at any status
+ * other than `ACTIVE` is automatically SuperAdmin-only with no code change
+ * here.
+ */
+export function isCapabilityVisible(item: NavItem, role: SessionUser['role']): boolean {
+  if (role === 'SuperAdmin') return true;
+  return effectiveStatus(item) === 'ACTIVE';
 }
 
 export interface NavSubgroup {
@@ -57,10 +116,34 @@ function comingSoon(icon: string | undefined, label: string): NavItem {
   return { href: null, icon, label, comingSoon: true };
 }
 
+/** Applies `isCapabilityVisible` to every leaf across every group/subgroup,
+ *  dropping any subgroup or group left with zero visible items - the
+ *  generic "hide the whole group if every child is hidden" rule, not a
+ *  per-group special case (see the module doc comment). Runs last, after
+ *  every group above has already applied its own RBAC item-inclusion
+ *  logic - capability-status visibility and role-based inclusion are two
+ *  independent filters, not one merged check. */
+function filterGroupsByCapability(groups: NavGroup[], role: SessionUser['role']): NavGroup[] {
+  return groups
+    .map((group) => {
+      const items = group.items?.filter((item) => isCapabilityVisible(item, role));
+      const subgroups = group.subgroups
+        ?.map((sub) => ({ ...sub, items: sub.items.filter((item) => isCapabilityVisible(item, role)) }))
+        .filter((sub) => sub.items.length > 0);
+      return { ...group, items, subgroups: subgroups && subgroups.length > 0 ? subgroups : undefined };
+    })
+    .filter((group) => (group.items?.length ?? 0) > 0 || (group.subgroups?.length ?? 0) > 0);
+}
+
 /**
  * The platform's full navigation tree, role-filtered. Every group with no
  * visible items for the current role is omitted entirely (never rendered
  * empty) - `Sidebar` doesn't need its own visibility logic beyond that.
+ * Two independent filters apply: each item's own RBAC gate (who may use
+ * this real capability - e.g. Legacy Import's `canManageLegacyImport`),
+ * and the capability-status visibility rule (`filterGroupsByCapability`) -
+ * whether this capability is finished enough for a non-SuperAdmin to see
+ * at all.
  */
 export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
   const groups: NavGroup[] = [
@@ -201,7 +284,7 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
     });
   }
 
-  return groups;
+  return filterGroupsByCapability(groups, session.role);
 }
 
 /** Flattens every *real* (non-Coming-Soon) leaf across every group/subgroup
