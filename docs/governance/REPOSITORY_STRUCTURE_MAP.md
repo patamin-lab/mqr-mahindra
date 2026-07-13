@@ -14,7 +14,7 @@ of writing, not copied from memory.
 
 | Path | Purpose | Governed by |
 |---|---|---|
-| `src/` | All working application code | `CLAUDE.md` §4 (detailed layout), `docs/architecture/PLATFORM_CONSTITUTION.md` (layer rules) |
+| `src/` | All working application code | `CLAUDE.md` §4 (detailed layout), `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` (layer rules) |
 | `docs/` | All documentation | `DOCUMENTATION_HIERARCHY.md`, `DOCUMENTATION_POLICY.md` |
 | `.claude/` | Claude Code configuration, rules, skills | `REPOSITORY_POLICY.md` §4, `SKILL_GOVERNANCE.md` |
 | `public/` | Static assets (Next.js convention) | Not separately governed - standard framework convention |
@@ -38,7 +38,7 @@ service means `src/shared/`, never the top-level placeholder.
 | `src/app/` | Routes (App Router) - `login/`, `(app)/` (authenticated shell), `api/` |
 | `src/components/` | Shared UI (`components/shared/`) - see MSEAL Design Framework (ADR-023) for the widget/layout/form catalog |
 | `src/features/` | Business modules - currently `machine/`, `maintenance/`, `maintenance-due/`, `mqr/`, `ntr/`, `vehicle/`, `vehicle-event/`, `vehicle-health/` (verified via `ls src/features/`) - each is a bounded context per `02-DOMAIN-MODEL-AND-CONTEXT-MAP.md` |
-| `src/lib/` | Infrastructure - direct external-system integration (Supabase, Google Drive, Resend, JWT) per `PLATFORM_CONSTITUTION.md`'s layer table |
+| `src/lib/` | Infrastructure - direct external-system integration (Supabase, Google Drive, Resend, JWT) per `PLATFORM_ARCHITECTURE_STANDARDS.md`'s layer table |
 | `src/shared/` | Platform services - `import/` (ADR-024, ex-ADR-009), `master-data/` (ADR-011/012), `attachments/` (ADR-010) |
 | `src/locales/` | i18n dictionaries (`th.json`/`en.json`) |
 | `src/types/` | Cross-cutting TypeScript types |

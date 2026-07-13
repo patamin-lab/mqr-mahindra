@@ -82,7 +82,7 @@ Design choices, and why:
   triggered it (`DEALER_PDI` tied to an NTR record).
 - **Reuses `PhotoLink` and the Attachment Platform directly** — no new
   photo/attachment mechanism. This is a hard requirement, not a nice-to-
-  have: Attachment Platform is Foundation-Frozen (PLATFORM_CONSTITUTION.md).
+  have: Attachment Platform is Foundation-Frozen (PLATFORM_ARCHITECTURE_STANDARDS.md).
 
 ## Service architecture
 

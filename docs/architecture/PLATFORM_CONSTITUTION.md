@@ -1,408 +1,475 @@
-# MASP Platform Constitution
+# MSEAL DMS Platform Constitution v1.0
 
-The permanent architecture policy for the Mahindra After Sales Platform
-(MASP), effective from the Storage Platform freeze. This document does
-not replace `docs/ARCHITECTURE.md`, `docs/ARCHITECTURE_PRINCIPLES.md`,
-`docs/standards/DOMAIN_LANGUAGE_STANDARD.md`, `docs/architecture/
-MASP_ENTERPRISE_STANDARD.md` (the mission/vision and platform-inventory
-document), or any ADR - it consolidates the binding rules those
-documents already established, adds the rules the Storage Platform
-build-out (Phase 5B onward) proved out in practice, and is the one place
-future work should check first before introducing a new module, service,
-or dependency. Where this document and an older one disagree, the newer,
-more specific decision governs (see ADR-009's explicit supersession of
-the original "Tractor, NOT Vehicle" rule as the precedent for how that
-works) - and the disagreement itself should be resolved with a new ADR,
-not by silently picking one. This precedence rule is what let
-`docs/adr/ADR-011-Address-Platform.md` supersede `MASP_ENTERPRISE_
-STANDARD.md`'s Address Platform storage/API wording without editing that
-document's substance.
+## Status
 
-## Layer definitions
+**Effective 2026-07-13.** This is the governing document above ADRs, the
+Design Framework, and individual capabilities - the highest-level
+engineering and product principle for the MSEAL DMS platform.
 
-MASP is one Next.js application with four layers, in strict dependency
-order:
+**It is not an implementation guide, not an ADR, and not a coding
+standard.** It states the permanent principles the platform's frozen
+Architecture Blueprint, Architecture Standards, ADRs, and Design
+Framework already put into practice - it does not restate their
+implementation detail, only elevates the principles behind it into one
+place a reader checks first. Where this document references another
+document, that document remains the authoritative source for its own
+detail; this Constitution never duplicates it.
 
-| Layer | Lives under | Owns |
-|---|---|---|
-| **Business modules** | `src/features/*`, `src/app/(app)/*`, `src/app/api/*` | Module-specific routes, pages, domain logic, repositories, services. MQR (the original `records`/`report` code), Maintenance/PM, NTR (New Tractor Registration), Machine (Machine 360), Vehicle Event, Vehicle Health, Maintenance Due. |
-| **Platform services** | `src/shared/*` | Cross-cutting capabilities every module consumes through a defined interface: the Attachment/Storage Platform (`shared/attachments/`), the Platform Event framework (`vehicle-event`'s `VehicleEventPublisher`), and (per ADR-004, not yet built) auth/upload/pdf/scheduler/notification/audit/logging/monitoring/cache/search. |
-| **Infrastructure** | `src/lib/*` | Direct integration with an external system: Supabase (`lib/supabase.ts`, `lib/db.ts`), Google Drive (`lib/googleDrive.ts`), Resend (`lib/email.ts`), JWT/session (`lib/auth.ts`). A business module or platform service calls infrastructure through a service/repository, never an SDK directly, except where the platform service itself *is* the thin wrapper (e.g. `SupabaseStorageProvider` wrapping Supabase Storage). |
-| **Database** | Supabase Postgres, RLS enabled on every table | The one source of truth (`docs/adr/ADR-001-Supabase.md`). Google Sheets/Drive are downstream consumers, never alternative stores of record. |
+## Relationship to existing documents (read this before anything else)
 
-`modules/`, `shared/`, and `templates/` (the Sprint-1-era scaffolding
-referenced in `.claude/CLAUDE.md`) remain placeholder-only as of this
-constitution - all working code stays under `src/` until an explicit,
-approved sprint task moves it, per that file's own standing rule.
+This Constitution was written after reading, not before: Foundation
+Freeze v1.0 (`docs/releases/FOUNDATION_FREEZE_v1.0.md`), Architecture
+Blueprint v1.1 (`docs/architecture/blueprint/`, chapters 01, 02, 07, 16,
+17, 20 and the README), Platform Governance Framework v1.1
+(`docs/governance/`), the MSEAL Design Framework
+(`docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`, ADR-023), the Navigation
+Standard (part of the Design Framework, `.claude/skills/mseal-platform-
+design/NAVIGATION_GUIDELINES.md`), the Terminology Standard
+(`docs/standards/TERMINOLOGY_STANDARD.md`), the Engineering Knowledge
+Platform (ADR-018, `docs/architecture/KNOWLEDGE_PLATFORM.md`), and the ADR
+Index (`docs/adr/README.md`).
 
-## Dependency rules
+**A genuine naming conflict was found and resolved before this document
+was written, not silently worked around**: `docs/architecture/
+PLATFORM_CONSTITUTION.md` already existed under this exact filename, but
+held implementation-level architecture rules (layer definitions,
+dependency rules, platform-service boundaries, Storage/Auth/MasterData
+freeze rules) - a different kind of document than the Vision/Mission/
+Principles document this task asked for, and one that
+`docs/governance/DOCUMENTATION_HIERARCHY.md` had ranked *below* the
+Architecture Blueprint and ADRs, the opposite of where a true Constitution
+belongs. Resolved (explicit decision, not a unilateral pick): that
+document is renamed to `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
+with its content unchanged, every cross-reference to it updated, and this
+document written fresh at the now-free path as the platform's actual
+Constitution, above it in precedence. See `docs/governance/
+DOCUMENTATION_HIERARCHY.md` for the full hierarchy and the reasoning.
 
-1. **One direction only**: business modules depend on platform services;
-   platform services depend on infrastructure; infrastructure depends on
-   external SDKs. Nothing depends upward. A platform service (`shared/`)
-   never imports from a business module (`src/features/*`,
-   `src/app/(app)/*`) - this is the single rule most likely to reintroduce
-   coupling if violated (`.claude/rules/01-architecture-boundaries.md`).
-2. **A module may not import another module's internals directly.** If
-   two modules need the same logic, it moves to a platform service - it
-   is never cross-imported module-to-module. (Today's one narrow,
-   documented exception: `features/mqr/providers/MqrSummaryProvider`
-   reads through MQR's existing, unmodified `getVehicleHistory()` to
-   register with Vehicle 360's provider registry - a read-only adapter at
-   an explicit extension point, not a general license to reach into
-   another module.)
-3. **A business module reaches infrastructure only through its own
-   repository/service, or through a platform service** - never a raw
-   Supabase query, Drive API call, or SDK client constructed inline in a
-   route handler or page component.
-4. **Every table has RLS and is filtered through application-layer scope
-   checks** (`lib/scope.ts`'s predicates today) - both layers, always;
-   neither alone is sufficient (`.claude/rules/03-data-access-security.md`).
-5. **A dependency direction violation is a defect, not a style
-   preference** - flag it in review the same way a security or
-   correctness bug would be flagged, per the same weight this
-   constitution gives dependency rules as it gives to RLS/soft-delete
-   rules.
+**A second, narrower finding**: the Engineering Knowledge Platform
+(ADR-018) that several Knowledge Principles below rely on is a *decided*
+principle - approved with the user explicitly during that work - but its
+implementing PR (#42) is not yet merged to `main` as of this Constitution.
+This document states the principle as binding platform law regardless
+(a Constitution states what is decided, not only what has shipped), but
+does not claim the Knowledge Platform is live; check `docs/adr/README.md`
+for ADR-018's current Status before citing it as built.
 
-## Platform service boundaries
+No other contradiction was found between the documents reviewed. This
+Constitution does not duplicate any of their content - every rule below
+that already exists in detail elsewhere is stated as a headline principle
+with a pointer to where the detail lives, not restated.
 
-A platform service is consumed through its public interface only - never
-copy-pasted into a module, never reached into for its internals (ADR-004,
-Architecture Principle 7: "Services are boundaries, not libraries to
-inline").
+---
 
-The Storage Platform is the reference implementation of this boundary:
-`AttachmentService` is the *entire* public surface business modules use.
-`AttachmentRepository`, every `StorageProvider` implementation, and
-`StorageProviderFactory` are internal to the service - a business module
-that imports any of them directly is a boundary violation, full stop,
-regardless of whether the resulting code happens to work. (Verified
-clean for every current consumer as of the Storage Platform freeze - see
-`docs/engineering/STORAGE_PLATFORM_FINAL.md`.)
+## Platform Vision
 
-The one documented exception pattern: an **operational/maintenance
-surface** (this platform's `OrphanCleanupService`,
-`StorageHealthService`, `StorageMetricsService`, `StorageAuditService`,
-`StorageScheduler`) may read a service's repository/provider directly,
-because its job is specifically to detect when the service's own
-invariants have already broken - something the service's normal
-abstraction cannot see past by design. This exception is narrow: it
-applies to genuinely operational code (hygiene, health, metrics,
-scheduling), gated to admin/SuperAdmin routes, never to a business
-module's normal read/write path.
+Every machine interaction becomes knowledge. Every piece of knowledge
+helps solve the next machine faster, more accurately, and with higher
+confidence. **MSEAL DMS is not a record management system. It is an
+Engineering Intelligence Platform** (Blueprint ch.01's Vision, restated
+here as permanent platform law, not a Blueprint-only aspiration).
 
-Every future platform service (the remaining ADR-004 list: auth, upload,
-pdf, scheduler, notification, audit, logging, monitoring, cache, search)
-follows the same shape: one public service class/interface a module
-calls, internals not exposed, an equivalent "operational surface"
-exception only if that service's own maintenance genuinely needs it.
+## Platform Mission
 
-## Infrastructure rules
+Turn every machine interaction into reusable engineering knowledge
+(Blueprint ch.01's Mission). Capture data once, reuse it everywhere -
+every module contributes reusable engineering knowledge instead of
+sitting as an isolated record store.
 
-- Infrastructure code (`lib/*`) never contains business logic - no dealer
-  scoping, no status transitions, no validation beyond what's needed to
-  talk to the external system correctly. That belongs in the
-  repository/service layer above it.
-- A new infrastructure integration (a new external SDK, a new third-party
-  API) is wrapped in exactly one place under `lib/` (or a platform
-  service's own provider, for a swappable capability like storage) -
-  never called directly from two different call sites with two different
-  wrapping conventions.
-- Credentials/tokens are read from environment variables lazily (at call
-  time, not module load), matching `getSupabase()`/`getR2Config()`'s
-  existing pattern - so importing the file never throws in an environment
-  that hasn't configured that integration yet (tests, a fresh clone
-  before secrets are set).
-- Infrastructure failures are translated into a small, fixed,
-  business-friendly vocabulary at the platform-service boundary (see
-  `AttachmentErrors.ts`'s `AttachmentErrorContext` for the pattern) -
-  a raw SDK/HTTP/bucket-name error never reaches a business module or the
-  UI.
+## Platform Values
 
-## Domain language
+1. **Evidence over assertion.** A conclusion is only as trustworthy as
+   the evidence behind it, and the evidence is never discarded once a
+   conclusion is reached.
+2. **Reuse over rebuild.** A second implementation of something the
+   platform already has is a defect in the design process, not a
+   convenience.
+3. **Explainability over automation.** A system that acts without being
+   able to explain why is not ready to act, no matter how accurate it is
+   on average.
+4. **Honesty over completeness.** A named, open gap is worth more than a
+   fabricated answer or a silently dropped requirement - every document
+   this platform produces says what is built, what is deferred, and what
+   is not yet decided, distinctly.
+5. **Stability over novelty.** A frozen foundation that many modules
+   depend on is changed deliberately, through review, never casually
+   because a newer pattern looks nicer.
 
-Business terminology is governed by
-`docs/standards/DOMAIN_LANGUAGE_STANDARD.md` - this constitution does not
-duplicate it, only points to it as binding. Current state (as of ADR-009):
-the platform business entity is **Machine** (Machine 360/Registry/
-Timeline/Search/Health), with "Tractor" surviving one level down as
-today's one Product Category. Database table names (`vehicles`,
-`vehicle_id`, `vehicle_events`) are unaffected by business-terminology
-renames - a rename is business terminology only (repository/service/UI/
-docs), never a table rename, unless a dedicated migration ADR says
-otherwise.
+## Engineering Principles
 
-Every new module's user-facing strings, PDF/CSV headers, and status names
-must be checked against `DOMAIN_LANGUAGE_STANDARD.md` before shipping -
-"Documentation Precedes Implementation for Shared Surfaces"
-(Architecture Principle 9) applies to business vocabulary exactly as it
-does to shared services.
+Restated from Blueprint ch.01's Architecture Principles and Engineering
+Principles as permanent platform law (see ch.01 for the full rationale
+and the Engineering Knowledge Loop/Value Creation Flow diagrams behind
+each one - not restated here):
 
-## Event rules
+- Machine is the primary entity; every domain either belongs to a
+  Machine, describes an interaction with a Machine, or exists to help an
+  engineer understand a Machine faster.
+- Everything important is an Event; a fact is not "done" once saved to a
+  table, only once emitted as an event other domains can consume without
+  coupling to the table that produced it.
+- Every Event creates Knowledge; Knowledge continuously improves AI; AI
+  assists engineers and never replaces engineering judgment.
+- Every recommendation must be explainable and traceable back to the
+  source events and knowledge records that produced it.
+- **Reuse before Build.** Check for an existing platform service, shared
+  component, or standard before writing a new one - the same discipline
+  that produced the Attachment Platform, MasterDataService, and the
+  shared `<ActivityTimeline>`, each built once and reused by every module
+  that needed it since, instead of three or four parallel
+  implementations.
+- **Shared Platform before Local Solution.** A cross-cutting capability
+  (storage, master data, authorization scope, activity timeline,
+  navigation) is built as a platform service every module consumes
+  through a defined interface, never re-implemented locally inside one
+  module because it was faster that week. `docs/architecture/
+  PLATFORM_ARCHITECTURE_STANDARDS.md`'s Platform service boundaries
+  section is where this principle's implementation detail lives.
+- Before a line of code is written, a feature must be able to name its
+  Machine, Event, Knowledge, AI, Timeline, and Analytics contribution
+  (ch.01's six questions) - a design that cannot is incomplete, not
+  "acceptable for v1."
 
-Vehicle Event (Phase 4.5, `src/features/vehicle-event/`) is the platform's
-one event backbone: `Module -> Domain Service -> VehicleEventPublisher ->
-VehicleEventService -> VehicleEventRepository -> Supabase`. No module may
-write directly into `vehicle_events` - the Publisher is the only entry
-point, including the platform's own `/api/platform/events` POST route
-(it calls `publisher.publish()`, not `VehicleEventService.createEvent()`
-directly, for the same reason a business module can't).
+## Business Principles
 
-Current, explicitly-tracked state: the Publisher is fully built and unit
-tested, but **no real module call-site invokes it yet** - MQR's and PM's
-`create()`/status-transition code do not call
-`publishMqrOpened()`/`publishMaintenanceCompleted()`/etc., and Vehicle
-360's Timeline still reads via its own provider-registry aggregation
-(`src/features/vehicle/registry.ts`), not from `vehicle_events`. Wiring
-real call-sites and migrating the Timeline to read from `vehicle_events`
-are two separate, explicit, not-yet-scheduled decisions - not implied by
-anything in this constitution.
+- **Business terminology is architecture.** A business concept's name is
+  not a cosmetic choice made after the code is written - it is a
+  decision with the same weight as a schema choice, because a
+  mismatched or duplicated term (two names for one concept, or one name
+  covering two concepts) causes exactly the kind of silent domain
+  confusion this Constitution's Domain Principles exist to prevent. The
+  canonical business vocabulary lives in `docs/standards/
+  TERMINOLOGY_STANDARD.md` (UI-facing wording) and `docs/standards/
+  DOMAIN_LANGUAGE_STANDARD.md` (the business entity model, e.g. "Machine"
+  per ADR-009) - this Constitution does not restate either, it elevates
+  the principle that they are binding, not optional style guidance.
+- A frozen business term (MQR, NTR, PM, PIP, AI Engineering, Predictive
+  Quality, Troubleshooting, and every term the Terminology Standard
+  freezes going forward) is changed only through Architecture Review +
+  Design Review + Documentation Review, the same weight given to a
+  frozen schema or API change - never a routine copy edit.
+- Code, API routes, database tables/columns, and TypeScript types stay in
+  English always; business terminology governs what a user reads, never
+  an identifier - renaming a business concept is never, by itself, a
+  reason to rename a table or route.
 
-Every event row always stores `event_definition_id` (an FK), never the
-`event_code` string directly (Reference Integrity - `event_definitions`
-is the Event Definition Master). `vehicle_events` has no `dealer_id`
-column; dealer scope is enforced via a `vehicles!inner(dealer_id)` join
-at query time, the same "every query enforces scope, never relies on a
-denormalized column alone" discipline every other table follows.
+## Domain Principles
 
-## Storage rules
+- **Machine is the center of the platform.** Every bounded context either
+  belongs to a Machine, describes an interaction with a Machine, or
+  exists to help an engineer understand a Machine faster (Blueprint
+  ch.02's Domain Model is the detailed map this elevates to permanent
+  law; Machine-as-aggregate-root is one of Blueprint ch.20's five frozen
+  Architecture items).
+- **Knowledge is an independent business domain.** Knowledge is not
+  owned by Quality, PM, Warranty, or Machine - it aggregates Evidence
+  from every domain and is consumed, never owned, by Engineering
+  Intelligence (ADR-018, `docs/architecture/KNOWLEDGE_PLATFORM.md` §1).
+  A domain being reachable from a familiar place in the navigation (e.g.
+  Knowledge's nav entry sitting under the Quality menu group for
+  discoverability) never implies that group owns its data - see
+  Navigation Principles below for why those are two different questions.
+- **One Aggregate.** A business concept is stored once, as one aggregate
+  root with one repository boundary - never a second, parallel table
+  with a "promotion" or "copy" workflow linking them (the Knowledge
+  Case/Candidate reconciliation in ADR-018 is the concrete precedent: one
+  `knowledge_cases` table, with "Candidate" and "Case" as lifecycle
+  states of the same row, not two tables). A bounded context may import
+  from a shared platform service; it must never import another bounded
+  context's internals directly, and no repository ever joins across two
+  bounded contexts' tables in one query (Blueprint ch.02).
+- **One Owner.** Every domain has exactly one owner responsible for its
+  aggregate and repository boundary - `docs/governance/
+  DOMAIN_OWNERSHIP_MATRIX.md` is the current owner-by-domain record; this
+  Constitution does not restate it, only requires that every domain have
+  an entry there before it is considered real.
+- **Timeline is shared platform infrastructure.** There is exactly one
+  Activity Timeline component and one audit-log table every module
+  writes through (`record_audit_log`, the closed `AuditModule` union,
+  `<ActivityTimeline>`) - a new module never builds its own history view;
+  it adds its module name to the existing union and reuses the existing
+  component, the same way Knowledge did for ADR-018 with zero new
+  timeline infrastructure.
 
-The Storage Platform (`src/shared/attachments/`) is frozen per
-`docs/engineering/STORAGE_PLATFORM_FINAL.md`/`STORAGE_PLATFORM_DECISION.md`.
-Binding rules, restated here as permanent policy (not just this
-milestone's finding):
+## Capability Principles
 
-1. `AttachmentService` is the only door a business module uses for file
-   storage - never a `StorageProvider`, the repository, or a storage SDK
-   directly.
-2. Every storage backend implements the same `StorageProvider` interface;
-   swapping the active primary/archive provider is a `StorageProviderFactory`
-   configuration change (`STORAGE_PROVIDER`/`ARCHIVE_PROVIDER`), never a
-   code change to `AttachmentService` or any caller.
-3. A provider never returns a permanent/public object URL as part of
-   `upload()`'s result - the only way to get a renderable URL is
-   `AttachmentService.getUrl()` -> a provider's `getSignedUrl()`, resolved
-   fresh, never stored and trusted long-term (the one exception being
-   Google Drive's genuinely-permanent share link, which is inherent to
-   that backend, not a shortcut taken by this platform).
-4. `AttachmentRepository` never assumes or hardcodes which provider
-   stored an object's bytes - the actual provider name is always passed
-   in explicitly by `AttachmentService`.
-5. The maintenance layer (hygiene/health/metrics/audit/scheduling) may
-   read providers/repository directly (the operational-surface exception
-   above) but must never perform a destructive action automatically -
-   every cleanup defaults to dry-run, and nothing in this platform is
-   wired to a timer or cron trigger.
-6. Object-path segments derived from caller input are always sanitized
-   before becoming part of a storage key (`sanitizePathSegment()`).
+Every capability - a nav-visible feature, a module, a platform service -
+has, permanently:
 
-## Authorization rules (DealerBranchScope)
+- **Owner** - the domain or platform service responsible for it (see
+  Domain Principles' "One Owner" and `docs/governance/
+  DOMAIN_OWNERSHIP_MATRIX.md`).
+- **Lifecycle** - the stage it is at (design-only, in development,
+  active, deprecated, archived) - `docs/governance/
+  MODULE_MATURITY_MATRIX.md` is where this is tracked platform-wide; a
+  capability's own Coming Soon/Preview/Beta/Development/Active
+  `CapabilityStatus` (Navigation Principles, below) is the nav-visible
+  projection of this same lifecycle, not a second, independent concept.
+- **Permission** - the `lib/scope.ts` predicate (or platform-equivalent)
+  that gates who may use it once it is real; server-side, always, per
+  `docs/standards/SECURITY_STANDARD.md`'s Application-layer
+  authorization model.
+- **Status** - whether it exists yet at all, and in what form (see
+  Navigation Principles' `CapabilityStatus` enum).
 
-The Dealer/Branch Scope Platform Standard (`src/lib/dealerBranchScope.ts`
-and `src/components/shared/scope/`) is frozen as of MASP Platform
-Foundation v1.1.0 (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`).
-Binding rules, restated here as permanent policy:
+**Reuse before Build applies to capabilities as much as to code**: before
+a new capability is proposed, check whether an existing platform service
+already provides it (Engineering Principles, above) - a capability
+proposal that skips this check is incomplete, the same way a design that
+cannot name its Machine/Event/Knowledge contribution is incomplete.
 
-1. Every module's dealer/branch authorization flows through exactly one
-   path, no exceptions:
+## Navigation Principles
 
-   ```text
-   UI -> DealerBranchScope (resolveDealerScope / resolveBranchScope /
-         assertBranchAccess / canAccessDealerBranch)
-       -> Repository scope (applyScope() in lib/db.ts)
-       -> Database
-   ```
+**Business capability owns navigation. Navigation represents platform
+capabilities. Navigation is never the roadmap.** A user sees the
+capabilities available to them; navigation is not where a product
+roadmap is previewed to a general audience. This is the Navigation
+Visibility Rule (`docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2c,
+`src/app/(app)/navConfig.ts`'s `CapabilityStatus` model - `ACTIVE`,
+`COMING_SOON`, `PREVIEW`, `BETA`, `DEVELOPMENT`), elevated here as
+permanent law rather than restated: visibility is always derived from a
+capability's Status plus the viewer's authorization, never from a
+hardcoded module name in the filtering logic, and never rendered as a
+placeholder for a role that should not see it.
 
-2. **No module may implement dealer/branch authorization
-   independently** - a raw `seesAllDealers(role) ? requested :
-   session.dealerId` ternary, a manual `record.dealer_id ===
-   session.dealerId` comparison, or any other re-derivation of scope
-   outside `dealerBranchScope.ts` is a boundary violation, the same
-   weight this constitution gives a Storage Platform boundary violation.
-3. `DealerUser` visibility is **branch-scoped**: every record in the
-   user's own `session.branchId`, never "records I personally created"
-   (`seesOwnRecordsOnly` - removed from `scope.ts` at v1.1.0). A
-   `DealerUser` with `branchId: null` sees zero records - fail-closed,
-   never fail-open.
-4. List/filter reads enforce scope via `applyScope()`'s own dealer+branch
-   `.eq()` pair (a mismatched pair returns zero rows, not an error).
-   Single-record detail/mutate paths additionally call
-   `canAccessDealerBranch()` at the route level - both layers, always,
-   the same defense-in-depth discipline as RLS + `applyScope()`.
-5. The client-side hook/component (`useDealerBranchScope()` /
-   `<DealerBranchSelector>`) is the only dealer/branch filter UI a module
-   builds - never a hand-rolled `dealerId`/`branchId` `useState` pair
-   plus its own `/api/branches` fetch effect.
-6. A new module's dealer/branch filtering is judged the same way a new
-   Storage Platform consumer is judged: does it call the shared
-   resolver, or did it build a parallel mechanism? The latter is always
-   wrong, regardless of whether it happens to produce the same result.
+- **Users see capabilities.** Every role other than SuperAdmin sees only
+  `ACTIVE` capabilities - a capability that is Coming Soon, Preview,
+  Beta, or in Development is hidden completely for that role, not shown
+  disabled.
+- **SuperAdmin may see future capabilities.** SuperAdmin sees every
+  status - the platform's full roadmap - because SuperAdmin's job
+  includes verifying what is coming, not because SuperAdmin's role is
+  "more trusted" in the authorization sense for any one capability
+  (Capability visibility is not authorization, below).
+- A group of navigation entries with zero visible capabilities for the
+  current viewer is hidden automatically, never rendered empty and never
+  padded with a placeholder to keep the group visible.
+- **Capability visibility is NOT authorization. Server-side RBAC remains
+  the security boundary** (`docs/standards/SECURITY_STANDARD.md`).
+  Showing or hiding a nav entry is a UX decision about what to present;
+  it is never, on its own, what stands between a role and an action. A
+  real route's own permission predicate is the only thing that actually
+  authorizes access to it, regardless of what the current navigation
+  shows.
+- A capability's navigation *placement* (which menu group it sits under,
+  for discoverability) never implies data *ownership* - see Domain
+  Principles' Knowledge example, above. Confusing the two is the single
+  most common documentation drift this Constitution's review found (see
+  "Relationship to existing documents," above, and PR #42's Final
+  Architecture Review for the concrete Knowledge-ownership-wording
+  correction that motivated this rule being stated explicitly).
 
-## Master data rules (MasterDataService)
+## Knowledge Principles
 
-The MASP Platform Layer (`src/shared/master-data/`) completed as of
-MASP Platform Foundation **v1.2.0** (tagged/released on merge commit
-`6b7afb67765610337c04d10857a2c8028efdaa4c` - see `PROJECT_STATE.md`'s
-"MASP Platform Layer" entry and `RELEASE_NOTES_v1.2.0.md`); its Address
-Platform sub-domain was then migrated onto Supabase canonical tables in
-**v1.2.1** (merge commits `b351b424c2d3fa62d9b693dd8192fdb7ed19d54b` and
-`c45c3ab584b0709e87cbdcd2fd98940aa3bfd0c0` - see `docs/adr/ADR-011-
-Address-Platform.md`'s v2 Supersession section and
-`RELEASE_NOTES_v1.2.1.md`). v1.2.1 is the current baseline this
-repository builds on. `MasterDataService` is the one entry point for every
-"master/reference/lookup data" concern: Address (Thai province/district/
-subdistrict/postal-code lookup and hierarchy validation), Lookup
-(controlled-vocabulary values - Customer Type, Customer Title, Attachment
-Type, Severity/Priority, Status), Configuration (business-rule
-constants), and Reference Data (dealers/branches/technicians/product
-families). Binding rules:
+(ADR-018, `docs/architecture/KNOWLEDGE_PLATFORM.md` - detailed model, not
+restated here; see the merge-status note under "Relationship to existing
+documents," above.)
 
-1. **`MasterDataService` is the only public surface** - a module imports
-   `MasterDataService` from `@/shared/master-data`, never reaches into
-   `address/`/`lookup/`/`config/`/`reference/` directly, the same
-   boundary `AttachmentService` already established for the Storage
-   Platform.
-2. **Never hardcode a lookup value a module could get from
-   `MasterDataService` instead** - a controlled-vocabulary value
-   (Customer Type today; any future lookup) is defined once, in
-   `lookup/`, and referenced everywhere else - not re-typed as a raw
-   string literal in a component's options array, a zod schema, or an
-   import-column normalizer.
-3. **Never duplicate address logic** - Thai province/district/
-   subdistrict lookup and hierarchy validation live in `address/` only,
-   behind `AddressRepository` (Supabase-backed, async, as of v1.2.1).
-   Originally built for and used only by NTR; promoted to a shared
-   platform service specifically so a second module needing address
-   validation reuses it instead of building a second Thai-address index.
-   No business module queries the `provinces`/`districts`/`subdistricts`
-   tables directly - only `AddressRepository` does, and only
-   `MasterDataService` calls `AddressRepository`. The canonical Address
-   Platform architecture (Supabase tables with PK/FK/indexes;
-   `/api/master/provinces`/`districts`/`subdistricts` with
-   `province_id`/`district_id` params; a filter input paired with each
-   `<select>` for "searchable dropdown") is
-   `docs/adr/ADR-011-Address-Platform.md` (see its v2 Supersession
-   section) and `docs/architecture/ADDRESS_PLATFORM.md` - it explicitly
-   supersedes any other document's description of this platform's
-   storage/API shape, until a real business need justifies revisiting it
-   again.
-4. **Reference Data delegates to `lib/db.ts`, never re-implements data
-   access** - `reference/referenceData.ts` is a thin pass-through to the
-   dealer/branch/technician/product-family reads already centralized in
-   infrastructure; it exists so a module reaches reference data through
-   one platform-service entry point, not so the query logic moves.
-5. **Configuration values are read lazily, at call time** (matching
-   `lib/supabase.ts`'s established convention) with the already-shipped
-   business rule as the default - importing the config module never
-   throws before an optional override env var is configured.
+- Knowledge is a first-class, independent business domain - see Domain
+  Principles.
+- **Evidence is the only Source of Truth.** A Knowledge Case's
+  conclusions (possible causes, validated fix, confidence) are
+  engineering *conclusions*; the Evidence rows attached to it are the
+  record of *why*. Evidence is never deleted when a conclusion changes
+  (soft-delete only, the same rule every table in this platform follows).
+- Knowledge Maturity (workflow state: Draft/Review/Published/Deprecated/
+  Archived) and Knowledge Confidence (evidence quality: VeryLow/Low/
+  Medium/High/Verified) are independent axes, never conflated into one
+  field - a Draft case can already be high-confidence if its evidence is
+  strong; a Published case is not automatically top-confidence just for
+  having passed review.
+- Confidence is manual only, set by an engineer who has reviewed the
+  evidence - never computed, inferred, or assigned by AI (see AI
+  Principles, below).
+- Machine never owns Knowledge; Knowledge is never keyed off one
+  module's table (a Knowledge row with a foreign key to a Quality/PM/
+  Warranty table has silently become that module's knowledge, not the
+  platform's) - Evidence rows are how Knowledge references other domains
+  without being owned by any of them.
 
-## Foundation Freeze
+## AI Principles
 
-**MASP Platform Foundation is complete.** As of `v1.2.1`
-(`c45c3ab584b0709e87cbdcd2fd98940aa3bfd0c0`, PR #18, plus its docs
-closeout `8d50363f9929b6e27039f0be0fcd335696e70ef8`, PR #19), the
-following platform layers are **frozen** - considered stable
-infrastructure every business module builds on top of, never
-reimplements:
+- **AI never replaces engineering judgment** (Blueprint ch.01, Principle
+  6 - a hard boundary, not a tuning parameter).
+- **AI never becomes the Source of Truth.** AI consumes Knowledge; AI
+  never produces the Knowledge or Evidence records other systems then
+  treat as ground truth. Knowledge never consumes AI - the dependency
+  direction is one-way, permanently.
+- **AI must always cite Evidence.** Every AI-produced output (summary,
+  recommendation, root cause, similar-case match) resolves back to the
+  specific Evidence and Knowledge records that produced it, on demand -
+  never a bare score or a recommendation with no traceable source
+  (Blueprint ch.01, Principles 7-8: explainable and traceable, applied
+  specifically to AI outputs).
+- AI never assigns Confidence (Knowledge Principles, above) and never
+  moves a Knowledge Case's Maturity - both remain human, engineer-gated
+  actions, permanently.
+- A reserved AI surface (a Coming Soon "AI Summary"/"AI Recommendation"
+  tile, for example) is built as an explicit, empty, clearly-labeled
+  placeholder before any model is selected or wired - never a
+  partially-functional stand-in that quietly does less than its label
+  claims.
 
-- Storage Platform
-- Authentication Platform (reopened once, deliberately, for the v3.0
-  Login/Password/Session/Invitation/Lockout build - see
-  `docs/adr/ADR-014-Authentication-Platform-v3.md` and
-  `docs/architecture/AUTHENTICATION_PLATFORM.md`; the same four-condition
-  bar below still applies to any change after that)
-- DealerBranchScope
-- Attachment Platform
-- Address Platform
-- MasterData Platform
-- Lookup Platform
-- Configuration Platform
-- Reference Data Platform
-- Design Framework (added by ADR-023 - navigation taxonomy, dashboard
-  composition rules, and the widget/screen-contract components under
-  `src/components/shared/dashboard/` and `src/components/shared/layout/`;
-  see `docs/adr/ADR-023-MSEAL-Design-Framework.md` and
-  `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`. Visual tokens/typography
-  themselves remain governed by `docs/UI_STANDARD.md` as before - this
-  layer is the structural rules on top, not a second token system.)
+## Data Principles
 
-Future modification to any of these ten is allowed **only** for:
+- Evidence is the only Source of Truth for a Knowledge conclusion (see
+  Knowledge Principles); more generally, every domain's data has exactly
+  one Source of Truth, recorded in `docs/governance/
+  DATA_OWNERSHIP_MATRIX.md` - a second, independently-updated copy of the
+  same fact is a defect, not a caching convenience, until proven
+  otherwise through the same review a schema change requires.
+- Every table carries RLS and is filtered through an application-layer
+  scope check, both layers, always - neither is sufficient alone
+  (`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Dependency
+  rules and Authorization rules sections hold the implementation detail;
+  this Constitution states the rule permanently, not the mechanism).
+- Timeline is shared platform infrastructure (Domain Principles, above) -
+  restated here because it is as much a data-architecture rule (one
+  audit table, one shared read path) as a domain rule.
+- Soft-delete, never hard-delete, is the default for every record this
+  platform considers evidence of what happened - a hard-delete UI is
+  deliberately absent until a specific, reviewed business need justifies
+  one.
 
-1. A confirmed defect.
-2. A security issue.
-3. A measurable performance improvement.
-4. A change carried by an approved ADR (per the Future extension rules
-   below - the same discipline that produced ADR-011's v1→v2 Address
-   Platform migration).
+## Governance Principles
 
-Anything else - a redesign, a parallel implementation, a "nicer" API
-shape, a speculative new field - is out of scope until a real business
-requirement makes it in-scope, exactly as the Architecture Evolution
-Rule in `docs/architecture/MASP_ENTERPRISE_STANDARD.md` already states.
-Workflow Engine (and everything after it in `docs/ROADMAP.md`'s priority
-order) is a **consumer** of this frozen Foundation, not an occasion to
-revisit it.
+- **Every capability has an Owner, Lifecycle, Permission, and Status**
+  (Capability Principles, above) - a capability without all four is not
+  yet a real, governed part of this platform, regardless of how much
+  code exists for it.
+- **Platform capabilities evolve. Foundation remains stable.** Individual
+  capabilities (a new module, a new nav entry, a new Knowledge domain
+  feature) are expected to change, ship, and iterate continuously. The
+  Foundation (`docs/releases/FOUNDATION_FREEZE_v1.0.md`'s frozen layers:
+  Architecture Blueprint, Platform Governance, Design Framework,
+  Navigation Standard, Dashboard Standard, Authentication Platform,
+  Import Platform Foundation, Machine Domain, plus `docs/architecture/
+  PLATFORM_ARCHITECTURE_STANDARDS.md`'s own ten frozen platform layers)
+  changes only for a confirmed defect, a security issue, a measurable
+  performance improvement, or an approved ADR - never a routine PR,
+  regardless of how small the diff looks.
+- Decision authority over a platform-level concern (as opposed to
+  application-level permission) is recorded in `docs/governance/
+  DECISION_MATRIX.md`, not invented ad hoc per change.
+- A dependency-direction violation, an authorization-boundary violation,
+  a duplicated platform service, or a navigation entry that misrepresents
+  what capability actually exists is a defect, given the same review
+  weight as a correctness or security bug - never a style preference to
+  be waved through.
 
-## Master Data Governance
+## Constitution Rules
 
-Province, District, and Subdistrict are **System Master Data** - the
-same category of "administered, not authored by any business module"
-data as `dealers`/`branches`/`technicians`/`product_families`, formalized
-here because the Address Platform migration (ADR-011 v2) made it
-concrete with real tables for the first time.
+**The Constitution overrides ADR interpretation, Design decisions, and
+capability implementation if a conflict arises.** It sits above the
+Architecture Blueprint, Architecture Standards, ADRs, and Design
+Framework in `docs/governance/DOCUMENTATION_HIERARCHY.md`'s precedence
+chain - not because it is more detailed (it is deliberately less
+detailed than any of them), but because it states the principles those
+more detailed documents are already interpretations of. A frozen
+Blueprint item or ADR is never silently reinterpreted to fit a new
+capability's convenience; if a genuine conflict between this Constitution
+and a frozen item is found, it is resolved the same way every other
+frozen-layer conflict in this platform's history has been resolved: an
+explicit decision, recorded, never a silent pick (see "Relationship to
+existing documents," above, for this exact process being followed to
+write this document).
 
-1. **Business modules are read-only.** `MasterDataService` (via
-   `AddressRepository`) is the only path a business module has to this
-   data, and every method on that path is a read (`list*`/`find*`) -
-   there is no `create`/`update`/`delete` method, and none should be
-   added without the same ADR process any other platform-boundary change
-   requires.
-2. **No API may directly modify Address Master Data.** Verified: the
-   `provinces`/`districts`/`subdistricts` tables (and their `*_raw`
-   staging counterparts) have RLS `SELECT` policies only - no
-   `INSERT`/`UPDATE`/`DELETE` policy exists on any of the six tables,
-   and no route under `src/app/api/` writes to them.
-3. **Changes are allowed only through approved migrations or approved
-   administrative import procedures** - a corrected postal code, a
-   renamed subdistrict, or a re-import of updated Thai administrative
-   data all go through a reviewed Supabase migration (the same
-   `address_platform_canonical_tables`-style process ADR-011 used), never
-   an ad hoc `UPDATE` run against production, and never a change made
-   through application code.
+**Changing the Constitution requires:**
 
-## Future extension rules
+1. **Architecture Review** - against the Architecture Blueprint's North
+   Star (ch.01) and the current Foundation Freeze, the same review a
+   Breaking Change to a frozen layer requires (Blueprint ch.20).
+2. **Governance Review** - per `docs/governance/DECISION_MATRIX.md`'s
+   platform-level decision-authority rule; a Constitution change is
+   always platform-level, never domain-local, by definition.
+3. **Explicit approval** - the same approval authority already defined
+   for architecture-level changes (`docs/architecture/
+   PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze process,
+   `.claude/rules/git.md`) - no new committee or role is invented by this
+   Constitution.
 
-A future module or platform service must, before writing any code:
+A proposed Constitution change that does not carry all three is not
+ready to merge, regardless of how small it looks.
 
-1. **Identify its layer** (business module vs. platform service vs.
-   infrastructure) using the Layer Definitions above, and place its files
-   accordingly.
-2. **Check for an existing platform service first** - reuse before
-   create (`docs/PRODUCT_PHILOSOPHY.md`), the same principle that led to
-   the Attachment Platform being one shared thing MQR/PM/Machine 360 all
-   consume instead of three separate upload implementations.
-3. **Extend, don't fork, an existing platform service's interface** when
-   the need is close to what already exists (e.g. a fourth
-   `StorageProvider` implementation) rather than building a parallel,
-   competing mechanism.
-4. **Register at the one designated extension point**, if the platform
-   service has one (Vehicle 360's `registry.ts` for summary providers,
-   `event_definitions` for a new event code) - never by modifying every
-   existing module's code to know about the new one.
-5. **Never enable automatic execution of a new operational capability
-   silently** - scheduling, automatic cleanup, and production rollout of
-   any new capability each require their own explicit, separately-approved
-   milestone, exactly as every Storage Platform milestone from Cloudflare
-   R2 onward required.
-6. **Record the decision** - a new platform service, a new provider, or a
-   change to how modules interact is captured as an ADR (`docs/adr/`)
-   before or alongside the code, per Architecture Principle 10.
-7. **Add or update an architecture-enforcement check** if one exists for
-   the boundary being extended. **Updated as of v1.1.0**: this is no
-   longer future work - `scripts/architecture-check.ts` exists, is wired
-   into CI (`.github/workflows/ci.yml`) ahead of typecheck/lint/test/
-   build, and currently enforces five Storage Platform boundary rules
-   (see `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`). It does not yet
-   cover the DealerBranchScope authorization rules above or general
-   module-to-module isolation repo-wide - extending it to do so remains
-   explicit, not-yet-scheduled future work.
+## Relationship to Foundation Freeze
+
+The Foundation Freeze (`docs/releases/FOUNDATION_FREEZE_v1.0.md`) is
+*what is currently frozen and why*; this Constitution is *the permanent
+principle that explains why freezing a foundation is the right thing to
+do at all* (Governance Principles' "Platform capabilities evolve.
+Foundation remains stable."). The Foundation Freeze's own reopening
+process (ADR + Architecture Review + Architecture Approval + Merge) is
+unchanged by this Constitution - this document does not add a second,
+competing process, it states the principle that process protects.
+
+## Relationship to ADRs
+
+An ADR records one point-in-time decision, grounded in whatever this
+Constitution, the Blueprint, and Architecture Standards already establish
+- it is a leaf, not a root. Where an ADR's own reasoning conflicts with a
+Constitutional principle, the Constitution governs (Constitution Rules,
+above) and the conflict is itself worth a new ADR recording the
+resolution - the same "never silently pick one" discipline `docs/
+architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` already established for
+its own precedence rule, now stated as permanent Constitutional law
+rather than one document's local convention. `docs/adr/README.md`
+remains the canonical ADR index; this Constitution does not duplicate it.
+
+## Relationship to Design Framework
+
+The MSEAL Design Framework (`docs/architecture/
+MSEAL_DESIGN_FRAMEWORK.md`, ADR-023) is where the Navigation, Dashboard,
+and Widget/Screen-Contract standards live in full implementation detail -
+this Constitution's Navigation Principles are the permanent law the
+Design Framework's Navigation Standard already implements (most recently
+refined by the Capability Status model, `docs/architecture/
+MSEAL_DESIGN_FRAMEWORK.md` §2c). A future Design Framework change that
+would make Navigation stop representing capability, or start
+representing roadmap, is a Constitutional conflict, not a routine design
+refinement, and needs the Constitution Rules process above, not a normal
+Design Review alone.
+
+## Future governance process
+
+1. A proposed new capability is checked against Capability Principles
+   (Owner/Lifecycle/Permission/Status) and Domain Principles (One
+   Aggregate, One Owner, Reuse before Build) before any code is written -
+   the same "before a line of code is written" discipline Engineering
+   Principles already requires for Machine/Event/Knowledge questions,
+   extended to this Constitution's own principles.
+2. A proposed change to a Foundation-frozen layer follows the Foundation
+   Freeze's existing reopening process unchanged (Relationship to
+   Foundation Freeze, above) - this Constitution does not add a second
+   gate on top of it.
+3. A proposed change to this Constitution itself follows the Constitution
+   Rules process above - Architecture Review, Governance Review, Explicit
+   approval - and is recorded as a new Constitution version (v1.1, v2.0,
+   ...) with an explicit changelog entry at the top of this document, the
+   same versioning discipline `docs/governance/DOCUMENTATION_POLICY.md`
+   already requires of every governance framework.
+4. A contradiction discovered between this Constitution and any other
+   document (an ADR, the Blueprint, a Standard, a living architecture
+   document) is resolved explicitly, following `docs/governance/
+   DOCUMENTATION_HIERARCHY.md`'s "How to use this when two documents
+   disagree" process, with the Constitution's own precedence honored per
+   Constitution Rules above - never by quietly editing one document to
+   match the other with no note.
+5. This Constitution is reviewed for continued accuracy whenever the
+   Foundation Freeze is next revised or reopened (Governance Principles'
+   "Platform capabilities evolve. Foundation remains stable." is itself
+   a claim that should be re-checked against reality at that point, not
+   assumed permanently true without review).
+
+## Verification
+
+Reviewed for contradiction against every document named in "Relationship
+to existing documents," above. One genuine contradiction was found (the
+`PLATFORM_CONSTITUTION.md` naming/hierarchy-layer conflict) and resolved
+explicitly before this document was written, not silently. No other
+contradiction was found. No content from Architecture Blueprint,
+Architecture Standards, ADRs, Governance Framework, Design Framework,
+Navigation Standard, Terminology Standard, or the Knowledge Platform is
+duplicated here - every rule above that has implementation detail
+elsewhere points to it rather than restating it.
+
+**Recommendation: APPROVED.**

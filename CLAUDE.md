@@ -106,7 +106,7 @@ If documentation differs from code, report the mismatch. Never assume.
 
 **Current baseline: MASP Platform Foundation v1.1.0 (tag `v1.1.0`) — COMPLETE.** Full record: `docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`. Do not redesign or rewrite a completed platform foundation unless there is a confirmed bug, security issue, or measurable performance problem.
 
-**Frozen platform layers** (feature-frozen — bug/security/performance fixes only): Attachment Platform, Storage Platform, DealerBranchScope, Historical Import Framework. These are platform standards now — every new feature reuses them; never a parallel implementation. Binding detail: `docs/architecture/PLATFORM_CONSTITUTION.md`'s Storage rules and Authorization rules sections.
+**Frozen platform layers** (feature-frozen — bug/security/performance fixes only): Attachment Platform, Storage Platform, DealerBranchScope, Historical Import Framework. These are platform standards now — every new feature reuses them; never a parallel implementation. Binding detail: `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Storage rules and Authorization rules sections.
 
 Every business module's file storage follows `Business Module → AttachmentService → AttachmentRepository → StorageProviderFactory → Supabase/Cloudflare R2`. Every business module's dealer/branch authorization follows `UI → DealerBranchScope → Repository scope (applyScope()) → Database` — no module implements either independently (§6, §8.2).
 

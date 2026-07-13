@@ -4,7 +4,7 @@
  * `Severity`'s canonical values/labels are declared in `lib/types.ts`
  * because `lib/db.ts` (Infrastructure) types its `problem_codes`/`records`
  * queries against it, and Infrastructure may not depend upward on this
- * Platform service (`docs/architecture/PLATFORM_CONSTITUTION.md`'s
+ * Platform service (`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s
  * one-way dependency rule) - so this module re-exports rather than
  * redeclares, the same pattern `reference/referenceData.ts` uses for
  * `lib/db.ts`'s dealer/branch/technician/product-family functions. This

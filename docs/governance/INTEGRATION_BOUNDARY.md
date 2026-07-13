@@ -41,7 +41,7 @@ integration types.
 not explicitly state a rule for an external system **writing** into this
 platform (e.g. a future IoT device pushing telematics data, or a Dealer
 Portal submitting a request). Proposed, consistent with 19's spirit and
-`PLATFORM_CONSTITUTION.md`'s "a business module reaches infrastructure
+`PLATFORM_ARCHITECTURE_STANDARDS.md`'s "a business module reaches infrastructure
 only through its own repository/service" rule, generalized to the
 integration boundary: **an external system never writes to an internal
 table directly either - it writes through an API route (or a future

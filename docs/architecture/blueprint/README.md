@@ -19,7 +19,7 @@ discard it and start over.
 
 ## How this relates to existing binding documents
 
-- `docs/architecture/PLATFORM_CONSTITUTION.md` — the Foundation Freeze
+- `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` — the Foundation Freeze
   list (Storage/Authentication/DealerBranchScope/Attachment/Address/
   MasterData/Lookup/Configuration/Reference Data Platforms) is the
   **frozen infrastructure layer** this blueprint's every future module

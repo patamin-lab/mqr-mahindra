@@ -8,7 +8,7 @@ import { Readable } from 'stream';
  * path (formerly `uploadFileSmart.ts`/`/api/upload*`, which called
  * `uploadFileToDrive()`/`initResumableUpload()`/`relocatePendingFiles()`
  * below) has migrated onto `AttachmentService`, whose primary storage is
- * Supabase/R2, not Drive - see `docs/architecture/PLATFORM_CONSTITUTION.md`.
+ * Supabase/R2, not Drive - see `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`.
  * Files are organized as {ROOT_FOLDER}/{dealerFolderName}/{jobId-or-_pending}/
  * {filename} - the "_pending" fallback and job-folder relocation concept
  * predate this narrowing and are unused by the archive tier (which always

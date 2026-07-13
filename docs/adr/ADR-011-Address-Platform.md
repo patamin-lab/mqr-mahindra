@@ -129,7 +129,7 @@ production-data-risk changes):
   genuinely needs a real foreign-key reference to a subdistrict (not just
   display/validation) is a new, real business need that gets its own ADR
   at that time, not a retroactive trigger to redo this one.
-- `docs/architecture/PLATFORM_CONSTITUTION.md`'s Master data rules section
+- `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Master data rules section
   and `PROJECT_STATE.md` are updated to point here rather than restate
   the reconciliation inline.
 

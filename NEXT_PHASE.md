@@ -19,7 +19,7 @@ rule (`CLAUDE.md` §3.5).
 ## Recommended milestones, in implementation order
 
 1. **Architecture Enforcement Expansion** - extend
-   `scripts/architecture-check.ts` to check `PLATFORM_CONSTITUTION.md`'s
+   `scripts/architecture-check.ts` to check `PLATFORM_ARCHITECTURE_STANDARDS.md`'s
    general dependency rules (module-to-module isolation,
    `shared/` never importing from a business module) beyond the Storage
    Platform specifically. Tooling-only, no runtime code touched.

@@ -26,7 +26,7 @@ Business modules (NTR today; PM/future modules reuse the same component)
 No business module queries Supabase directly for address data, and none
 imports `AddressRepository` directly - only `MasterDataService` does.
 This is the same boundary `AttachmentService` established for the
-Storage Platform (`docs/architecture/PLATFORM_CONSTITUTION.md`'s Master
+Storage Platform (`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Master
 data rules #1 and #3).
 
 ## Database

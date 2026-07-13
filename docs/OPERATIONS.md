@@ -43,7 +43,7 @@ comment referencing them describes a target, not current state.
   (OAuth2, not a service account) for photo/video attachments; Resend for
   transactional email; `react-pdf` for PDF generation.
 - **Layering** (`.claude/rules/01-architecture-boundaries.md`,
-  `docs/architecture/PLATFORM_CONSTITUTION.md`): `lib/*` = Infrastructure
+  `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`): `lib/*` = Infrastructure
   (external system integration) → `src/shared/*` = Platform services →
   `src/features/*`/`src/app/*` = Business modules. Dependency direction is
   one-way; enforced in CI by `npm run architecture`

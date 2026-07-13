@@ -25,7 +25,7 @@ noted:
 | Agent-facing operational checklist | `.claude/skills/mseal-platform-design/` | **New** |
 
 Governance: Design Framework is now the tenth entry in
-`docs/architecture/PLATFORM_CONSTITUTION.md`'s Foundation Freeze -
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze -
 modifiable only for a confirmed defect, security issue, measurable UX/
 performance problem, or a further approved ADR.
 

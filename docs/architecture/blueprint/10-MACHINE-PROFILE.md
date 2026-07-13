@@ -140,7 +140,7 @@ pattern applied to more domains, not a new pattern.
   this is exactly the "future Vehicle 360 compatibility" that component
   was built for.
 - **Attachments section** reuses `AttachmentGallery`/`AttachmentService`
-  unchanged (Foundation Frozen, `PLATFORM_CONSTITUTION.md`).
+  unchanged (Foundation Frozen, `PLATFORM_ARCHITECTURE_STANDARDS.md`).
 - **AI Insight section** reuses the Evidence-First presentation pattern
   from 08 — confidence band, evidence, supporting cases, never a bare
   score.
