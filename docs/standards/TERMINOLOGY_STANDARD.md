@@ -192,8 +192,10 @@ replace it with the official term above in the same change:
   real Recall capability is ever built, it requires its own product
   decision and ADR, not a silent re-add of the old placeholder.
 - **"Knowledge Engine"** as a separate Engineering Intelligence nav entry
-  - Knowledge is Quality-owned (see Domain ownership below); do not
-    reintroduce a duplicate Engineering Intelligence "Knowledge" entry.
+  - Knowledge is its own independent domain, nav-grouped under Quality's
+    menu for UX/discoverability, not owned by Quality or by Engineering
+    Intelligence (see Domain ownership below, corrected by ADR-018); do
+    not reintroduce a duplicate Engineering Intelligence "Knowledge" entry.
 - **"Insights"** / **"AI Analysis"** as separate Engineering Intelligence
   nav entries - consolidated into the single "AI Engineering" entry.
   Do not re-split them without a product decision.
@@ -206,11 +208,25 @@ replace it with the official term above in the same change:
 
 ## Domain ownership (binding, see `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2a)
 
-- **Quality owns execution**: Quality Cases, Knowledge, and
-  Troubleshooting (technicians diagnosing an active quality problem).
+- **Quality owns execution**: Quality Cases and Troubleshooting
+  (technicians diagnosing an active quality problem).
+- **Knowledge owns itself** (corrected by ADR-018, Engineering Knowledge
+  Platform - this line previously said "Quality owns... Knowledge,"
+  which contradicted that epic's own explicit Vision, "Knowledge is NOT
+  owned by Quality/PM/Warranty/Machine," and its own independent
+  `knowledge_cases`/`knowledge_evidence` tables and `KnowledgeService` -
+  the doc was stale, not the architecture; corrected here per this doc's
+  own "if the drift reveals this document itself is wrong, say so and
+  update it" rule). Knowledge aggregates Evidence from every domain,
+  including Quality, PM, Warranty, Machine, Dealer, Customer, and
+  Engineer - it is not subordinate to any one of them. Its nav entry
+  sits under the Quality menu group purely for UX/discoverability
+  (technicians move Quality Cases -> Troubleshooting -> Knowledge in one
+  place), which is a navigation-placement decision, not a data-ownership
+  one - see `docs/architecture/KNOWLEDGE_PLATFORM.md` §1/§7.
 - **Engineering Intelligence owns analysis**: AI Engineering, PIP,
-  Predictive Quality - consumes Quality's validated data, does not own a
-  second copy of Quality Cases/Knowledge/Troubleshooting.
+  Predictive Quality - consumes Knowledge (never raw Quality/PM/Warranty
+  data directly, and never owns a second copy of Knowledge itself).
 - Each of these concepts has **exactly one** nav entry platform-wide.
   Never duplicate a concept's placeholder across two groups to "cover
   both angles" - if a concept genuinely belongs in two places for two

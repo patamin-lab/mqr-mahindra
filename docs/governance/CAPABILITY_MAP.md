@@ -71,7 +71,7 @@ Quality
 ├── Dashboard              (built - the original MQR analytics dashboard, moved to /quality/dashboard per ADR-023 proposed)
 ├── Cases                    (built - MQR/`records` table)
 ├── Analytics                  (not built beyond the Dashboard's own charts)
-├── Knowledge                     (built, ADR-018 - Quality owns Knowledge per TERMINOLOGY_STANDARD.md's domain ownership rule; Quality Cases feed it as Evidence)
+├── Knowledge (reference only)   (built, ADR-018 - Knowledge owns itself, an independent domain, not owned by Quality; nav-grouped here for UX/discoverability only; Quality Cases feed it as Evidence)
 └── PIP (reference only)           (produced from Quality's own Cases/Knowledge, owned by Engineering Intelligence)
 ```
 
@@ -79,7 +79,7 @@ Quality
 
 ```
 Engineering Intelligence
-├── Knowledge (reference only)   (ADR-018 - Knowledge is Quality-owned, see the Quality tree above; Engineering Intelligence consumes it via KnowledgeService, never owns a second copy - "Knowledge Engine" as a separate EI capability is corrected here, matching TERMINOLOGY_STANDARD.md's existing Forbidden wording rule)
+├── Knowledge (reference only)   (ADR-018 - Knowledge owns itself, an independent domain (see the Quality tree above for its nav placement, not its ownership); Engineering Intelligence consumes it via KnowledgeService, never owns a second copy - "Knowledge Engine" as a separate EI capability is corrected here, matching TERMINOLOGY_STANDARD.md's existing Forbidden wording rule)
 ├── Troubleshooting           (proposed nav, ADR-023 addendum - Coming Soon, architecture-reserved only)
 ├── AI Analysis                 (08 - capabilities named, not implementation-level designed)
 ├── Prediction                    (08's "Predictive Quality Analytics" capability - feeds Analytics per 09's one exception)

@@ -228,11 +228,18 @@ Records: Machines/Quality Reports/PM/Warranty (derived from Evidence,
   `canReviewKnowledge` - enforced by `KnowledgeService`/the API routes,
   re-checked server-side every time (nav/button visibility is UX only,
   `SECURITY_STANDARD.md`).
-- **Ownership**: Quality owns Knowledge (per `TERMINOLOGY_STANDARD.md`'s
-  existing "Quality owns execution: Quality Cases, Knowledge, and
-  Troubleshooting" rule) - unchanged by this build. Engineering
-  Intelligence consumes Knowledge, never owns a second copy.
-  Machine never owns Knowledge (§8).
+- **Ownership**: Knowledge owns itself - an independent domain (§1),
+  never subordinate to Quality, PM, Warranty, or Machine. Quality owns
+  execution (Quality Cases, Troubleshooting) only. `TERMINOLOGY_STANDARD.md`'s
+  and `MSEAL_DESIGN_FRAMEWORK.md` §2a's "Domain ownership" sections
+  previously said Quality owned Knowledge too - a leftover from before
+  this domain was real, corrected by this PR (final architecture review)
+  since it directly contradicted §1's own Vision statement. Knowledge's
+  nav entry sits under the Quality menu group for UX/discoverability
+  only (the same place a technician already looks for Quality Cases/
+  Troubleshooting), not because Quality owns its data. Engineering
+  Intelligence consumes Knowledge, never owns a second copy. Machine
+  never owns Knowledge (§8).
 - **No duplicated ownership/timeline/widgets** (verified, §10): one
   `KnowledgeRepository` for both tables; the shared `record_audit_log` +
   `<ActivityTimeline>`, not a new timeline table/component; the shared
