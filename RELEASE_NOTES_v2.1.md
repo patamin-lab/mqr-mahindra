@@ -4,7 +4,7 @@ Companion documents: `CHANGELOG_STORAGE_PLATFORM.md` (detailed
 feature-by-feature summary), `docs/engineering/STORAGE_PLATFORM_FINAL.md`
 (architecture), `docs/engineering/STORAGE_PLATFORM_DECISION.md`
 (rationale/roadmap), `docs/release/STORAGE_PLATFORM_RELEASE.md`
-(release audit), `docs/architecture/PLATFORM_CONSTITUTION.md` (permanent
+(release audit), `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` (permanent
 policy), `docs/engineering/ARCHITECTURE_ENFORCEMENT.md` (automated
 boundary checks).
 
@@ -30,7 +30,7 @@ boundary checks).
 - **Automated architecture enforcement**: `scripts/architecture-check.ts`
   (`npm run architecture`) validates import-boundary rules and is now a
   required, fail-fast step in CI (runs before typecheck/lint/test/build).
-- **Platform Constitution**: `docs/architecture/PLATFORM_CONSTITUTION.md`
+- **Platform Architecture Standards**: `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
   is now the permanent, binding architecture policy for MASP - layer
   definitions, dependency rules, platform service boundaries,
   infrastructure rules, domain language, event rules, storage rules, and
@@ -85,7 +85,7 @@ not part of this release.
   needs a service credential not yet built.
 - **`scripts/architecture-check.ts` is scoped to the Storage Platform's
   own rules** - it does not yet check the rest of
-  `PLATFORM_CONSTITUTION.md`'s general dependency rules (e.g.
+  `PLATFORM_ARCHITECTURE_STANDARDS.md`'s general dependency rules (e.g.
   module-to-module isolation beyond storage).
 
 ## Production prerequisites

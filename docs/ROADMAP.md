@@ -2,13 +2,18 @@
 
 ## Release: Foundation v1.0
 
-**Foundation Freeze v1.0 declared 2026-07-12** — Architecture Blueprint
-v1.1, Platform Governance v1.1, Design Framework v1.1, Navigation
-Standard, Dashboard Standard, Authentication Platform, Import Platform
-Foundation, and Machine Domain v1.0 are all now frozen. See
-`docs/releases/FOUNDATION_FREEZE_v1.0.md` (what's frozen, how to reopen
-it) and `docs/releases/RELEASE_NOTES_FOUNDATION_v1.0.md` (full release
-notes). Prior baseline: tag `v2.4.0-foundation`,
+**Foundation Freeze v1.0 declared 2026-07-12, extended to v1.1 on
+2026-07-13** — Architecture Blueprint v1.1, Platform Governance v1.1,
+Design Framework v1.1, Navigation Standard, Dashboard Standard,
+Authentication Platform, Import Platform Foundation, Machine Domain
+v1.0, and (added in v1.1) Platform Constitution, Platform Architecture
+Standards, Navigation Visibility Policy, Capability Status Model, and
+Business Terminology Governance are all now frozen. See
+`docs/releases/FOUNDATION_FREEZE_v1.1.md` (current - what's frozen, how
+to reopen it), `docs/releases/FOUNDATION_FREEZE_v1.0.md` (original
+declaration, preserved as history), and
+`docs/releases/RELEASE_NOTES_FOUNDATION_v1.0.md` (full release notes,
+including both Post-Freeze Addenda). Prior baseline: tag `v2.4.0-foundation`,
 `docs/releases/RELEASE_NOTES_V2.4.0_FOUNDATION.md`. The sections below
 reflect the current baseline — completed work is out of "next" planning,
 not because it's finished forever (see the Working rules below), but
@@ -43,7 +48,7 @@ because it shipped and moved to maintenance.
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),
   no `INSERT`/`UPDATE`/`DELETE` RLS policy exists on any of the six
-  address tables. `docs/architecture/PLATFORM_CONSTITUTION.md` ("Foundation
+  address tables. `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` ("Foundation
   Freeze" / "Master Data Governance").
 - **Tractor IN Sync** — production sync from the Tractor IN Google Sheet
   into `vehicles`, with a health endpoint and per-run logging; v2.3.1 Sync
@@ -209,7 +214,7 @@ recommends it, per Foundation Freeze v1.0's own scope.
 - DealerBranchScope
 - Historical Import Framework
 
-Do not redesign or rewrite any of the four unless there is a confirmed bug, security issue, or measurable performance problem. Every new feature reuses them; never a parallel implementation — see `docs/architecture/PLATFORM_CONSTITUTION.md`'s Storage rules and Authorization rules sections for the binding detail.
+Do not redesign or rewrite any of the four unless there is a confirmed bug, security issue, or measurable performance problem. Every new feature reuses them; never a parallel implementation — see `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Storage rules and Authorization rules sections for the binding detail.
 
 **Priority order for new work**, each integrating with the shared platforms above rather than building new infrastructure:
 

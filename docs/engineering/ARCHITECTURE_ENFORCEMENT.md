@@ -1,7 +1,7 @@
 # Architecture Enforcement
 
 `scripts/architecture-check.ts` (`npm run architecture`) is the first
-automated check for the boundary rules `docs/architecture/PLATFORM_CONSTITUTION.md`
+automated check for the boundary rules `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
 documents as policy. Before this milestone, every compliance finding in
 `docs/engineering/STORAGE_PLATFORM_FINAL.md`/`docs/release/STORAGE_PLATFORM_RELEASE.md`
 was produced by manual `grep`/read-through - this script makes the same
@@ -47,7 +47,7 @@ that would FAIL `OrphanCleanupService.ts`, `StorageHealthService.ts`,
 and `StorageScheduler.ts` - all three legitimately hold a
 `StorageProvider` reference today, by explicit design approved in the
 Storage Operations and Platform Freeze milestones
-(`docs/architecture/PLATFORM_CONSTITUTION.md`'s "Platform service
+(`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s "Platform service
 boundaries" section documents exactly this: the maintenance layer reads
 a provider directly because its job is to detect when
 `AttachmentService`'s own invariants have already broken - something its
@@ -64,7 +64,7 @@ provider files (they implement the interface), `OrphanCleanupService.ts`,
 `StorageHealthService.ts`, `StorageScheduler.ts`. Any other file under
 `src/shared/attachments/` that references `StorageProvider` is a FAIL.
 Adding a new file to this allowlist should always come with an update to
-`PLATFORM_CONSTITUTION.md` explaining why it needs the exception - the
+`PLATFORM_ARCHITECTURE_STANDARDS.md` explaining why it needs the exception - the
 allowlist is meant to track the constitution, not drift ahead of it.
 
 ## Forbidden imports (full list)
@@ -89,7 +89,7 @@ the same as any other file under `src/app/api/`.)
   platform internals or a raw SDK (Rules 1-2).
 - Only the platform's own designated files touch a `StorageProvider`
   directly (Rule 3), and only `StorageProviderFactory` constructs one
-  (Rule 4) - matching `docs/architecture/PLATFORM_CONSTITUTION.md`'s
+  (Rule 4) - matching `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s
   Dependency Rules and Storage Rules sections.
 - The platform's own internal file graph stays acyclic (Rule 5) - a
   cycle inside `src/shared/attachments` would make the module graph hard
@@ -101,7 +101,7 @@ rules (e.g. "a module may not import another module's internals
 directly," "`shared/` never imports from a business module" as a fully
 general rule beyond the Storage Platform specifically) - it is scoped to
 what this milestone asked for. Extending it to the rest of
-`PLATFORM_CONSTITUTION.md`'s Dependency Rules is a natural, separate
+`PLATFORM_ARCHITECTURE_STANDARDS.md`'s Dependency Rules is a natural, separate
 future step, not assumed here.
 
 ## CI integration

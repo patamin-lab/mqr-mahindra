@@ -20,7 +20,7 @@ note (Import Platform is new since `SECURITY_STANDARD.md` was written).
 
 ## Authentication
 
-Frozen platform layer (`PLATFORM_CONSTITUTION.md`'s Foundation Freeze).
+Frozen platform layer (`PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze).
 Governed by `docs/architecture/AUTHENTICATION_PLATFORM.md` and ADR-014 -
 cited, not restated.
 

@@ -34,7 +34,7 @@ map onto the recommended Phase 6 plan.
   release) - same directory, no more naming collision.
 
 ### 4. `scripts/architecture-check.ts` only covers Storage Platform rules
-- **Impact**: `docs/architecture/PLATFORM_CONSTITUTION.md` documents
+- **Impact**: `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` documents
   repo-wide dependency rules (e.g. "a module may not import another
   module's internals directly," "`shared/` never imports from a business
   module" as a general rule) that the current script does not check -

@@ -23,11 +23,11 @@ listing alone.
 | ADR-007 | A Generic Scheduler Service for Recurring Platform Jobs | Accepted | |
 | ADR-008 | Google Drive Decoupling for NTR Legacy Import | Accepted | |
 | ADR-009 | Machine Domain | Accepted, **Frozen** | Machine-as-aggregate-root is one of `20-ARCHITECTURE-GOVERNANCE.md`'s 5 Architecture Freeze items. **Kept this number** - see "ADR numbering normalization" below for why the collision was resolved by renumbering the *other* file instead |
-| ADR-010 | Attachment Platform | Accepted, **Frozen** | `PLATFORM_CONSTITUTION.md` Foundation Freeze |
-| ADR-011 | Address Platform | Accepted, **Frozen** (v2) | `PLATFORM_CONSTITUTION.md` Foundation Freeze; v1→v2 migration is this repo's own precedent for reopening a frozen layer via ADR |
+| ADR-010 | Attachment Platform | Accepted, **Frozen** | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze |
+| ADR-011 | Address Platform | Accepted, **Frozen** (v2) | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze; v1→v2 migration is this repo's own precedent for reopening a frozen layer via ADR |
 | ADR-012 | Tractor IN as the Single Source of Truth for Product Family / Sub Model | Accepted | |
 | ADR-013 | AuthorizationScope - Keeping Authorization Decisions Out of the Data-Access Layer | Accepted | |
-| ADR-014 | Authentication Platform v3.0 | Accepted, **Frozen** (v3) | `PLATFORM_CONSTITUTION.md` Foundation Freeze, reopened-by-ADR precedent |
+| ADR-014 | Authentication Platform v3.0 | Accepted, **Frozen** (v3) | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze, reopened-by-ADR precedent |
 | ADR-015 - ADR-017, ADR-019 - ADR-021 | *(reserved, not yet written)* | Reserved | `docs/architecture/blueprint/16-ADR-RECOMMENDATIONS.md` reserved seven numbers for specific named future domains: 015 Machine Domain v2, 016 Event Model, 017 Inspection Domain, 018 Knowledge Model, 019 Engineering Intelligence, 020 Analytics Domain, 021 Machine Digital Passport. 018 is now used (below). Note: 021 was actually used by `ADR-026-Machine-Digital-Passport.md` (merged, not reflected elsewhere in this index - a pre-existing drift in this file, not introduced here); kept reserved in this row until that's reconciled. **Do not use any of these remaining numbers for anything else** |
 | ADR-018 | Engineering Knowledge Platform (Knowledge Model) | **Proposed** (open branch `feature/engineering-knowledge-platform`, not yet merged) | Refines, does not replace, `docs/architecture/blueprint/07-KNOWLEDGE-DOMAIN-AND-GRAPH.md` - see the ADR's own Decision table |
 | ADR-022 | Import Platform v2 | **Proposed** (open PR #36, not yet merged) | References the Universal Import Framework by its *old* number (`ADR-009`) - needs updating to `ADR-024` once this governance PR merges, before PR #36 itself merges (see below) |
@@ -49,7 +49,7 @@ same number - a real violation of "one ADR, one number, one topic."
 -earlier file. Reasoning: `ADR-009-Machine-Domain` is cross-referenced
 roughly 25 times across the *frozen* Architecture Blueprint itself
 (chapters 02, 10, 11, 13, 14, 16, 17, 20, and the blueprint's own README)
-plus `PLATFORM_CONSTITUTION.md`, `PERMISSION_MATRIX.md`,
+plus `PLATFORM_ARCHITECTURE_STANDARDS.md`, `PERMISSION_MATRIX.md`,
 `DOMAIN_LANGUAGE_STANDARD.md`, `ADR-013`, `AI_CONTEXT.md`, and
 `PROJECT_STATE.md`. Renumbering it would mean editing frozen Baseline
 content for a documentation-hygiene fix - itself requiring 20's Breaking

@@ -15,8 +15,8 @@ of DB tables) no longer exists. `docs/architecture/ADDRESS_PLATFORM.md`
 and `docs/architecture/MASTER_DATA_PLATFORM.md` hold the current,
 detailed architecture reference; this document stays the mission/vision
 and platform-inventory layer. Where this document and
-`docs/architecture/PLATFORM_CONSTITUTION.md` disagree on any other
-point, `PLATFORM_CONSTITUTION.md`'s binding rules govern, per that
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` disagree on any other
+point, `PLATFORM_ARCHITECTURE_STANDARDS.md`'s binding rules govern, per that
 document's own precedence statement.
 
 ---
@@ -477,7 +477,7 @@ Always update
 - PROJECT_STATE.md
 - CHANGELOG
 - RELEASE_NOTES
-- PLATFORM_CONSTITUTION.md
+- PLATFORM_ARCHITECTURE_STANDARDS.md
 - ROADMAP.md
 - Architecture Documentation
 

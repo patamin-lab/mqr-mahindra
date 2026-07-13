@@ -114,7 +114,7 @@ actually ship today — not a green-field proposal.
   Storage Platform's current, frozen state.** Overview, architecture,
   implemented/operational services, governance, CI enforcement, release
   status, production prerequisites, known limitations, roadmap.
-  [`architecture/PLATFORM_CONSTITUTION.md`](architecture/PLATFORM_CONSTITUTION.md)
+  [`architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`](architecture/PLATFORM_ARCHITECTURE_STANDARDS.md)
   is the permanent policy behind it; `engineering/STORAGE_PLATFORM_FINAL.md`/
   `STORAGE_PLATFORM_DECISION.md` are the detailed architecture/rationale
   references; `engineering/ARCHITECTURE_ENFORCEMENT.md` documents the

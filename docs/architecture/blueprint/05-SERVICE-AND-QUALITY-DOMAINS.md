@@ -112,7 +112,7 @@ Warranty / Parts (not yet first-class modules — out of scope to design
 - It does not design the `parts`/Warranty table schemas in detail — they
   don't exist as real modules yet, and designing their full schema
   without a confirmed business requirement would be exactly the kind of
-  speculative work `PLATFORM_CONSTITUTION.md`'s "Architecture Evolution
+  speculative work `PLATFORM_ARCHITECTURE_STANDARDS.md`'s "Architecture Evolution
   Rule" warns against.
 - It does not decide how quality-problem "origin" gets captured
   structurally (new enum column vs. reusing `stockNote`) — a real

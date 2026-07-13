@@ -20,7 +20,7 @@ disagree). Do not duplicate either here; read both before any UI change.
 ## Governance
 
 Design Framework is the tenth entry in
-`docs/architecture/PLATFORM_CONSTITUTION.md`'s Foundation Freeze.
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze.
 Modification requires: a confirmed defect, a security issue, a measurable
 UX/performance problem, or a further approved ADR - the same bar every
 other frozen platform layer already meets.

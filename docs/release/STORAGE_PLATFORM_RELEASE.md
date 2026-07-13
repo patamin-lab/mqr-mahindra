@@ -3,7 +3,7 @@
 Release audit for `src/shared/attachments/` as the frozen MASP Storage
 Platform baseline. Companion documents: `docs/engineering/STORAGE_PLATFORM_FINAL.md`
 (structural reference), `docs/engineering/STORAGE_PLATFORM_DECISION.md`
-(design rationale/roadmap), `docs/architecture/PLATFORM_CONSTITUTION.md`
+(design rationale/roadmap), `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
 (the permanent policy this release freezes into).
 
 ## Completed milestones
@@ -51,7 +51,7 @@ In build order:
     no legacy paths, every business module depends only on
     `AttachmentService`.
 14. **Platform Freeze & Release** (this milestone) — release audit,
-    Platform Constitution, architecture-test coverage review, changelog,
+    Platform Architecture Standards, architecture-test coverage review, changelog,
     project status update.
 
 ## Architecture summary
@@ -127,7 +127,7 @@ objects removed).
   this repository. Dependency-direction rules
   (`.claude/rules/01-architecture-boundaries.md`) are enforced by
   convention/code review only, not by an automated check. See
-  `PLATFORM_CONSTITUTION.md`'s Future Extension Rules and the
+  `PLATFORM_ARCHITECTURE_STANDARDS.md`'s Future Extension Rules and the
   Architecture Test section below.
 - **Cloudflare R2 is not the active primary/archive provider anywhere** -
   fully implemented and tested, but adopting it is a distinct, unmade
@@ -174,7 +174,7 @@ enforces:
 - **Dependency direction** (`shared/` never importing from a business
   module; a module never importing another module's internals).
 - **Platform boundaries** (the layer separation this release's
-  `PLATFORM_CONSTITUTION.md` now documents formally).
+  `PLATFORM_ARCHITECTURE_STANDARDS.md` now documents formally).
 
 Current coverage is **zero automated, code-reviewed only** -
 `.claude/rules/01-architecture-boundaries.md` already states this
@@ -191,7 +191,7 @@ found to justify writing the missing script**. A missing tool is a gap,
 not a defect in existing code; building `scripts/architecture-check.ts`
 itself would be new feature work (tooling), explicitly out of scope for
 a freeze/release milestone. It is recorded here, in
-`PLATFORM_CONSTITUTION.md`'s Future Extension Rules, and in this
+`PLATFORM_ARCHITECTURE_STANDARDS.md`'s Future Extension Rules, and in this
 document's Release Checklist as a real, open gap for a future, separate
 milestone to close.
 
@@ -208,7 +208,7 @@ milestone to close.
 - [x] `lint`/`typecheck`/`test`/`build` all pass.
 - [x] `docs/engineering/STORAGE_PLATFORM_FINAL.md` and
       `STORAGE_PLATFORM_DECISION.md` published.
-- [x] `docs/architecture/PLATFORM_CONSTITUTION.md` published.
+- [x] `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` published.
 - [x] `CHANGELOG_STORAGE_PLATFORM.md` published.
 - [x] `PROJECT_STATE.md` updated - Storage Platform: COMPLETE.
 - [ ] Cloudflare R2 CORS configured (Cloudflare dashboard - out of this

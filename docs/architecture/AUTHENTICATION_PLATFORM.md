@@ -1,7 +1,7 @@
 # Authentication Platform v3.0
 
 The reopened, v3.0 evolution of the frozen Authentication Platform layer
-(`docs/architecture/PLATFORM_CONSTITUTION.md`'s Foundation Freeze list).
+(`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze list).
 Rationale for reopening it: `docs/adr/ADR-014-Authentication-Platform-v3.md`.
 
 ## v3.0.1 — production reliability patch

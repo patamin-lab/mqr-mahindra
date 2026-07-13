@@ -8,7 +8,7 @@
  * (business-rule constants), and Reference Data (dealers/branches/
  * technicians/product families). Mirrors this repo's established
  * platform-service shape (`AttachmentService` - see
- * `docs/architecture/PLATFORM_CONSTITUTION.md`'s Platform Service
+ * `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Platform Service
  * Boundaries section): one public class, internals (the individual
  * `address/`/`lookup/`/`config/`/`reference/` modules) are implementation
  * detail a module should not import directly.

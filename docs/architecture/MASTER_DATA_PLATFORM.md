@@ -2,7 +2,7 @@
 
 Current-state reference for `MasterDataService` - the one entry point
 every business module uses for master/reference/lookup data. Binding
-rules live in `docs/architecture/PLATFORM_CONSTITUTION.md`'s "Master
+rules live in `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s "Master
 data rules" section; this document is the inventory of what actually
 exists today, kept in sync with the code.
 

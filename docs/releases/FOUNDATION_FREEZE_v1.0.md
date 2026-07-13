@@ -1,5 +1,13 @@
 # Foundation Freeze v1.0
 
+> **Extended by `docs/releases/FOUNDATION_FREEZE_v1.1.md`** (2026-07-13,
+> five new frozen layers: Platform Constitution, Platform Architecture
+> Standards, Navigation Visibility Policy, Capability Status Model,
+> Business Terminology Governance). This document's own content is
+> preserved unchanged as the historical record of the original
+> declaration below - v1.1 extends this Freeze, it does not replace it;
+> every layer declared frozen here remains frozen.
+
 **Status: DECLARED. Effective 2026-07-12 (all four Foundation PRs merged to `main` and verified in Production).**
 
 This declares the MSEAL DMS Foundation — Architecture, Design, Governance,

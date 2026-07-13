@@ -51,10 +51,10 @@ not-yet-built capabilities) - **not** an approval to build them now.
 
 | Field | Value |
 |---|---|
-| Owner Domain | Master Data Platform (frozen, `PLATFORM_CONSTITUTION.md`) |
+| Owner Domain | Master Data Platform (frozen, `PLATFORM_ARCHITECTURE_STANDARDS.md`) |
 | Source of Truth | `dealers` table, `id` = Dealer Code (`docs/standards/DOMAIN_LANGUAGE_STANDARD.md`) |
 | Consumers | Every domain - Dealer/Branch is the tenant-isolation boundary for all of them (`DealerBranchScope`, frozen) |
-| Update Rules | Admin-only CRUD (Administration domain) through `MasterDataService`'s public interface only - no module writes `dealers` directly (`PLATFORM_CONSTITUTION.md`'s Platform service boundaries) |
+| Update Rules | Admin-only CRUD (Administration domain) through `MasterDataService`'s public interface only - no module writes `dealers` directly (`PLATFORM_ARCHITECTURE_STANDARDS.md`'s Platform service boundaries) |
 | Relationships | Dealer → Branch (1:many, `Branch.dealer_id`) → Technician (organizational only, no FK today - flagged open in `ENTITY_RELATIONSHIP.md`); Dealer → Customer → Tractor |
 | Lifecycle | Onboarded via Master Data admin screen → active for the life of the dealership relationship → soft-deactivated (`active` flag), never hard-deleted |
 
@@ -76,7 +76,7 @@ not-yet-built capabilities) - **not** an approval to build them now.
 | Owner Domain | Service bounded context (Maintenance sub-concern, 02) |
 | Source of Truth | `pm_records` table |
 | Consumers | Machine (Timeline), Quality (a PM visit can surface a quality issue), Reports (PM Completion KPI, `docs/DASHBOARD_MODEL.md`), Engineering Intelligence (via Knowledge, if a PM outcome becomes a Knowledge Case) |
-| Update Rules | Written only through PM's own repository/service (`docs/architecture/PLATFORM_CONSTITUTION.md`'s dependency rules) - "many:1 `tractor_id`" per `ENTITY_RELATIONSHIP.md`, module-owned fields beyond that FK |
+| Update Rules | Written only through PM's own repository/service (`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s dependency rules) - "many:1 `tractor_id`" per `ENTITY_RELATIONSHIP.md`, module-owned fields beyond that FK |
 | Relationships | Tractor → PM Record (many:1); PM Interval / Maintenance Program (master data) determines due dates, consumed not owned by PM |
 | Lifecycle | Scheduled (per Maintenance Program stage) → performed → recorded → (18's canonical event, proposed) part of the Machine Lifecycle stage progression |
 

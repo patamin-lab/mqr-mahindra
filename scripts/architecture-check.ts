@@ -10,7 +10,7 @@
  * `src/features/`, `src/components/`, and `src/middleware.ts` - i.e.
  * everything except the platform layer (`src/shared/`) and the
  * infrastructure layer (`src/lib/`), matching
- * `docs/architecture/PLATFORM_CONSTITUTION.md`'s Layer Definitions.
+ * `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Layer Definitions.
  * Infrastructure files (`src/lib/googleDrive.ts`, `src/lib/supabase.ts`)
  * are the designated place raw SDKs are wrapped - they are correctly
  * exempt from Rule 2, the same way `src/shared/attachments/*Provider.ts`
@@ -165,7 +165,7 @@ function checkRule2(files: string[]): RuleResult {
 // Rule 3: only AttachmentService (+ the documented operational-surface
 // exception) may reference the StorageProvider interface.
 //
-// docs/architecture/PLATFORM_CONSTITUTION.md's "Platform service
+// docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md's "Platform service
 // boundaries" section documents this exception explicitly: the
 // maintenance/operational layer (OrphanCleanupService,
 // StorageHealthService, StorageScheduler) legitimately reads a

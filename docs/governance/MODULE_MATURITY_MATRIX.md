@@ -24,10 +24,10 @@ two sources rather than re-deriving status from scratch.
 
 | Domain / Capability | Maturity | Evidence |
 |---|---|---|
-| Authentication | Frozen | `PLATFORM_CONSTITUTION.md` Foundation Freeze; ADR-014 v3.0 |
-| Master Data | Frozen | `PLATFORM_CONSTITUTION.md` Foundation Freeze; ADR-011 (Address v2), ADR-012 |
-| DealerBranchScope | Frozen | `PLATFORM_CONSTITUTION.md` Foundation Freeze |
-| Attachment/Storage Platform | Frozen | `PLATFORM_CONSTITUTION.md` Foundation Freeze |
+| Authentication | Frozen | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze; ADR-014 v3.0 |
+| Master Data | Frozen | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze; ADR-011 (Address v2), ADR-012 |
+| DealerBranchScope | Frozen | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze |
+| Attachment/Storage Platform | Frozen | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze |
 | Machine (aggregate root) | Frozen (identity/aggregate concept), Production (Registry/Vehicle 360 today) | 20's Architecture Freeze; `vehicles` table, ADR-009 |
 | Service > Registration (NTR) | Production | Built, end-to-end (`features/ntr/`) |
 | Service > Maintenance (PM) | Production | Built (`pm_records`) |

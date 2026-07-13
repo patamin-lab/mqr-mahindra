@@ -221,3 +221,98 @@ objects/types.
   post-merge (`https://masp-mseal.vercel.app`, 307→`/login` on every
   protected route checked — Dashboard, Quality Dashboard, Machines,
   Records — 200 on `/login` itself).
+
+## Post-Freeze Addendum (2026-07-13) — Navigation Visibility Refinement (Capability Status Model)
+
+PR #43, merged `2026-07-13T04:46:41Z` (squash commit `3d85bfb`). A
+navigation-authorization-only change, reviewed and explicitly approved
+by the user as a deliberate, scoped reopening of the frozen Design
+Framework's Navigation Standard (new §2c) — not a violation of this
+document's freeze. No architecture changes, no redesign, no
+business-domain changes; the existing RBAC/Navigation Standard/Design
+Framework were reused as-is.
+
+- **Capability Status model**: every nav leaf now carries a
+  `CapabilityStatus` (`ACTIVE`/`COMING_SOON`/`PREVIEW`/`BETA`/
+  `DEVELOPMENT`, `src/app/(app)/navConfig.ts`). SuperAdmin sees every
+  status (the full platform roadmap); every other role sees only
+  `ACTIVE` capabilities — an unfinished capability is hidden completely,
+  never rendered as a disabled placeholder, for any non-SuperAdmin role.
+  A group or subgroup left with zero visible items is omitted entirely.
+- **Generic, not hardcoded**: one status-driven filter
+  (`isCapabilityVisible`/`filterGroupsByCapability`) applies uniformly to
+  every leaf in every group — no module name appears in the filtering
+  logic, so a future capability (Dealer Portal, IoT, Predictive
+  Maintenance, Notifications, ...) gets the same SuperAdmin-only
+  treatment automatically.
+- **Principles established**: Navigation Principle ("navigation
+  represents platform capabilities... never the roadmap") and Capability
+  Principle ("every capability has an Owner, Status, Permission, and
+  Lifecycle; visibility is derived from capability state, never from
+  hardcoded module names") — both now stated explicitly in
+  `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2c and the
+  `mseal-platform-design` skill's `NAVIGATION_GUIDELINES.md`.
+- **Not an authorization boundary**: `docs/standards/SECURITY_STANDARD.md`
+  now states explicitly that capability visibility is a UX rule, not
+  authorization — server-side RBAC (`lib/scope.ts` predicates, enforced
+  in every API route) remains the only security boundary; every affected
+  nav leaf already had `href: null` before this change (no real route
+  was newly protected or exposed by it).
+- **Verification**: typecheck clean, lint 0 errors (12 pre-existing
+  warnings), 689/689 tests passed (18 navConfig tests
+  added/rewritten for per-role capability visibility), build succeeded,
+  architecture check 5/5 PASS, CI `verify` checks green on all commits,
+  production deployment re-confirmed healthy post-merge
+  (`https://masp-mseal.vercel.app`, 200 on `/login`, 307→`/login` on
+  every protected route checked — Dashboard, Quality Dashboard,
+  Machines, Records — response fresh/uncached per `Age: 0`).
+
+## Post-Freeze Addendum (2026-07-13) — Platform Constitution v1.0 / Platform Architecture Standards
+
+PR #44, merged `2026-07-13T06:54:12Z` (squash commit `757ea9f`). A
+governance-documentation-only change, reviewed and explicitly approved
+by the user as a deliberate, scoped reopening of `docs/governance/
+DOCUMENTATION_HIERARCHY.md` — not a violation of this document's freeze.
+No architecture changes, no redesign, no business-domain changes; no
+implementation modified.
+
+- **New governing document**: `docs/architecture/PLATFORM_CONSTITUTION.md`
+  — the platform's highest-level engineering and product principle,
+  above ADRs, the Design Framework, and individual capabilities. States
+  permanent Platform Vision/Mission/Values and Engineering/Business/
+  Domain/Capability/Navigation/Knowledge/AI/Data/Governance Principles,
+  a Platform Evolution Principle ("Capabilities evolve. The Foundation
+  remains stable."), and a Constitutional Amendments process
+  (Architecture Review + Governance Review + Explicit human approval,
+  plus a documented Rationale/Impact Assessment/Affected Principles/
+  Migration Strategy for every amendment).
+- **Naming conflict found and resolved before writing anything**: this
+  exact filename already held a different, implementation-level document
+  (layer definitions, dependency rules, platform-service boundaries),
+  cited by 50+ other files and ranked below the Blueprint/ADRs in the
+  documentation hierarchy — the opposite of where a true Constitution
+  belongs. Surfaced to the user explicitly (not silently resolved);
+  renamed to `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
+  (content unchanged), every one of its 103 cross-references updated
+  repo-wide, and the new Constitution written fresh at the freed path,
+  above it in precedence.
+- **New hierarchy**: `docs/governance/DOCUMENTATION_HIERARCHY.md`
+  rewritten — Platform Constitution → Architecture Blueprint →
+  Architecture Standards → ADR → Design Framework → Implementation —
+  with Platform Governance Framework and Standards repositioned as
+  cross-cutting (process/convention) rather than numbered content
+  layers.
+- **Verification**: typecheck clean, targeted lint clean, architecture
+  check 5/5 PASS, every file path cited in the Constitution verified to
+  exist (one intentional, explicitly-flagged exception pending PR #42's
+  merge), CI `verify` checks green on all commits, production deployment
+  re-confirmed healthy post-merge (`https://masp-mseal.vercel.app`, 200
+  on `/login`, 307→`/login` on every protected route checked — Dashboard,
+  Quality Dashboard, Machines, Records — response fresh/uncached per
+  `Age: 0`).
+- **Formalized alongside this addendum**: `docs/releases/
+  FOUNDATION_FREEZE_v1.1.md` extends the Foundation Freeze with five new
+  frozen layers (Platform Constitution, Platform Architecture Standards,
+  Navigation Visibility Policy, Capability Status Model, Business
+  Terminology Governance) — see that document for the full frozen-layer
+  table.

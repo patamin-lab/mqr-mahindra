@@ -33,7 +33,7 @@ its corresponding phase (13) is actually approved to start**, not
 speculatively in a batch now. Writing ADR-015 today, for instance, before
 Inspection (Phase 4 dependency, 13) is even scheduled, would freeze a
 decision the business hasn't asked for yet — exactly what
-`PLATFORM_CONSTITUTION.md`'s Architecture Evolution Rule warns against.
+`PLATFORM_ARCHITECTURE_STANDARDS.md`'s Architecture Evolution Rule warns against.
 
 ## Suggested order, if and when they are written
 

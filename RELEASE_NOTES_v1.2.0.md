@@ -15,7 +15,7 @@ Engine development begins.
 
 Companion documents: `CHANGELOG_UI_STANDARDIZATION.md` (detailed
 feature-by-feature summary), `docs/UI_STANDARD.md` (current-state
-component/token inventory), `docs/architecture/PLATFORM_CONSTITUTION.md`
+component/token inventory), `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
 (the Master Data rules the Platform Layer added).
 
 ## Major changes

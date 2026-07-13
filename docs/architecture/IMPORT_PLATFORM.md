@@ -61,7 +61,7 @@ Master Data Platform (src/shared/master-data/) - ADR-011 + ADR-022
 
 No business module talks to `AddressRepository`/Supabase directly for
 address or reference data - `MasterDataService` remains the one public
-surface, per `PLATFORM_CONSTITUTION.md`'s Master data rules, unchanged
+surface, per `PLATFORM_ARCHITECTURE_STANDARDS.md`'s Master data rules, unchanged
 by this pass.
 
 ## Future Modules

@@ -46,7 +46,7 @@ documentation policy would have caught:
   treat finding one (like ADR-009 above) with the same weight as any
   other reviewable bug, per this repository's existing "a dependency
   direction violation is a defect, not a style preference" precedent
-  (`PLATFORM_CONSTITUTION.md`).
+  (`PLATFORM_ARCHITECTURE_STANDARDS.md`).
 
 ## Architecture
 
@@ -56,7 +56,7 @@ documentation policy would have caught:
   typo" edit to a *decision* (a genuine typo fix that changes no meaning
   is fine; anything that could be read as changing a rule is not).
 - `docs/architecture/*.md` (outside `blueprint/`) are living,
-  binding-but-editable platform documents (`PLATFORM_CONSTITUTION.md`,
+  binding-but-editable platform documents (`PLATFORM_ARCHITECTURE_STANDARDS.md`,
   `MASP_ENTERPRISE_STANDARD.md`, `AUTHENTICATION_PLATFORM.md`, etc.) -
   edited directly when their content changes, no ADR needed unless the
   change itself is a Freeze-item change.

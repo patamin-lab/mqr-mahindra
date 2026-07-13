@@ -16,7 +16,7 @@ release notes for that separate, future decision).
 - [x] `docs/engineering/STORAGE_PLATFORM_FINAL.md`,
       `STORAGE_PLATFORM_DECISION.md`,
       `docs/release/STORAGE_PLATFORM_RELEASE.md`,
-      `docs/architecture/PLATFORM_CONSTITUTION.md`,
+      `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`,
       `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`,
       `CHANGELOG_STORAGE_PLATFORM.md`, `RELEASE_NOTES_v2.1.md`,
       this checklist (`docs/releases/RELEASE_CHECKLIST_STORAGE_PLATFORM_V2.1.md`,
