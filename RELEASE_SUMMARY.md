@@ -21,7 +21,7 @@ milestone's own "no tags, no merges" instruction.
   abstraction, Cloudflare R2 provider, `StorageProviderFactory`,
   Storage Hygiene (orphan cleanup), Storage Operations (health/metrics/
   audit/scheduler), full live UAT (Preview deployment + real R2/Supabase).
-- Architecture Governance - `docs/architecture/PLATFORM_CONSTITUTION.md`
+- Architecture Governance - `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
   (permanent, repo-wide policy).
 - Architecture Enforcement - `scripts/architecture-check.ts`
   (`npm run architecture`), wired into CI.
@@ -43,7 +43,7 @@ uncommitted enhancement/UAT work from this session):
   providers (Supabase Storage/Google Drive/Cloudflare R2), chosen by
   configuration, never a code change.
 - A permanent, written architecture policy
-  (`PLATFORM_CONSTITUTION.md`) and a first automated enforcement check
+  (`PLATFORM_ARCHITECTURE_STANDARDS.md`) and a first automated enforcement check
   for part of it now exist - previously convention-only.
 - NTR's Legacy Import now validates against a real, bundled Thailand
   administrative-boundary reference dataset (loaded once into memory)

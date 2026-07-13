@@ -87,7 +87,7 @@ modify `ROADMAP.md`, per this PR's own scope).
 | New tables: `knowledge_cases` | Step 5 | Low — additive |
 | New tables: `pip_records` | Step 6 | Low — additive |
 | New table: `machine_ownership_history` | Whenever Ownership Transfer (03) is prioritized — not strictly ordered above, can move earlier if the business needs it sooner | Low — additive |
-| Any Warranty/Parts schema | Only once those become real modules (05, 14) — no schema proposed until a confirmed business requirement exists, per `PLATFORM_CONSTITUTION.md`'s Architecture Evolution Rule | N/A — not designed yet |
+| Any Warranty/Parts schema | Only once those become real modules (05, 14) — no schema proposed until a confirmed business requirement exists, per `PLATFORM_ARCHITECTURE_STANDARDS.md`'s Architecture Evolution Rule | N/A — not designed yet |
 
 Every migration above follows 11's Database Evolution Strategy: additive
 tables, additive unions, no rename, no data migration of existing rows.

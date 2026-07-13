@@ -14,7 +14,7 @@ export interface WarrantyResult {
  * during the MASP Platform build-out) - kept here, in `lib/` rather than
  * threaded through `shared/master-data`'s Configuration Platform, since
  * `lib/` (infrastructure) may not depend upward on `shared/` (platform
- * services) per `docs/architecture/PLATFORM_CONSTITUTION.md`'s one-way
+ * services) per `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s one-way
  * dependency rule. `shared/master-data/config/businessConfig.ts` exposes
  * the same two numbers as `getWarrantyLimitMonths()` for business
  * modules that want them without duplicating the 48/24 knowledge

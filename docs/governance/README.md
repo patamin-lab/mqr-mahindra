@@ -1,7 +1,20 @@
 # MSEAL DMS — Platform Governance Framework v1.1
 
+> **Amendment (Platform Constitution v1.0)**: `docs/architecture/
+> PLATFORM_CONSTITUTION.md` now sits above this framework in the content-
+> precedence hierarchy - see `DOCUMENTATION_HIERARCHY.md`'s "Where
+> Governance Framework and Standards fit" section for the exact
+> relationship (short version: this framework is the *process* layer -
+> who reviews/approves a change, including a change to the Constitution
+> itself - not a content layer the Constitution's principles compete
+> with). The diagram immediately below is this framework's own v1.1
+> diagram, preserved as written at the time; treat `DOCUMENTATION_
+> HIERARCHY.md` as the current, authoritative version if the two ever
+> read as disagreeing.
+
 This is **not a feature**. It is the operating model that sits above every
-other governing document this repository already has:
+other governing document this repository already has, other than the
+Platform Constitution (see the amendment note above):
 
 ```
 Platform Governance Framework   (this directory + docs/adr/README.md)
@@ -19,9 +32,10 @@ MSEAL Design Framework          (docs/adr/ADR-023, docs/architecture/MSEAL_DESIG
 Engineering Principles          (docs/PRODUCT_PHILOSOPHY.md, blueprint 01)
 ```
 
-See `DOCUMENTATION_HIERARCHY.md` for the fully consolidated version of
-this stack (7 layers, precedence rules, how to resolve a disagreement
-between layers).
+See `DOCUMENTATION_HIERARCHY.md` for the fully consolidated, current
+version of this stack (precedence rules, how to resolve a disagreement
+between layers, and where the Platform Constitution and Architecture
+Standards now sit).
 
 **v1.1 (this pass)** resolves four governance blockers found in v1.0's
 own Gap Analysis before merge: a duplicate ADR number, two disagreeing
@@ -62,7 +76,7 @@ deliberately does not restate.
 **Grounding rule applied**: every document in `docs/governance/` was
 written only after reading the existing binding document(s) that already
 cover adjacent ground (`docs/architecture/blueprint/01, 02, 08, 16, 17,
-18, 19, 20`; `docs/architecture/PLATFORM_CONSTITUTION.md`;
+18, 19, 20`; `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`;
 `docs/architecture/MASP_ENTERPRISE_STANDARD.md`; `docs/standards/*`;
 `docs/CORE_DOMAIN_MODEL.md`, `ENTITY_MODEL.md`, `ENTITY_RELATIONSHIP.md`,
 `MASTER_DATA.md`, `FUTURE_MODULE_DEPENDENCY.md`; `docs/PERMISSION_MODEL.md`,
@@ -86,7 +100,7 @@ duplication was avoided.
 | `INTEGRATION_BOUNDARY.md` | ERP, Dealer Portal, Power BI, Google Sheets, REST API, IoT, Authentication, Email, SMS, future integrations | Extends `docs/architecture/blueprint/19-INTEGRATION-BOUNDARY.md` (frozen) — 19 already covers ERP/Power BI/Dealer Portal/Customer Portal/Technician Mobile; this fills the Sheets/IoT/Auth/Email/SMS gap 19 leaves open, citing 19's frozen rule rather than restating it |
 | `API_GOVERNANCE.md` | Naming, versioning, auth, authorization, pagination, filtering, error handling | Thin pointer — `docs/standards/API_STANDARD.md` already fully owns this; adds only the cross-module API deprecation *process* (ties to `CHANGE_MANAGEMENT.md`) |
 | `DOCUMENTATION_POLICY.md` | ADR/Architecture/Skills/Design Docs/Release Notes/Roadmap standardization | New — uses the drifts found (duplicate ADR-009 number, now resolved; two disagreeing event catalogs, now resolved) as the evidence for why this policy is needed |
-| `DOCUMENTATION_HIERARCHY.md` | Consolidated precedence rules across all 7 documentation layers | New artifact, consolidating precedence clauses already scattered across `PLATFORM_CONSTITUTION.md`/`MASP_ENTERPRISE_STANDARD.md`/the blueprint README rather than inventing new precedence rules |
+| `DOCUMENTATION_HIERARCHY.md` | Consolidated precedence rules across all 7 documentation layers | New artifact, consolidating precedence clauses already scattered across `PLATFORM_ARCHITECTURE_STANDARDS.md`/`MASP_ENTERPRISE_STANDARD.md`/the blueprint README rather than inventing new precedence rules |
 | `AI_GOVERNANCE.md` | AI scope/boundaries, Evidence First, human approval, knowledge confidence, prompt standards, model independence, auditability | Thin pointer — `docs/architecture/blueprint/08-ENGINEERING-INTELLIGENCE-ARCHITECTURE.md` already defines the AI Governance boundary and Confidence Policy as **frozen** (one of 20's 5 frozen items); adds only what 08 explicitly leaves open (Prompt Standards, Model Independence as a named principle) |
 | `SECURITY_BOUNDARY.md` | AuthN, AuthZ, dealer scope, audit, PII, email, import, secrets | Thin pointer — `docs/standards/SECURITY_STANDARD.md` already owns authN/authZ/dealer-scope/audit/secrets at rule level; adds a PII classification taxonomy and a security boundary diagram, neither of which exists anywhere today |
 | `CHANGE_MANAGEMENT.md` | Breaking change process, architecture review, ADR required, migration, deprecation, versioning | Thin pointer to 20's Breaking Change Process + `GIT_BRANCH_STANDARD.md`'s quality gates; adds data-migration governance and deprecation timelines, neither owned elsewhere |

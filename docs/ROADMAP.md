@@ -43,7 +43,7 @@ because it shipped and moved to maintenance.
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),
   no `INSERT`/`UPDATE`/`DELETE` RLS policy exists on any of the six
-  address tables. `docs/architecture/PLATFORM_CONSTITUTION.md` ("Foundation
+  address tables. `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` ("Foundation
   Freeze" / "Master Data Governance").
 - **Tractor IN Sync** — production sync from the Tractor IN Google Sheet
   into `vehicles`, with a health endpoint and per-run logging; v2.3.1 Sync
@@ -209,7 +209,7 @@ recommends it, per Foundation Freeze v1.0's own scope.
 - DealerBranchScope
 - Historical Import Framework
 
-Do not redesign or rewrite any of the four unless there is a confirmed bug, security issue, or measurable performance problem. Every new feature reuses them; never a parallel implementation — see `docs/architecture/PLATFORM_CONSTITUTION.md`'s Storage rules and Authorization rules sections for the binding detail.
+Do not redesign or rewrite any of the four unless there is a confirmed bug, security issue, or measurable performance problem. Every new feature reuses them; never a parallel implementation — see `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Storage rules and Authorization rules sections for the binding detail.
 
 **Priority order for new work**, each integrating with the shared platforms above rather than building new infrastructure:
 

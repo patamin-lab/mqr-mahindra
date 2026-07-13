@@ -2,7 +2,7 @@
 
 ## Problem
 
-`docs/architecture/PLATFORM_CONSTITUTION.md` lists "Authentication
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` lists "Authentication
 Platform" as one of nine **frozen** platform layers — modifiable only for
 a confirmed defect, a security issue, a measurable performance
 improvement, or an approved ADR. This is that ADR.
@@ -192,4 +192,4 @@ table's schema-dependency together).
 - The frozen Authentication Platform layer is reopened deliberately, once,
   through this ADR — not a precedent for casual future changes to it;
   the same confirmed-defect/security-issue/perf-issue/approved-ADR bar
-  from `PLATFORM_CONSTITUTION.md` still applies going forward.
+  from `PLATFORM_ARCHITECTURE_STANDARDS.md` still applies going forward.

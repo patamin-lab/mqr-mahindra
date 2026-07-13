@@ -43,7 +43,7 @@ NTR / PM / QIR(MQR) / Machine360
 No business module imports a storage provider, an SDK, or Google Drive
 directly - enforced by `scripts/architecture-check.ts`, wired into CI
 (`.github/workflows/ci.yml`) as a required step ahead of typecheck/lint/
-test/build. Full detail: `docs/architecture/PLATFORM_CONSTITUTION.md`
+test/build. Full detail: `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
 (permanent policy), `docs/architecture/STORAGE_PLATFORM.md` (Storage
 Platform architecture), `docs/engineering/ATTACHMENT_FRAMEWORK.md`
 (Attachment Platform data model and module adoption).

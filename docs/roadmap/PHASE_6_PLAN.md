@@ -50,7 +50,7 @@ dashboard's "pending action" views are naturally workflow-state queries.
 **Estimated scope**: Large. Requires an explicit architecture decision
 (state machine library vs. hand-rolled, per-module state definitions vs.
 one generic engine) before any code - this is exactly the kind of
-decision `docs/architecture/PLATFORM_CONSTITUTION.md`'s "Future
+decision `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s "Future
 Extension Rules" says needs an ADR first, not an assumption.
 
 **Risks**:

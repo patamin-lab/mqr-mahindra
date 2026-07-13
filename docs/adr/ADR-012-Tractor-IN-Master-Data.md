@@ -37,7 +37,7 @@ model/engine number already do.
    separate action.
 4. **Manual trigger today.** `POST /api/admin/tractor-in/sync`
    (SuperAdmin-only) is the sync's one entry point. No scheduler platform
-   exists in this repo yet (see `docs/architecture/PLATFORM_CONSTITUTION.md`'s
+   exists in this repo yet (see `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s
    Platform service boundaries section) - a scheduled trigger can be
    added later by calling the same `TractorInSyncService.sync()`, with no
    change to the service itself.

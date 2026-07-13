@@ -2,7 +2,7 @@
 
 The official baseline record for the MASP platform's Storage Platform
 work, frozen at this milestone. Read this first for current state; go to
-`docs/architecture/PLATFORM_CONSTITUTION.md` for permanent policy,
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` for permanent policy,
 `docs/engineering/STORAGE_PLATFORM_FINAL.md`/`STORAGE_PLATFORM_DECISION.md`
 for full architecture/rationale, and `PROJECT_STATE.md` for the complete
 chronological build log (this document is a snapshot, that one keeps
@@ -30,7 +30,7 @@ an interchangeable `StorageProvider` implementation, chosen entirely via
 `ARCHIVE_PROVIDER`) - never a code change. Full detail, component
 diagram, and dependency graph: `docs/engineering/STORAGE_PLATFORM_FINAL.md`.
 Layer definitions and dependency rules for the whole platform (not just
-storage): `docs/architecture/PLATFORM_CONSTITUTION.md`.
+storage): `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`.
 
 ## Implemented services
 
@@ -58,7 +58,7 @@ None of the operational layer runs automatically anywhere.
 
 ## Governance
 
-`docs/architecture/PLATFORM_CONSTITUTION.md` is the permanent,
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` is the permanent,
 repo-wide architecture policy: layer definitions, dependency rules,
 platform service boundaries, infrastructure rules, domain language,
 event rules, storage rules, and future-extension rules. Every future
@@ -144,7 +144,7 @@ with no open blocker.
 - **No automatic scheduling anywhere** - every operational job requires a
   manual/admin-triggered call.
 - **`scripts/architecture-check.ts` is scoped to Storage Platform rules
-  only** - it does not yet enforce `PLATFORM_CONSTITUTION.md`'s general
+  only** - it does not yet enforce `PLATFORM_ARCHITECTURE_STANDARDS.md`'s general
   module-to-module isolation rules repo-wide.
 - **This repository's own `CLAUDE.md` (§3) still describes deployment as
   "no git CLI / local clone... uploaded through the GitHub web UI"** -
@@ -170,5 +170,5 @@ configured and approved); teach `getUrl()` to resolve a signed URL from
 any archive provider; add a `RESTORING` status for full `FAILED_RESTORE`
 detection; add real event tracking for download/delete metrics; wire an
 actual cron trigger for `StorageScheduler`; extend
-`scripts/architecture-check.ts` to the rest of the Platform Constitution.
+`scripts/architecture-check.ts` to the rest of the Platform Architecture Standards.
 None of these are scheduled - each requires its own explicit milestone.

@@ -34,7 +34,7 @@ one domain by definition).**
 | **Knowledge** (case model, confidence computation) | Engineering Intelligence (consumer) / Knowledge domain (owner, 07) | Domain-local for internal Knowledge mechanics; cross-cutting for anything AI-facing | Any change to the AI Governance boundary or Confidence Policy (08) - both are frozen per 20, always full ADR process, no exception |
 | **Reports** | Cross-cutting | Cross-cutting by definition (Reports has no data of its own - every change reads from another domain) | Always, if the change adds a new data dependency on a domain not already read from |
 | **Import (Platform)** | Platform (Import Platform service, `src/shared/import/`) | Platform-level | A new module adopts the framework (domain-local for that module integrating) vs. the framework's own contract changes (platform-level, needs review since every adopting module is affected) |
-| **Authentication** | Platform (frozen, Foundation Freeze) | Platform-level, frozen | Any change at all - Authentication is in `PLATFORM_CONSTITUTION.md`'s Foundation Freeze; modification requires the same 4-condition bar (defect/security/performance/approved ADR) every frozen layer requires |
+| **Authentication** | Platform (frozen, Foundation Freeze) | Platform-level, frozen | Any change at all - Authentication is in `PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze; modification requires the same 4-condition bar (defect/security/performance/approved ADR) every frozen layer requires |
 | **Quality Case lifecycle** (status model) | Quality Domain | Domain-local | The status model change affects Knowledge extraction (Principle 3, blueprint 01) or the Canonical Event Catalog (18, frozen) |
 | **Master Data** (new master-data type, e.g. a new lookup table) | Platform (frozen, Foundation Freeze) | Platform-level, frozen | Always - Master Data is a Foundation Freeze item; a new master-data type is exactly the kind of "speculative new field" the Evolution Rule warns against unless a real module needs it |
 | **API shape** (new endpoint, response envelope) | The owning business module/platform service | Domain-local, but must conform to `docs/standards/API_STANDARD.md` (binding) | The change would require a new response envelope shape or versioning scheme not already covered by `API_STANDARD.md` - see `API_GOVERNANCE.md` |
@@ -59,7 +59,7 @@ their PR.
 - This matrix names 12 concerns, chosen to match the task's own examples
   plus enough coverage to be useful; it is not exhaustive. A concern not
   listed here defaults to: if it touches a Freeze item (20) or a Frozen
-  Foundation layer (`PLATFORM_CONSTITUTION.md`), treat it as platform
+  Foundation layer (`PLATFORM_ARCHITECTURE_STANDARDS.md`), treat it as platform
   -level; otherwise, ask whoever owns the domain it most resembles above.
 - "Reports" and "Import Platform" both being simultaneously "cross
   -cutting"/"platform-level" is intentional, not an error - see

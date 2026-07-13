@@ -943,7 +943,7 @@ Completed (in order):
   depends only on `AttachmentService`, all providers replaceable via
   `StorageProviderFactory`.
 - **Platform Freeze & Release** - `docs/release/STORAGE_PLATFORM_RELEASE.md`,
-  `docs/architecture/PLATFORM_CONSTITUTION.md`,
+  `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`,
   `CHANGELOG_STORAGE_PLATFORM.md`, and this status update published.
 
 Verification at freeze: `eslint` 0 errors (7 pre-existing unrelated
@@ -1433,7 +1433,7 @@ rollback plan; this entry is a pointer, not a duplicate.
 ## Post-v1.1.0 Development Standard (this milestone)
 
 Formalized the governance for all work after v1.1.0 - full detail in
-`CLAUDE.md` §3.6, `docs/architecture/PLATFORM_CONSTITUTION.md`'s new
+`CLAUDE.md` §3.6, `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s new
 Authorization rules section, and `docs/ROADMAP.md`'s new "Next
 Development Phase" section; this entry is a pointer, not a duplicate.
 
@@ -1445,7 +1445,7 @@ Development Phase" section; this entry is a pointer, not a duplicate.
   Management → Customer Experience → Machine Intelligence → Predictive
   Maintenance. None scheduled or scoped yet - each requires its own
   explicit milestone.
-- Fixed a stale claim in `PLATFORM_CONSTITUTION.md`'s Future extension
+- Fixed a stale claim in `PLATFORM_ARCHITECTURE_STANDARDS.md`'s Future extension
   rules #7 ("no automated architecture-boundary check exists in this
   repository") - `scripts/architecture-check.ts` has existed and been
   CI-wired since the Storage Platform freeze; corrected to say so and to
@@ -1558,7 +1558,7 @@ development begins: Address Platform, Lookup Platform, Configuration
 Platform, and Reference Data Platform, unified behind one shared
 `MasterDataService` facade (`src/shared/master-data/`), mirroring the
 existing `AttachmentService` shape. Documented in
-`docs/architecture/PLATFORM_CONSTITUTION.md`'s "Master data rules
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s "Master data rules
 (MasterDataService)" section.
 
 - **Address Platform**: Thai Province/District/Sub-District/Postal Code
@@ -1638,7 +1638,7 @@ two real mismatches. Full record: `docs/adr/ADR-011-Address-Platform.md`.
   Standard's "Searchable Dropdown" requirement without a free-text
   combobox (which would have allowed selecting an invalid value) and
   without a new dependency.
-- `docs/architecture/PLATFORM_CONSTITUTION.md`'s Master data rules
+- `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Master data rules
   section now points to ADR-011 as the canonical Address Platform
   architecture reference.
 - Verification: lint/typecheck/tests/build/architecture-check all pass;

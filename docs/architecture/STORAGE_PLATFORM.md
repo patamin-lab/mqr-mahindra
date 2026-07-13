@@ -9,7 +9,7 @@
 > **Scope note (updated at the Platform Baseline Freeze):**
 > `docs/engineering/STORAGE_PLATFORM_FINAL.md` is now the canonical
 > architecture/component/dependency reference for the Storage Platform,
-> and `docs/architecture/PLATFORM_CONSTITUTION.md` is the permanent,
+> and `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` is the permanent,
 > repo-wide policy document. This file is kept as the detailed
 > `StorageProviderFactory` configuration reference (env-var table,
 > worked examples) - the Provider table it used to duplicate here has

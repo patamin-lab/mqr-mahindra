@@ -47,7 +47,7 @@ that same exercise inverted to start from the business, not the code.
 | **Knowledge Management** | Knowledge | *(new)* `features/knowledge/`, `knowledge_cases` table (07) |
 | **Engineering Intelligence** | Engineering Intelligence | *(new)* `features/engineering-intelligence/` (08) |
 | **Analytics** | Analytics | *(new)* `features/analytics/` (09) |
-| **Identity & Access** | *(frozen infrastructure layer, not a bounded context — see `PLATFORM_CONSTITUTION.md`)* | Authentication Platform v3.0 (`lib/authServices/*`, `middleware.ts`) + RBAC (`lib/scope.ts`) |
+| **Identity & Access** | *(frozen infrastructure layer, not a bounded context — see `PLATFORM_ARCHITECTURE_STANDARDS.md`)* | Authentication Platform v3.0 (`lib/authServices/*`, `middleware.ts`) + RBAC (`lib/scope.ts`) |
 | **Document Management** | Machine's Documents sub-entity (02) + Attachment Platform (frozen) | `exportPdf.tsx`/`ntrPdf.tsx`/`maintenancePdf.tsx` (generation) + `AttachmentService` (storage, ADR-010) |
 | **Notification** | *(not yet its own Business Module — embedded per-module)* | `lib/email.ts` (Resend) — every module calls it directly today, no shared Notification service |
 | **Integration** | *(new — see 19's Integration Layer)* | Not built — no external system integration exists today |

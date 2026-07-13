@@ -5,7 +5,7 @@ its own review. This document defines the process that governs it
 **after** it is accepted — so the next change to a domain boundary goes
 through a named process instead of an ad hoc edit, the same way this
 repo already governs its frozen infrastructure layers
-(`docs/architecture/PLATFORM_CONSTITUTION.md`'s Foundation Freeze +
+(`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze +
 Architecture Evolution Rule). This document generalizes that existing,
 proven discipline from "the frozen platforms" to "the whole accepted
 Blueprint."
@@ -28,7 +28,7 @@ silently drifts — any change to it afterward is either:
 ## Architecture Freeze
 
 Once the Baseline is set, its core decisions are **frozen** in the same
-sense `PLATFORM_CONSTITUTION.md` already freezes Storage/Authentication/
+sense `PLATFORM_ARCHITECTURE_STANDARDS.md` already freezes Storage/Authentication/
 DealerBranchScope/Attachment: not "no further work happens" (13's Roadmap
 continues) but "these specific decisions are not casually redesigned."
 Frozen, specifically:

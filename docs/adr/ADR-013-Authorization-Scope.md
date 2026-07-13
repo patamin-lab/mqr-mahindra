@@ -27,7 +27,7 @@ made that insufficient:
    concepts (`Role`, `seesAllDealers`) into `lib/db.ts`, the data-access
    layer. This repo's layering convention (`.claude/rules/
    01-architecture-boundaries.md`, `docs/architecture/
-   PLATFORM_CONSTITUTION.md`) keeps `lib/*` as infrastructure; authorization
+   PLATFORM_ARCHITECTURE_STANDARDS.md`) keeps `lib/*` as infrastructure; authorization
    decisions belong in the calling layer.
 
 ## Decision

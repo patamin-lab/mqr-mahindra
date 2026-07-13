@@ -27,7 +27,7 @@ document-only or absent entirely:
    This ADR makes one of them win, explicitly, rather than leaving both as
    equally-authoritative and silently contradictory.
 2. UI/navigation/dashboard structure has never been a named platform layer
-   in `docs/architecture/PLATFORM_CONSTITUTION.md`'s Foundation Freeze list
+   in `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze list
    (Storage, Authentication, DealerBranchScope, Attachment, Address,
    MasterData, Lookup, Configuration, Reference Data - nine layers, no
    "Design Framework" among them). This ADR adds it as the tenth, governed
@@ -52,7 +52,7 @@ written:
 | `docs/DASHBOARD_MODEL.md` | Eight shared KPI *definitions* (Completed Jobs, Pending Jobs, etc.) and a role-visibility rule - does **not** define dashboard philosophy or a Platform Overview / domain-dashboard split |
 | `docs/SEARCH_MODEL.md` | Universal Search's data contract and ownership (one shared `search` service) - **no UI** defined |
 | `docs/ADMIN_FRAMEWORK.md` | Admin module's three-layer shape (`page.tsx -> *-table.tsx -> route.ts`), design-only migration precedent |
-| `docs/architecture/PLATFORM_CONSTITUTION.md` | Foundation Freeze (nine layers, no UI layer) + Evolution Rule (defect/security/performance/approved-ADR only) |
+| `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` | Foundation Freeze (nine layers, no UI layer) + Evolution Rule (defect/security/performance/approved-ADR only) |
 | `docs/ROADMAP.md` | No phase named "Design System"/"UI"/"Dashboard"/"Navigation" - this work is net-new scope, not an already-scheduled slot |
 | `docs/standards/DOMAIN_LANGUAGE_STANDARD.md` | A flat, thirteen-item "Official Menu Standard" table - the previous single source of truth for menu icons/labels |
 
@@ -196,7 +196,7 @@ column - is unchanged, per this task's explicit instruction).
   `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`.
 - `docs/standards/DOMAIN_LANGUAGE_STANDARD.md` - Official Menu Standard
   table marked superseded, pointing to the new Navigation Standard.
-- `docs/architecture/PLATFORM_CONSTITUTION.md` - Foundation Freeze list
+- `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md` - Foundation Freeze list
   gains "Design Framework" as its tenth governed layer.
 - New: `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` (the ten requested
   deliverables) and `.claude/skills/mseal-platform-design/` (eighteen

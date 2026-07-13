@@ -48,7 +48,7 @@ important open item in this policy; see `README.md`'s Gap Analysis.
   (`docs/engineering/ARCHITECTURE_ENFORCEMENT.md`'s `npm run architecture`
   checks dependency direction, not secrets).
 - Credentials are environment variables, read lazily at call time (see
-  `docs/architecture/PLATFORM_CONSTITUTION.md`'s Infrastructure rules).
+  `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Infrastructure rules).
 - `.env.local`/`.env` are gitignored - verify this remains true whenever
   `.gitignore` is touched.
 - Narrow, already-agreed carve-outs for "entering" credentials exist (an

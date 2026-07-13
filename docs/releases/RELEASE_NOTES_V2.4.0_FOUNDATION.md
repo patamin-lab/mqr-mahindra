@@ -15,7 +15,7 @@ for how this fits into ongoing planning.
   Master Data: every business module reads them through
   `MasterDataService` only, and no `INSERT`/`UPDATE`/`DELETE` RLS policy
   exists on any of the six underlying tables.
-  `docs/architecture/PLATFORM_CONSTITUTION.md`.
+  `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`.
 - **Tractor IN Sync** — production sync from the Tractor IN Google Sheet
   into `vehicles`, with a health endpoint and per-run logging; v2.3.1 Sync
   Hardening executed against production and verified end-to-end (0
