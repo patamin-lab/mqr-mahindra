@@ -5,6 +5,20 @@ consumed by both `Sidebar` (rendering) and `PlatformHeader`
 (breadcrumb/title lookup via `flattenRealNavItems()`). Never add a nav
 entry inline in a component - always through `navConfig.ts`.
 
+## Principles
+
+**Navigation Principle**: Navigation represents platform capabilities.
+Users see available capabilities. SuperAdmin may see future
+capabilities. Navigation is never the roadmap.
+
+**Capability Principle**: Every capability has an **Owner** (the domain
+that owns it - see Domain ownership below), a **Status**
+(`CapabilityStatus` - ACTIVE/COMING_SOON/PREVIEW/BETA/DEVELOPMENT), a
+**Permission** (the `lib/scope.ts` predicate that gates it once real),
+and a **Lifecycle** (it moves through statuses via named releases, never
+silently reclassified). Visibility is derived from capability state,
+never from hardcoded module names - see Capability status below.
+
 ## Taxonomy
 
 Group -> Item, optionally -> Subgroup (one level of nesting, never

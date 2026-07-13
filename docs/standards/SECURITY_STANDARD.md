@@ -86,7 +86,11 @@ is from a SuperAdmin," only "this is the `anon` role." Consequently:
 
 ### Navigation visibility is not an authorization boundary
 
-**Unfinished capabilities are visible only to SuperAdmin** (`docs/
+**Capability visibility is NOT authorization. Server-side RBAC remains
+the security boundary.** Navigation shows or hides a leaf based on that
+capability's `CapabilityStatus`, purely as a UX decision about what to
+present — it is never, on its own, what stands between a role and an
+action. **Unfinished capabilities are visible only to SuperAdmin** (`docs/
 architecture/MSEAL_DESIGN_FRAMEWORK.md` §2c, `navConfig.ts`'s
 `isCapabilityVisible()`): every non-`ACTIVE` nav leaf (Coming Soon/
 Preview/Beta/Development) is hidden entirely from every role except

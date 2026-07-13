@@ -83,6 +83,17 @@ server-side (`docs/standards/SECURITY_STANDARD.md`).
 
 ### 2c. Navigation Visibility Rule - capability status, not roadmap (post-Foundation Freeze refinement)
 
+**Navigation Principle**: Navigation represents platform capabilities.
+Users see available capabilities. SuperAdmin may see future
+capabilities. Navigation is never the roadmap.
+
+**Capability Principle**: Every capability has an Owner (the domain that
+owns it - §2a/§2b above), a Status (`CapabilityStatus`), a Permission
+(its `lib/scope.ts` predicate once real), and a Lifecycle (it moves
+through statuses via named releases, never silently). Visibility is
+always derived from capability state + authorization, never from
+hardcoded module names.
+
 **Navigation represents available business capability, not the product
 roadmap.** Every leaf in the table above carries a `CapabilityStatus`
 (`navConfig.ts`): `ACTIVE` for a real, built route; `COMING_SOON`,
