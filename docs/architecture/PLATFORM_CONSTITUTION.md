@@ -337,17 +337,16 @@ documents," above.)
   (Capability Principles, above) - a capability without all four is not
   yet a real, governed part of this platform, regardless of how much
   code exists for it.
-- **Platform capabilities evolve. Foundation remains stable.** Individual
-  capabilities (a new module, a new nav entry, a new Knowledge domain
-  feature) are expected to change, ship, and iterate continuously. The
-  Foundation (`docs/releases/FOUNDATION_FREEZE_v1.0.md`'s frozen layers:
-  Architecture Blueprint, Platform Governance, Design Framework,
-  Navigation Standard, Dashboard Standard, Authentication Platform,
-  Import Platform Foundation, Machine Domain, plus `docs/architecture/
-  PLATFORM_ARCHITECTURE_STANDARDS.md`'s own ten frozen platform layers)
-  changes only for a confirmed defect, a security issue, a measurable
-  performance improvement, or an approved ADR - never a routine PR,
-  regardless of how small the diff looks.
+- **Capabilities evolve. The Foundation remains stable.** See the
+  Platform Evolution Principle, below, for the full statement of this
+  rule - restated here only as a governance consequence: because the
+  Foundation is stable, a capability change is reviewed against
+  Capability Principles (Owner/Lifecycle/Permission/Status), while a
+  Foundation change is reviewed against the much heavier Foundation
+  Freeze reopening process (`docs/releases/FOUNDATION_FREEZE_v1.0.md`).
+  Conflating the two - reviewing a capability change as if it were a
+  Foundation change, or letting a Foundation change slip through as if
+  it were a routine capability change - is itself a governance defect.
 - Decision authority over a platform-level concern (as opposed to
   application-level permission) is recorded in `docs/governance/
   DECISION_MATRIX.md`, not invented ad hoc per change.
@@ -356,6 +355,38 @@ documents," above.)
   what capability actually exists is a defect, given the same review
   weight as a correctness or security bug - never a style preference to
   be waved through.
+
+## Platform Evolution Principle
+
+> **Capabilities evolve.**
+> **The Foundation remains stable.**
+
+Individual capabilities - a new module, a new nav entry, a new Knowledge
+domain feature, a new AI-consuming surface - are expected to change,
+ship, and iterate continuously. That is where this platform's innovation
+happens. The Foundation (`docs/releases/FOUNDATION_FREEZE_v1.0.md`'s
+frozen layers: Architecture Blueprint, Platform Governance, Design
+Framework, Navigation Standard, Dashboard Standard, Authentication
+Platform, Import Platform Foundation, Machine Domain, plus
+`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s own ten frozen
+platform layers) does not innovate alongside them - it changes only for a
+confirmed defect, a security issue, a measurable performance improvement,
+or an approved ADR, never a routine PR, regardless of how small the diff
+looks.
+
+**Clarification: innovation happens above the Foundation, never inside
+it.** A capability that needs the Foundation to change to accommodate it
+has found a genuine Foundation gap worth a deliberate reopening (the same
+process ADR-011 and ADR-014 already used) - it has not found a license to
+patch the Foundation quietly from within a capability's own PR. Building
+a new capability is judged by how well it *builds on* the frozen
+Foundation (Engineering Principles' Reuse before Build, Shared Platform
+before Local Solution); it is never judged by how cleverly it works
+around a Foundation constraint instead of surfacing the constraint for
+review. A Foundation that were changing as often as the capabilities
+built on it would not be a Foundation - it would be just another
+capability with extra ceremony, and every module depending on its
+stability would be depending on nothing.
 
 ## Constitution Rules
 
@@ -374,7 +405,20 @@ explicit decision, recorded, never a silent pick (see "Relationship to
 existing documents," above, for this exact process being followed to
 write this document).
 
-**Changing the Constitution requires:**
+Changing the Constitution requires Architecture Review, Governance
+Review, and Explicit human approval - see Constitutional Amendments,
+below, for the full process and what every amendment must include.
+
+## Constitutional Amendments
+
+**Constitutional changes are exceptional events**, not routine
+documentation edits - the Constitution states permanent principles by
+design (Platform Evolution Principle, above: the Foundation, and the
+Constitution above it, remain stable while capabilities evolve). A
+change here should be rare enough that every one of them is individually
+memorable, not a category of change this platform makes often.
+
+**Every constitutional change requires all three, always:**
 
 1. **Architecture Review** - against the Architecture Blueprint's North
    Star (ch.01) and the current Foundation Freeze, the same review a
@@ -382,22 +426,57 @@ write this document).
 2. **Governance Review** - per `docs/governance/DECISION_MATRIX.md`'s
    platform-level decision-authority rule; a Constitution change is
    always platform-level, never domain-local, by definition.
-3. **Explicit approval** - the same approval authority already defined
-   for architecture-level changes (`docs/architecture/
-   PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation Freeze process,
-   `.claude/rules/git.md`) - no new committee or role is invented by this
-   Constitution.
+3. **Explicit human approval** - a named person's explicit sign-off, not
+   an automated check or an inferred approval from silence - the same
+   approval authority already defined for architecture-level changes
+   (`docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s Foundation
+   Freeze process, `.claude/rules/git.md`). No new committee or role is
+   invented by this Constitution; a routine PR review or an AI agent's
+   own judgment is never sufficient on its own for a change at this
+   level.
 
-A proposed Constitution change that does not carry all three is not
-ready to merge, regardless of how small it looks.
+**Every amendment must document, in the PR/change record itself:**
+
+- **Rationale** - why the existing principle is wrong, incomplete, or
+  has been superseded by a real, already-approved decision (an
+  amendment is a record of a decision already made, the same
+  "Constitution states what is decided" discipline used to write
+  Knowledge Principles above, not a place to work out whether the
+  change should happen).
+- **Impact Assessment** - what changes for every document below the
+  Constitution in `docs/governance/DOCUMENTATION_HIERARCHY.md`'s
+  precedence chain as a result - which ADRs, Architecture Standards
+  sections, or Design Framework rules now need their own follow-up
+  amendment to stay consistent with the new principle.
+- **Affected Principles** - the exact section(s) of this document being
+  added, changed, or removed, named explicitly (e.g. "Navigation
+  Principles' Capability visibility is NOT authorization rule") - never
+  a change described only in terms of the surrounding prose.
+- **Migration Strategy (if applicable)** - if the amendment changes a
+  principle existing capabilities were built against (e.g. narrowing
+  "SuperAdmin may see future capabilities" to a smaller set of roles),
+  how already-shipped capabilities and documentation reach the new state
+  - a Constitutional amendment that leaves the rest of the platform
+  silently inconsistent with the new principle is incomplete, the same
+  "detect contradictions, do not duplicate, reference existing standards
+  instead" discipline used to write this Constitution in the first
+  place.
+
+A proposed Constitution change that does not carry all three approvals
+and all four documented fields (Migration Strategy only where the
+amendment actually requires one) is not ready to merge, regardless of
+how small it looks. The version number at the top of this document
+(`v1.0` today) is bumped with every amendment (Future governance process,
+below), and the amendment itself is recorded as a dated entry, never a
+silent edit to the principle text alone.
 
 ## Relationship to Foundation Freeze
 
 The Foundation Freeze (`docs/releases/FOUNDATION_FREEZE_v1.0.md`) is
 *what is currently frozen and why*; this Constitution is *the permanent
 principle that explains why freezing a foundation is the right thing to
-do at all* (Governance Principles' "Platform capabilities evolve.
-Foundation remains stable."). The Foundation Freeze's own reopening
+do at all* (the Platform Evolution Principle, above: "Capabilities
+evolve. The Foundation remains stable."). The Foundation Freeze's own reopening
 process (ADR + Architecture Review + Architecture Approval + Merge) is
 unchanged by this Constitution - this document does not add a second,
 competing process, it states the principle that process protects.
@@ -441,12 +520,16 @@ Design Review alone.
    Freeze's existing reopening process unchanged (Relationship to
    Foundation Freeze, above) - this Constitution does not add a second
    gate on top of it.
-3. A proposed change to this Constitution itself follows the Constitution
-   Rules process above - Architecture Review, Governance Review, Explicit
-   approval - and is recorded as a new Constitution version (v1.1, v2.0,
-   ...) with an explicit changelog entry at the top of this document, the
-   same versioning discipline `docs/governance/DOCUMENTATION_POLICY.md`
-   already requires of every governance framework.
+3. A proposed change to this Constitution itself follows the
+   Constitutional Amendments process above in full - Architecture
+   Review, Governance Review, Explicit human approval, plus a documented
+   Rationale/Impact Assessment/Affected Principles/Migration Strategy -
+   and is recorded as a new Constitution version (v1.1, v2.0, ...) with
+   an explicit changelog entry at the top of this document, the same
+   versioning discipline `docs/governance/DOCUMENTATION_POLICY.md`
+   already requires of every governance framework. Constitutional
+   changes are exceptional events, not a routine part of shipping a
+   capability - see Constitutional Amendments above for why.
 4. A contradiction discovered between this Constitution and any other
    document (an ADR, the Blueprint, a Standard, a living architecture
    document) is resolved explicitly, following `docs/governance/
@@ -455,10 +538,10 @@ Design Review alone.
    Constitution Rules above - never by quietly editing one document to
    match the other with no note.
 5. This Constitution is reviewed for continued accuracy whenever the
-   Foundation Freeze is next revised or reopened (Governance Principles'
-   "Platform capabilities evolve. Foundation remains stable." is itself
-   a claim that should be re-checked against reality at that point, not
-   assumed permanently true without review).
+   Foundation Freeze is next revised or reopened (the Platform Evolution
+   Principle's "Capabilities evolve. The Foundation remains stable." is
+   itself a claim that should be re-checked against reality at that
+   point, not assumed permanently true without review).
 
 ## Verification
 
@@ -472,4 +555,21 @@ Navigation Standard, Terminology Standard, or the Knowledge Platform is
 duplicated here - every rule above that has implementation detail
 elsewhere points to it rather than restating it.
 
-**Recommendation: APPROVED.**
+**Revision pass (pre-merge documentation refinement)**: added
+Constitutional Amendments (full Rationale/Impact Assessment/Affected
+Principles/Migration Strategy requirement, on top of the three approvals
+already stated) and the Platform Evolution Principle as its own named
+section. Checked for internal duplication and stale cross-references
+this pass introduced: Governance Principles' evolution bullet and both
+"Relationship to Foundation Freeze" and "Future governance process"'s
+references to it were updated to point to the new Platform Evolution
+Principle section rather than restate its wording a second or third
+time; "Constitution Rules"' amendment-requirements list was replaced
+with a pointer to Constitutional Amendments rather than kept as a
+second, shorter copy of the same three-item list. Repo-wide search
+confirmed no other file states the old "Platform capabilities evolve.
+Foundation remains stable." wording that would now read as
+inconsistent with this document's phrasing. No architecture or
+implementation changed by this pass - documentation only.
+
+**Recommendation: APPROVED FOR MERGE.**
