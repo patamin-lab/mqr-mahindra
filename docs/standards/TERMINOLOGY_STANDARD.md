@@ -227,6 +227,15 @@ replace it with the official term above in the same change:
 - **Engineering Intelligence owns analysis**: AI Engineering, PIP,
   Predictive Quality - consumes Knowledge (never raw Quality/PM/Warranty
   data directly, and never owns a second copy of Knowledge itself).
+- **Delivery owns the lifecycle, Inspection owns PDI** (ADR-027/ADR-017,
+  Machine Delivery Platform). Delivery is the lifecycle-tracking
+  aggregate - Tractor In, Stock Yard, Dealer Preparation, Operator
+  Training, Delivery Acceptance, Warranty Activation. It never duplicates
+  what another domain already owns: Tractor In reads `vehicles` (ADR-012
+  owns that sync), PDI links an Inspection (Inspection domain owns the
+  checklist/findings/evidence), Customer Delivery links an `NtrRecord`
+  (Service > Registration owns NTR's own fields). PDI has exactly one nav
+  entry, under Delivery, not under Quality or Engineering Intelligence.
 - Each of these concepts has **exactly one** nav entry platform-wide.
   Never duplicate a concept's placeholder across two groups to "cover
   both angles" - if a concept genuinely belongs in two places for two

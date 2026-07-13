@@ -53,6 +53,19 @@ because it shipped and moved to maintenance.
   implemented in this PR. `docs/adr/ADR-018-Knowledge-Model.md`,
   `docs/architecture/KNOWLEDGE_PLATFORM.md`,
   `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`.
+- **Machine Delivery Platform v1.0** (open PR, `feature/machine-delivery-
+  platform` - **not yet merged**) — the complete digital delivery
+  lifecycle: Tractor In (reuses ADR-012), Stock Yard, PDI (ADR-017, new
+  `inspections` table), Dealer Preparation, Customer Delivery (links
+  NTR), Operator Training, Delivery Acceptance, and Warranty Activation
+  as a real point-in-time event for the first time (closing a named gap
+  in `03-MACHINE-LIFECYCLE-AND-TIMELINE.md`). New `delivery_records`/
+  `delivery_trainings` tables, Machine Passport integration, Knowledge
+  integration (Findings promote to Candidates), Delivery Dashboard/
+  Reports, reserved (Coming Soon) AI panels. `docs/adr/ADR-017-Inspection-
+  Domain.md`, `docs/adr/ADR-027-Machine-Delivery-Platform.md`,
+  `docs/architecture/INSPECTION_PDI.md`,
+  `docs/architecture/DELIVERY_PLATFORM.md`.
 
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),

@@ -28,14 +28,17 @@ listing alone.
 | ADR-012 | Tractor IN as the Single Source of Truth for Product Family / Sub Model | Accepted | |
 | ADR-013 | AuthorizationScope - Keeping Authorization Decisions Out of the Data-Access Layer | Accepted | |
 | ADR-014 | Authentication Platform v3.0 | Accepted, **Frozen** (v3) | `PLATFORM_ARCHITECTURE_STANDARDS.md` Foundation Freeze, reopened-by-ADR precedent |
-| ADR-015 - ADR-017, ADR-019 - ADR-021 | *(reserved, not yet written)* | Reserved | `docs/architecture/blueprint/16-ADR-RECOMMENDATIONS.md` reserved seven numbers for specific named future domains: 015 Machine Domain v2, 016 Event Model, 017 Inspection Domain, 018 Knowledge Model, 019 Engineering Intelligence, 020 Analytics Domain, 021 Machine Digital Passport. 018 is now used (below). Note: 021 was actually used by `ADR-026-Machine-Digital-Passport.md` (merged, not reflected elsewhere in this index - a pre-existing drift in this file, not introduced here); kept reserved in this row until that's reconciled. **Do not use any of these remaining numbers for anything else** |
+| ADR-015, ADR-016, ADR-019 - ADR-021 | *(reserved, not yet written)* | Reserved | `docs/architecture/blueprint/16-ADR-RECOMMENDATIONS.md` reserved seven numbers for specific named future domains: 015 Machine Domain v2, 016 Event Model, 017 Inspection Domain, 018 Knowledge Model, 019 Engineering Intelligence, 020 Analytics Domain, 021 Machine Digital Passport. 017 and 018 are now used (below). Note: 021 was actually used by `ADR-026-Machine-Digital-Passport.md` (merged, not reflected elsewhere in this index - a pre-existing drift in this file, not introduced here); kept reserved in this row until that's reconciled. **Do not use any of these remaining numbers for anything else** |
+| ADR-017 | Inspection Domain (PDI) | **Proposed** (open branch `feature/machine-delivery-platform`, not yet merged) | Refines, does not replace, `docs/architecture/blueprint/04-INSPECTION-DOMAIN.md`; one stage inside ADR-027 (Machine Delivery Platform) |
 | ADR-018 | Engineering Knowledge Platform (Knowledge Model) | Accepted, **Frozen** (v1.0, PR #42) | `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`; refines, does not replace, `docs/architecture/blueprint/07-KNOWLEDGE-DOMAIN-AND-GRAPH.md` - see the ADR's own Decision table |
 | ADR-022 | Import Platform v2 | **Proposed** (open PR #36, not yet merged) | References the Universal Import Framework by its *old* number (`ADR-009`) - needs updating to `ADR-024` once this governance PR merges, before PR #36 itself merges (see below) |
 | ADR-023 | MSEAL Design Framework | **Proposed** (open PR #37, not yet merged; pre-merge refinement addendum already applied on that branch) | |
 | ADR-024 | Universal Import Framework | Accepted | **Renumbered from `ADR-009`** by this normalization pass - see "ADR numbering normalization" below |
 | ADR-025 | Canonical Event Catalog Consolidation | **Proposed** (this PR, #38) | See `docs/governance/EVENT_OWNERSHIP.md` and the ADR itself |
+| ADR-026 | Machine Digital Passport | Accepted | Merged; consumes the ADR-021 reservation (see the reserved-range row above - a pre-existing drift, not introduced here) |
+| ADR-027 | Machine Delivery Platform v1.0 | **Proposed** (open branch `feature/machine-delivery-platform`, not yet merged) | Lifecycle orchestration - Tractor In through Warranty Activation; depends on ADR-017 (PDI) as one stage, never re-derives it |
 
-**Next available number: ADR-026.**
+**Next available number: ADR-028.**
 
 ## ADR numbering normalization (this pass)
 

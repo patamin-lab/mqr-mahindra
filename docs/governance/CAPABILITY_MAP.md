@@ -18,14 +18,31 @@ document is a governance-layer convenience view, not a second Baseline.
 Machine
 ├── Registration          (Service > NTR - 17 "Registration")
 ├── Passport               (proposed - ROADMAP.md priority #1, not built; 10-MACHINE-PROFILE.md)
-├── Timeline                (shared/activity-timeline/, ACTIVITY_TIMELINE.md)
-├── Warranty                 (Service - no table yet, DATA_OWNERSHIP_MATRIX.md)
-├── PM                        (Service > Maintenance - 17 "Maintenance", built)
-├── Quality                    (Quality - 17 "Quality Management (MQR + PIP)", built as MQR)
-├── Knowledge                   (Knowledge domain, 07/ADR-018 - built; Machine reads Published cases via KnowledgeService, never owns Knowledge)
-├── AI                           (Engineering Intelligence, 08 - reads Knowledge about this Machine, never Machine tables directly)
-├── PIP                           (Engineering Intelligence, produced from this Machine's Quality/Knowledge - not built)
-└── Recall                         (Service > Campaigns - not built, targets a population including this Machine)
+├── Delivery                (Delivery domain, ADR-027 - open PR; Machine reads its own Delivery summary via DeliveryService, never owns Delivery data)
+├── PDI (Inspection)         (Inspection domain, 04/ADR-017 - open PR; one stage inside Delivery, not a separate Machine sub-concept)
+├── Timeline                  (shared/activity-timeline/, ACTIVITY_TIMELINE.md)
+├── Warranty                   (Service - Warranty Activation event captured by Delivery/ADR-027; overall status still computed via calcWarranty(), no claims/policy table yet, DATA_OWNERSHIP_MATRIX.md)
+├── PM                          (Service > Maintenance - 17 "Maintenance", built)
+├── Quality                      (Quality - 17 "Quality Management (MQR + PIP)", built as MQR)
+├── Knowledge                     (Knowledge domain, 07/ADR-018 - built; Machine reads Published cases via KnowledgeService, never owns Knowledge)
+├── AI                             (Engineering Intelligence, 08 - reads Knowledge about this Machine, never Machine tables directly)
+├── PIP                             (Engineering Intelligence, produced from this Machine's Quality/Knowledge - not built)
+└── Recall                           (Service > Campaigns - not built, targets a population including this Machine)
+```
+
+## Delivery
+
+```
+Delivery
+├── Tractor In              (reuses Service > Registration's Tractor In Sync, ADR-012 - never a second sync)
+├── Stock Yard                (Delivery domain, ADR-027 - open PR)
+├── PDI (reference only)        (owned by Inspection domain, ADR-017 - open PR; Delivery links an Inspection, never duplicates its fields)
+├── Dealer Preparation             (Delivery domain, ADR-027)
+├── Customer Delivery (reference only) (owned by Service > NTR; Delivery links an NtrRecord, never duplicates its fields)
+├── Operator Training                (Delivery domain, ADR-027 - owns delivery_trainings)
+├── Delivery Acceptance                 (Delivery domain, ADR-027 - gated by canApproveDelivery)
+├── Warranty Activation                   (Delivery domain, ADR-027 - one point-in-time event + source; not a claims/policy ledger)
+└── AI (reserved, not built)                 (4 Coming Soon tiles - AI Delivery Review/Risk/Readiness/Recommendation)
 ```
 
 ## Dealer
