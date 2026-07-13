@@ -266,3 +266,53 @@ Framework were reused as-is.
   (`https://masp-mseal.vercel.app`, 200 on `/login`, 307→`/login` on
   every protected route checked — Dashboard, Quality Dashboard,
   Machines, Records — response fresh/uncached per `Age: 0`).
+
+## Post-Freeze Addendum (2026-07-13) — Platform Constitution v1.0 / Platform Architecture Standards
+
+PR #44, merged `2026-07-13T06:54:12Z` (squash commit `757ea9f`). A
+governance-documentation-only change, reviewed and explicitly approved
+by the user as a deliberate, scoped reopening of `docs/governance/
+DOCUMENTATION_HIERARCHY.md` — not a violation of this document's freeze.
+No architecture changes, no redesign, no business-domain changes; no
+implementation modified.
+
+- **New governing document**: `docs/architecture/PLATFORM_CONSTITUTION.md`
+  — the platform's highest-level engineering and product principle,
+  above ADRs, the Design Framework, and individual capabilities. States
+  permanent Platform Vision/Mission/Values and Engineering/Business/
+  Domain/Capability/Navigation/Knowledge/AI/Data/Governance Principles,
+  a Platform Evolution Principle ("Capabilities evolve. The Foundation
+  remains stable."), and a Constitutional Amendments process
+  (Architecture Review + Governance Review + Explicit human approval,
+  plus a documented Rationale/Impact Assessment/Affected Principles/
+  Migration Strategy for every amendment).
+- **Naming conflict found and resolved before writing anything**: this
+  exact filename already held a different, implementation-level document
+  (layer definitions, dependency rules, platform-service boundaries),
+  cited by 50+ other files and ranked below the Blueprint/ADRs in the
+  documentation hierarchy — the opposite of where a true Constitution
+  belongs. Surfaced to the user explicitly (not silently resolved);
+  renamed to `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
+  (content unchanged), every one of its 103 cross-references updated
+  repo-wide, and the new Constitution written fresh at the freed path,
+  above it in precedence.
+- **New hierarchy**: `docs/governance/DOCUMENTATION_HIERARCHY.md`
+  rewritten — Platform Constitution → Architecture Blueprint →
+  Architecture Standards → ADR → Design Framework → Implementation —
+  with Platform Governance Framework and Standards repositioned as
+  cross-cutting (process/convention) rather than numbered content
+  layers.
+- **Verification**: typecheck clean, targeted lint clean, architecture
+  check 5/5 PASS, every file path cited in the Constitution verified to
+  exist (one intentional, explicitly-flagged exception pending PR #42's
+  merge), CI `verify` checks green on all commits, production deployment
+  re-confirmed healthy post-merge (`https://masp-mseal.vercel.app`, 200
+  on `/login`, 307→`/login` on every protected route checked — Dashboard,
+  Quality Dashboard, Machines, Records — response fresh/uncached per
+  `Age: 0`).
+- **Formalized alongside this addendum**: `docs/releases/
+  FOUNDATION_FREEZE_v1.1.md` extends the Foundation Freeze with five new
+  frozen layers (Platform Constitution, Platform Architecture Standards,
+  Navigation Visibility Policy, Capability Status Model, Business
+  Terminology Governance) — see that document for the full frozen-layer
+  table.

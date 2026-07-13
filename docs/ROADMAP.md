@@ -2,13 +2,18 @@
 
 ## Release: Foundation v1.0
 
-**Foundation Freeze v1.0 declared 2026-07-12** — Architecture Blueprint
-v1.1, Platform Governance v1.1, Design Framework v1.1, Navigation
-Standard, Dashboard Standard, Authentication Platform, Import Platform
-Foundation, and Machine Domain v1.0 are all now frozen. See
-`docs/releases/FOUNDATION_FREEZE_v1.0.md` (what's frozen, how to reopen
-it) and `docs/releases/RELEASE_NOTES_FOUNDATION_v1.0.md` (full release
-notes). Prior baseline: tag `v2.4.0-foundation`,
+**Foundation Freeze v1.0 declared 2026-07-12, extended to v1.1 on
+2026-07-13** — Architecture Blueprint v1.1, Platform Governance v1.1,
+Design Framework v1.1, Navigation Standard, Dashboard Standard,
+Authentication Platform, Import Platform Foundation, Machine Domain
+v1.0, and (added in v1.1) Platform Constitution, Platform Architecture
+Standards, Navigation Visibility Policy, Capability Status Model, and
+Business Terminology Governance are all now frozen. See
+`docs/releases/FOUNDATION_FREEZE_v1.1.md` (current - what's frozen, how
+to reopen it), `docs/releases/FOUNDATION_FREEZE_v1.0.md` (original
+declaration, preserved as history), and
+`docs/releases/RELEASE_NOTES_FOUNDATION_v1.0.md` (full release notes,
+including both Post-Freeze Addenda). Prior baseline: tag `v2.4.0-foundation`,
 `docs/releases/RELEASE_NOTES_V2.4.0_FOUNDATION.md`. The sections below
 reflect the current baseline — completed work is out of "next" planning,
 not because it's finished forever (see the Working rules below), but
