@@ -188,3 +188,36 @@ production-deployment-verified. Recommend proceeding to **Knowledge
 Engine v1.0** as the next epic, per `docs/ROADMAP.md`'s recommended
 implementation order — not started as part of this release, per this
 freeze's own scope.
+
+## Post-Freeze Addendum (2026-07-13) — UI Terminology & Navigation Cleanup + Business Terminology Governance
+
+PR #41, merged `2026-07-13T00:14:23Z` (squash commit `8011a4d`). A
+terminology/wording/navigation-only change, reviewed and explicitly
+approved by the user as a deliberate, scoped reopening of the frozen
+Design Framework's Navigation Standard (`docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`
+§2a) — not a violation of this document's freeze. No architecture
+changes, no redesign, no new features, no renamed code/routes/APIs/DB
+objects/types.
+
+- **Terminology**: "Quality Cases"/"กรณีปัญหา" standardized to
+  "รายงานปัญหาคุณภาพ" everywhere in the UI. "Troubleshooting (การแก้ไขปัญหา)"
+  established as the one fixed term for that capability across every
+  surface (see `docs/standards/TERMINOLOGY_STANDARD.md`).
+- **Navigation**: Recall removed (no module/data backed it). Domain
+  ownership resolved — Quality owns execution (Cases, Knowledge,
+  Troubleshooting); Engineering Intelligence owns analysis only (AI
+  Engineering, PIP, Predictive Quality) — each concept has exactly one
+  nav entry platform-wide.
+- **Machine Passport**: reserved (Coming Soon) Troubleshooting section
+  added, existing layout/components only, no implementation.
+- **Governance**: `docs/standards/TERMINOLOGY_STANDARD.md` extended into
+  formal Business Terminology Governance — MQR, NTR, PM, PIP, AI
+  Engineering, Predictive Quality, and Troubleshooting (การแก้ไขปัญหา)
+  are now frozen platform vocabulary; changing any of them requires
+  Architecture Review + Design Review + Documentation Review.
+- **Verification**: typecheck clean, lint 0 errors (12 pre-existing
+  warnings), 679/679 tests passed, build succeeded, CI `verify` checks
+  green on all commits, production deployment re-confirmed healthy
+  post-merge (`https://masp-mseal.vercel.app`, 307→`/login` on every
+  protected route checked — Dashboard, Quality Dashboard, Machines,
+  Records — 200 on `/login` itself).
