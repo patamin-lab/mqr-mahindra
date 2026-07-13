@@ -10,6 +10,7 @@
 import { logAuditEvent } from '@/lib/db';
 import type { SessionUser } from '@/lib/types';
 import { canApproveDelivery } from '@/lib/scope';
+import { InspectionService } from '@/features/inspection';
 import { DeliveryRepository, CreateDeliveryRecordInput } from './repository';
 import {
   DeliveryRecord,
@@ -57,7 +58,10 @@ function buildLeaderboard(rows: { key: string | null }[], limit = 10): { key: st
 }
 
 export class DeliveryService {
-  constructor(private readonly repo: DeliveryRepository = new DeliveryRepository()) {}
+  constructor(
+    private readonly repo: DeliveryRepository = new DeliveryRepository(),
+    private readonly inspectionService: InspectionService = new InspectionService()
+  ) {}
 
   async listDeliveries(filters: Parameters<DeliveryRepository['list']>[0] = {}): Promise<DeliveryRecord[]> {
     return this.repo.list(filters);
@@ -230,7 +234,10 @@ export class DeliveryService {
   }
 
   /** Machine Passport's Delivery section — read-only summary. `null`
-   *  when this machine has no delivery record yet. */
+   *  when this machine has no delivery record yet. `pdiResult` is read
+   *  through `InspectionService.getInspection()` (never a direct
+   *  `inspections` query from this service) - Delivery links an
+   *  Inspection by id, it does not own or duplicate its fields. */
   async getDeliveryForMachine(serial: string): Promise<MachineDeliverySummary | null> {
     const record = await this.repo.getMostRecentForSerial(serial);
     if (!record) return null;
@@ -239,11 +246,16 @@ export class DeliveryService {
       const training = await this.repo.getTrainingById(record.trainingId);
       trainingCompleted = !!training;
     }
+    let pdiResult: string | null = null;
+    if (record.pdiInspectionId) {
+      const inspection = await this.inspectionService.getInspection(record.pdiInspectionId).catch(() => null);
+      pdiResult = inspection?.result ?? null;
+    }
     return {
       deliveryRef: record.deliveryRef,
       stage: record.stage,
       overallStatus: record.overallStatus,
-      pdiResult: null,
+      pdiResult,
       ntrId: record.ntrId,
       trainingCompleted,
       warrantyActivatedAt: record.warrantyActivatedAt,
@@ -251,25 +263,60 @@ export class DeliveryService {
     };
   }
 
-  /** Delivery Dashboard KPIs — JS-side aggregation over one scoped read,
-   *  the same shape `dashboardStats()`/`buildLeaderboard()` (`lib/db.ts`)
-   *  already use for Quality, not a second reporting engine. */
+  /** Delivery Dashboard - the official KPI contract (docs/architecture/
+   *  DELIVERY_PLATFORM.md §8). JS-side aggregation over scoped reads, the
+   *  same shape `dashboardStats()`/`buildLeaderboard()` (`lib/db.ts`)
+   *  already use for Quality, not a second reporting engine. Every value
+   *  here is live-computed - two of the ten officially named KPIs (Open
+   *  Delivery Findings, Dealer Delivery SLA) have no field at all, rather
+   *  than a fabricated placeholder, since neither has a defined data
+   *  model yet (see `DeliveryDashboardStats`'s own doc comment). */
   async getDashboardStats(dealerId?: string): Promise<DeliveryDashboardStats> {
-    const rows = await this.repo.listActiveWithRelated(dealerId ? { dealerId } : {});
+    const [rows, pendingTractorIn] = await Promise.all([
+      this.repo.listActiveWithRelated(dealerId ? { dealerId } : {}),
+      this.repo.countVehiclesWithoutDeliveryRecord(dealerId),
+    ]);
+    const inspectionById = await this.composeInspectionData(rows);
 
+    const pendingStockYard = rows.filter((r) => r.stage === 'TractorIn').length;
+    const pendingPdi = rows.filter((r) => r.stage === 'StockYard').length;
     const pendingDelivery = rows.filter((r) => r.stage !== 'Completed').length;
-    const pendingPdi = rows.filter((r) => r.stage === 'StockYard' || r.stage === 'PDI').length;
     const pendingTraining = rows.filter((r) => r.stage === 'OperatorTraining').length;
-    const warrantyPending = rows.filter((r) => r.stage === 'WarrantyActivation').length;
+    const warrantyWaiting = rows.filter((r) => r.stage === 'WarrantyActivation').length;
 
-    const withResult = rows.filter((r) => r.pdiResult !== null);
-    const passCount = withResult.filter((r) => r.pdiResult === 'Pass').length;
-    const deliveryQualityPassRate = withResult.length > 0 ? Math.round((passCount / withResult.length) * 1000) / 10 : null;
+    const results = rows.map((r) => (r.pdiInspectionId ? inspectionById.get(r.pdiInspectionId)?.result ?? null : null));
+    const withResult = results.filter((r): r is string => r !== null);
+    const passCount = withResult.filter((r) => r === 'Pass').length;
+    const pdiFirstPassRate = withResult.length > 0 ? Math.round((passCount / withResult.length) * 1000) / 10 : null;
+
+    const activated = rows.filter((r) => r.warrantyActivatedAt !== null);
+    const averageDeliveryLeadTimeDays =
+      activated.length > 0
+        ? Math.round(
+            (activated.reduce((sum, r) => sum + (new Date(r.warrantyActivatedAt as string).getTime() - new Date(r.createdAt).getTime()), 0) /
+              activated.length /
+              (1000 * 60 * 60 * 24)) *
+              10
+          ) / 10
+        : null;
 
     const dealerRanking = buildLeaderboard(rows.map((r) => ({ key: r.dealerId })));
-    const technicianRanking = buildLeaderboard(rows.map((r) => ({ key: r.technicianName })));
+    const technicianRanking = buildLeaderboard(
+      rows.map((r) => ({ key: r.pdiInspectionId ? inspectionById.get(r.pdiInspectionId)?.technicianName ?? null : null }))
+    );
 
-    return { pendingDelivery, pendingPdi, pendingTraining, warrantyPending, deliveryQualityPassRate, dealerRanking, technicianRanking };
+    return {
+      pendingTractorIn,
+      pendingStockYard,
+      pendingPdi,
+      pendingDelivery,
+      pendingTraining,
+      warrantyWaiting,
+      pdiFirstPassRate,
+      averageDeliveryLeadTimeDays,
+      dealerRanking,
+      technicianRanking,
+    };
   }
 
   /** One consolidated dataset for all 7 named report types (Dealer/
@@ -278,20 +325,22 @@ export class DeliveryService {
    *  not 7 pipelines (Reuse-before-Build). */
   async getDeliveryReport(filters: DeliveryReportFilters = {}): Promise<DeliveryReportRow[]> {
     const rows = await this.repo.listActiveWithRelated(filters.dealerId ? { dealerId: filters.dealerId } : {});
+    const inspectionById = await this.composeInspectionData(rows);
 
     return rows
-      .filter((r) => !filters.technicianName || r.technicianName === filters.technicianName)
-      .filter((r) => !filters.model || r.model === filters.model)
-      .filter((r) => !filters.dateFrom || r.createdAt >= filters.dateFrom)
-      .filter((r) => !filters.dateTo || r.createdAt <= filters.dateTo)
-      .map((r) => ({
+      .map((r) => ({ row: r, inspection: r.pdiInspectionId ? inspectionById.get(r.pdiInspectionId) : undefined }))
+      .filter(({ inspection }) => !filters.technicianName || inspection?.technicianName === filters.technicianName)
+      .filter(({ row }) => !filters.model || row.model === filters.model)
+      .filter(({ row }) => !filters.dateFrom || row.createdAt >= filters.dateFrom)
+      .filter(({ row }) => !filters.dateTo || row.createdAt <= filters.dateTo)
+      .map(({ row: r, inspection }) => ({
         deliveryRef: r.deliveryRef,
         serial: r.serial,
         model: r.model,
         dealerId: r.dealerId,
-        technicianName: r.technicianName,
-        checklistVersion: r.checklistVersion,
-        pdiResult: r.pdiResult,
+        technicianName: inspection?.technicianName ?? null,
+        checklistVersion: inspection?.checklistVersion ?? null,
+        pdiResult: inspection?.result ?? null,
         deliveryDurationDays: r.warrantyActivatedAt
           ? Math.round((new Date(r.warrantyActivatedAt).getTime() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60 * 24))
           : null,
@@ -299,6 +348,22 @@ export class DeliveryService {
         warrantyActivated: !!r.warrantyActivatedAt,
         stage: r.stage,
       }));
+  }
+
+  /** Composes the Inspection fields the Dashboard/Report needs
+   *  (technician, checklist version, result) via `InspectionService`,
+   *  keyed by inspection id - the read path that replaces embedding
+   *  `inspections` columns directly into `DeliveryRepository`'s own
+   *  query (Delivery orchestrates PDI, it does not reach into PDI's own
+   *  table). */
+  private async composeInspectionData(
+    rows: { pdiInspectionId: string | null }[]
+  ): Promise<Map<string, { technicianName: string | null; checklistVersion: string | null; result: string | null }>> {
+    const ids = Array.from(new Set(rows.map((r) => r.pdiInspectionId).filter((id): id is string => id !== null)));
+    const inspections = await this.inspectionService.listInspectionsByIds(ids);
+    return new Map(
+      inspections.map((i) => [i.id, { technicianName: i.technicianName, checklistVersion: i.checklistVersion, result: i.result }])
+    );
   }
 
   private async logStageEvent(record: DeliveryRecord, newStage: string, session: SessionUser): Promise<void> {

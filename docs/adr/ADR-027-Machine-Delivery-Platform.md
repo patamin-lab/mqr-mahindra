@@ -56,7 +56,7 @@ owns a piece of it:
 | 3. PDI | Inspection (ADR-017) | Links an `inspections` row (`pdi_inspection_id`); never duplicates checklist/findings/evidence |
 | 4. Dealer Preparation | Delivery (new) | Owns `dealer_preparation_completed_at`/`_notes` |
 | 5. Customer Delivery | Service > Registration/NTR | Links an `ntr_records` row (`ntr_id`); never duplicates Customer/Machine/Photos/Delivery Date |
-| 6. Operator Training | Delivery (new) | Owns `delivery_trainings` (Training Topics/Operator/Trainer/Photos-Videos via Attachment Platform/Duration/Customer Satisfaction) |
+| 6. Operator Training | Delivery (new) | Owns `delivery_trainings` (Training Topics/Operator/Trainer/Duration/Customer Satisfaction); Photos/Videos designed to reuse the Attachment Platform, capture UI deferred - see `docs/architecture/DELIVERY_PLATFORM.md` §4 |
 | 7. Delivery Acceptance | Delivery (new) | Owns `acceptance_signed_at`/`_by`/`_notes`, gated by `canApproveDelivery` |
 | 8. Warranty Activation | Delivery (new) | Owns `warranty_activated_at`/`warranty_activation_source` - **the point-in-time event ch.03 names as a gap**, auto-triggered by Delivery Acceptance or manually activatable. Not a claims/policy ledger - `calcWarranty()`'s live computation is unchanged; this only adds the missing activation *moment* |
 | 9. Machine Passport sync | Machine (ADR-009/ADR-026) | Reads a Delivery summary via `MachineService.getMachineDeliverySummary()` -> `DeliveryService`; Machine owns none of this data |

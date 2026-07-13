@@ -74,11 +74,21 @@ directly.
 `delivery_trainings` (child of `delivery_records`, cascade-deleted with
 it): Training Topics (`[{topic, covered}]`), Operator (name + phone),
 Trainer (name + optional ID), Training Date, Training Duration
-(minutes), Customer Satisfaction (1-5). Training Photos/Videos reuse the
-Attachment Platform (`module: 'delivery'`, `entityType:
-'DeliveryTraining'`) - no URL columns on the table itself, unlike NTR's
-older hardcoded-photo-column pattern (a deliberate modernization, per the
-task's own "modernize it" instruction for delivery-adjacent capture).
+(minutes), Customer Satisfaction (1-5). No URL columns on the table
+itself, unlike NTR's older hardcoded-photo-column pattern (a deliberate
+modernization, per the task's own "modernize it" instruction) - Training
+Photos/Videos are designed to reuse the Attachment Platform (`module:
+'delivery'`, retention policy already seeded) the same way PDI Evidence
+already does.
+
+**Correction (architecture-review pass, found during verification, not
+overclaimed going forward)**: the Training Photos/Videos capture screen
+itself was never actually wired to `AttachmentService` in this PR - only
+PDI Evidence (`/delivery/pdi/[id]`) is. Training capture
+(`/delivery/records/[id]`'s training form) has no photo/video upload UI
+yet. Schema and retention policy are ready; the capture screen is
+Explicitly Deferred (§Explicitly deferred, below) alongside the other
+named gaps - not silently shipped as claimed-but-missing.
 
 ## 5. Machine Passport Integration
 
@@ -112,26 +122,39 @@ additive CHECK constraint changes only, no change to `KnowledgeService`/
 v1.0's own documented Extension path ("adding a new Evidence source
 type"), not a violation of the freeze.
 
-## 8. Dashboard
+## 8. Dashboard - Screen Contract KPI set
 
 `/delivery/dashboard` - KPIs computed by `DeliveryService.
 getDashboardStats()`, reusing `dashboardStats()`/`buildLeaderboard()`'s
-JS-side aggregation shape (`lib/db.ts`), not a second reporting engine:
+JS-side aggregation shape (`lib/db.ts`), not a second reporting engine.
+This is not a UI redesign - the ten KPIs below are the official,
+binding contract for this screen (platform-quality refinement,
+architecture-review pass); the layout itself is unchanged.
 
-- **Pending Delivery** - count where `stage !== 'Completed'`.
-- **Pending PDI** - count where `stage` is `StockYard` or `PDI`.
-- **Pending Training** - count where `stage === 'OperatorTraining'`.
-- **Warranty Pending** - count where `stage === 'WarrantyActivation'`.
-- **Delivery Quality** - PDI Pass rate among inspections with a result.
-- **Dealer Ranking** / **Technician Ranking** - sorted leaderboards, same
-  shape as Quality Dashboard's own dealer/technician leaderboards.
+| # | KPI | Status | Definition |
+|---|---|---|---|
+| 1 | Pending Tractor In | **Implemented** | Vehicles synced via Tractor In (ADR-012) with no Delivery record yet - `DeliveryRepository.countVehiclesWithoutDeliveryRecord()`, a real anti-join against `vehicles`, never a fabricated number |
+| 2 | Pending Stock Yard | **Implemented** | Delivery records at `stage === 'TractorIn'` - created, not yet received at Stock Yard |
+| 3 | Pending PDI | **Implemented** | Delivery records at `stage === 'StockYard'` - received, PDI not yet linked/started |
+| 4 | Pending Delivery | **Implemented** | Every delivery record not yet `Completed` - the overall pipeline count |
+| 5 | Pending Training | **Implemented** | Delivery records at `stage === 'OperatorTraining'` |
+| 6 | Warranty Waiting | **Implemented** | Delivery records at `stage === 'WarrantyActivation'` - accepted, not yet activated |
+| 7 | Average Delivery Lead Time | **Implemented** | Mean days from delivery-record creation (Tractor In) to Warranty Activation, across activated records only; `null` (not `0`) when none have activated yet |
+| 8 | PDI First Pass Rate | **Implemented** | Pass rate among completed Inspections with a result. This platform's Inspection model has no re-inspection/retry state (Explicitly Deferred, `docs/architecture/INSPECTION_PDI.md`) - every completed inspection's result is definitionally its first and only one, so this metric *is* the first-pass rate, not a separate calculation |
+| 9 | Open Delivery Findings | **Reserved for Future Capability** | Requires a "resolved" state on a PDI Finding, which does not exist today (a Finding currently only records `knowledgeCaseId` once promoted - promoted is not the same concept as resolved). Rendered as a Coming Soon tile, never a fabricated count |
+| 10 | Dealer Delivery SLA | **Reserved for Future Capability** | Requires a configured per-dealer delivery-duration SLA threshold, which does not exist anywhere in this platform. Rendered as a Coming Soon tile, never a fabricated status |
 
-Reports (`/delivery/reports`): all 7 named report types (Dealer/
-Technician/Model/Checklist Version/Delivery Duration/Training
-Completion/Warranty Activation) are filters/columns of **one**
-consolidated `DeliveryReportRow` dataset - Reuse-before-Build, not 7
-separate report pipelines. CSV export reuses the existing shared
-`buildCsv()` (`lib/exportCsv.ts`).
+Dealer Ranking / Technician Ranking (sorted leaderboards, same shape as
+Quality Dashboard's own) remain on this screen as additional context -
+they are not part of the official ten KPIs above.
+
+### Reports (`/delivery/reports`)
+
+All 7 named report types (Dealer/Technician/Model/Checklist Version/
+Delivery Duration/Training Completion/Warranty Activation) are filters/
+columns of **one** consolidated `DeliveryReportRow` dataset -
+Reuse-before-Build, not 7 separate report pipelines. CSV export reuses
+the existing shared `buildCsv()` (`lib/exportCsv.ts`).
 
 ## 9. Migration Plan
 
@@ -175,6 +198,10 @@ through the existing services only, never bypasses them).
 Delivery Acceptance -> Warranty Activation -> Completed) is real, tested,
 and integrated into Machine Passport, Timeline, and Knowledge. Explicitly
 deferred: Import PDI UI, full Warranty claims/policy ledger, Technician
-Certification management, checklist template builder, AI Delivery
-Review/Risk/Readiness/Recommendation implementation, AppSheet data
-migration execution (no export available).
+Certification management, checklist template builder, Training Photos/
+Videos capture UI (schema and Attachment Platform retention policy
+ready, no upload screen built - see §4's correction), AI Delivery
+Review/Risk/Readiness/Recommendation implementation, Open Delivery
+Findings and Dealer Delivery SLA KPIs (§8, Reserved for Future
+Capability - no data model exists for either), AppSheet data migration
+execution (no export available).

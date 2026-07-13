@@ -2,9 +2,12 @@
  * DeliveryRepository — owns `delivery_records` and `delivery_trainings`
  * (ADR-027). One repository for one aggregate (a delivery and its
  * training), matching `KnowledgeRepository`'s case+evidence shape — only
- * `DeliveryService` calls this class. Never queries `vehicles`/
- * `inspections`/`ntr_records` for anything but a read-only embedded
- * select (report/dashboard display) — it never writes to them.
+ * `DeliveryService` calls this class. Reads (never writes) `vehicles`
+ * for one display-only field (`model`) via a read-only embedded select;
+ * never queries or embeds `inspections`/`ntr_records` directly — those
+ * are Inspection's (ADR-017) and NTR's own tables, read only through
+ * their own services (`InspectionService`/`NtrService`), never through
+ * this repository.
  */
 import { getSupabase } from '@/lib/supabase';
 import type {
@@ -234,17 +237,19 @@ export class DeliveryRepository {
     return mapTrainingRow(data);
   }
 
-  /** Dashboard/Report data source - one read-only embedded select across
-   *  the FKs this aggregate already has (`vehicles`, `inspections`), never
-   *  a write path into either. Mirrors `dashboardStats()`'s own "JS-side
-   *  aggregation over a scoped Supabase select," not a second SQL
-   *  reporting engine. */
-  async listActiveWithRelated(filters: DeliveryListFilters = {}): Promise<
-    (DeliveryRecord & { model: string | null; technicianName: string | null; checklistVersion: string | null; pdiResult: string | null })[]
-  > {
+  /** Dashboard/Report data source - a read-only embedded select against
+   *  `vehicles` only (Machine's own identity field, `model`, read for
+   *  display - the same lightweight denormalized-read convention
+   *  Knowledge's own evidence rows use for `machineSerial`). Deliberately
+   *  does NOT embed `inspections` - Delivery orchestrates PDI, it does
+   *  not reach into PDI's own table for its fields (ADR-017/ADR-027's
+   *  ownership boundary). `DeliveryService` composes Inspection data
+   *  itself, via `InspectionService.listInspectionsByIds()`, using the
+   *  `pdiInspectionId` this method already returns. */
+  async listActiveWithRelated(filters: DeliveryListFilters = {}): Promise<(DeliveryRecord & { model: string | null })[]> {
     let query = this.client
       .from(RECORDS_TABLE)
-      .select('*, vehicles(model), inspections!delivery_records_pdi_inspection_id_fkey(technician_name, checklist_version, result)')
+      .select('*, vehicles(model)')
       .eq('record_status', 'Active')
       .order('created_at', { ascending: false });
     if (filters.dealerId) query = query.eq('dealer_id', filters.dealerId);
@@ -253,10 +258,29 @@ export class DeliveryRepository {
     return (data ?? []).map((row: any) => ({
       ...mapRecordRow(row),
       model: row.vehicles?.model ?? null,
-      technicianName: row.inspections?.technician_name ?? null,
-      checklistVersion: row.inspections?.checklist_version ?? null,
-      pdiResult: row.inspections?.result ?? null,
     }));
+  }
+
+  /** Dashboard's "Pending Tractor In" KPI - vehicles already synced via
+   *  Tractor In (ADR-012) that have no Delivery record at all yet, i.e.
+   *  the Delivery lifecycle hasn't started tracking them. A genuine
+   *  anti-join, computed JS-side over two small scoped reads (same
+   *  "JS-side aggregation," not a second reporting engine, `dashboardStats()`
+   *  already uses in `lib/db.ts`) rather than a database-specific `NOT
+   *  EXISTS` query. */
+  async countVehiclesWithoutDeliveryRecord(dealerId?: string): Promise<number> {
+    let vehicleQuery = this.client.from('vehicles').select('id');
+    if (dealerId) vehicleQuery = vehicleQuery.eq('dealer_id', dealerId);
+    const { data: vehicles, error: vehicleError } = await vehicleQuery;
+    if (vehicleError) throw vehicleError;
+
+    let recordQuery = this.client.from(RECORDS_TABLE).select('vehicle_id').eq('record_status', 'Active');
+    if (dealerId) recordQuery = recordQuery.eq('dealer_id', dealerId);
+    const { data: records, error: recordError } = await recordQuery;
+    if (recordError) throw recordError;
+
+    const trackedVehicleIds = new Set((records ?? []).map((r: any) => r.vehicle_id as string));
+    return (vehicles ?? []).filter((v: any) => !trackedVehicleIds.has(v.id as string)).length;
   }
 }
 

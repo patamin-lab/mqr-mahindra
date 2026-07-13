@@ -12,6 +12,7 @@ vi.mock('@/lib/db', () => ({
 
 import { DeliveryService } from './service';
 import type { DeliveryRepository } from './repository';
+import type { InspectionService } from '@/features/inspection';
 
 function session(overrides: Partial<SessionUser> = {}): SessionUser {
   return {
@@ -67,6 +68,7 @@ function makeRepo(overrides: Partial<DeliveryRepository> = {}): DeliveryReposito
     createTraining: vi.fn(),
     getTrainingById: vi.fn(),
     listActiveWithRelated: vi.fn(() => Promise.resolve([])),
+    countVehiclesWithoutDeliveryRecord: vi.fn(() => Promise.resolve(0)),
     ...overrides,
   } as unknown as DeliveryRepository;
 }
@@ -138,25 +140,64 @@ describe('DeliveryService.recordTraining', () => {
   });
 });
 
+function makeInspection(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'insp-x',
+    technicianName: 'tech1',
+    checklistVersion: 'PDI-CL-v1',
+    result: null,
+    ...overrides,
+  };
+}
+
+function makeInspectionService(inspections: ReturnType<typeof makeInspection>[]) {
+  return { listInspectionsByIds: vi.fn(() => Promise.resolve(inspections)) } as unknown as InspectionService;
+}
+
 describe('DeliveryService.getDashboardStats', () => {
-  it('computes Pending PDI / Pending Training / Warranty Pending counts and a Pass rate from PDI results', async () => {
+  it('computes the official KPI set - Pending Tractor In/Stock Yard/PDI/Training, Warranty Waiting, PDI First Pass Rate, and Average Delivery Lead Time', async () => {
     const rows = [
-      { ...baseRecord({ id: '1', stage: 'StockYard' }), model: 'ModelA', technicianName: 'tech1', checklistVersion: 'PDI-CL-v1', pdiResult: null },
-      { ...baseRecord({ id: '2', stage: 'PDI' }), model: 'ModelA', technicianName: 'tech1', checklistVersion: 'PDI-CL-v1', pdiResult: null },
-      { ...baseRecord({ id: '3', stage: 'OperatorTraining' }), model: 'ModelB', technicianName: 'tech2', checklistVersion: 'PDI-CL-v1', pdiResult: 'Pass' },
-      { ...baseRecord({ id: '4', stage: 'WarrantyActivation' }), model: 'ModelB', technicianName: 'tech2', checklistVersion: 'PDI-CL-v1', pdiResult: 'Fail' },
-      { ...baseRecord({ id: '5', stage: 'Completed' }), model: 'ModelB', technicianName: 'tech2', checklistVersion: 'PDI-CL-v1', pdiResult: 'Pass' },
+      { ...baseRecord({ id: '0', stage: 'TractorIn' }), model: 'ModelA' },
+      { ...baseRecord({ id: '1', stage: 'StockYard' }), model: 'ModelA' },
+      { ...baseRecord({ id: '2', stage: 'PDI', pdiInspectionId: 'insp-1' }), model: 'ModelA' },
+      { ...baseRecord({ id: '3', stage: 'OperatorTraining', pdiInspectionId: 'insp-2' }), model: 'ModelB' },
+      { ...baseRecord({ id: '4', stage: 'WarrantyActivation', pdiInspectionId: 'insp-3' }), model: 'ModelB' },
+      {
+        ...baseRecord({ id: '5', stage: 'Completed', pdiInspectionId: 'insp-4', createdAt: '2026-01-01T00:00:00Z', warrantyActivatedAt: '2026-01-06T00:00:00Z' }),
+        model: 'ModelB',
+      },
     ];
-    const repo = makeRepo({ listActiveWithRelated: vi.fn(() => Promise.resolve(rows)) });
-    const service = new DeliveryService(repo);
+    const repo = makeRepo({
+      listActiveWithRelated: vi.fn(() => Promise.resolve(rows)),
+      countVehiclesWithoutDeliveryRecord: vi.fn(() => Promise.resolve(3)),
+    });
+    const inspectionService = makeInspectionService([
+      makeInspection({ id: 'insp-2', technicianName: 'tech2', result: 'Pass' }),
+      makeInspection({ id: 'insp-3', technicianName: 'tech2', result: 'Fail' }),
+      makeInspection({ id: 'insp-4', technicianName: 'tech2', result: 'Pass' }),
+    ]);
+    const service = new DeliveryService(repo, inspectionService);
 
     const stats = await service.getDashboardStats();
 
-    expect(stats.pendingPdi).toBe(2);
+    expect(stats.pendingTractorIn).toBe(3);
+    expect(stats.pendingStockYard).toBe(1);
+    expect(stats.pendingPdi).toBe(1);
     expect(stats.pendingTraining).toBe(1);
-    expect(stats.warrantyPending).toBe(1);
-    expect(stats.pendingDelivery).toBe(4);
-    expect(stats.deliveryQualityPassRate).toBeCloseTo((2 / 3) * 100, 1);
+    expect(stats.warrantyWaiting).toBe(1);
+    expect(stats.pendingDelivery).toBe(5);
+    expect(stats.pdiFirstPassRate).toBeCloseTo((2 / 3) * 100, 1);
+    expect(stats.averageDeliveryLeadTimeDays).toBe(5);
     expect(stats.technicianRanking[0]).toEqual({ key: 'tech2', label: 'tech2', count: 3 });
+  });
+
+  it('reports null (never a fabricated 0) for PDI First Pass Rate and Average Delivery Lead Time when no data exists yet', async () => {
+    const repo = makeRepo({ listActiveWithRelated: vi.fn(() => Promise.resolve([])) });
+    const service = new DeliveryService(repo, makeInspectionService([]));
+
+    const stats = await service.getDashboardStats();
+
+    expect(stats.pdiFirstPassRate).toBeNull();
+    expect(stats.averageDeliveryLeadTimeDays).toBeNull();
   });
 });

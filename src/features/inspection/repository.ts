@@ -129,6 +129,20 @@ export class InspectionRepository {
     return (data ?? []).map(mapRow);
   }
 
+  /** Batch read by id - the Delivery Dashboard/Report's own read path for
+   *  the small set of Inspections its rows link to. Exists so
+   *  `DeliveryService` composes Inspection data by calling
+   *  `InspectionService`/this repository directly, instead of
+   *  `DeliveryRepository` embedding `inspections` columns into its own
+   *  query - Delivery orchestrates PDI, it does not reach into PDI's own
+   *  table (ADR-017/ADR-027's ownership boundary). */
+  async listByIds(ids: string[]): Promise<Inspection[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.client.from(TABLE).select('*').in('id', ids).eq('record_status', 'Active');
+    if (error) throw error;
+    return (data ?? []).map(mapRow);
+  }
+
   async create(input: CreateInspectionInput): Promise<Inspection> {
     const inspectionRef = await this.nextInspectionRef(input.dealerId);
     const { data, error } = await this.client

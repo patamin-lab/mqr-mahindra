@@ -72,6 +72,14 @@ export class InspectionService {
     return this.repo.listForSerial(serial);
   }
 
+  /** Batch read by id - `DeliveryService`'s own path to compose Inspection
+   *  data (technician, checklist version, result) for its Dashboard/
+   *  Report, instead of a foreign-table embed inside
+   *  `DeliveryRepository`'s own query. */
+  async listInspectionsByIds(ids: string[]): Promise<Inspection[]> {
+    return this.repo.listByIds(ids);
+  }
+
   /** Creates a PDI starting from the one seeded default checklist template
    *  (ch.04's checklist-configurability question is deferred - see
    *  docs/architecture/INSPECTION_PDI.md). `status: 'Scheduled'` is the DB

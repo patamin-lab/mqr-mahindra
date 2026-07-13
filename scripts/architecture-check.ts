@@ -282,6 +282,143 @@ function checkRule5(files: string[]): RuleResult {
 }
 
 // ---------------------------------------------------------------------
+// Rule 6: no eager runtime work in Repository/Service construction
+// (docs/standards/SERVICE_CONSTRUCTION_STANDARD.md).
+//
+// Root-cause rule, not a call-site rule: constructing a Service/
+// Repository at module scope is NOT itself flagged (it's the pervasive,
+// otherwise-safe pattern nearly every page/route handler in this app
+// already uses). What's actually unsafe is a class field initializer
+// (or constructor-body statement) that performs runtime work the moment
+// the class is constructed - a direct function call (`getSupabase()`,
+// `createClient()`, `fetch(...)`) or a direct `process.env` read, at the
+// class's own body level, outside a lazy `get x()` accessor. Detected
+// generically by naming shape (a lowercase-initial identifier called
+// directly, vs. `new PascalCase(...)` which just constructs another
+// class - recursively safe as long as THAT class's own definition is
+// clean, checked the same way when its own file is scanned) - no
+// Supabase-specific or other technology-specific string is hardcoded.
+//
+// A real bug of exactly this shape (`SupabaseNtrRepository`'s eager
+// `= getSupabase()` field) broke a production build the moment a page
+// happened to construct it at module scope - see PR #45's fix commit.
+// This rule exists so the same class of issue fails CI immediately,
+// anywhere, instead of surfacing only when some future page's module-
+// scope construction order happens to trigger it again.
+// ---------------------------------------------------------------------
+
+/** Pre-existing eager field initializers, grandfathered - each entry is
+ *  `relative/path.ts: exact known violation count`. This is TEMPORARY
+ *  technical debt, not a permanent exception (mirrors Rule 3's own
+ *  allowlist precedent above, for the same reason: already-shipped code,
+ *  no new defect introduced by flagging it today). The rule below
+ *  enforces "new violations fail immediately; existing grandfathered
+ *  violations cannot increase" - a file's count exceeding what's listed
+ *  here is itself a FAIL, not silently absorbed. Per
+ *  SERVICE_CONSTRUCTION_STANDARD.md's Migration Guidance: any file in
+ *  this list must be migrated to lazy initialization before its next
+ *  functional (non-doc) change is merged - do not add new files here. */
+const EAGER_CONSTRUCTION_ALLOWLIST: Record<string, number> = {
+  'src/features/maintenance/repositories/supabaseMaintenanceRepository.ts': 1,
+  'src/features/ntr/repositories/supabaseNtrImportSessionRepository.ts': 1,
+  'src/features/ntr/repositories/supabaseNtrRepository.ts': 1,
+  'src/features/vehicle-event/supabaseRepository.ts': 1,
+};
+
+interface ClassSpan {
+  name: string;
+  /** Index of the class's own opening `{`. */
+  start: number;
+  /** Index of the matching closing `}`. */
+  end: number;
+}
+
+/** Finds every `class ...Repository`/`class ...Service` body span (by
+ *  brace-depth matching) - generic on name shape, not a hardcoded list
+ *  of classes. */
+function findServiceOrRepositoryClassSpans(source: string): ClassSpan[] {
+  const spans: ClassSpan[] = [];
+  const classRe = /class\s+(\w*(?:Repository|Service))\b[^{]*\{/g;
+  let m: RegExpExecArray | null;
+  while ((m = classRe.exec(source))) {
+    const openIdx = m.index + m[0].length - 1;
+    let depth = 1;
+    let i = openIdx + 1;
+    for (; i < source.length && depth > 0; i++) {
+      if (source[i] === '{') depth++;
+      else if (source[i] === '}') depth--;
+    }
+    spans.push({ name: m[1], start: openIdx, end: i - 1 });
+  }
+  return spans;
+}
+
+/** Within one class body span, finds field-initializer statements that
+ *  sit directly at the class's own nesting level (depth 0 relative to
+ *  the class body) - i.e. NOT inside a method/getter body, which opens
+ *  its own `{...}` and pushes any code inside it to depth 1+. A lazy
+ *  `get x() { return getSupabase(); }` is therefore naturally exempt:
+ *  its `return getSupabase();` statement has no `name = value;` shape
+ *  and, even if it did, sits at depth 1, not 0. */
+function findEagerFieldInitializers(source: string, span: ClassSpan): { line: number; text: string }[] {
+  const body = source.slice(span.start + 1, span.end);
+  const prefixLine = source.slice(0, span.start + 1).split('\n').length;
+  const results: { line: number; text: string }[] = [];
+  const fieldRe = /(?:^|[;\n])[ \t]*(?:private|protected|public|readonly|static|\s)*(\w+)\s*(?::\s*[^=;{]+)?\s*=\s*([^;{]+);/g;
+  let m: RegExpExecArray | null;
+  while ((m = fieldRe.exec(body))) {
+    const matchStartInBody = m.index + Math.max(m[0].indexOf(m[1]), 0);
+    const before = body.slice(0, matchStartInBody);
+    const depth = (before.match(/\{/g)?.length ?? 0) - (before.match(/\}/g)?.length ?? 0);
+    if (depth !== 0) continue;
+    const rhs = m[2].trim();
+    const isEagerCall = /^[a-z_]\w*\s*\(/.test(rhs);
+    const isEnvAccess = /process\.env\./.test(rhs);
+    if (isEagerCall || isEnvAccess) {
+      const line = prefixLine + before.split('\n').length - 1;
+      results.push({ line, text: `${m[1]} = ${rhs}` });
+    }
+  }
+  return results;
+}
+
+function checkRule6(files: string[]): RuleResult {
+  const details: string[] = [];
+  const seenCounts: Record<string, number> = {};
+
+  for (const file of files) {
+    if (isTestFile(file)) continue;
+    const source = stripComments(fs.readFileSync(file, 'utf8'));
+    if (!/class\s+\w*(?:Repository|Service)\b/.test(source)) continue;
+
+    const rel = relPath(file);
+    for (const span of findServiceOrRepositoryClassSpans(source)) {
+      for (const hit of findEagerFieldInitializers(source, span)) {
+        seenCounts[rel] = (seenCounts[rel] ?? 0) + 1;
+        const allowed = EAGER_CONSTRUCTION_ALLOWLIST[rel] ?? 0;
+        if (seenCounts[rel] > allowed) {
+          details.push(
+            `${rel}:${hit.line}: class ${span.name} - "${hit.text}" runs eagerly at construction time, not lazily - move it behind a \`get\` accessor (see docs/standards/SERVICE_CONSTRUCTION_STANDARD.md)${
+              allowed > 0 ? ' [exceeds the grandfathered count for this file - a new violation, not the known legacy one]' : ''
+            }`
+          );
+        }
+      }
+    }
+  }
+
+  return { rule: 'Rule 6 - No eager runtime work in Repository/Service construction', severity: details.length ? 'FAIL' : 'PASS', details };
+}
+
+/** Strips comments so brace-depth tracking above isn't confused by
+ *  braces mentioned in comments - a light, deliberately simple pass (no
+ *  string-literal awareness), matching this script's existing "static
+ *  regex scan, not a full parser" scope. */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+}
+
+// ---------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------
 
@@ -293,7 +430,7 @@ function printResult(result: RuleResult): void {
 
 function main(): void {
   const files = walk(SRC);
-  const results = [checkRule1(files), checkRule2(files), checkRule3(files), checkRule4(files), checkRule5(files)];
+  const results = [checkRule1(files), checkRule2(files), checkRule3(files), checkRule4(files), checkRule5(files), checkRule6(files)];
 
   console.log('Architecture Enforcement Report');
   console.log('================================');
@@ -316,7 +453,7 @@ function main(): void {
   const failCount = results.filter((r) => r.severity === 'FAIL').length;
   console.log('\n================================');
   console.log(
-    `Summary: ${results.filter((r) => r.severity === 'PASS').length} PASS, ${ciWiredIn ? 0 : 1} WARNING, ${failCount} FAIL (rules 1-5) + CI integration check`
+    `Summary: ${results.filter((r) => r.severity === 'PASS').length} PASS, ${ciWiredIn ? 0 : 1} WARNING, ${failCount} FAIL (rules 1-6) + CI integration check`
   );
 
   if (failCount > 0) {

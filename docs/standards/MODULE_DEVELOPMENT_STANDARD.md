@@ -22,6 +22,9 @@ similar in spirit:
 ```
 src/features/<module>/
   repositories/   — the only code that talks to Supabase for this module
+                    (constructor must be side-effect free - lazy client
+                    init only, see docs/standards/
+                    SERVICE_CONSTRUCTION_STANDARD.md)
   services/       — business logic, orchestrates repository + audit + PDF/CSV
   utils/          — validation helpers, pure calculators (e.g. lock/due engines)
   components/     — module-specific UI; promote to src/components/shared/ once

@@ -109,12 +109,45 @@ export interface MachineDeliverySummary {
   href: string;
 }
 
+/** Official KPI set (Machine Delivery Dashboard Screen Contract, see
+ *  docs/architecture/DELIVERY_PLATFORM.md §8). Every field here is a
+ *  real, live-computed number - never a placeholder. Two of the ten
+ *  officially named KPIs (Open Delivery Findings, Dealer Delivery SLA)
+ *  have no field here at all, rather than a fake/zeroed one, because
+ *  neither has a defined data model yet (Findings have no "resolved"
+ *  state; no SLA threshold is configured anywhere) - see the Screen
+ *  Contract's "Reserved for Future Capability" section for what each
+ *  would require. Dealer/Technician Ranking are additional, non-
+ *  contractual context carried over from the original Dashboard build -
+ *  not part of the official ten. */
 export interface DeliveryDashboardStats {
-  pendingDelivery: number;
+  /** Vehicles synced via Tractor In (ADR-012) with no Delivery record
+   *  yet - the Delivery lifecycle hasn't started tracking them. */
+  pendingTractorIn: number;
+  /** Delivery records still at the `TractorIn` stage - not yet received
+   *  at Stock Yard. */
+  pendingStockYard: number;
+  /** Delivery records at the `StockYard` stage - received, PDI not yet
+   *  linked/started. */
   pendingPdi: number;
+  /** Every delivery record not yet `Completed` - the overall pipeline
+   *  count. */
+  pendingDelivery: number;
+  /** Delivery records at the `OperatorTraining` stage. */
   pendingTraining: number;
-  warrantyPending: number;
-  deliveryQualityPassRate: number | null;
+  /** Delivery records at the `WarrantyActivation` stage - Delivery
+   *  Acceptance recorded, warranty not yet activated. */
+  warrantyWaiting: number;
+  /** Pass rate among completed PDI Inspections with a result. This
+   *  platform's Inspection model has no re-inspection/retry state
+   *  (Explicitly Deferred) - every completed inspection's result is its
+   *  first and only one, so this is definitionally the first-pass rate,
+   *  not a distinct metric from an overall pass rate. */
+  pdiFirstPassRate: number | null;
+  /** Average days from delivery-record creation (Tractor In) to Warranty
+   *  Activation, across records that have activated. `null` when no
+   *  record has activated yet - never a fabricated 0. */
+  averageDeliveryLeadTimeDays: number | null;
   dealerRanking: { key: string; label: string; count: number }[];
   technicianRanking: { key: string; label: string; count: number }[];
 }
