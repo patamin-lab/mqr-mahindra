@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed (not yet merged).
+Accepted (PR #42, merged). See `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`
+for what this ADR's architecture froze on merge.
 
 `ADR-018` is the number `docs/architecture/blueprint/16-ADR-RECOMMENDATIONS.md`
 reserved for "Knowledge Model" - used here, not the next sequential
