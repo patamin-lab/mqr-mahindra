@@ -221,3 +221,48 @@ objects/types.
   post-merge (`https://masp-mseal.vercel.app`, 307→`/login` on every
   protected route checked — Dashboard, Quality Dashboard, Machines,
   Records — 200 on `/login` itself).
+
+## Post-Freeze Addendum (2026-07-13) — Navigation Visibility Refinement (Capability Status Model)
+
+PR #43, merged `2026-07-13T04:46:41Z` (squash commit `3d85bfb`). A
+navigation-authorization-only change, reviewed and explicitly approved
+by the user as a deliberate, scoped reopening of the frozen Design
+Framework's Navigation Standard (new §2c) — not a violation of this
+document's freeze. No architecture changes, no redesign, no
+business-domain changes; the existing RBAC/Navigation Standard/Design
+Framework were reused as-is.
+
+- **Capability Status model**: every nav leaf now carries a
+  `CapabilityStatus` (`ACTIVE`/`COMING_SOON`/`PREVIEW`/`BETA`/
+  `DEVELOPMENT`, `src/app/(app)/navConfig.ts`). SuperAdmin sees every
+  status (the full platform roadmap); every other role sees only
+  `ACTIVE` capabilities — an unfinished capability is hidden completely,
+  never rendered as a disabled placeholder, for any non-SuperAdmin role.
+  A group or subgroup left with zero visible items is omitted entirely.
+- **Generic, not hardcoded**: one status-driven filter
+  (`isCapabilityVisible`/`filterGroupsByCapability`) applies uniformly to
+  every leaf in every group — no module name appears in the filtering
+  logic, so a future capability (Dealer Portal, IoT, Predictive
+  Maintenance, Notifications, ...) gets the same SuperAdmin-only
+  treatment automatically.
+- **Principles established**: Navigation Principle ("navigation
+  represents platform capabilities... never the roadmap") and Capability
+  Principle ("every capability has an Owner, Status, Permission, and
+  Lifecycle; visibility is derived from capability state, never from
+  hardcoded module names") — both now stated explicitly in
+  `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2c and the
+  `mseal-platform-design` skill's `NAVIGATION_GUIDELINES.md`.
+- **Not an authorization boundary**: `docs/standards/SECURITY_STANDARD.md`
+  now states explicitly that capability visibility is a UX rule, not
+  authorization — server-side RBAC (`lib/scope.ts` predicates, enforced
+  in every API route) remains the only security boundary; every affected
+  nav leaf already had `href: null` before this change (no real route
+  was newly protected or exposed by it).
+- **Verification**: typecheck clean, lint 0 errors (12 pre-existing
+  warnings), 689/689 tests passed (18 navConfig tests
+  added/rewritten for per-role capability visibility), build succeeded,
+  architecture check 5/5 PASS, CI `verify` checks green on all commits,
+  production deployment re-confirmed healthy post-merge
+  (`https://masp-mseal.vercel.app`, 200 on `/login`, 307→`/login` on
+  every protected route checked — Dashboard, Quality Dashboard,
+  Machines, Records — response fresh/uncached per `Age: 0`).
