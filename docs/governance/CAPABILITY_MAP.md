@@ -22,7 +22,7 @@ Machine
 ├── Warranty                 (Service - no table yet, DATA_OWNERSHIP_MATRIX.md)
 ├── PM                        (Service > Maintenance - 17 "Maintenance", built)
 ├── Quality                    (Quality - 17 "Quality Management (MQR + PIP)", built as MQR)
-├── Knowledge                   (Knowledge domain, 07 - not built; source_events reference Machine)
+├── Knowledge                   (Knowledge domain, 07/ADR-018 - built; Machine reads Published cases via KnowledgeService, never owns Knowledge)
 ├── AI                           (Engineering Intelligence, 08 - reads Knowledge about this Machine, never Machine tables directly)
 ├── PIP                           (Engineering Intelligence, produced from this Machine's Quality/Knowledge - not built)
 └── Recall                         (Service > Campaigns - not built, targets a population including this Machine)
@@ -71,7 +71,7 @@ Quality
 ├── Dashboard              (built - the original MQR analytics dashboard, moved to /quality/dashboard per ADR-023 proposed)
 ├── Cases                    (built - MQR/`records` table)
 ├── Analytics                  (not built beyond the Dashboard's own charts)
-├── Knowledge (reference only)   (Quality Cases feed Knowledge - Quality does not own Knowledge Cases)
+├── Knowledge (reference only)   (built, ADR-018 - Knowledge owns itself, an independent domain, not owned by Quality; nav-grouped here for UX/discoverability only; Quality Cases feed it as Evidence)
 └── PIP (reference only)           (produced from Quality's own Cases/Knowledge, owned by Engineering Intelligence)
 ```
 
@@ -79,7 +79,7 @@ Quality
 
 ```
 Engineering Intelligence
-├── Knowledge Engine        (07 Knowledge Domain - not built)
+├── Knowledge (reference only)   (ADR-018 - Knowledge owns itself, an independent domain (see the Quality tree above for its nav placement, not its ownership); Engineering Intelligence consumes it via KnowledgeService, never owns a second copy - "Knowledge Engine" as a separate EI capability is corrected here, matching TERMINOLOGY_STANDARD.md's existing Forbidden wording rule)
 ├── Troubleshooting           (proposed nav, ADR-023 addendum - Coming Soon, architecture-reserved only)
 ├── AI Analysis                 (08 - capabilities named, not implementation-level designed)
 ├── Prediction                    (08's "Predictive Quality Analytics" capability - feeds Analytics per 09's one exception)

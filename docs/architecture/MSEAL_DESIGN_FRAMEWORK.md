@@ -54,7 +54,7 @@ never a fake/broken link. Implementation: `src/app/(app)/navConfig.ts`'s
 | | Cases (รายงานปัญหาคุณภาพ) | `/records` | Real (existing) |
 | | Analytics (การวิเคราะห์) | - | Coming Soon |
 | | Troubleshooting (การแก้ไขปัญหา) | - | Coming Soon (moved here from Engineering Intelligence - see §2a) |
-| | Knowledge (องค์ความรู้) | - | Coming Soon |
+| | Knowledge (องค์ความรู้) | `/quality/knowledge` | **Real** (Engineering Knowledge Platform, ADR-018) |
 | 🧠 Engineering Intelligence | AI Engineering | - | Coming Soon |
 | | Product Improvement Plans (PIP) | - | Coming Soon |
 | | Predictive Quality | - | Coming Soon |
@@ -128,19 +128,25 @@ exclusively server-side, per `docs/standards/SECURITY_STANDARD.md`'s
 Application-layer authorization section, unaffected by what the nav
 shows.
 
-### 2a. Quality owns execution, Engineering Intelligence owns analysis (UI Terminology & Navigation Cleanup)
+### 2a. Quality owns execution, Knowledge owns itself, Engineering Intelligence owns analysis (UI Terminology & Navigation Cleanup; ownership corrected by ADR-018, Engineering Knowledge Platform)
 
 **Supersedes this section's original "pre-merge refinement" split.**
-Quality owns operational execution - Quality Cases (รายงานปัญหาคุณภาพ),
-Knowledge (องค์ความรู้), and **Troubleshooting**, the technician-facing
-activity of diagnosing an active quality problem. Engineering Intelligence
-consumes that validated Quality/Knowledge/Troubleshooting data to produce
-analysis and improvement plans - **AI Engineering**, **PIP**, and
-**Predictive Quality** - it does not own execution and does not get its
-own separate "Knowledge Engine" entry (Knowledge lives under Quality) or
-a second Troubleshooting entry. Troubleshooting has exactly one nav
-entry, under Quality - never a second copy under Engineering
-Intelligence.
+Quality owns operational execution - Quality Cases (รายงานปัญหาคุณภาพ)
+and **Troubleshooting**, the technician-facing activity of diagnosing an
+active quality problem. **Knowledge (องค์ความรู้) owns itself** - an
+independent domain (ADR-018) with its own `knowledge_cases`/
+`knowledge_evidence` tables and `KnowledgeService`, aggregating Evidence
+from every domain (Quality included) rather than being owned by any one
+of them; its nav entry sits under the Quality menu group for UX/
+discoverability only, not data ownership (this section previously said
+Quality owned Knowledge - corrected here since it contradicted ADR-018's
+own explicit Vision). Engineering Intelligence consumes Knowledge (never
+raw Quality data directly) to produce analysis and improvement plans -
+**AI Engineering**, **PIP**, and **Predictive Quality** - it does not own
+execution, does not own Knowledge, and does not get its own separate
+"Knowledge Engine" entry or a second Troubleshooting entry. Troubleshooting
+has exactly one nav entry, under Quality - never a second copy under
+Engineering Intelligence.
 
 Engineering Intelligence also no longer carries separate "AI Analysis"
 and "Insights" entries - both are consolidated into the one **AI

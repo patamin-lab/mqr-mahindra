@@ -36,7 +36,7 @@ two sources rather than re-deriving status from scratch.
 | Service > Campaigns (Recall/Service Campaign) | Not started | No table, no nav route beyond Coming Soon (ADR-023) |
 | Quality (MQR) | Production | Built (`records` table), oldest module in the platform |
 | Quality > PIP (as a Quality-adjacent reference) | Not started | No table; capability named only |
-| Knowledge | Design-only | 07/02 name the aggregate (`KnowledgeCase`); no `knowledge_cases` table |
+| Knowledge | Partial | ADR-018 - `knowledge_cases`/`knowledge_evidence` tables live, `KnowledgeService`, `/quality/knowledge` list/create/detail screens, Machine Passport integration. Not built: AI consumption (Engineering Intelligence remains Not started, below), Knowledge Score, similarity matching |
 | Engineering Intelligence | Design-only | 08 fully specifies AI Governance/Confidence Policy (frozen concept); `EngineeringIntelligenceService`/`ModelGateway` not built |
 | PIP (as an Engineering Intelligence deliverable) | Not started | No table; ownership assigned by ADR-023's addendum, nothing built |
 | Recall | Not started | Not named in 02/17 at all; first named in this governance framework |

@@ -12,7 +12,6 @@ import MachineIdentityPanel from '@/features/machine/components/MachineIdentityP
 import MachineLifecyclePanel from '@/features/machine/components/MachineLifecyclePanel';
 import MachineOwnershipPanel from '@/features/machine/components/MachineOwnershipPanel';
 import MachineHealthPanel from '@/features/machine/components/MachineHealthPanel';
-import MachineKnowledgePanel from '@/features/machine/components/MachineKnowledgePanel';
 import MachineTroubleshootingPanel from '@/features/machine/components/MachineTroubleshootingPanel';
 import MachineAiInsightsPanel from '@/features/machine/components/MachineAiInsightsPanel';
 import MachineCompletenessPanel from '@/features/machine/components/MachineCompletenessPanel';
@@ -23,6 +22,7 @@ import MachineQualitySection from '@/features/machine/components/sections/Machin
 import MachineActivitySection from '@/features/machine/components/sections/MachineActivitySection';
 import MachineDocumentsSection from '@/features/machine/components/sections/MachineDocumentsSection';
 import MachineRelatedRecordsSection from '@/features/machine/components/sections/MachineRelatedRecordsSection';
+import MachineKnowledgeSection from '@/features/machine/components/sections/MachineKnowledgeSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +50,12 @@ const machineService = new MachineService();
  * Related Records into Open/History. v1.3 (UI Terminology & Navigation
  * Cleanup) reserves a dedicated Troubleshooting section - Quality-owned,
  * moved out of the Knowledge Integration tile grid so it isn't duplicated
- * across both. Every new widget across all three refinements reuses an
+ * across both. v1.4 (Engineering Knowledge Platform, ADR-018) gives
+ * Knowledge its own `<Suspense>` section for the first time - it reads
+ * real Published Knowledge Cases via `MachineService.getMachineKnowledgeSummary()`
+ * -> `KnowledgeService`, never a direct query - Machine still owns no
+ * Knowledge data. AI Recommendation/Prediction/Knowledge Score stay
+ * Coming Soon. Every new widget across all four refinements reuses an
  * existing MSEAL primitive
  * (`HealthCard`/`EmptyState`/`StatusPill`/the existing list-row pattern),
  * no new table, no new authorization surface, and the Lifecycle milestone
@@ -142,7 +147,9 @@ export default async function MachinePassportPage({ params }: RouteParams) {
         <MachineActivitySection serial={machineId} session={session} />
       </Suspense>
 
-      <MachineKnowledgePanel />
+      <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
+        <MachineKnowledgeSection serial={machineId} />
+      </Suspense>
       <MachineTroubleshootingPanel />
       <MachineAiInsightsPanel />
       <MachineCompletenessPanel />

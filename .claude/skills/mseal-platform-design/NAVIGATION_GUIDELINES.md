@@ -92,24 +92,31 @@ PDI and Parts Request have no nav entry (real or Coming Soon) today - see
 `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2/§7. Don't silently add or
 silently continue omitting them - it's a named, open product decision.
 
-## Domain ownership (UI Terminology & Navigation Cleanup, supersedes the original ADR-023 addendum split)
+## Domain ownership (UI Terminology & Navigation Cleanup, supersedes the original ADR-023 addendum split; Knowledge ownership corrected by ADR-018, Engineering Knowledge Platform)
 
-- **Quality owns execution: Quality Cases (รายงานปัญหาคุณภาพ), Knowledge
-  (องค์ความรู้), and Troubleshooting.** Troubleshooting is the
-  technician-facing activity of diagnosing an active quality problem - it
-  has exactly one nav entry, under Quality, never a second copy under
-  Engineering Intelligence.
+- **Quality owns execution: Quality Cases (รายงานปัญหาคุณภาพ) and
+  Troubleshooting.** Troubleshooting is the technician-facing activity of
+  diagnosing an active quality problem - it has exactly one nav entry,
+  under Quality, never a second copy under Engineering Intelligence.
+- **Knowledge (องค์ความรู้) owns itself** - an independent domain
+  (ADR-018), not owned by Quality, PM, Warranty, or Machine, with its own
+  `knowledge_cases`/`knowledge_evidence` tables and `KnowledgeService`.
+  Its nav entry sits under the Quality menu group for UX/discoverability
+  only (this section previously said Quality owned Knowledge - corrected
+  since that contradicted ADR-018's own Vision).
 - **Engineering Intelligence owns analysis, not execution**: exactly
   three items - AI Engineering, PIP, Predictive Quality. It consumes
-  Quality's Cases/Knowledge/Troubleshooting data to produce analysis; it
-  does not get its own separate "Knowledge Engine" entry (Knowledge lives
-  under Quality) and "AI Analysis"/"Insights" are consolidated into the
-  one AI Engineering entry rather than kept as three overlapping
-  placeholders. PIP is produced from Quality Cases/Knowledge but is
-  itself an Engineering deliverable - it has exactly one Quality-adjacent
-  nav entry, under Engineering Intelligence, never a second copy under
-  Quality. (Service > Campaigns' separate, unchanged PIP entry represents
-  a different relationship - Service tracking a PIP as a campaign, not a
+  Knowledge (never raw Quality data directly) and Quality's own Cases/
+  Troubleshooting to produce analysis; it does not get its own separate
+  "Knowledge Engine" entry (Knowledge's one nav entry lives under Quality,
+  for discoverability, not ownership) and "AI Analysis"/"Insights" are
+  consolidated into the one AI Engineering entry rather than kept as
+  three overlapping placeholders. PIP is produced from Quality Cases/
+  Knowledge but is itself an Engineering deliverable - it has exactly one
+  Quality-adjacent nav entry, under Engineering Intelligence, never a
+  second copy under Quality. (Service > Campaigns' separate, unchanged
+  PIP entry represents a different relationship - Service tracking a PIP
+  as a campaign, not a
   duplicate page - see `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`
   §2a.)
 - **Recall was removed entirely** - no Recall module/data exists and it

@@ -98,7 +98,9 @@ below for the current-vs-future distinction for that specific term.
 | Quality Cases (nav item, `/records`) | รายงานปัญหาคุณภาพ | Both `en` and `th` - fixed term, not translated per-locale (matches this doc's own pre-existing Business Terminology table, which already defined รายงานปัญหาคุณภาพ as the canonical term for Market Quality Report/quality cases) |
 | Quality Dashboard (nav item, `/quality/dashboard`) | แดชบอร์ดคุณภาพ | `th`; `en` keeps "Quality Dashboard" |
 | Quality Analytics (nav item, Coming Soon) | การวิเคราะห์ | `th`; `en` keeps "Analytics" |
-| Quality Knowledge (nav item, Coming Soon) | องค์ความรู้ | `th`; `en` keeps "Knowledge" |
+| Quality Knowledge (nav item, `/quality/knowledge` as of the Engineering Knowledge Platform, ADR-018 - was Coming Soon) | องค์ความรู้ | Both `en` and `th` - fixed term (correction: this row previously said "`en` keeps 'Knowledge'," but the actual locale files have always had the identical Thai string in both locales, matching the fixed-term pattern used for Troubleshooting/PIP/AI Engineering/Predictive Quality below - the doc was stale, not the code; corrected here per this doc's own "if the drift reveals this document itself is wrong, say so and update it" rule) |
+| Knowledge Maturity badge values (`/quality/knowledge` list/detail) | Draft ฉบับร่าง / In Review กำลังตรวจสอบ / Published เผยแพร่แล้ว / Deprecated เลิกใช้งาน / Archived เก็บถาวร | `th` translates each; `en` keeps the English stage name. "Candidate" and "Case" are informal UI names for a maturity bucket (Draft/Review = Candidate, Published/Deprecated/Archived = Case), not separate stored values or separate terms requiring their own row |
+| Knowledge Confidence badge values (`/quality/knowledge` list/detail, Machine Passport Known Issues) | Very Low ต่ำมาก / Low ต่ำ / Medium ปานกลาง / High สูง / Verified ยืนยันแล้ว | `th` translates each; `en` keeps the English level name. Manual only - never assigned by AI |
 | **Troubleshooting** (nav item under Quality, Coming Soon; Machine Passport reserved section; also the official term for this capability in breadcrumbs, search, Related Records, and empty-state copy - see Consistency requirement below) | **Troubleshooting (การแก้ไขปัญหา)** | Both `en` and `th` - fixed compound term (see below) |
 | AI Engineering (nav item under Engineering Intelligence, Coming Soon) | AI Engineering | Both `en` and `th` - intentional English exception |
 | PIP / Product Improvement Plan (nav item under Engineering Intelligence and under Service > Campaigns, Coming Soon) | แผนปรับปรุงผลิตภัณฑ์ (PIP) | Both `en` and `th` - fixed term |
@@ -190,8 +192,10 @@ replace it with the official term above in the same change:
   real Recall capability is ever built, it requires its own product
   decision and ADR, not a silent re-add of the old placeholder.
 - **"Knowledge Engine"** as a separate Engineering Intelligence nav entry
-  - Knowledge is Quality-owned (see Domain ownership below); do not
-    reintroduce a duplicate Engineering Intelligence "Knowledge" entry.
+  - Knowledge is its own independent domain, nav-grouped under Quality's
+    menu for UX/discoverability, not owned by Quality or by Engineering
+    Intelligence (see Domain ownership below, corrected by ADR-018); do
+    not reintroduce a duplicate Engineering Intelligence "Knowledge" entry.
 - **"Insights"** / **"AI Analysis"** as separate Engineering Intelligence
   nav entries - consolidated into the single "AI Engineering" entry.
   Do not re-split them without a product decision.
@@ -204,11 +208,25 @@ replace it with the official term above in the same change:
 
 ## Domain ownership (binding, see `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2a)
 
-- **Quality owns execution**: Quality Cases, Knowledge, and
-  Troubleshooting (technicians diagnosing an active quality problem).
+- **Quality owns execution**: Quality Cases and Troubleshooting
+  (technicians diagnosing an active quality problem).
+- **Knowledge owns itself** (corrected by ADR-018, Engineering Knowledge
+  Platform - this line previously said "Quality owns... Knowledge,"
+  which contradicted that epic's own explicit Vision, "Knowledge is NOT
+  owned by Quality/PM/Warranty/Machine," and its own independent
+  `knowledge_cases`/`knowledge_evidence` tables and `KnowledgeService` -
+  the doc was stale, not the architecture; corrected here per this doc's
+  own "if the drift reveals this document itself is wrong, say so and
+  update it" rule). Knowledge aggregates Evidence from every domain,
+  including Quality, PM, Warranty, Machine, Dealer, Customer, and
+  Engineer - it is not subordinate to any one of them. Its nav entry
+  sits under the Quality menu group purely for UX/discoverability
+  (technicians move Quality Cases -> Troubleshooting -> Knowledge in one
+  place), which is a navigation-placement decision, not a data-ownership
+  one - see `docs/architecture/KNOWLEDGE_PLATFORM.md` §1/§7.
 - **Engineering Intelligence owns analysis**: AI Engineering, PIP,
-  Predictive Quality - consumes Quality's validated data, does not own a
-  second copy of Quality Cases/Knowledge/Troubleshooting.
+  Predictive Quality - consumes Knowledge (never raw Quality/PM/Warranty
+  data directly, and never owns a second copy of Knowledge itself).
 - Each of these concepts has **exactly one** nav entry platform-wide.
   Never duplicate a concept's placeholder across two groups to "cover
   both angles" - if a concept genuinely belongs in two places for two

@@ -44,6 +44,15 @@ because it shipped and moved to maintenance.
   Score, Next Recommended Action, and Reserved AI panels.
   `docs/adr/ADR-026-Machine-Digital-Passport.md`,
   `docs/architecture/MACHINE_PASSPORT_ARCHITECTURE.md`.
+- ✓ **Knowledge Platform v1.0** (PR #42) — Knowledge established as an
+  independent business domain: `knowledge_cases`/`knowledge_evidence`,
+  `/quality/knowledge` list/create/detail, Evidence-based Machine
+  Passport integration (Published cases only, read-only), and reserved
+  (Coming Soon) Future AI panels each captioned with the citation
+  requirement. The final Foundation capability before AI - no AI
+  implemented in this PR. `docs/adr/ADR-018-Knowledge-Model.md`,
+  `docs/architecture/KNOWLEDGE_PLATFORM.md`,
+  `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`.
 
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),
@@ -164,13 +173,26 @@ per-phase table above as the actual build sequence once Phase 1-2 sync
 work clears):
 
 1. ✓ Machine Digital Passport — **done, PR #39, Foundation v1.0**
-2. **Knowledge Engine v1.0 — recommended next epic**
-3. Engineering Intelligence
-4. PIP
-5. Predictive Quality
-6. Dealer Portal
-7. Customer Portal
-8. IoT
+2. ✓ Knowledge Platform v1.0 — **done, PR #42, ADR-018,
+   `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`** — the final
+   Foundation capability before AI; Knowledge is now the permanent
+   engineering knowledge foundation every future AI capability consumes.
+3. **AI Troubleshooting — recommended next epic**
+4. Engineering Intelligence
+5. PIP
+6. Predictive Quality
+7. Dealer Portal
+8. Customer Portal
+9. IoT
+
+Every epic from AI Troubleshooting onward is bound by the Knowledge
+Foundation Freeze's AI Contract (`docs/releases/
+KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`): consumes Knowledge through
+`KnowledgeService` only, never raw MQR/PM/Warranty data directly, never
+writes to Knowledge, always cites Evidence. An epic in this list that
+would need to violate that contract is not a routine implementation
+detail - it is a Foundation-reopening question, the same weight any
+other frozen-layer conflict carries.
 
 This is the sequence to build against going forward. It reorders the
 Blueprint's own 13-section dependency-ordered list (which sequences

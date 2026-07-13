@@ -188,15 +188,29 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
     {
       // Domain ownership (UI Terminology & Navigation Cleanup, supersedes
       // the ADR-023 addendum's original split): Quality owns Troubleshooting
-      // as an operational execution activity - technicians diagnosing an
-      // active quality problem - alongside Quality Cases and Knowledge.
-      // Engineering Intelligence consumes validated Quality/Knowledge/
-      // Troubleshooting data to produce analysis and improvement plans; it
-      // does not own execution. PIP remains an Engineering Intelligence
-      // deliverable (produced from Quality Cases/Knowledge, not owned or
-      // duplicated here) - see the `engineering-intelligence` group below.
-      // Troubleshooting has exactly one nav entry, here - never a second
-      // copy under Engineering Intelligence.
+      // and Quality Cases as operational execution activities - technicians
+      // diagnosing an active quality problem. Engineering Intelligence
+      // consumes validated Quality/Knowledge/Troubleshooting data to produce
+      // analysis and improvement plans; it does not own execution. PIP
+      // remains an Engineering Intelligence deliverable (produced from
+      // Quality Cases/Knowledge, not owned or duplicated here) - see the
+      // `engineering-intelligence` group below. Troubleshooting has exactly
+      // one nav entry, here - never a second copy under Engineering
+      // Intelligence.
+      //
+      // Engineering Knowledge Platform (ADR-018): Knowledge flips from
+      // Coming Soon to a real route (`/quality/knowledge`) - same item,
+      // same label, same position; no nav restructuring. "Knowledge
+      // Candidate" and "Knowledge Case" are maturity states of the one
+      // Knowledge screen, not separate nav entries. Knowledge OWNS itself
+      // (an independent domain, its own tables/service - never owned by
+      // Quality, PM, Warranty, or Machine); it sits under this Quality nav
+      // group purely for UX/discoverability (the same place a technician
+      // already looks for Quality Cases/Troubleshooting), not because
+      // Quality owns its data - see `docs/architecture/KNOWLEDGE_PLATFORM.md`
+      // §1/§7 (this comment previously implied Quality-ownership by listing
+      // Knowledge "alongside Quality Cases," corrected by final architecture
+      // review).
       key: 'quality',
       icon: '⚠️',
       label: t('nav.qualityGroup'),
@@ -205,17 +219,19 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
         { href: '/records', label: t('nav.qualityCases') },
         comingSoon(undefined, t('nav.qualityAnalytics')),
         comingSoon(undefined, t('nav.troubleshooting')),
-        comingSoon(undefined, t('nav.qualityKnowledge')),
+        { href: '/quality/knowledge', label: t('nav.qualityKnowledge') },
       ],
     },
     {
       // Engineering Intelligence exposes only real, distinct business
       // capabilities (UI Terminology & Navigation Cleanup) - AI Engineering,
-      // PIP, and Predictive Quality. It consumes Quality's Cases/Knowledge/
-      // Troubleshooting to produce analysis; it does not own a separate
-      // "Knowledge Engine" entry (Knowledge lives under Quality, above) or
-      // a separate Troubleshooting entry (also Quality-owned). PIP is
-      // produced FROM Quality Cases/Knowledge but is itself an Engineering
+      // PIP, and Predictive Quality. It consumes Knowledge (an independent
+      // domain, not Quality's - see the `quality` group above) and Quality's
+      // own Cases/Troubleshooting to produce analysis; it does not own a
+      // separate "Knowledge Engine" entry (Knowledge's one nav entry lives
+      // under Quality's menu, above, for discoverability only) or a
+      // separate Troubleshooting entry (Quality-owned). PIP is produced
+      // FROM Quality Cases/Knowledge but is itself an Engineering
       // deliverable, not a Quality one; it has exactly one nav entry, here,
       // not a second copy under Quality.
       key: 'engineering-intelligence',

@@ -392,7 +392,7 @@ export const AUDIT_EVENT_LABELS_TH: Record<AuditEventType, string> = {
  *  `types.ts`/`db.ts` rather than any one module's own feature folder.
  *  Never edited or deleted after insert - see `record_audit_log`'s RLS
  *  policies (no UPDATE/DELETE policy exists at all). */
-export type AuditModule = 'mqr' | 'pm' | 'ntr';
+export type AuditModule = 'mqr' | 'pm' | 'ntr' | 'knowledge';
 
 export type AuditEventType =
   | 'Created'

@@ -1,5 +1,21 @@
 # 07 — Knowledge Domain & Graph
 
+> **Amendment (ADR-018, Engineering Knowledge Platform)**: this chapter's
+> proposed `KnowledgeCase.confidence` (continuous `0-1`, computed) and
+> Knowledge Maturity stage names (Draft/Validated/Trusted/Best Practice/
+> Retired) are **superseded** by `docs/adr/ADR-018-Knowledge-Model.md` and
+> `docs/architecture/KNOWLEDGE_PLATFORM.md` §5/§3 - discrete manual
+> Confidence levels (VeryLow/Low/Medium/High/Verified) and a five-stage
+> Maturity of Draft/Review/Published/Deprecated/Archived. This chapter's
+> content below is preserved as the historical record of the original
+> proposal and remains authoritative for everything ADR-018 did **not**
+> change: the single-`KnowledgeCase`-entity model, the ownership boundary
+> ("Knowledge never belongs to one module," "Machine never owns
+> Knowledge"), the Human Feedback Loop's authority rule (only an Engineer
+> moves confidence, never AI), and the deferred matching/clustering
+> algorithm. Read this chapter for the *why*; read the Knowledge Platform
+> doc for the *current, implemented* field names and values.
+
 ## Knowledge is created from
 
 Import PDI, Dealer PDI, PM, Warranty, MQR, PIP, Repairs, Parts, Timeline,

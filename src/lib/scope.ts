@@ -51,6 +51,16 @@ export const canForceLogoutAllSessions = (role: Role) => role !== 'DealerUser';
  *  not every non-DealerUser role. */
 export const canManageEmailHealth = (role: Role) => seesAllDealers(role);
 
+/** Engineering Knowledge Platform (ADR-018) - "Engineering Review": only
+ *  the roles that already see cross-dealer/system-wide state may move a
+ *  Knowledge Case's maturity to Published, Deprecated, or Archived - the
+ *  same boundary as `canManageEmailHealth`/PM Record unlock, not a new
+ *  one. Creating a Knowledge Candidate and editing it while Draft/Review
+ *  is open to every role (ch.07's "everyone who touches a Machine
+ *  improves Knowledge") - only the trust-conferring transitions are
+ *  gated here. */
+export const canReviewKnowledge = (role: Role) => seesAllDealers(role);
+
 export const roleLabelTh: Record<Role, string> = {
   SuperAdmin: 'ผู้ดูแลระบบสูงสุด',
   CentralAdmin: 'ผู้ดูแลส่วนกลาง',
