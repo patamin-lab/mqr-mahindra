@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { APP_NAME } from '@/lib/branding';
-import { getNavGroups, NavItem } from './navConfig';
+import { getNavGroups, effectiveStatus, NavItem } from './navConfig';
 
 export interface SidebarProps {
   session: SessionUser;
@@ -19,8 +19,13 @@ export default function Sidebar({ session, open, onClose }: SidebarProps) {
 
   const groups = getNavGroups(t, session);
 
-  function NavLink({ href, icon, label, comingSoon }: NavItem) {
-    if (comingSoon || !href) {
+  function NavLink(item: NavItem) {
+    const { href, icon, label } = item;
+    // Only reachable for SuperAdmin - every other role never receives a
+    // non-ACTIVE leaf from `getNavGroups` in the first place (Navigation
+    // Visibility Rule, navConfig.ts). SuperAdmin still sees it rendered
+    // disabled, with a badge, rather than as a broken/fake link.
+    if (effectiveStatus(item) !== 'ACTIVE' || !href) {
       return (
         <div
           aria-disabled="true"

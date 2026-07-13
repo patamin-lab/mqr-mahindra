@@ -84,6 +84,27 @@ is from a SuperAdmin," only "this is the `anon` role." Consequently:
   this section (and the RLS policies on every existing table) need a
   coordinated revisit — not a per-module patch.
 
+### Navigation visibility is not an authorization boundary
+
+**Unfinished capabilities are visible only to SuperAdmin** (`docs/
+architecture/MSEAL_DESIGN_FRAMEWORK.md` §2c, `navConfig.ts`'s
+`isCapabilityVisible()`): every non-`ACTIVE` nav leaf (Coming Soon/
+Preview/Beta/Development) is hidden entirely from every role except
+SuperAdmin, rather than shown as a disabled placeholder. This is a UX
+rule about which *placeholders* a role sees, not a new authorization
+control — every gated leaf has `href: null`, so there is no real route
+being newly protected by it, and the rule does not replace or weaken any
+existing route-level check. A real, built route's own `lib/scope.ts`
+predicate remains the only thing that actually authorizes access to it,
+enforced server-side exactly as described above, regardless of whether
+the current nav shows or hides the leaf pointing to it. Do not treat
+"hidden from the nav because it isn't `ACTIVE` yet" as a substitute for a
+real permission predicate once a capability's route is actually built —
+at that point it becomes `ACTIVE` and needs its own `lib/scope.ts` gate
+like every other real route, the same two-layer pattern (hidden nav entry
++ server-side route check) every other permission boundary in this app
+already uses.
+
 ## Server-side authorization
 
 - Every mutating route calls `getSession()` first and returns 401 if

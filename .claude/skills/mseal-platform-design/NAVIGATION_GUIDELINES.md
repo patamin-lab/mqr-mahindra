@@ -15,24 +15,59 @@ Engineering Intelligence, Reports, Administration - see
 ## Coming Soon convention
 
 A leaf with no real route is `{ href: null, comingSoon: true, label }`,
-rendered disabled with a "Coming Soon" badge - never a link to a
-placeholder page, never silently omitted. Use the `comingSoon()` helper
-in `navConfig.ts` rather than constructing the object by hand.
+which never links anywhere - use the `comingSoon()` helper in
+`navConfig.ts` rather than constructing the object by hand. It renders
+disabled with a "Coming Soon" badge for SuperAdmin only; every other role
+never receives it from `getNavGroups()` in the first place (see
+Capability status below) - never silently omitted for SuperAdmin, never
+shown as a placeholder to anyone else.
+
+## Capability status (Navigation Visibility Rule, post-Foundation Freeze)
+
+Every `NavItem` has an `effectiveStatus()` of `ACTIVE`, `COMING_SOON`,
+`PREVIEW`, `BETA`, or `DEVELOPMENT` (`CapabilityStatus`, `navConfig.ts`) -
+derived from `comingSoon` today, with an optional explicit `status` field
+reserved for the next capability that needs a Preview/Beta/Development
+badge instead of Coming Soon. **Navigation represents available business
+capability, not the roadmap**: `getNavGroups()` shows every status to
+SuperAdmin and only `ACTIVE` leaves to every other role
+(`isCapabilityVisible()`) - one generic, status-driven filter applied to
+every leaf in every group, never a per-module `if (key === '...')`
+special case. Adding a new future capability (Dealer Portal, IoT,
+Predictive Maintenance, Notifications, ...) at any non-`ACTIVE` status is
+automatically SuperAdmin-only with no filtering code to write - only the
+new nav entry itself, via `comingSoon()` (or an explicit `status:`).
+
+This is a UX-visibility rule only, not a new authorization boundary: a
+Coming Soon leaf's `href` is always `null`, so there is no real route
+being newly protected - see `docs/standards/SECURITY_STANDARD.md`'s
+Application-layer authorization section for how real routes are
+separately, and unconditionally, enforced server-side.
 
 ## Role visibility
 
 Nav visibility mirrors (but never replaces) server-side enforcement -
 every route re-checks its own `lib/scope.ts` predicate regardless of
-whether the nav shows it. A group with zero visible items for the current
-role is omitted entirely (see `getNavGroups()`'s Administration-group
-logic) rather than rendered empty.
+whether the nav shows it. This RBAC item-inclusion check and the
+capability-status visibility check above are independent filters, both
+applied inside `getNavGroups()` (e.g. Legacy Import is real and `ACTIVE`,
+but still hidden from every role except SuperAdmin by its own
+`canManageLegacyImport` predicate - nothing to do with capability status).
+A group or subgroup with zero visible items for the current role is
+omitted entirely (`filterGroupsByCapability()`) rather than rendered
+empty - the same rule the Administration group's own construction logic
+already applied, now generalized to every group.
 
 ## Adding a new nav entry
 
 1. Real route exists and is permission-checked server-side -> add as a
    real item with its route's gating predicate.
-2. No route yet, module planned -> add as Coming Soon in the group where
-   it belongs per the Target Navigation, not omitted.
+2. No route yet, module planned -> add as Coming Soon (or, if it's
+   genuinely further along, an explicit `status: 'PREVIEW' | 'BETA' |
+   'DEVELOPMENT'`) in the group where it belongs per the Target
+   Navigation, not omitted. It is automatically SuperAdmin-only per the
+   Capability status rule above - no separate role gate needed for "not
+   built yet."
 3. Never invent a new top-level group without checking
    `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2 first - most new
    items belong under an existing group.
