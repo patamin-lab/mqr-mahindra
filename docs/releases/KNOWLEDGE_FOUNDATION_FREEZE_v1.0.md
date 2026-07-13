@@ -1,7 +1,8 @@
 # Knowledge Foundation Freeze v1.0
 
-**Status: DECLARED, pending merge.** Effective on merge of PR #42
-(`feature/engineering-knowledge-platform`) to `main`. This is the final
+**Status: EFFECTIVE.** PR #42 (`feature/engineering-knowledge-platform`)
+squash-merged to `main` 2026-07-13 (merge SHA `ad34708`), verified in
+Production. This is the final
 Foundation capability before AI — Knowledge becomes the permanent
 engineering knowledge foundation every future AI capability consumes.
 No AI is implemented by this freeze; it freezes the foundation AI will
@@ -123,9 +124,10 @@ Standard:
 
 ## What is frozen by this document
 
-Effective on merge, the following become part of the platform's frozen
-Foundation, under the identical ADR + Architecture Review + Architecture
-Approval reopening process every other Foundation layer already uses:
+Effective now that PR #42 has merged, the following become part of the
+platform's frozen Foundation, under the identical ADR + Architecture
+Review + Architecture Approval reopening process every other Foundation
+layer already uses:
 
 | Layer | Frozen content | Governing document |
 |---|---|---|

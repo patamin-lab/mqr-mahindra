@@ -1,8 +1,9 @@
 # Release Notes — Knowledge Platform v1.0
 
-PR #42 (`feature/engineering-knowledge-platform`), the final Foundation
-capability before AI. See `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`
-for what's frozen and the process to reopen any of it, once merged.
+PR #42 (`feature/engineering-knowledge-platform`), squash-merged to
+`main` 2026-07-13 (merge SHA `ad34708`), the final Foundation capability
+before AI. See `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md` for
+what's frozen and the process to reopen any of it.
 
 ## Architecture
 

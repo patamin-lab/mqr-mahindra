@@ -4,6 +4,16 @@
 layers added to the Foundation, all merged to `main` and verified in
 Production).**
 
+> **Amendment (2026-07-13): PR #42 (Engineering Knowledge Platform,
+> ADR-018) has since merged to `main` and is verified in Production.**
+> Its own freeze is declared separately in
+> `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`, the same additive
+> pattern this document itself used to extend v1.0 - the "What is not
+> frozen by this document" section below is preserved unchanged as the
+> historical record of this document's original 2026-07-13 declaration,
+> written while PR #42 was still open. Read it as "not frozen *by this
+> document*," not as "not frozen at all."
+
 **Supersedes `docs/releases/FOUNDATION_FREEZE_v1.0.md` by extension, not
 replacement** - every layer v1.0 declared frozen remains frozen,
 unchanged, under the same reopening process. v1.0's own content is
@@ -95,7 +105,8 @@ report (PR #44).
 
 ## Next Epic
 
-Unchanged from v1.0: **Knowledge Engine v1.0** remains the recommended
-next epic (`docs/ROADMAP.md`). PR #42 (ADR-018) is in progress toward it,
-not yet merged - completing and merging it is the natural next action,
-not a new epic to plan from scratch.
+**Superseded by the amendment above.** PR #42 (ADR-018, Knowledge Engine
+v1.0) has merged; see `docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md`
+for its own frozen layers and Next Epic section. The recommended next
+epic is now **AI Troubleshooting** (`docs/ROADMAP.md`), bound by the
+Knowledge Foundation's AI Contract.
