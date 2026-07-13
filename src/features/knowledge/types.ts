@@ -85,17 +85,21 @@ export interface KnowledgeCase {
 
 /** Evidence source vocabulary (task spec, verbatim) — 'IoT' is accepted
  *  by the DB CHECK constraint and reserved for a future producer; no
- *  code path creates it yet (Explicitly deferred, see KNOWLEDGE_PLATFORM.md). */
-export type KnowledgeEvidenceSourceType = 'Quality' | 'PM' | 'Warranty' | 'Machine' | 'Dealer' | 'Customer' | 'Engineer' | 'IoT';
+ *  code path creates it yet (Explicitly deferred, see KNOWLEDGE_PLATFORM.md).
+ *  'Inspection' (ADR-017/ADR-027, Machine Delivery Platform) was added
+ *  later — the Knowledge Foundation Freeze v1.0 names "adding a new
+ *  Evidence source type" as compliant Extension, not a violation (see
+ *  docs/releases/KNOWLEDGE_FOUNDATION_FREEZE_v1.0.md). */
+export type KnowledgeEvidenceSourceType = 'Quality' | 'PM' | 'Warranty' | 'Machine' | 'Dealer' | 'Customer' | 'Engineer' | 'IoT' | 'Inspection';
 
 export interface KnowledgeEvidence {
   id: string;
   knowledgeCaseId: string;
   sourceType: KnowledgeEvidenceSourceType;
-  /** When this evidence links to a real existing MQR/PM/NTR record —
+  /** When this evidence links to a real existing MQR/PM/NTR/PDI record —
    *  optional, since Dealer/Customer/Engineer evidence may be a free-text
    *  observation with no specific record behind it. */
-  sourceModule: 'mqr' | 'pm' | 'ntr' | null;
+  sourceModule: 'mqr' | 'pm' | 'ntr' | 'pdi' | null;
   sourceRecordId: string | null;
   /** Denormalized on purpose (not derived via a join back through
    *  MQR/PM/NTR) — this is how "Related Machines" and the Machine
