@@ -140,6 +140,9 @@ export default async function NtrDetailPage({ params }: RouteParams) {
         actionsClassName="flex items-center gap-2 print:hidden"
         actions={
           <>
+            <Link href={`/ntr/${encodeURIComponent(record.id)}/edit`} className="rounded bg-brand-red px-4 py-2 text-sm text-white hover:bg-brand-dark">
+              {t('common.edit')}
+            </Link>
             <a href={`/api/ntr-records/${encodeURIComponent(record.id)}/export`} className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
               {t('common.exportPdf')}
             </a>
@@ -150,7 +153,11 @@ export default async function NtrDetailPage({ params }: RouteParams) {
             <Link href="/ntr" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
               {t('common.backToList')}
             </Link>
-            {allowDelete && <NtrDeleteButton id={record.id} ntrNumber={record.ntr_number} />}
+            {allowDelete && (
+              <span className="ml-2 border-l border-gray-200 pl-2">
+                <NtrDeleteButton id={record.id} ntrNumber={record.ntr_number} />
+              </span>
+            )}
           </>
         }
       />
@@ -162,8 +169,8 @@ export default async function NtrDetailPage({ params }: RouteParams) {
           <DetailRow label={t('csv.ntrNumber')} value={record.ntr_number} />
           <DetailRow label={t('common.dealer')} value={record.dealer_id} />
           <DetailRow label={t('common.branch')} value={branch?.name ?? 'N/A'} />
-          <DetailRow label={t('ntr.registrationDate')} value={formatDateLocalized(record.created_at, locale)} />
-          <DetailRow label={t('csv.retailDate')} value={record.retail_date ? formatDateLocalized(record.retail_date, locale) : 'N/A'} />
+          <DetailRow label={t('ntr.documentSubmissionDate')} value={formatDateLocalized(record.created_at, locale)} />
+          <DetailRow label={t('csv.deliveryDate')} value={formatDateLocalized(record.delivery_date, locale)} />
           <DetailRow label={t('csv.pdiDate')} value={record.pdi_date ? formatDateLocalized(record.pdi_date, locale) : 'N/A'} />
           <DetailRow label={t('csv.pdiNumber')} value={record.pdi_number ?? 'N/A'} />
           <DetailRow label={t('pdf.hourMeter')} value={record.hour_meter != null ? String(record.hour_meter) : 'N/A'} />
@@ -234,7 +241,6 @@ export default async function NtrDetailPage({ params }: RouteParams) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <DetailRow label={t('ntr.dealerRepresentative')} value={record.salesperson ?? 'N/A'} />
             <DetailRow label={t('ntr.customerRepresentative')} value={record.receiving_person ?? 'N/A'} />
-            <DetailRow label={t('ntr.acceptanceDate')} value={formatDateLocalized(record.delivery_date, locale)} />
           </div>
         </Card>
       )}
@@ -275,7 +281,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <DetailRow label={t('ntr.currentOwner')} value={summary.ownerName ?? 'N/A'} />
             <DetailRow label={t('common.dealer')} value={summary.dealerName ?? 'N/A'} />
-            <DetailRow label={t('csv.retailDate')} value={summary.retailDate ? formatDateLocalized(summary.retailDate, locale) : 'N/A'} />
+            <DetailRow label={t('csv.deliveryDate')} value={summary.retailDate ? formatDateLocalized(summary.retailDate, locale) : 'N/A'} />
             <DetailRow label={t('csv.warrantyStatus')} value={warranty.status} />
             <DetailRow label={t('common.healthScore')} value={String(summary.healthScore)} />
             <DetailRow label={t('common.compliance')} value={summary.compliancePercent != null ? `${summary.compliancePercent}%` : 'N/A'} />

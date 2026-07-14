@@ -25,18 +25,18 @@ export async function GET(req: NextRequest, { params }: { params: { serial: stri
     return NextResponse.json({ ok: false, found: false });
   }
 
-  // Merge: Supabase `vehicles` (delivery date / dealer / warranty source of
-  // truth) with the live "Tractor IN" sheet (model / engine / product code
-  // master data). Either source alone is enough to consider the serial known.
+  // Merge: `vehicles` (synced from Tractor IN, the sole vehicle master) is
+  // authoritative for every master field; the live sheet is only a
+  // fallback for a serial that exists on the sheet but hasn't been synced
+  // yet. Either source alone is enough to consider the serial known.
   const merged = {
     serial: vehicle?.serial ?? tractor?.productSerial ?? serial,
     model: vehicle?.model || tractor?.productModel || null,
-    delivery_date: vehicle?.delivery_date ?? null,
+    engine_number: vehicle?.engine_number || tractor?.engineSerial || null,
+    product_code: vehicle?.product_code || tractor?.productCode || null,
     dealer_id: vehicle?.dealer_id ?? null,
-    engineSerial: tractor?.engineSerial ?? null,
-    productCode: tractor?.productCode ?? null,
-    pdiStatus: tractor?.pdiStatus ?? null,
-    whArrivalDate: tractor?.whArrivalDate ?? null,
+    wh_arrival_date: vehicle?.wh_arrival_date || tractor?.whArrivalDate || null,
+    delivery_date: vehicle?.delivery_date ?? null,
     source: vehicle && tractor ? 'both' : vehicle ? 'supabase' : 'tractor_in_sheet',
   };
 

@@ -52,6 +52,10 @@ export interface Vehicle {
    *  the corresponding columns and a sync has run for this vehicle. */
   product_family_id?: string | null;
   sub_model?: string | null;
+  /** Tractor IN vehicle master fields (Google Sheet is the sole vehicle
+   *  master) - same sync-only-write rule as `product_family_id`/`sub_model`. */
+  product_code?: string | null;
+  wh_arrival_date?: string | null;
 }
 
 export type Severity = 'Critical' | 'Major' | 'Minor';

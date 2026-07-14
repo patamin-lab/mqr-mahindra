@@ -1,12 +1,25 @@
 /**
  * Tractor IN Sync Service.
  *
- * The single, dedicated path that writes `vehicles.product_family_id`/
- * `sub_model` (and, since v2.3.1, the row itself) from the Tractor IN
- * Google Sheet. No other module (NTR, PM, any lookup/search route) may
- * write these columns - they only ever read them. This keeps
+ * The single, dedicated path that writes `vehicles`' master-data columns
+ * (`model`, `engine_number`, `product_code`, `wh_arrival_date`,
+ * `delivery_date`, `dealer_id`, `product_family_id`, `sub_model`) from the
+ * Tractor IN Google Sheet. No other module (NTR, PM, any lookup/search
+ * route) may write these columns - they only ever read them. This keeps
  * synchronization entirely out of request-time lookups (no read-through
  * upsert), matching the "one synchronization path" requirement.
+ *
+ * v2.4.0 (Business Decision: "Google Sheet Tractor IN is now the only
+ * vehicle master"): every master field the sheet carries is now written on
+ * both INSERT and UPDATE, not just on first insert as in v2.3.1 - the
+ * sheet is authoritative, so a later correction on the sheet must flow
+ * through to an existing `vehicles` row. On UPDATE, a blank sheet cell is
+ * never written (same "only set if present" rule already applied to
+ * Product Family/Sub Model) - it must never blank out already-known data
+ * just because the sheet hasn't caught up yet; INSERT still writes every
+ * field unconditionally since there's nothing yet to overwrite. `serial`
+ * remains the only conflict/lookup key. PDI Status is read from the sheet
+ * but deliberately never written anywhere - it has no `vehicles` column.
  *
  * Triggered manually today (`POST /api/admin/tractor-in/sync`,
  * SuperAdmin-gated) since no scheduler platform exists yet in this repo -
@@ -54,6 +67,20 @@
 import { getSupabase } from '@/lib/supabase';
 import { getTractorInRows } from '@/lib/tractorSheet';
 import { listActiveProductFamilies, listDealers } from '@/lib/db';
+import { normalizeDate } from '@/shared/import/TransformationLibrary';
+import { toGregorianYear } from '@/lib/thaiDate';
+
+/** The sheet's date columns mix Gregorian and Buddhist-era years - convert
+ *  down to Gregorian whenever the parsed year is implausible for a
+ *  Gregorian tractor date, otherwise pass the Gregorian value through
+ *  unchanged. Reuses `normalizeDate`'s existing format recognition
+ *  (ISO/"DD Mon YYYY"/"DD/MM/YYYY") rather than a second date parser. */
+function parseSheetDate(raw: string): string | null {
+  const iso = normalizeDate(raw);
+  if (!iso) return null;
+  const year = Number(iso.slice(0, 4));
+  return year > 2200 ? `${toGregorianYear(year)}${iso.slice(4)}` : iso;
+}
 
 export interface TractorInSyncUnmatched {
   serial: string;
@@ -152,6 +179,17 @@ export class TractorInSyncService {
 
       const isUpdate = knownSerials.has(serial);
 
+      // Tractor IN is now the sole vehicle master (Business Decision #3) -
+      // every master field it carries is written on both insert and
+      // update, not just on first insert. PDI Status is deliberately never
+      // synced - it has no `vehicles` column and is not part of this
+      // platform's data model.
+      const dealerText = row.dealer.trim().toUpperCase();
+      const dealerId = dealerText && dealerIds.has(dealerText) ? dealerText : null;
+      const productCode = row.productCode.trim() || null;
+      const whArrivalDate = parseSheetDate(row.whArrivalDate);
+      const deliveryDate = parseSheetDate(row.deliveryDateThai);
+
       if (dryRun) {
         if (isUpdate) updated += 1;
         else {
@@ -161,12 +199,29 @@ export class TractorInSyncService {
         continue;
       }
 
+      const masterFields: Record<string, string | null> = {
+        model: row.productModel.trim() || null,
+        engine_number: row.engineSerial.trim() || null,
+        product_code: productCode,
+        wh_arrival_date: whArrivalDate,
+        delivery_date: deliveryDate,
+        dealer_id: dealerId,
+      };
+
       try {
         if (isUpdate) {
+          // A blank sheet cell must never blank out already-known data on
+          // an existing vehicle (same "only set if present" rule this file
+          // already applied to Product Family/Sub Model) - only insert
+          // writes every field unconditionally, since there's nothing yet
+          // to overwrite.
           const updatePayload: Record<string, string> = {
             last_synced_at: nowIso,
             sync_source: SYNC_SOURCE,
           };
+          for (const [key, value] of Object.entries(masterFields)) {
+            if (value) updatePayload[key] = value;
+          }
           if (productFamilyId) updatePayload.product_family_id = productFamilyId;
           if (subModel) updatePayload.sub_model = subModel;
 
@@ -174,14 +229,9 @@ export class TractorInSyncService {
           if (error) throw error;
           updated += 1;
         } else {
-          const dealerText = row.dealer.trim().toUpperCase();
-          const dealerId = dealerText && dealerIds.has(dealerText) ? dealerText : null;
-
           const { error } = await supabase.from('vehicles').insert({
             serial,
-            model: row.productModel.trim() || null,
-            engine_number: row.engineSerial.trim() || null,
-            dealer_id: dealerId,
+            ...masterFields,
             product_family_id: productFamilyId,
             sub_model: subModel || null,
             last_synced_at: nowIso,

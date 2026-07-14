@@ -199,11 +199,13 @@ export default function NtrSearch({ dealers, role, sessionDealerId, sessionBranc
         branch_name: null,
         existing_ntr_number: null,
         // A freshly-created tractor has no Tractor IN sync data yet -
-        // Product Family/Sub Model stay null until the sheet has them and
-        // a sync runs (see TractorInSyncService).
+        // Product Family/Sub Model/Product Code/WH Arrival Date stay null
+        // until the sheet has them and a sync runs (see TractorInSyncService).
         product_family_id: null,
         product_family_name: null,
         sub_model: null,
+        product_code: null,
+        wh_arrival_date: null,
       });
     } catch (err) {
       swalClose();
@@ -319,7 +321,13 @@ function NtrRegistrationForm({
   const [customerPhone, setCustomerPhone] = useState('');
   const [addressValue, setAddressValue] = useState<AddressValue>({ address: '', province: '', district: '', subdistrict: '', postalCode: '' });
   const [customerType, setCustomerType] = useState<CustomerType | ''>('');
-  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
+  // Delivery Date now auto-fills from Vehicle Master (Tractor IN sheet,
+  // `vehicles.delivery_date`) - never duplicated/re-entered once the sheet
+  // has it. The manual date input only remains as a fallback for a tractor
+  // Tractor IN hasn't synced yet (brand-new arrival), so registration is
+  // never blocked on the sheet catching up.
+  const [manualDeliveryDate, setManualDeliveryDate] = useState(new Date().toISOString().slice(0, 10));
+  const deliveryDate = tractor.delivery_date ?? manualDeliveryDate;
   const [hourMeter, setHourMeter] = useState('');
   const [gps, setGps] = useState<GpsLocation>(EMPTY_GPS);
   const pendingEntityId = useRef(newPendingEntityId()).current;
@@ -555,7 +563,20 @@ function NtrRegistrationForm({
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.tractorInfoTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           {/* Read-only - synced from Tractor IN (TractorInSyncService), never
-              chosen by the operator (NTR Form Update, 2026-07). */}
+              chosen by the operator (NTR Form Update, 2026-07). Vehicle
+              master data must never be duplicated/re-entered here. */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t('common.engineNumber')}</label>
+            <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractor.engine_number ?? '-'}</p>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t('csv.productCode')}</label>
+            <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractor.product_code ?? '-'}</p>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t('common.dealer')}</label>
+            <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractor.dealer_name ?? tractor.dealer_id ?? '-'}</p>
+          </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">{t('common.productFamily')}</label>
             <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractor.product_family_name ?? '-'}</p>
@@ -570,7 +591,18 @@ function NtrRegistrationForm({
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">{`${t('csv.deliveryDate')} *`}</label>
-            <input type="date" required className="w-full rounded border px-2 py-1.5 text-sm" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} disabled={submitting} />
+            {tractor.delivery_date ? (
+              <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractor.delivery_date}</p>
+            ) : (
+              <input
+                type="date"
+                required
+                className="w-full rounded border px-2 py-1.5 text-sm"
+                value={manualDeliveryDate}
+                onChange={(e) => setManualDeliveryDate(e.target.value)}
+                disabled={submitting}
+              />
+            )}
           </div>
           <TextField label={t('pdf.hourMeter')} value={hourMeter} onChange={setHourMeter} disabled={submitting} />
           <TextField label={t('csv.salesperson')} value={salesperson} onChange={setSalesperson} disabled={submitting} />

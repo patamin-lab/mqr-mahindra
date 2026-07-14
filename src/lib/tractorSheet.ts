@@ -16,9 +16,12 @@ import Papa from 'papaparse';
  *   Product Model | WH Arrival Date | PDI Status | วันที่ส่งมอบ
  *   (Delivery Date, Thai) | Dealer
  *
- * `deliveryDateThai`/`dealer` (columns 8/9, 0-indexed 7/8) are pre-existing
- * sheet columns, exposed here for completeness - neither is currently
- * consumed by application code.
+ * `productCode`, `whArrivalDate`, `deliveryDateThai` and `dealer` are all
+ * consumed by `TractorInSyncService` (vehicle master fields `product_code`,
+ * `wh_arrival_date`, `delivery_date`, `dealer_id`) - Google Sheet Tractor IN
+ * is the sole vehicle master (Business Decision). `pdiStatus` is parsed
+ * here for completeness but deliberately never written anywhere - it has
+ * no `vehicles` column.
  *
  * `productFamily`/`subModel` (columns 10/11, 0-indexed 9/10) are the
  * Tractor IN sync's source of truth for `vehicles.product_family_id`/

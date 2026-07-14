@@ -253,4 +253,40 @@ describe('TractorInSyncService.sync', () => {
     expect(result.unmatchedProductFamily).toEqual([{ serial: 'S1', productFamilyText: 'Unknown Family' }]);
     expect(mocked.insert).not.toHaveBeenCalled();
   });
+
+  it('syncs product_code/wh_arrival_date/delivery_date/dealer_id on UPDATE too, not just insert (sheet is the sole vehicle master)', async () => {
+    mockRows.mockResolvedValue([
+      row({
+        productSerial: 'EXIST1',
+        productCode: 'PC-100',
+        whArrivalDate: '01/06/2026',
+        deliveryDateThai: '15/07/2569', // Buddhist era -> 2026-07-15
+        dealer: 'ktv',
+      }),
+    ]);
+    const mocked = mockClient({ existingSerials: ['EXIST1'] });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload).toMatchObject({
+      product_code: 'PC-100',
+      wh_arrival_date: '2026-06-01',
+      delivery_date: '2026-07-15',
+      dealer_id: 'KTV',
+    });
+  });
+
+  it('never writes PDI Status anywhere - it has no vehicles column', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'NEW1', pdiStatus: 'Passed' })]);
+    const mocked = mockClient({ existingSerials: [] });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const insertPayload = mocked.insert.mock.calls[0][0];
+    expect(insertPayload.pdi_status).toBeUndefined();
+    expect(insertPayload.pdiStatus).toBeUndefined();
+  });
 });

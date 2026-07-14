@@ -156,7 +156,7 @@ function NtrDocument({
               {branchName ? ` / ${branchName}` : ''}
             </Text>
             <Text style={styles.subtitle}>
-              {translate(locale, 'ntr.registrationDate')}: {formatDateTimeLocalized(record.created_at, locale)}
+              {translate(locale, 'ntr.documentSubmissionDate')}: {formatDateTimeLocalized(record.created_at, locale)}
             </Text>
             <View style={styles.badgeRow}>
               <Text style={styles.badge}>{record.status}</Text>
@@ -173,10 +173,10 @@ function NtrDocument({
         <Text style={styles.sectionTitle}>{translate(locale, 'ntr.registrationInfoTitle')}</Text>
         <View style={styles.infoTable}>
           <Row2 l1={translate(locale, 'csv.ntrNumber')} v1={record.ntr_number} l2={translate(locale, 'common.dealer')} v2={dealerName ?? record.dealer_id} />
-          <Row2 l1={translate(locale, 'common.branch')} v1={branchName} l2={translate(locale, 'ntr.registrationDate')} v2={formatDateLocalized(record.created_at, locale)} />
+          <Row2 l1={translate(locale, 'common.branch')} v1={branchName} l2={translate(locale, 'ntr.documentSubmissionDate')} v2={formatDateLocalized(record.created_at, locale)} />
           <Row2
-            l1={translate(locale, 'csv.retailDate')}
-            v1={record.retail_date ? formatDateLocalized(record.retail_date, locale) : null}
+            l1={translate(locale, 'csv.deliveryDate')}
+            v1={formatDateLocalized(record.delivery_date, locale)}
             l2={translate(locale, 'csv.pdiDate')}
             v2={record.pdi_date ? formatDateLocalized(record.pdi_date, locale) : null}
           />
@@ -233,7 +233,6 @@ function NtrDocument({
                 l2={translate(locale, 'ntr.customerRepresentative')}
                 v2={record.receiving_person}
               />
-              <RowFull label={translate(locale, 'ntr.acceptanceDate')} value={formatDateLocalized(record.delivery_date, locale)} />
             </View>
           </>
         )}
@@ -292,7 +291,7 @@ function NtrDocument({
                 <Text style={styles.statusTileValue}>{fmt(summary.dealerName)}</Text>
               </View>
               <View style={styles.statusTile}>
-                <Text style={styles.statusTileLabel}>{translate(locale, 'csv.retailDate')}</Text>
+                <Text style={styles.statusTileLabel}>{translate(locale, 'csv.deliveryDate')}</Text>
                 <Text style={styles.statusTileValue}>{summary.retailDate ? formatDateLocalized(summary.retailDate, locale) : '-'}</Text>
               </View>
               <View style={styles.statusTile}>
