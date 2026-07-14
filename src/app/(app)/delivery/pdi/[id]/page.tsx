@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { listAuditLog } from '@/lib/db';
+import { listAuditLog, getVehicleBySerial } from '@/lib/db';
+import { UNRESTRICTED_SCOPE } from '@/lib/dealerBranchScope';
 import { InspectionService } from '@/features/inspection';
 import { canAccessImportInspection } from '@/lib/scope';
 import { AttachmentService } from '@/shared/attachments';
@@ -59,9 +60,10 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
     );
   }
 
-  const [auditLog, evidence] = await Promise.all([
+  const [auditLog, evidence, vehicle] = await Promise.all([
     listAuditLog('pdi', inspection.id),
     attachmentService.list('pdi', 'Inspection', inspection.id),
+    getVehicleBySerial(inspection.serial, UNRESTRICTED_SCOPE),
   ]);
   const evidenceWithUrls = await Promise.all(
     evidence.map(async (d) => ({ ...d, url: (await attachmentService.getUrl(d.id).catch(() => null))?.url ?? null }))
@@ -99,6 +101,30 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
       />
 
       <Card variant="flat" className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <p className="text-xs text-gray-500">{t('common.engineNumber')}</p>
+          <p className="text-sm font-medium text-brand-dark">{vehicle?.engine_number ?? '-'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">{t('csv.productCode')}</p>
+          <p className="text-sm font-medium text-brand-dark">{vehicle?.product_code ?? '-'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">{t('csv.model')}</p>
+          <p className="text-sm font-medium text-brand-dark">{vehicle?.model ?? '-'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">{t('common.dealer')}</p>
+          <p className="text-sm font-medium text-brand-dark">{vehicle?.dealer_id ?? '-'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">{t('csv.whArrivalDate')}</p>
+          <p className="text-sm font-medium text-brand-dark">{vehicle?.wh_arrival_date ?? '-'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">{t('csv.deliveryDate')}</p>
+          <p className="text-sm font-medium text-brand-dark">{vehicle?.delivery_date ?? '-'}</p>
+        </div>
         <div>
           <p className="text-xs text-gray-500">{t('pdi.checklistVersionLabel')}</p>
           <p className="text-sm font-medium text-brand-dark">{inspection.checklistVersion}</p>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { TractorInSyncService } from '@/features/vehicle/services/tractorInSyncService';
+import { TractorInSyncService, DATA_QUALITY_REASON } from '@/features/vehicle/services/tractorInSyncService';
 
 /**
  * Manually triggers the Tractor IN sync (see `TractorInSyncService`'s doc
@@ -25,15 +25,30 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await new TractorInSyncService().sync({ triggeredBy: session.username, dryRun });
-    console.log(dryRun ? 'Tractor IN sync dry-run completed' : 'Tractor IN sync completed', {
-      dryRun: result.dryRun,
+    // Data-quality report - counts, never a sync failure. Missing Product
+    // Code / WH Arrival Date means the corresponding sheet cell is blank
+    // in Tractor IN; this sync never generates, infers, or backfills a
+    // value, so the count is informational only.
+    console.log(dryRun ? 'Tractor IN sync dry-run report' : 'Tractor IN sync report', {
+      rowsProcessed: result.totalRows,
       inserted: result.inserted,
       updated: result.updated,
       skipped: result.skipped,
       failed: result.failed,
       durationMs: result.durationMs,
+      missingProductCode: result.missingProductCode,
+      missingWhArrivalDate: result.missingWhArrivalDate,
+      missingFieldReason: DATA_QUALITY_REASON,
     });
-    return NextResponse.json({ ok: true, result });
+    return NextResponse.json({
+      ok: true,
+      result,
+      dataQuality: {
+        missingProductCode: result.missingProductCode,
+        missingWhArrivalDate: result.missingWhArrivalDate,
+        reason: DATA_QUALITY_REASON,
+      },
+    });
   } catch (error) {
     console.error('Tractor IN sync error', error);
     return NextResponse.json({ ok: false, error: 'internal error' }, { status: 500 });

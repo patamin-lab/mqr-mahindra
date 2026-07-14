@@ -1,5 +1,11 @@
 # ADR-012: Tractor IN as the Single Source of Truth for Product Family / Sub Model
 
+> **Amended by ADR-029** (Quality Inspection Navigation Consolidation &
+> Vehicle Master Data Expansion): the sync now also writes `model`,
+> `engine_number`, `product_code`, `wh_arrival_date`, `delivery_date`, and
+> `dealer_id` on both insert and update, not just Product Family/Sub Model.
+> The content below is preserved as the original decision record.
+
 ## Problem
 
 The NTR registration form let a dealer manually pick Product Family and

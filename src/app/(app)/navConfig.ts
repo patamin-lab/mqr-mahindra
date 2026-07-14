@@ -165,27 +165,27 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       ],
     },
     {
-      // Machine Delivery Platform (ADR-017/ADR-027) - the complete digital
-      // delivery lifecycle from Tractor In through Warranty Activation.
-      // Its own nav group, distinct from Machines/Service/Quality (the
-      // Platform Constitution's "Navigation represents business
-      // capability" - Delivery is a lifecycle capability in its own
-      // right, not a sub-feature of any one domain). PDI is one stage
-      // inside this lifecycle, not a separate module - it has exactly
-      // one nav entry, here.
-      key: 'delivery',
-      icon: '🚚',
-      label: t('nav.deliveryGroup'),
-      items: [
-        { href: '/delivery/dashboard', label: t('nav.deliveryDashboard') },
-        // Import Inspection (MSEAL PDI) belongs exclusively to MSEAL
-        // (business-domain correction) - hidden from Dealer roles, same
-        // two-layer pattern as Legacy Import above (server-side route
-        // check is the real gate; this only hides the nav entry).
-        ...(canAccessImportInspection(session.role) ? [{ href: '/delivery/pdi', label: t('nav.deliveryPdi') }] : []),
-        { href: '/delivery/records', label: t('nav.deliveryRecords') },
-        { href: '/delivery/reports', label: t('nav.deliveryReports') },
-      ],
+      // Quality Inspection (Business Decision: fold the Delivery module's
+      // nav presence into Quality) - the Import Inspection Dashboard and
+      // Import Inspection list, the two capabilities that remain
+      // nav-reachable after this restructuring. Both belong exclusively to
+      // MSEAL (business-domain correction) - hidden from Dealer roles,
+      // same two-layer pattern as Legacy Import above (server-side route
+      // check is the real gate; this only hides the nav entry). The
+      // underlying routes (`/delivery/pdi`, `/delivery/pdi/dashboard`) and
+      // every other Delivery route/API/permission are unchanged - this is
+      // a navigation-only restructuring, not a rewrite (General
+      // Delivery Dashboard/Deliveries/Delivery Reports are no longer
+      // nav-reachable, but their routes still exist and still work).
+      key: 'qualityInspection',
+      icon: '🔍',
+      label: t('nav.qualityInspectionGroup'),
+      items: canAccessImportInspection(session.role)
+        ? [
+            { href: '/delivery/pdi/dashboard', label: t('nav.qualityInspectionDashboard') },
+            { href: '/delivery/pdi', label: t('nav.qualityInspectionImport') },
+          ]
+        : [],
     },
     {
       key: 'service',

@@ -27,9 +27,8 @@ interface VehicleInfo {
   serial: string;
   model: string | null;
   delivery_date: string | null;
-  engineSerial?: string | null;
-  productCode?: string | null;
-  pdiStatus?: string | null;
+  engine_number?: string | null;
+  product_code?: string | null;
   source?: 'supabase' | 'tractor_in_sheet' | 'both';
 }
 
@@ -311,8 +310,8 @@ export default function ReportForm({
     setModel(r.model ?? '');
     setVehicleChecked(true);
 
-    // Best-effort, non-blocking enrichment (engine serial / product code /
-    // PDI status from the live Tractor IN sheet) - doesn't delay the autofill.
+    // Best-effort, non-blocking enrichment (engine number / product code
+    // from vehicle master data) - doesn't delay the autofill.
     fetch(`/api/vehicles/${encodeURIComponent(r.serial)}`)
       .then((res) => res.json())
       .then((json) => {
@@ -349,7 +348,7 @@ export default function ReportForm({
   // Edit mode: run the same exact-match lookup on mount as if the user had
   // just blurred the serial field with the record's existing serial -
   // reuses checkSerialExact() rather than reconstructing `vehicle` from the
-  // record (which doesn't store delivery_date/engineSerial/productCode -
+  // record (which doesn't store delivery_date/engine_number/product_code -
   // only a live lookup has those). Also means an edit correctly reflects
   // the vehicle's *current* state (e.g. since renamed/removed), not stale
   // data frozen at creation time.
@@ -648,11 +647,11 @@ export default function ReportForm({
                 : 'ไม่พบหมายเลขรถนี้ในระบบ — กรุณากรอกข้อมูลด้านล่างเอง'}
             </p>
           )}
-          {vehicle && (vehicle.engineSerial || vehicle.productCode) && (
+          {vehicle && (vehicle.engine_number || vehicle.product_code) && (
             <p className="text-xs mt-1 text-gray-500">
-              {vehicle.engineSerial ? `เลขเครื่องยนต์: ${vehicle.engineSerial}` : ''}
-              {vehicle.engineSerial && vehicle.productCode ? ' · ' : ''}
-              {vehicle.productCode ? `Product Code: ${vehicle.productCode}` : ''}
+              {vehicle.engine_number ? `เลขเครื่องยนต์: ${vehicle.engine_number}` : ''}
+              {vehicle.engine_number && vehicle.product_code ? ' · ' : ''}
+              {vehicle.product_code ? `Product Code: ${vehicle.product_code}` : ''}
             </p>
           )}
         </div>

@@ -126,7 +126,12 @@ export default async function MachinePassportPage({ params }: RouteParams) {
 
       <MachineNextActionPanel />
 
-      <MachineIdentityPanel summary={summary} subModel={vehicleRow?.sub_model ?? null} />
+      <MachineIdentityPanel
+        summary={summary}
+        subModel={vehicleRow?.sub_model ?? null}
+        productCode={vehicleRow?.product_code ?? null}
+        whArrivalDate={vehicleRow?.wh_arrival_date ?? null}
+      />
       <MachineLifecyclePanel summary={summary} timeline={timeline} />
       <MachineOwnershipPanel summary={summary} />
       <MachineHealthPanel summary={summary} />

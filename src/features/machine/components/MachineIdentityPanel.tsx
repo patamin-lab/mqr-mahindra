@@ -19,16 +19,30 @@ import { MachineSummary } from '../types';
  * Current/Future Source of Truth discussion - this is a deliberate choice,
  * not an oversight.
  */
-export default function MachineIdentityPanel({ summary, subModel }: { summary: MachineSummary; subModel: string | null }) {
+export default function MachineIdentityPanel({
+  summary,
+  subModel,
+  productCode,
+  whArrivalDate,
+}: {
+  summary: MachineSummary;
+  subModel: string | null;
+  /** `vehicles.product_code`/`vehicles.wh_arrival_date` - synced from Tractor IN, same source/read-only rule as `subModel`. */
+  productCode: string | null;
+  whArrivalDate: string | null;
+}) {
   return (
     <Card variant="compact" className="p-6" as="section" id="identity">
       <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('machinePassport.identityTitle')}</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DetailRow label={t('common.serial')} value={summary.serial} />
         <DetailRow label={t('common.engineNumber')} value={summary.engineNumber ?? 'N/A'} />
+        <DetailRow label={t('csv.productCode')} value={productCode ?? 'N/A'} />
         <DetailRow label={t('common.model')} value={summary.model ?? 'N/A'} />
         <DetailRow label={t('machinePassport.variant')} value={subModel ?? t('machinePassport.notTrackedYet')} />
         <DetailRow label={t('common.productFamily')} value={summary.productFamilyName ?? 'N/A'} />
+        <DetailRow label={t('csv.whArrivalDate')} value={whArrivalDate ?? 'N/A'} />
+        <DetailRow label={t('csv.deliveryDate')} value={summary.retailDate ?? 'N/A'} />
         <DetailRow label={t('machinePassport.manufacturingYear')} value={t('machinePassport.notTrackedYet')} />
         <DetailRow label={t('machinePassport.manufacturingCountry')} value={t('machinePassport.notTrackedYet')} />
       </div>

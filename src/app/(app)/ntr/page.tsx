@@ -140,7 +140,7 @@ export default async function NtrRegistryPage({
           <input name="province" defaultValue={searchParams.province ?? ''} className="border border-gray-300 rounded px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-medium mb-1">{`${t('csv.retailDate')} (${t('common.search')})`}</label>
+          <label className="block text-xs font-medium mb-1">{`${t('csv.deliveryDate')} (${t('common.search')})`}</label>
           <div className="flex gap-1">
             <input type="date" name="retailDateFrom" defaultValue={searchParams.retailDateFrom ?? ''} className="border border-gray-300 rounded px-2 py-2 text-sm" />
             <input type="date" name="retailDateTo" defaultValue={searchParams.retailDateTo ?? ''} className="border border-gray-300 rounded px-2 py-2 text-sm" />
@@ -161,7 +161,7 @@ export default async function NtrRegistryPage({
           <thead className="sticky top-0 z-10 bg-gray-50 text-gray-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-3">{t('csv.ntrNumber')}</th>
-              <th className="text-left px-4 py-3">{t('ntr.acceptanceDate')}</th>
+              <th className="text-left px-4 py-3">{t('csv.deliveryDate')}</th>
               <th className="text-left px-4 py-3">{t('csv.serial')} / {t('csv.model')}</th>
               <th className="text-left px-4 py-3">{t('csv.customerName')}</th>
               <th className="text-left px-4 py-3">{t('common.dealer')}</th>

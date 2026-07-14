@@ -1089,6 +1089,8 @@ export interface NtrTractorSearchResult {
   product_family_id: string | null;
   product_family_name: string | null;
   sub_model: string | null;
+  product_code: string | null;
+  wh_arrival_date: string | null;
 }
 
 /**
@@ -1105,7 +1107,7 @@ export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Pr
   let query = supabase
     .from('vehicles')
     .select(
-      'id, serial, model, delivery_date, engine_number, dealer_id, branch_id, product_family_id, sub_model, dealers(short_name, full_name), branches(name), product_families(name)'
+      'id, serial, model, delivery_date, engine_number, dealer_id, branch_id, product_family_id, sub_model, product_code, wh_arrival_date, dealers(short_name, full_name), branches(name), product_families(name)'
     )
     .order('serial')
     .limit(limit);
@@ -1144,6 +1146,8 @@ export async function searchTractorsForNtr(filters: NtrTractorSearchFilters): Pr
     product_family_id: v.product_family_id ?? null,
     product_family_name: v.product_families?.name ?? null,
     sub_model: v.sub_model ?? null,
+    product_code: v.product_code ?? null,
+    wh_arrival_date: v.wh_arrival_date ?? null,
   }));
 }
 

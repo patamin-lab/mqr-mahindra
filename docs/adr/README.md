@@ -38,8 +38,9 @@ listing alone.
 | ADR-026 | Machine Digital Passport | Accepted | Merged; consumes the ADR-021 reservation (see the reserved-range row above - a pre-existing drift, not introduced here) |
 | ADR-027 | Machine Delivery Platform v1.0 | Accepted, **Frozen** (v1.0, PR #45); Warranty trigger amended by ADR-028 | `docs/releases/FOUNDATION_FREEZE_v1.1.md`; lifecycle orchestration - Tractor In through Warranty Activation; depends on ADR-017 (PDI) as one stage, never re-derives it |
 | ADR-028 | Import Inspection Domain Correction | Accepted | Business-domain correction pass; reopens ADR-017, amends ADR-027's Warranty trigger; see `docs/architecture/INSPECTION_PDI.md`/`DELIVERY_PLATFORM.md` for the corrected, current architecture |
+| ADR-029 | Quality Inspection Navigation Consolidation & Vehicle Master Data Expansion | Accepted | Reopens ADR-012 to extend Tractor IN sync to `product_code`/`wh_arrival_date`/`model`/`engine_number`/`dealer_id` on both insert and update; nav-only consolidation of the Delivery group into a Quality Inspection group; NTR/Import Inspection/Machine Passport read vehicle master data consistently; NTR gains an Edit screen |
 
-**Next available number: ADR-029.**
+**Next available number: ADR-030.**
 
 ## ADR numbering normalization (this pass)
 
