@@ -37,22 +37,24 @@ Where both catalogs describe the same real-world fact, the mapping is:
 | `MQRClosed` | `MQR_CLOSED` | Same fact |
 | `MachineDelivered` | `NTR_COMPLETED` | Same fact (NTR is today's one Registration implementation - "New Tractor Registration completing" *is* "Machine Delivered" per `docs/standards/DOMAIN_LANGUAGE_STANDARD.md`'s Acceptance Date section) |
 | `MachineImported` | `FACTORY_BUILD` | Related but not identical - `MachineImported` is the Tractor-IN sync import event; `FACTORY_BUILD` is reserved for a literal factory-build feed that doesn't exist yet. Do not treat these as the same fact without re-checking 18 when a real producer is built |
-| `ImportPDICompleted` / `DealerPDICompleted` | `PDI_COMPLETED` | 18 splits PDI into two sub-stages (Import PDI vs. Dealer PDI); this file has one generic `PDI_COMPLETED` reserved slot. When PDI is actually built, prefer 18's two-stage split and add a second `event_code` here rather than collapsing back to one - this file's single row today reflects "not built yet," not a deliberate simplification |
+| `PdiCompleted` | `PDI_COMPLETED` | **Now wired** (business-domain correction, ADR-028) - reused uniformly for every Import Inspection completion, both the initial PDI and every subsequent RE-PDI (distinguished by the event's own reference number/date/metadata, not a second event code). 18's `ImportPDICompleted`/`DealerPDICompleted` two-stage split does not apply - the corrected model has no Dealer PDI concept, so one event code covers every Import Inspection completion |
+| `ReleasedToDealer` (no 18 equivalent) | `RELEASED_TO_DEALER` | New (ADR-028) - the MSEAL decision ending the Import Inspection stage for one machine. Published by `InspectionService.releaseToDealer()` |
+| `WarrantyActivated` | `WARRANTY_ACTIVATED` | **Now wired** (ADR-028) - published by `DeliveryService.activateWarrantyFromNtr()`, the sole legitimate trigger (NTR, never manual) |
 
 Events with **no equivalent in 18** (this file only - operational/
 non-Machine-Lifecycle events, or reserved for modules 18 doesn't name at
 all): `NTR_CREATED`, `CAMPAIGN_ASSIGNED`, `CAMPAIGN_COMPLETED`,
 `PART_REQUESTED`, `PART_DELIVERED`, `INSPECTION` (generic),
-`SOFTWARE_UPDATE`, `RECALL`, `TELEMATICS_ALERT`, `OTHER`. These remain
-governed by this file alone.
+`SOFTWARE_UPDATE`, `RECALL`, `TELEMATICS_ALERT`, `RELEASED_TO_DEALER`,
+`OTHER`. These remain governed by this file alone.
 
 Events with **no equivalent here** (18 only - not yet wired to
-`event_definitions`/`VehicleEventPublisher`): `WarrantyActivated`,
-`PIPCreated`, `PIPCompleted`, `OwnershipTransferred`, `Retired`. When any
-of these gets a real producer, add its `event_code` here following this
-file's existing naming convention, and add the mapping row above -
-**check this table before picking a new event name so a fifth
-independent naming scheme doesn't appear.**
+`event_definitions`/`VehicleEventPublisher`): `PIPCreated`,
+`PIPCompleted`, `OwnershipTransferred`, `Retired`. When any of these gets
+a real producer, add its `event_code` here following this file's
+existing naming convention, and add the mapping row above - **check this
+table before picking a new event name so a fifth independent naming
+scheme doesn't appear.**
 
 **Every module publishes to the timeline through `VehicleEventPublisher`
 (`src/features/vehicle-event/publisher.ts`) only — never by inserting into
@@ -72,8 +74,10 @@ generic mapping can't express something module-specific.
 | `FACTORY_BUILD` | `factory` | ผลิตจากโรงงาน | Factory Build | 10 |
 | `DEALER_RECEIVED` | `dealer_receive` | ดีลเลอร์รับรถ | Dealer Received | 20 |
 | `PDI_COMPLETED` | `pdi` | ตรวจสภาพก่อนส่งมอบ (PDI) | PDI Completed | 30 |
+| `RELEASED_TO_DEALER` | `pdi` | ปล่อยรถให้ดีลเลอร์ | Released to Dealer | 32 |
 | `NTR_CREATED` | `ntr` | เริ่มจดทะเบียนรถใหม่ (NTR) | NTR Created | 35 |
 | `NTR_COMPLETED` | `ntr` | จดทะเบียนรถใหม่ (NTR) | NTR Completed | 40 |
+| `WARRANTY_ACTIVATED` | `delivery` | เริ่มการรับประกัน | Warranty Activated | 45 |
 | `MAINTENANCE_COMPLETED` | `maintenance` | บำรุงรักษาเชิงป้องกัน | Maintenance Completed | 50 |
 | `MQR_OPENED` | `mqr` | เปิดรายงานปัญหาคุณภาพ | MQR Opened | 60 |
 | `MQR_CLOSED` | `mqr` | ปิดรายงานปัญหาคุณภาพ | MQR Closed | 70 |
@@ -102,12 +106,18 @@ generic mapping can't express something module-specific.
   registration, and the new generic adapter
   (`eventSources/platformEvents.ts`) reads them back from `vehicle_events`
   for display on Vehicle 360.
-- **FACTORY_BUILD, DEALER_RECEIVED, PDI, CAMPAIGN\*, PART\*, INSPECTION,
+- **Import Inspection (ADR-017/ADR-028)** and **Delivery (ADR-027)** are
+  wired as of the business-domain correction:
+  `InspectionService.completeInspection()` calls `publishPdiCompleted()`,
+  `.releaseToDealer()` calls `publishReleasedToDealer()`, and
+  `DeliveryService.activateWarrantyFromNtr()` calls
+  `publishWarrantyActivated()`.
+- **FACTORY_BUILD, DEALER_RECEIVED, CAMPAIGN\*, PART\*, INSPECTION,
   SOFTWARE_UPDATE, RECALL, TELEMATICS_ALERT**: catalog entries reserved
-  for modules that don't exist yet (PDI, Campaign, Parts Request, and
-  future telematics/software-update integrations). No code publishes
-  these today; they exist so the catalog and the Platform Event
-  Framework don't need a schema change when those modules are built.
+  for modules that don't exist yet (Campaign, Parts Request, and future
+  telematics/software-update integrations). No code publishes these
+  today; they exist so the catalog and the Platform Event Framework
+  don't need a schema change when those modules are built.
 
 ## Verification
 

@@ -47,12 +47,13 @@ export default async function DeliveryDetailPage({ params }: { params: { id: str
     );
   }
 
-  const [auditLog, availableInspectionsRaw, linkedInspection, linkedNtr] = await Promise.all([
+  const [auditLog, availableInspectionsRaw, linkedInspections, linkedNtr] = await Promise.all([
     listAuditLog('delivery', delivery.id),
     inspectionService.listInspectionsForSerial(delivery.serial),
-    delivery.pdiInspectionId ? inspectionService.getInspection(delivery.pdiInspectionId).catch(() => null) : Promise.resolve(null),
+    delivery.pdiInspectionId ? inspectionService.listInspectionsByIds([delivery.pdiInspectionId]) : Promise.resolve([]),
     delivery.ntrId ? createNtrService().getById(delivery.ntrId, session).catch(() => null) : Promise.resolve(null),
   ]);
+  const linkedInspection = linkedInspections[0] ?? null;
   const availableInspections = availableInspectionsRaw.map((i) => ({ id: i.id, inspectionRef: i.inspectionRef, status: i.status }));
   const activityEvents = mapAuditLogToActivityEvents(auditLog, {
     entityType: 'delivery',

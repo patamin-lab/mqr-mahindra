@@ -13,15 +13,24 @@ vi.mock('@/lib/db', () => ({
 import { InspectionService } from './service';
 import type { InspectionRepository } from './repository';
 import type { KnowledgeService } from '@/features/knowledge';
+import type { VehicleEventPublisher } from '@/features/vehicle-event/publisher';
+
+function makeMockPublisher(): VehicleEventPublisher {
+  return {
+    publish: vi.fn(() => Promise.resolve({})),
+    publishPdiCompleted: vi.fn(() => Promise.resolve({})),
+    publishReleasedToDealer: vi.fn(() => Promise.resolve({})),
+  } as unknown as VehicleEventPublisher;
+}
 
 function session(overrides: Partial<SessionUser> = {}): SessionUser {
   return {
     username: 'tech1',
     fullName: 'Technician One',
-    role: 'DealerUser',
-    dealerId: 'D1',
+    role: 'SuperAdmin',
+    dealerId: null,
     branch: null,
-    branchId: 'B1',
+    branchId: null,
     sessionId: 'test-session',
     forcePasswordChange: false,
     ...overrides,
@@ -32,25 +41,28 @@ function baseInspection(overrides: Partial<Inspection> = {}): Inspection {
   return {
     id: 'insp-1',
     inspectionRef: 'PDI-2026-000001',
-    inspectionType: 'DEALER_PDI',
+    inspectionType: 'PDI',
+    inspectionReason: 'INITIAL',
+    inspectionSequence: 1,
+    previousInspectionId: null,
     vehicleId: 'veh-1',
     serial: 'SN-001',
     dealerId: 'D1',
     status: 'InProgress',
     result: null,
+    releaseStatus: 'Pending',
+    nextRePdiDueDate: null,
     checklistVersion: 'PDI-CL-v1',
     checklist: [{ id: 'engine-oil', category: 'Engine', label: 'Engine oil level', result: 'Pass', remark: null }],
     findings: [],
     measurements: [],
     partsReplaced: [],
+    factoryFeedback: null,
     technicianId: null,
     technicianName: 'tech1',
     technicianCertificationRef: null,
     signedOffBy: null,
     signedOffAt: null,
-    dealerApprovedBy: null,
-    dealerApprovedAt: null,
-    relatedNtrId: null,
     createdBy: 'tech1',
     createdAt: '2026-01-01T00:00:00Z',
     updatedBy: null,
@@ -65,6 +77,8 @@ function makeRepo(overrides: Partial<InspectionRepository> = {}): InspectionRepo
     list: vi.fn(),
     getById: vi.fn(),
     listForSerial: vi.fn(),
+    listByIds: vi.fn(),
+    listActive: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
     ...overrides,
@@ -73,6 +87,17 @@ function makeRepo(overrides: Partial<InspectionRepository> = {}): InspectionRepo
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe('InspectionService MSEAL-only access', () => {
+  it('throws for a Dealer role on every gated action (Import Inspection belongs exclusively to MSEAL)', async () => {
+    const repo = makeRepo();
+    const service = new InspectionService(repo);
+
+    await expect(service.getInspection('insp-1', session({ role: 'DealerAdmin' }))).rejects.toThrow(/may not access Import Inspection/);
+    await expect(service.completeInspection('insp-1', session({ role: 'DealerUser' }))).rejects.toThrow(/may not access Import Inspection/);
+    expect(repo.getById).not.toHaveBeenCalled();
+  });
 });
 
 describe('InspectionService.completeInspection', () => {
@@ -85,78 +110,129 @@ describe('InspectionService.completeInspection', () => {
     expect(repo.update).not.toHaveBeenCalled();
   });
 
-  it('marks Pass when every checklist item passes and there are no findings', async () => {
+  it('marks Pass, sets a Next RE-PDI Due Date, and leaves Release Status Pending (Release to Dealer is always a separate, explicit action)', async () => {
     const existing = baseInspection();
-    const updated = baseInspection({ status: 'Completed', result: 'Pass' });
     const repo = makeRepo({
       getById: vi.fn(() => Promise.resolve(existing)),
-      update: vi.fn(() => Promise.resolve(updated)),
+      update: vi.fn((_id, patch) => Promise.resolve({ ...existing, ...patch })),
     });
-    const service = new InspectionService(repo);
+    const service = new InspectionService(repo, undefined, makeMockPublisher());
 
     const result = await service.completeInspection('insp-1', session());
 
     expect(result.result).toBe('Pass');
-    expect(repo.update).toHaveBeenCalledWith('insp-1', expect.objectContaining({ status: 'Completed', result: 'Pass' }));
+    expect(result.releaseStatus).toBe('Pending');
+    expect(result.nextRePdiDueDate).not.toBeNull();
+    expect(repo.update).toHaveBeenCalledWith('insp-1', expect.objectContaining({ status: 'Completed', result: 'Pass', releaseStatus: 'Pending' }));
     expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ module: 'pdi', eventType: 'StatusChanged', newValue: 'Completed' }));
   });
 
-  it('marks Fail (not silently Pass) when a checklist item fails and a finding was recorded', async () => {
+  it('marks Fail and sets Release Status RequiresRePdi (not silently Pass) when a checklist item fails and a finding was recorded', async () => {
     const existing = baseInspection({
       checklist: [{ id: 'a', category: 'Engine', label: 'x', result: 'Fail', remark: 'leak' }],
-      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak', knowledgeCaseId: null }],
+      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak', disposition: 'PendingReview', factoryFeedbackStatus: 'NotSent', correctiveActionReference: null, knowledgeCaseId: null }],
     });
     const repo = makeRepo({
       getById: vi.fn(() => Promise.resolve(existing)),
-      update: vi.fn((_, patch) => Promise.resolve(baseInspection({ status: 'Completed', result: patch.result }))),
+      update: vi.fn((_id, patch) => Promise.resolve({ ...existing, ...patch })),
     });
-    const service = new InspectionService(repo);
+    const service = new InspectionService(repo, undefined, makeMockPublisher());
 
     const result = await service.completeInspection('insp-1', session());
     expect(result.result).toBe('Fail');
+    expect(result.releaseStatus).toBe('RequiresRePdi');
+    expect(result.nextRePdiDueDate).toBeNull();
   });
 });
 
-describe('InspectionService.dealerApprove', () => {
-  it('throws for DealerUser (only SuperAdmin/CentralAdmin/DealerAdmin may approve)', async () => {
+describe('InspectionService.createRePdi', () => {
+  it('chains a new inspection to the one it follows - immutable, never overwrites the previous record', async () => {
+    const previous = baseInspection({ id: 'insp-1', inspectionSequence: 1 });
+    const created = baseInspection({ id: 'insp-2', inspectionType: 'RE_PDI', inspectionReason: 'STORAGE_EXPIRED', inspectionSequence: 2, previousInspectionId: 'insp-1' });
+    const repo = makeRepo({
+      getById: vi.fn(() => Promise.resolve(previous)),
+      create: vi.fn(() => Promise.resolve(created)),
+    });
+    const service = new InspectionService(repo);
+
+    const result = await service.createRePdi('insp-1', { reason: 'STORAGE_EXPIRED', technicianId: null, technicianName: 'tech2', technicianCertificationRef: null }, session());
+
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ inspectionType: 'RE_PDI', inspectionSequence: 2, previousInspectionId: 'insp-1' }));
+    expect(result.previousInspectionId).toBe('insp-1');
+    expect(result.inspectionSequence).toBe(2);
+  });
+});
+
+describe('InspectionService.releaseToDealer', () => {
+  it('throws for a Dealer role', async () => {
     const repo = makeRepo();
     const service = new InspectionService(repo);
 
-    await expect(service.dealerApprove('insp-1', session({ role: 'DealerUser' }))).rejects.toThrow(/may not give Dealer Approval/);
+    await expect(service.releaseToDealer('insp-1', session({ role: 'DealerAdmin' }))).rejects.toThrow(/may not access Import Inspection/);
     expect(repo.getById).not.toHaveBeenCalled();
   });
 
-  it('requires Digital Sign-off to have happened first', async () => {
-    const existing = baseInspection({ status: 'Completed', signedOffAt: null });
+  it('requires a Completed, Passed, signed-off inspection', async () => {
+    const existing = baseInspection({ status: 'Completed', result: 'Pass', signedOffAt: null });
     const repo = makeRepo({ getById: vi.fn(() => Promise.resolve(existing)) });
     const service = new InspectionService(repo);
 
-    await expect(service.dealerApprove('insp-1', session({ role: 'DealerAdmin' }))).rejects.toThrow(/before Digital Sign-off/);
+    await expect(service.releaseToDealer('insp-1', session())).rejects.toThrow(/before Digital Sign-off/);
   });
 
-  it('approves and writes a SystemEvent audit entry when signed off and role is DealerAdmin', async () => {
-    const existing = baseInspection({ status: 'Completed', signedOffAt: '2026-01-02T00:00:00Z', signedOffBy: 'tech1' });
-    const updated = baseInspection({ dealerApprovedBy: 'admin1', dealerApprovedAt: '2026-01-03T00:00:00Z' });
+  it('rejects an expired inspection - RE-PDI is required first', async () => {
+    const existing = baseInspection({ status: 'Completed', result: 'Pass', signedOffAt: '2026-01-02T00:00:00Z', nextRePdiDueDate: '2020-01-01' });
+    const repo = makeRepo({ getById: vi.fn(() => Promise.resolve(existing)) });
+    const service = new InspectionService(repo);
+
+    await expect(service.releaseToDealer('insp-1', session())).rejects.toThrow(/expired/);
+  });
+
+  it('releases to dealer and writes a SystemEvent audit entry when Passed and signed off', async () => {
+    const existing = baseInspection({ status: 'Completed', result: 'Pass', signedOffAt: '2026-01-02T00:00:00Z', nextRePdiDueDate: '2099-01-01' });
+    const updated = baseInspection({ releaseStatus: 'ReleasedToDealer' });
     const repo = makeRepo({
       getById: vi.fn(() => Promise.resolve(existing)),
       update: vi.fn(() => Promise.resolve(updated)),
     });
+    const service = new InspectionService(repo, undefined, makeMockPublisher());
+
+    const result = await service.releaseToDealer('insp-1', session({ username: 'admin1' }));
+
+    expect(result.releaseStatus).toBe('ReleasedToDealer');
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ module: 'pdi', eventType: 'SystemEvent', fieldName: 'ReleaseStatus', newValue: 'ReleasedToDealer' }));
+  });
+});
+
+describe('InspectionService.updateFindingFactoryFeedback', () => {
+  it('updates one finding\'s disposition/status/corrective action reference, not the others', async () => {
+    const existing = baseInspection({
+      findings: [
+        { id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak', disposition: 'PendingReview', factoryFeedbackStatus: 'NotSent', correctiveActionReference: null, knowledgeCaseId: null },
+        { id: 'f2', severity: 'Minor', system: 'Electrical', description: 'Loose wire', disposition: 'PendingReview', factoryFeedbackStatus: 'NotSent', correctiveActionReference: null, knowledgeCaseId: null },
+      ],
+    });
+    const repo = makeRepo({
+      getById: vi.fn(() => Promise.resolve(existing)),
+      update: vi.fn((_id, patch) => Promise.resolve({ ...existing, ...patch })),
+    });
     const service = new InspectionService(repo);
 
-    const result = await service.dealerApprove('insp-1', session({ role: 'DealerAdmin', username: 'admin1' }));
+    const result = await service.updateFindingFactoryFeedback('insp-1', 'f1', { factoryFeedbackStatus: 'Sent', correctiveActionReference: 'CAPA-100' }, session());
 
-    expect(result.dealerApprovedBy).toBe('admin1');
-    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ module: 'pdi', eventType: 'SystemEvent', fieldName: 'DealerApproval' }));
+    expect(result.findings.find((f) => f.id === 'f1')?.factoryFeedbackStatus).toBe('Sent');
+    expect(result.findings.find((f) => f.id === 'f1')?.correctiveActionReference).toBe('CAPA-100');
+    expect(result.findings.find((f) => f.id === 'f2')?.factoryFeedbackStatus).toBe('NotSent');
   });
 });
 
 describe('InspectionService.promoteFindingToKnowledge', () => {
   it('calls KnowledgeService.createCandidate + addEvidence and stores the resulting caseId on the finding - never a duplicate entry form', async () => {
     const existing = baseInspection({
-      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak at seal', knowledgeCaseId: null }],
+      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak at seal', disposition: 'PendingReview', factoryFeedbackStatus: 'NotSent', correctiveActionReference: null, knowledgeCaseId: null }],
     });
     const updated = baseInspection({
-      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak at seal', knowledgeCaseId: 'case-9' }],
+      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak at seal', disposition: 'PendingReview', factoryFeedbackStatus: 'NotSent', correctiveActionReference: null, knowledgeCaseId: 'case-9' }],
     });
     const repo = makeRepo({
       getById: vi.fn(() => Promise.resolve(existing)),
@@ -176,7 +252,7 @@ describe('InspectionService.promoteFindingToKnowledge', () => {
 
   it('is a no-op if the finding was already promoted', async () => {
     const existing = baseInspection({
-      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak', knowledgeCaseId: 'case-9' }],
+      findings: [{ id: 'f1', severity: 'Major', system: 'Engine', description: 'Oil leak', disposition: 'PendingReview', factoryFeedbackStatus: 'NotSent', correctiveActionReference: null, knowledgeCaseId: 'case-9' }],
     });
     const repo = makeRepo({ getById: vi.fn(() => Promise.resolve(existing)) });
     const createCandidate = vi.fn();

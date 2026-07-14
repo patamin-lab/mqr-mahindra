@@ -36,7 +36,12 @@ export const DELIVERY_STAGE_ORDER: DeliveryStage[] = [
 
 export type DeliveryOverallStatus = 'InProgress' | 'Completed' | 'OnHold' | 'Cancelled';
 
-export type WarrantyActivationSource = 'DeliveryAcceptance' | 'Manual';
+/** Warranty must never be activated manually (business-domain correction) -
+ *  NTR is the sole ownership-transfer event and the sole legitimate
+ *  trigger. `'DeliveryAcceptance'` is removed - Delivery Acceptance no
+ *  longer auto-activates Warranty (see `DeliveryService.recordAcceptance`/
+ *  `activateWarrantyFromNtr`). */
+export type WarrantyActivationSource = 'NTR';
 
 export interface DeliveryRecord {
   id: string;

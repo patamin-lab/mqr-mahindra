@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { InspectionService, type InspectionStatus } from '@/features/inspection';
+import { canAccessImportInspection } from '@/lib/scope';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
@@ -11,19 +12,28 @@ const service = new InspectionService();
 const STATUSES: InspectionStatus[] = ['Scheduled', 'InProgress', 'Completed', 'Cancelled'];
 
 /**
- * PDI list (ADR-017). Screen Contract: Purpose - find a PDI Inspection by
- * status/serial/technician. Primary User - Technician (create/edit),
- * Dealer Admin (approve). Primary Decision - "is this vehicle ready for
- * delivery." Primary Action - open an inspection, or start a new one.
- * Permissions - every authenticated role may view/create; Dealer Approval
- * is gated on the detail screen by `canApproveDelivery`.
+ * Import Inspection list (ADR-017, business-domain correction). Screen
+ * Contract: Purpose - find an Import Inspection event by status/serial/
+ * technician. Primary User - MSEAL technician/inspector. Primary Decision
+ * - "is this machine ready to release to a dealer." Primary Action - open
+ * an inspection, start a new one, or start a RE-PDI. Permissions -
+ * belongs exclusively to MSEAL (`canAccessImportInspection`) - Dealer
+ * roles never see this screen.
  */
 export default async function PdiListPage({ searchParams }: { searchParams: { status?: string; q?: string } }) {
   const session = await getSession();
   if (!session) return null;
+  if (!canAccessImportInspection(session.role)) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title={t('pdi.title')} />
+        <EmptyState icon="🔒" title={t('pdi.forbiddenTitle')} reason={t('pdi.forbiddenReason')} nextStep={t('pdi.forbiddenNextStep')} />
+      </div>
+    );
+  }
 
   const status = STATUSES.includes(searchParams.status as InspectionStatus) ? (searchParams.status as InspectionStatus) : undefined;
-  const inspections = await service.listInspections({ status, q: searchParams.q });
+  const inspections = await service.listInspections({ status, q: searchParams.q }, session);
   const clearHref = searchParams.q || searchParams.status ? '/delivery/pdi' : undefined;
 
   return (
@@ -34,9 +44,14 @@ export default async function PdiListPage({ searchParams }: { searchParams: { st
         titleClassName="text-2xl font-bold text-brand-dark"
         className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center"
         actions={
-          <Link href="/delivery/pdi/new" className="btn-primary">
-            {t('pdi.newAction')}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/delivery/pdi/dashboard" className="rounded border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50">
+              {t('pdi.dashboardTitle')}
+            </Link>
+            <Link href="/delivery/pdi/new" className="btn-primary">
+              {t('pdi.newAction')}
+            </Link>
+          </div>
         }
       />
 
@@ -73,9 +88,11 @@ export default async function PdiListPage({ searchParams }: { searchParams: { st
               <tr>
                 <th className="px-4 py-3 text-left">{t('pdi.inspectionRefLabel')}</th>
                 <th className="px-4 py-3 text-left">{t('pdi.serialLabel')}</th>
+                <th className="px-4 py-3 text-left">{t('pdi.typeLabel')}</th>
                 <th className="px-4 py-3 text-left">{t('pdi.technicianLabel')}</th>
                 <th className="px-4 py-3 text-left">{t('pdi.statusLabel')}</th>
                 <th className="px-4 py-3 text-left">{t('pdi.resultLabel')}</th>
+                <th className="px-4 py-3 text-left">{t('pdi.releaseStatusLabel')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -87,9 +104,13 @@ export default async function PdiListPage({ searchParams }: { searchParams: { st
                     </Link>
                   </td>
                   <td className="px-4 py-3">{i.serial}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {i.inspectionType === 'RE_PDI' ? `${t('pdi.type.RE_PDI')} #${i.inspectionSequence}` : t('pdi.type.PDI')}
+                  </td>
                   <td className="px-4 py-3 text-gray-500">{i.technicianName}</td>
                   <td className="px-4 py-3">{t(`pdi.status.${i.status}`)}</td>
                   <td className="px-4 py-3 text-gray-500">{i.result ? t(`pdi.result.${i.result}`) : '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{t(`pdi.releaseStatus.${i.releaseStatus}`)}</td>
                 </tr>
               ))}
             </tbody>

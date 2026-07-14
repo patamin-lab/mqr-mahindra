@@ -68,6 +68,15 @@ because it shipped and moved to maintenance.
   Domain.md`, `docs/adr/ADR-027-Machine-Delivery-Platform.md`,
   `docs/architecture/INSPECTION_PDI.md`,
   `docs/architecture/DELIVERY_PLATFORM.md`.
+- ✓ **Import Inspection Domain Correction** (ADR-028) — business-domain
+  correction: Import Inspection (MSEAL PDI) is an internal MSEAL quality
+  process, never dealer-visible in detail, never linked to NTR - Dealer
+  Approval removed, replaced by MSEAL-only Release to Dealer; RE-PDI
+  chaining and a Factory Feedback Model added; Warranty Activation is now
+  triggered exclusively by NTR (never manually, never by Delivery
+  Acceptance). New MSEAL-only Import Inspection Dashboard
+  (`/delivery/pdi/dashboard`).
+  `docs/adr/ADR-028-Import-Inspection-Domain-Correction.md`.
 
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),

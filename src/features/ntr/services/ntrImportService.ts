@@ -32,6 +32,9 @@ import { mapNtrImportHeaders, parseNtrImportFile } from './ntrImportParser';
 import { buildNtrImportResultWorkbook } from './ntrImportResultExcel';
 import { NTR_IMPORT_FIELDS } from './ntrImportFields';
 import { MasterDataService } from '@/shared/master-data';
+import { VehicleEventPublisher } from '@/features/vehicle-event/publisher';
+import { createVehicleEventPublisher } from '@/features/vehicle-event/factory';
+import { runNtrWarrantyOrchestration } from './ntrPostCreateOrchestration';
 import {
   NtrImportMode,
   NtrImportPreview,
@@ -404,10 +407,26 @@ async function sha256Hex(buffer: Buffer): Promise<string> {
 }
 
 export class NtrImportService {
+  private _eventPublisher?: VehicleEventPublisher;
+
   constructor(
     private readonly ntrRepository: NtrRepository,
-    private readonly sessionRepository: NtrImportSessionRepository
-  ) {}
+    private readonly sessionRepository: NtrImportSessionRepository,
+    eventPublisher?: VehicleEventPublisher
+  ) {
+    this._eventPublisher = eventPublisher;
+  }
+
+  /** Lazy, not a constructor default - same reasoning as
+   *  `InspectionService.eventPublisher`/`DeliveryService.eventPublisher`
+   *  (docs/standards/SERVICE_CONSTRUCTION_STANDARD.md): this class is
+   *  constructed at module scope (`factory.ts`), so resolving the
+   *  eagerly-initialized `VehicleEventPublisher` here keeps construction
+   *  itself side-effect free. */
+  private get eventPublisher(): VehicleEventPublisher {
+    if (!this._eventPublisher) this._eventPublisher = createVehicleEventPublisher();
+    return this._eventPublisher;
+  }
 
   /** Parses + validates only - writes exactly one row (the session
    *  itself, status='Validated') so the Import Audit view has a record of
@@ -514,7 +533,7 @@ export class NtrImportService {
           source: 'legacy_import',
           import_session_id: session.id,
         };
-        await this.ntrRepository.commitLegacyImportRow(
+        const created = await this.ntrRepository.commitLegacyImportRow(
           session.id,
           {
             model: v.row.model,
@@ -527,6 +546,33 @@ export class NtrImportService {
           actor
         );
         imported++;
+
+        // Business-domain correction (ADR-028): Legacy Import must run the
+        // exact same post-create orchestration as the manual NTR route -
+        // `commit_ntr_legacy_import_row` is a raw RPC that never touches
+        // `VehicleEventPublisher`/`DeliveryService`, so both are called
+        // here explicitly. Non-blocking, wrapped separately from the row
+        // commit above - a publish/orchestration failure must never turn
+        // an already-committed row into a reported import failure.
+        try {
+          await this.eventPublisher.publishNtrCreated({
+            serial: created.serial,
+            referenceId: created.ntr_number,
+            eventDatetime: created.created_at,
+            actor: { username: actor.username },
+            customerName: created.customer_name,
+          });
+          await this.eventPublisher.publishNtrCompleted({
+            serial: created.serial,
+            referenceId: created.ntr_number,
+            eventDatetime: created.created_at,
+            actor: { username: actor.username },
+            customerName: created.customer_name,
+          });
+        } catch (publishErr) {
+          console.error('legacy import NTR platform event publish error', publishErr);
+        }
+        await runNtrWarrantyOrchestration(created, actor);
       } catch (err) {
         failed++;
         const reason = err instanceof Error ? err.message : 'Import failed';

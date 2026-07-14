@@ -16,6 +16,7 @@ import MachineTroubleshootingPanel from '@/features/machine/components/MachineTr
 import MachineAiInsightsPanel from '@/features/machine/components/MachineAiInsightsPanel';
 import MachineCompletenessPanel from '@/features/machine/components/MachineCompletenessPanel';
 import MachineIotPanel from '@/features/machine/components/MachineIotPanel';
+import MachineImportInspectionSection from '@/features/machine/components/sections/MachineImportInspectionSection';
 import MachineDeliverySection from '@/features/machine/components/sections/MachineDeliverySection';
 import MachineWarrantySection from '@/features/machine/components/sections/MachineWarrantySection';
 import MachinePmSection from '@/features/machine/components/sections/MachinePmSection';
@@ -129,6 +130,10 @@ export default async function MachinePassportPage({ params }: RouteParams) {
       <MachineLifecyclePanel summary={summary} timeline={timeline} />
       <MachineOwnershipPanel summary={summary} />
       <MachineHealthPanel summary={summary} />
+
+      <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
+        <MachineImportInspectionSection serial={machineId} session={session} />
+      </Suspense>
 
       <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
         <MachineDeliverySection serial={machineId} />

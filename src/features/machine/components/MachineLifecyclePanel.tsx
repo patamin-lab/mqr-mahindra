@@ -30,6 +30,8 @@ const CATEGORY_BY_EVENT_TYPE: Record<MachineEventType, Exclude<TimelineFilterCat
   PartsRequested: 'other',
   PartsDelivered: 'other',
   Inspection: 'other',
+  ReleasedToDealer: 'other',
+  WarrantyActivated: 'other',
   Other: 'other',
 };
 

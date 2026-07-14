@@ -15,6 +15,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ ok: true, inspection: updated });
   } catch (err: any) {
     console.error('complete inspection error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: 400 });
+    const forbidden = typeof err?.message === 'string' && err.message.includes('may not access Import Inspection');
+    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: forbidden ? 403 : 400 });
   }
 }

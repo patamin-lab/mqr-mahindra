@@ -30,6 +30,8 @@ export type VehicleEventType =
   | 'PartsRequested'
   | 'PartsDelivered'
   | 'Inspection'
+  | 'ReleasedToDealer'
+  | 'WarrantyActivated'
   | 'Other';
 
 /** One row on the Vehicle Life Cycle timeline. `date` is an ISO date/timestamp

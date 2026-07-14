@@ -6,6 +6,19 @@ Accepted (PR #45, merged 2026-07-13, SHA `de4d8cd`). See
 `docs/releases/FOUNDATION_FREEZE_v1.1.md` for what this ADR's
 architecture froze on merge.
 
+> **Amendment (2026-07-14): ADR-028 (Import Inspection Domain
+> Correction) reopens this frozen layer.** Dealer Approval and the NTR
+> link described below (Data model, Decision table) were removed - Import
+> Inspection is an internal MSEAL process, never dealer-approved, never
+> linked to an NTR record. RE-PDI chaining, Release to Dealer, and the
+> Factory Feedback Model were added. This document's original content
+> below is preserved as the historical record of the 2026-07-13
+> declaration; see `docs/adr/ADR-028-Import-Inspection-Domain-Correction.md`
+> for the corrected decision and `docs/architecture/INSPECTION_PDI.md`
+> for the corrected, current architecture (that document is updated in
+> place, not preserved historically, since it is a living doc, not a
+> frozen ADR).
+
 `ADR-017` is the number `docs/architecture/blueprint/16-ADR-RECOMMENDATIONS.md`
 reserved for "Inspection Domain" - used here, not the next sequential
 number, per `docs/governance/DOCUMENTATION_POLICY.md`'s numbering rule and

@@ -1,7 +1,7 @@
 /**
  * InspectionRepository — sole accessor of `inspections` (ADR-017). One
- * repository for one aggregate, matching `KnowledgeRepository`'s shape —
- * only `InspectionService` calls this class.
+ * repository for one aggregate - only `InspectionService` calls this
+ * class.
  */
 import { getSupabase } from '@/lib/supabase';
 import type {
@@ -10,6 +10,8 @@ import type {
   InspectionStatus,
   InspectionResult,
   InspectionType,
+  InspectionReason,
+  ReleaseStatus,
   ChecklistItem,
   Finding,
   Measurement,
@@ -23,24 +25,27 @@ function mapRow(row: any): Inspection {
     id: row.id,
     inspectionRef: row.inspection_ref,
     inspectionType: row.inspection_type as InspectionType,
+    inspectionReason: row.inspection_reason as InspectionReason,
+    inspectionSequence: row.inspection_sequence,
+    previousInspectionId: row.previous_inspection_id,
     vehicleId: row.vehicle_id,
     serial: row.serial,
     dealerId: row.dealer_id,
     status: row.status as InspectionStatus,
     result: row.result as InspectionResult | null,
+    releaseStatus: row.release_status as ReleaseStatus,
+    nextRePdiDueDate: row.next_re_pdi_due_date,
     checklistVersion: row.checklist_version,
     checklist: (row.checklist ?? []) as ChecklistItem[],
     findings: (row.findings ?? []) as Finding[],
     measurements: (row.measurements ?? []) as Measurement[],
     partsReplaced: (row.parts_replaced ?? []) as PartReplaced[],
+    factoryFeedback: row.factory_feedback,
     technicianId: row.technician_id,
     technicianName: row.technician_name,
     technicianCertificationRef: row.technician_certification_ref,
     signedOffBy: row.signed_off_by,
     signedOffAt: row.signed_off_at,
-    dealerApprovedBy: row.dealer_approved_by,
-    dealerApprovedAt: row.dealer_approved_at,
-    relatedNtrId: row.related_ntr_id,
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedBy: row.updated_by,
@@ -51,6 +56,9 @@ function mapRow(row: any): Inspection {
 
 export interface CreateInspectionInput {
   inspectionType: InspectionType;
+  inspectionReason: InspectionReason;
+  inspectionSequence: number;
+  previousInspectionId: string | null;
   vehicleId: string;
   serial: string;
   dealerId: string | null;
@@ -59,7 +67,6 @@ export interface CreateInspectionInput {
   technicianId: string | null;
   technicianName: string;
   technicianCertificationRef: string | null;
-  relatedNtrId: string | null;
   createdBy: string;
 }
 
@@ -70,25 +77,26 @@ export interface UpdateInspectionInput {
   partsReplaced?: PartReplaced[];
   status?: InspectionStatus;
   result?: InspectionResult | null;
+  releaseStatus?: ReleaseStatus;
+  nextRePdiDueDate?: string | null;
+  factoryFeedback?: string | null;
   signedOffBy?: string | null;
   signedOffAt?: string | null;
-  dealerApprovedBy?: string | null;
-  dealerApprovedAt?: string | null;
   updatedBy: string;
 }
 
 export class InspectionRepository {
-  /** Lazy, not a field initializer — same reasoning as
-   *  `KnowledgeRepository.client` (mockability + `getSupabase()`'s
-   *  construction-time env check). */
+  /** Lazy, not a field initializer - see
+   *  docs/standards/SERVICE_CONSTRUCTION_STANDARD.md. */
   private get client() {
     return getSupabase();
   }
 
-  /** `PDI-<year>-######`, dealer-scoped bucket (unlike Knowledge's global
-   *  `'KNOW:GLOBAL'` bucket) — a PDI genuinely belongs to one dealer's
-   *  operation, matching `DATABASE_STANDARD.md`'s default per-dealer
-   *  `next_job_seq()` convention MQR/PM/NTR already use. */
+  /** `PDI-<year>-######`, dealer-scoped bucket - Import Inspection is
+   *  performed for a specific dealer's incoming stock (a PDI genuinely
+   *  belongs to one dealer's operation, matching `DATABASE_STANDARD.md`'s
+   *  default per-dealer `next_job_seq()` convention MQR/PM/NTR already
+   *  use). */
   private async nextInspectionRef(dealerId: string | null): Promise<string> {
     const year = String(new Date().getFullYear());
     const { data, error } = await this.client.rpc('next_job_seq', {
@@ -103,6 +111,7 @@ export class InspectionRepository {
   async list(filters: InspectionListFilters = {}): Promise<Inspection[]> {
     let query = this.client.from(TABLE).select('*').eq('record_status', 'Active').order('created_at', { ascending: false });
     if (filters.status) query = query.eq('status', filters.status);
+    if (filters.releaseStatus) query = query.eq('release_status', filters.releaseStatus);
     if (filters.dealerId) query = query.eq('dealer_id', filters.dealerId);
     if (filters.serial) query = query.eq('serial', filters.serial);
     if (filters.q) query = query.or(`inspection_ref.ilike.%${filters.q}%,serial.ilike.%${filters.q}%,technician_name.ilike.%${filters.q}%`);
@@ -118,27 +127,35 @@ export class InspectionRepository {
     return mapRow(data);
   }
 
+  /** Full, immutable inspection history for one machine - oldest first,
+   *  so a chain (`PDI #1 -> RE_PDI #2 -> RE_PDI #3`) reads top-to-bottom
+   *  the way it actually happened. Machine Passport's own Import
+   *  Inspection history display reads this directly. */
   async listForSerial(serial: string): Promise<Inspection[]> {
     const { data, error } = await this.client
       .from(TABLE)
       .select('*')
       .eq('serial', serial)
       .eq('record_status', 'Active')
-      .order('created_at', { ascending: false });
+      .order('inspection_sequence', { ascending: true });
     if (error) throw error;
     return (data ?? []).map(mapRow);
   }
 
-  /** Batch read by id - the Delivery Dashboard/Report's own read path for
-   *  the small set of Inspections its rows link to. Exists so
-   *  `DeliveryService` composes Inspection data by calling
-   *  `InspectionService`/this repository directly, instead of
-   *  `DeliveryRepository` embedding `inspections` columns into its own
-   *  query - Delivery orchestrates PDI, it does not reach into PDI's own
-   *  table (ADR-017/ADR-027's ownership boundary). */
   async listByIds(ids: string[]): Promise<Inspection[]> {
     if (ids.length === 0) return [];
     const { data, error } = await this.client.from(TABLE).select('*').in('id', ids).eq('record_status', 'Active');
+    if (error) throw error;
+    return (data ?? []).map(mapRow);
+  }
+
+  /** Every inspection eligible for RE-PDI/expiration KPI queries - the
+   *  Import Inspection Dashboard's own read path (JS-side aggregation
+   *  over one scoped read, same shape `dashboardStats()` uses). */
+  async listActive(dealerId?: string): Promise<Inspection[]> {
+    let query = this.client.from(TABLE).select('*').eq('record_status', 'Active').order('created_at', { ascending: false });
+    if (dealerId) query = query.eq('dealer_id', dealerId);
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(mapRow);
   }
@@ -150,6 +167,9 @@ export class InspectionRepository {
       .insert({
         inspection_ref: inspectionRef,
         inspection_type: input.inspectionType,
+        inspection_reason: input.inspectionReason,
+        inspection_sequence: input.inspectionSequence,
+        previous_inspection_id: input.previousInspectionId,
         vehicle_id: input.vehicleId,
         serial: input.serial,
         dealer_id: input.dealerId,
@@ -158,7 +178,6 @@ export class InspectionRepository {
         technician_id: input.technicianId,
         technician_name: input.technicianName,
         technician_certification_ref: input.technicianCertificationRef,
-        related_ntr_id: input.relatedNtrId,
         created_by: input.createdBy,
         updated_by: input.createdBy,
       })
@@ -176,10 +195,11 @@ export class InspectionRepository {
     if (input.partsReplaced !== undefined) patch.parts_replaced = input.partsReplaced;
     if (input.status !== undefined) patch.status = input.status;
     if (input.result !== undefined) patch.result = input.result;
+    if (input.releaseStatus !== undefined) patch.release_status = input.releaseStatus;
+    if (input.nextRePdiDueDate !== undefined) patch.next_re_pdi_due_date = input.nextRePdiDueDate;
+    if (input.factoryFeedback !== undefined) patch.factory_feedback = input.factoryFeedback;
     if (input.signedOffBy !== undefined) patch.signed_off_by = input.signedOffBy;
     if (input.signedOffAt !== undefined) patch.signed_off_at = input.signedOffAt;
-    if (input.dealerApprovedBy !== undefined) patch.dealer_approved_by = input.dealerApprovedBy;
-    if (input.dealerApprovedAt !== undefined) patch.dealer_approved_at = input.dealerApprovedAt;
 
     const { data, error } = await this.client.from(TABLE).update(patch).eq('id', id).select('*').single();
     if (error) throw error;

@@ -13,6 +13,14 @@ vi.mock('@/lib/db', () => ({
 import { DeliveryService } from './service';
 import type { DeliveryRepository } from './repository';
 import type { InspectionService } from '@/features/inspection';
+import type { VehicleEventPublisher } from '@/features/vehicle-event/publisher';
+
+function makeMockPublisher(): VehicleEventPublisher {
+  return {
+    publish: vi.fn(() => Promise.resolve({})),
+    publishWarrantyActivated: vi.fn(() => Promise.resolve({})),
+  } as unknown as VehicleEventPublisher;
+}
 
 function session(overrides: Partial<SessionUser> = {}): SessionUser {
   return {
@@ -86,33 +94,63 @@ describe('DeliveryService.recordAcceptance', () => {
     expect(repo.update).not.toHaveBeenCalled();
   });
 
-  it('records acceptance then auto-activates Warranty (closing the "never emitted as an event" gap)', async () => {
+  it('records acceptance without activating Warranty (business-domain correction - NTR is the sole legitimate trigger)', async () => {
     const afterAcceptance = baseRecord({ stage: 'WarrantyActivation', acceptanceSignedAt: '2026-02-01T00:00:00Z', acceptanceSignedBy: 'admin1' });
-    const afterWarranty = baseRecord({ stage: 'Completed', overallStatus: 'Completed', warrantyActivatedAt: '2026-02-01T00:00:00Z', warrantyActivationSource: 'DeliveryAcceptance' });
-    const repo = makeRepo({
-      update: vi.fn()
-        .mockResolvedValueOnce(afterAcceptance)
-        .mockResolvedValueOnce(afterWarranty),
-    });
+    const repo = makeRepo({ update: vi.fn(() => Promise.resolve(afterAcceptance)) });
     const service = new DeliveryService(repo);
 
     const result = await service.recordAcceptance('del-1', { acceptanceNotes: 'Customer happy' }, session());
 
-    expect(result.warrantyActivatedAt).toBe('2026-02-01T00:00:00Z');
-    expect(result.warrantyActivationSource).toBe('DeliveryAcceptance');
-    expect(result.stage).toBe('Completed');
+    expect(result.stage).toBe('WarrantyActivation');
+    expect(result.warrantyActivatedAt).toBeNull();
+    expect(repo.update).toHaveBeenCalledTimes(1);
     expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ module: 'delivery', fieldName: 'Acceptance' }));
-    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ module: 'delivery', fieldName: 'WarrantyActivated', newValue: 'DeliveryAcceptance' }));
   });
 });
 
-describe('DeliveryService.activateWarranty', () => {
-  it('rejects a Manual activation from a DealerUser', async () => {
-    const repo = makeRepo();
+describe('DeliveryService.activateWarrantyFromNtr', () => {
+  it('activates Warranty on the machine\'s existing Delivery record, source NTR', async () => {
+    const existing = baseRecord({ stage: 'WarrantyActivation' });
+    const updated = baseRecord({ stage: 'Completed', overallStatus: 'Completed', warrantyActivatedAt: '2026-02-01T00:00:00Z', warrantyActivationSource: 'NTR', ntrId: 'ntr-1' });
+    const repo = makeRepo({
+      getMostRecentForSerial: vi.fn(() => Promise.resolve(existing)),
+      update: vi.fn(() => Promise.resolve(updated)),
+    });
+    const service = new DeliveryService(repo, undefined, makeMockPublisher());
+
+    const result = await service.activateWarrantyFromNtr({ vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1' }, session());
+
+    expect(result.warrantyActivationSource).toBe('NTR');
+    expect(result.stage).toBe('Completed');
+    expect(repo.create).not.toHaveBeenCalled();
+    expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ module: 'delivery', fieldName: 'WarrantyActivated', newValue: 'NTR' }));
+  });
+
+  it('is idempotent - never re-activates a machine whose Warranty already activated', async () => {
+    const existing = baseRecord({ stage: 'Completed', warrantyActivatedAt: '2026-01-01T00:00:00Z', warrantyActivationSource: 'NTR' });
+    const repo = makeRepo({ getMostRecentForSerial: vi.fn(() => Promise.resolve(existing)) });
     const service = new DeliveryService(repo);
 
-    await expect(service.activateWarranty('del-1', 'Manual', session({ role: 'DealerUser' }))).rejects.toThrow(/may not manually activate Warranty/);
+    const result = await service.activateWarrantyFromNtr({ vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-2' }, session());
+
+    expect(result).toBe(existing);
     expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('creates the Delivery record if this machine never had one (NTR is the sole trigger, not gated on prior Delivery stages)', async () => {
+    const created = baseRecord({ id: 'del-new' });
+    const updated = baseRecord({ id: 'del-new', stage: 'Completed', warrantyActivatedAt: '2026-02-01T00:00:00Z', warrantyActivationSource: 'NTR' });
+    const repo = makeRepo({
+      getMostRecentForSerial: vi.fn(() => Promise.resolve(null)),
+      create: vi.fn(() => Promise.resolve(created)),
+      update: vi.fn(() => Promise.resolve(updated)),
+    });
+    const service = new DeliveryService(repo, undefined, makeMockPublisher());
+
+    const result = await service.activateWarrantyFromNtr({ vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1' }, session());
+
+    expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ vehicleId: 'veh-1', serial: 'SN-001' }));
+    expect(result.warrantyActivationSource).toBe('NTR');
   });
 });
 

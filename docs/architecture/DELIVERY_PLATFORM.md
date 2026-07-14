@@ -1,10 +1,26 @@
 # Machine Delivery Platform v1.0 - Architecture
 
 ADR-027. The complete digital delivery lifecycle - Tractor In through
-Warranty Activation. PDI is one stage inside this lifecycle
-(`docs/architecture/INSPECTION_PDI.md`, ADR-017), not redesigned here.
+Warranty Activation. Import Inspection (MSEAL PDI) is one stage inside
+this lifecycle (`docs/architecture/INSPECTION_PDI.md`, ADR-017), not
+redesigned here.
 
 Structured around the task brief's own ten requested Output sections.
+
+> **Business-domain correction (2026-07-14, architecture-review pass):**
+> the corrected Business Process is `Factory -> Import -> Stock Yard ->
+> Import Inspection (MSEAL) -> Released to Dealer -> Dealer Stock -> NTR
+> -> Warranty (automatic) -> PM -> Quality -> Knowledge`. Two changes
+> from the original build, both reflected below: (1) Import Inspection
+> (PDI) is an internal MSEAL process, gated exclusively to MSEAL roles -
+> Dealer Approval does not exist; **Released to Dealer** (an MSEAL
+> decision on the Inspection itself, ADR-017) is what ends this stage,
+> not Delivery Acceptance. (2) **Warranty is never activated manually,
+> and Delivery Acceptance no longer auto-triggers it** - NTR (the
+> ownership-transfer event) is the sole legitimate trigger
+> (`DeliveryService.activateWarrantyFromNtr()`, called from the NTR
+> creation route). See `docs/architecture/INSPECTION_PDI.md`'s own
+> correction notice for the Inspection-side detail.
 
 ## 1. Machine Delivery Architecture
 
@@ -20,13 +36,16 @@ Tractor In           -> vehicles (ADR-012, TractorInSyncService) - read only
   |
 Stock Yard           -> delivery_records (new)
   |
-PDI                  -> inspections (ADR-017) - linked, not duplicated
+Import Inspection    -> inspections (ADR-017, MSEAL-only) - linked, not
+  |                     duplicated. Released to Dealer ends this stage.
   |
 Delivery             -> delivery_records (Dealer Preparation, Customer
   |                     Delivery link to ntr_records, Operator Training,
   |                     Delivery Acceptance)
-Warranty              -> delivery_records.warranty_activated_at (new
-  |                     point-in-time event) + vehicles.delivery_date-
+NTR                  -> ntr_records - the ownership-transfer event
+  |
+Warranty              -> delivery_records.warranty_activated_at, source
+  |                     'NTR' only (never manual) + vehicles.delivery_date-
   |                     driven calcWarranty() (unchanged, still live)
 PM / Quality / Knowledge / IoT
   (unchanged - existing Machine Passport sections; Delivery adds one more
@@ -55,19 +74,27 @@ skipping backward):
 6. **Operator Training** - `recordTraining()`: creates a
    `delivery_trainings` row (§4), links it.
 7. **Delivery Acceptance** - `recordAcceptance()`: gated by
-   `canApproveDelivery`; auto-triggers stage 8.
-8. **Warranty Activation** - `activateWarranty()`: one timestamp +
-   source (`DeliveryAcceptance` or `Manual`) - not a claims/policy ledger.
+   `canApproveDelivery`. **Business-domain correction: no longer
+   auto-triggers Warranty Activation** - only records the stage/
+   signature; advances to stage 8 to await NTR.
+8. **Warranty Activation** - `activateWarrantyFromNtr()`: one timestamp +
+   source (**`NTR` only** - never `Manual`, never triggered by Delivery
+   Acceptance) - not a claims/policy ledger. Called exclusively from the
+   NTR creation route's own non-blocking side-effect
+   (`src/app/api/ntr-records/route.ts`), find-or-creating this machine's
+   Delivery record so Warranty Activation is never blocked on prior
+   Delivery-stage bookkeeping.
 9. **Completed** - `overall_status: 'Completed'`.
 
-## 3. PDI Architecture
+## 3. Import Inspection Architecture
 
 See `docs/architecture/INSPECTION_PDI.md` in full. Summary: one
-`inspections` aggregate (ADR-017), Checklist/Findings/Evidence/
-Measurements/Parts Replacement/Digital Sign-off/Checklist Version/
-Technician Certification/Dealer Approval - all real, all tested. Delivery
-links an Inspection by ID; it never queries or writes `inspections`
-directly.
+`inspections` aggregate (ADR-017), an internal MSEAL process - Checklist/
+Findings/Factory Feedback/Evidence/Measurements/Parts Replacement/
+Digital Sign-off/Checklist Version/Technician Certification/RE-PDI
+chaining/Release to Dealer - all real, all tested, all MSEAL-only
+(`canAccessImportInspection`). Delivery links an Inspection by ID; it
+never queries or writes `inspections` directly.
 
 ## 4. Training Architecture
 
@@ -131,6 +158,17 @@ This is not a UI redesign - the ten KPIs below are the official,
 binding contract for this screen (platform-quality refinement,
 architecture-review pass); the layout itself is unchanged.
 
+**Business-domain correction:** Import Inspection's own KPIs (Pending
+Import Inspection, Pending RE-PDI, Expired Inspection, Released to
+Dealer, Critical Findings, Findings by Model, Findings by Factory,
+Factory Feedback Pending, Average Inspection Time, Inspection Pass Rate)
+moved to their own, separate, MSEAL-only **Import Inspection Dashboard**
+(`/delivery/pdi/dashboard`, `InspectionService.getDashboardStats()` -
+see `docs/architecture/INSPECTION_PDI.md` §8) - they are a distinct
+internal MSEAL capability, not a Delivery-lifecycle KPI. "PDI First Pass
+Rate" below (#8) remains on the general Delivery Dashboard as a
+cross-cutting lifecycle metric.
+
 | # | KPI | Status | Definition |
 |---|---|---|---|
 | 1 | Pending Tractor In | **Implemented** | Vehicles synced via Tractor In (ADR-012) with no Delivery record yet - `DeliveryRepository.countVehiclesWithoutDeliveryRecord()`, a real anti-join against `vehicles`, never a fabricated number |
@@ -193,10 +231,15 @@ through the existing services only, never bypasses them).
 
 ## Production Readiness Recommendation
 
-**PASS WITH WARNINGS.** Core lifecycle (Tractor In -> Stock Yard -> PDI
--> Dealer Preparation -> Customer Delivery -> Operator Training ->
-Delivery Acceptance -> Warranty Activation -> Completed) is real, tested,
-and integrated into Machine Passport, Timeline, and Knowledge. Explicitly
+**PASS WITH WARNINGS.** Core lifecycle (Tractor In -> Stock Yard ->
+Import Inspection -> Dealer Preparation -> Customer Delivery -> Operator
+Training -> Delivery Acceptance -> NTR -> Warranty Activation ->
+Completed) is real, tested, and integrated into Machine Passport,
+Timeline, and Knowledge. "Creates Customer ownership" (no Customer/
+Ownership domain exists - `vehicles` has no such FK) and "triggers
+Notifications" (no Notification service exists - `NotificationBell` is a
+static placeholder) are Reserved for Future Capability, honestly, not
+fabricated. Explicitly
 deferred: Import PDI UI, full Warranty claims/policy ledger, Technician
 Certification management, checklist template builder, Training Photos/
 Videos capture UI (schema and Attachment Platform retention policy

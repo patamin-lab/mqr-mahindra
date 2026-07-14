@@ -15,5 +15,5 @@ export function createNtrService(): NtrService {
 }
 
 export function createNtrImportService(): NtrImportService {
-  return new NtrImportService(new SupabaseNtrRepository(), new SupabaseNtrImportSessionRepository());
+  return new NtrImportService(new SupabaseNtrRepository(), new SupabaseNtrImportSessionRepository(), createVehicleEventPublisher());
 }

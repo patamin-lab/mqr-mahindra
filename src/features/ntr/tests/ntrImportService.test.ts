@@ -66,6 +66,13 @@ vi.mock('@/lib/db', async (importOriginal) => {
 });
 vi.mock('@/lib/googleDrive', () => ({ uploadFileToDrive: vi.fn() }));
 
+const { mockRunNtrWarrantyOrchestration } = vi.hoisted(() => ({
+  mockRunNtrWarrantyOrchestration: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock('../services/ntrPostCreateOrchestration', () => ({
+  runNtrWarrantyOrchestration: mockRunNtrWarrantyOrchestration,
+}));
+
 import { NtrImportService } from '../services/ntrImportService';
 import type { NtrRepository } from '../repositories/ntrRepository';
 import type { NtrImportSessionRepository } from '../repositories/ntrImportSessionRepository';
@@ -412,5 +419,73 @@ describe('NtrImportService.preview - bulk prefetch performance', () => {
 
     expect(preview.totalRecords).toBe(50);
     expect(preview.validCount).toBe(50);
+  });
+});
+
+describe('NtrImportService.commit - NTR post-create orchestration (ADR-028, Legacy Import bypass fix)', () => {
+  function makePublisher(overrides: Record<string, unknown> = {}) {
+    return {
+      publish: vi.fn().mockResolvedValue({}),
+      publishNtrCreated: vi.fn().mockResolvedValue({}),
+      publishNtrCompleted: vi.fn().mockResolvedValue({}),
+      ...overrides,
+    } as unknown as import('@/features/vehicle-event/publisher').VehicleEventPublisher;
+  }
+
+  async function commitOneValidRow(
+    ntrRepository: NtrRepository,
+    publisher: import('@/features/vehicle-event/publisher').VehicleEventPublisher,
+    serial = 'SER-001'
+  ) {
+    fakeTables.dealers = [{ id: 'D1' }];
+    fakeTables.vehicles = [];
+    const sessionRepository = makeSessionRepository();
+    const service = new NtrImportService(ntrRepository, sessionRepository, publisher);
+    const buffer = csvBuffer([row({ serial })]);
+    const { session } = await service.preview(buffer, 'legacy.csv', ACTOR, 'legacy');
+    return service.commit(session.id, ACTOR, 'legacy');
+  }
+
+  beforeEach(() => {
+    mockRunNtrWarrantyOrchestration.mockReset().mockResolvedValue(undefined);
+  });
+
+  it('publishes NTR_CREATED/NTR_COMPLETED and runs the shared Warranty orchestration for each successfully committed row - the same post-create behavior as the manual NTR route', async () => {
+    const created = { id: 'ntr-1', serial: 'SER-001', ntr_number: 'NTR-2026-000001', customer_name: 'John Doe', created_at: '2026-01-05T00:00:00Z' } as NtrRecord;
+    const ntrRepository = makeNtrRepository({ commitLegacyImportRow: vi.fn().mockResolvedValue(created) });
+    const publisher = makePublisher();
+
+    const result = await commitOneValidRow(ntrRepository, publisher);
+
+    expect(result.valid_count).toBe(1);
+    expect(publisher.publishNtrCreated).toHaveBeenCalledWith(expect.objectContaining({ serial: 'SER-001', referenceId: 'NTR-2026-000001', actor: { username: ACTOR.username } }));
+    expect(publisher.publishNtrCompleted).toHaveBeenCalledWith(expect.objectContaining({ serial: 'SER-001', referenceId: 'NTR-2026-000001' }));
+    expect(mockRunNtrWarrantyOrchestration).toHaveBeenCalledWith(created, ACTOR);
+  });
+
+  it('never counts a row as failed when platform-event publishing rejects - the row already committed successfully', async () => {
+    const created = { id: 'ntr-1', serial: 'SER-001', ntr_number: 'NTR-2026-000001', customer_name: 'John Doe', created_at: '2026-01-05T00:00:00Z' } as NtrRecord;
+    const ntrRepository = makeNtrRepository({ commitLegacyImportRow: vi.fn().mockResolvedValue(created) });
+    const publisher = makePublisher({ publishNtrCreated: vi.fn().mockRejectedValue(new Error('platform event service unavailable')) });
+
+    const result = await commitOneValidRow(ntrRepository, publisher);
+
+    expect(result.valid_count).toBe(1);
+    expect(result.failed_count).toBe(0);
+    // The Warranty orchestration must still run for a row whose own commit
+    // succeeded, even though the unrelated event-publish step failed.
+    expect(mockRunNtrWarrantyOrchestration).toHaveBeenCalledWith(created, ACTOR);
+  });
+
+  it('does not publish or orchestrate for a row whose commit itself fails', async () => {
+    const ntrRepository = makeNtrRepository({ commitLegacyImportRow: vi.fn().mockRejectedValue(new Error('duplicate serial')) });
+    const publisher = makePublisher();
+
+    const result = await commitOneValidRow(ntrRepository, publisher);
+
+    expect(result.valid_count).toBe(0);
+    expect(result.failed_count).toBe(1);
+    expect(publisher.publishNtrCreated).not.toHaveBeenCalled();
+    expect(mockRunNtrWarrantyOrchestration).not.toHaveBeenCalled();
   });
 });

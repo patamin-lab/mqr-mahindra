@@ -5,6 +5,7 @@ import { resolveDealerScope, assertBranchAccess } from '@/lib/dealerBranchScope'
 import { buildNtrRecordCreateBodySchema, NtrRecordCreateBody } from '@/features/ntr/schemas';
 import { NtrRecordCreateInput } from '@/features/ntr/types';
 import { createNtrService } from '@/features/ntr/factory';
+import { runNtrWarrantyOrchestration } from '@/features/ntr/services/ntrPostCreateOrchestration';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 import { AttachmentService } from '@/shared/attachments';
@@ -97,6 +98,21 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       console.error('attachment reassign/business-complete error (ntr-record)', err);
+    }
+
+    // Business-domain correction: NTR is the ownership-transfer event and
+    // the sole legitimate trigger for Warranty Activation - never manual
+    // (docs/architecture/DELIVERY_PLATFORM.md). Shared with Legacy
+    // Import's own commit path (`NtrImportService.commit()`) so both
+    // NTR-creation paths run identical orchestration. `runNtrWarrantyOrchestration`
+    // already never throws on its own, but this call is still wrapped
+    // here (same defense-in-depth as the attachment reassign block above)
+    // so an NTR record can never fail to save even if that contract is
+    // ever broken.
+    try {
+      await runNtrWarrantyOrchestration(record, { username: session.username, role: session.role });
+    } catch (err) {
+      console.error('NTR post-create warranty/PM orchestration error (ntr-record route)', err);
     }
 
     return NextResponse.json({ ok: true, data: record }, { status: 201 });

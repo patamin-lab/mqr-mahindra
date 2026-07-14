@@ -27,6 +27,8 @@ export const EVENT_CODES = [
   'SOFTWARE_UPDATE',
   'RECALL',
   'TELEMATICS_ALERT',
+  'RELEASED_TO_DEALER',
+  'WARRANTY_ACTIVATED',
   'OTHER',
 ] as const;
 

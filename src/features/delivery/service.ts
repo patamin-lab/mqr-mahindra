@@ -9,8 +9,10 @@
  */
 import { logAuditEvent } from '@/lib/db';
 import type { SessionUser } from '@/lib/types';
-import { canApproveDelivery } from '@/lib/scope';
+import { canApproveDelivery, canAccessImportInspection } from '@/lib/scope';
 import { InspectionService } from '@/features/inspection';
+import { VehicleEventPublisher } from '@/features/vehicle-event/publisher';
+import { createVehicleEventPublisher } from '@/features/vehicle-event/factory';
 import { DeliveryRepository, CreateDeliveryRecordInput } from './repository';
 import {
   DeliveryRecord,
@@ -20,7 +22,6 @@ import {
   DeliveryDashboardStats,
   DeliveryReportFilters,
   DeliveryReportRow,
-  WarrantyActivationSource,
 } from './types';
 
 export interface CreateDeliveryRecordRequest {
@@ -58,10 +59,23 @@ function buildLeaderboard(rows: { key: string | null }[], limit = 10): { key: st
 }
 
 export class DeliveryService {
+  private _eventPublisher?: VehicleEventPublisher;
+
   constructor(
     private readonly repo: DeliveryRepository = new DeliveryRepository(),
-    private readonly inspectionService: InspectionService = new InspectionService()
-  ) {}
+    private readonly inspectionService: InspectionService = new InspectionService(),
+    eventPublisher?: VehicleEventPublisher
+  ) {
+    this._eventPublisher = eventPublisher;
+  }
+
+  /** Lazy, not a constructor default - see the identical comment on
+   *  `InspectionService.eventPublisher` (docs/standards/
+   *  SERVICE_CONSTRUCTION_STANDARD.md). */
+  private get eventPublisher(): VehicleEventPublisher {
+    if (!this._eventPublisher) this._eventPublisher = createVehicleEventPublisher();
+    return this._eventPublisher;
+  }
 
   async listDeliveries(filters: Parameters<DeliveryRepository['list']>[0] = {}): Promise<DeliveryRecord[]> {
     return this.repo.list(filters);
@@ -108,8 +122,14 @@ export class DeliveryService {
 
   /** Links a completed `Inspection` (ADR-017) — never duplicates PDI
    *  fields onto this table. Advances to `DealerPreparation` once the
-   *  linked inspection is `Completed`. */
+   *  linked inspection is `Completed`. Gated to MSEAL roles
+   *  (`canAccessImportInspection`) - a Dealer role must not be able to
+   *  read/act on Import Inspection state through this cross-domain link,
+   *  even though Import Inspection's own CRUD is already MSEAL-only. */
   async linkInspection(id: string, inspectionId: string, inspectionCompleted: boolean, session: SessionUser): Promise<DeliveryRecord> {
+    if (!canAccessImportInspection(session.role)) {
+      throw new Error(`Role ${session.role} may not link an Import Inspection to a Delivery record`);
+    }
     const updated = await this.repo.update(id, {
       stage: inspectionCompleted ? 'DealerPreparation' : 'PDI',
       pdiInspectionId: inspectionId,
@@ -178,10 +198,11 @@ export class DeliveryService {
 
   /** Delivery Acceptance — the trust-conferring action, gated by
    *  `canApproveDelivery` (SuperAdmin/CentralAdmin/DealerAdmin only).
-   *  Automatically triggers Warranty Activation (`source:
-   *  'DeliveryAcceptance'`) — closing the gap
-   *  `03-MACHINE-LIFECYCLE-AND-TIMELINE.md` itself names: "Warranty
-   *  Activated is never emitted as a point-in-time event today." */
+   *  Business-domain correction: no longer auto-triggers Warranty
+   *  Activation - NTR is the sole ownership-transfer event and the sole
+   *  legitimate Warranty trigger (see `activateWarrantyFromNtr`).
+   *  Acceptance only records the stage; Warranty activates independently
+   *  once an NTR record is created for this machine. */
   async recordAcceptance(id: string, input: RecordAcceptanceRequest, session: SessionUser): Promise<DeliveryRecord> {
     if (!canApproveDelivery(session.role)) {
       throw new Error(`Role ${session.role} may not record Delivery Acceptance`);
@@ -203,40 +224,74 @@ export class DeliveryService {
       newValue: session.username,
       performedBy: session.username,
     });
-    return this.activateWarranty(id, 'DeliveryAcceptance', session);
+    return updated;
   }
 
   /** Warranty Activation — one point-in-time event (`warrantyActivatedAt`
-   *  + `warrantyActivationSource`), not a claims/policy ledger (that
-   *  stays future work). Auto-triggered by `recordAcceptance()`, or
-   *  callable directly for a manual/out-of-band activation. */
-  async activateWarranty(id: string, source: WarrantyActivationSource, session: SessionUser): Promise<DeliveryRecord> {
-    if (source === 'Manual' && !canApproveDelivery(session.role)) {
-      throw new Error(`Role ${session.role} may not manually activate Warranty`);
+   *  + `warrantyActivationSource: 'NTR'`), not a claims/policy ledger
+   *  (that stays future work). NTR is the ownership-transfer event and the
+   *  ONLY caller of this method (from the NTR creation route's own
+   *  non-blocking side-effect, mirroring its existing attachments-reassign
+   *  pattern) - Warranty is never activated manually. Idempotent: a
+   *  machine whose Warranty already activated is left unchanged, since an
+   *  NTR correction/resubmission must never re-activate or overwrite the
+   *  original activation moment. Find-or-creates the Delivery record for
+   *  this vehicle - not every machine will have gone through every prior
+   *  Delivery stage by the time NTR completes, and Warranty Activation
+   *  must not be blocked on Delivery stage bookkeeping this domain
+   *  correction does not otherwise restructure. Takes a minimal actor
+   *  (`{ username }`), not a full `SessionUser` - this is called from both
+   *  NTR-creation paths (the manual route's full session, and Legacy
+   *  Import's `{ username }`-only actor), and nothing here ever reads a
+   *  role. */
+  async activateWarrantyFromNtr(input: { vehicleId: string; serial: string; dealerId: string | null; ntrId: string }, actor: { username: string }): Promise<DeliveryRecord> {
+    let record = await this.repo.getMostRecentForSerial(input.serial);
+    if (!record) {
+      record = await this.repo.create({
+        vehicleId: input.vehicleId,
+        serial: input.serial,
+        dealerId: input.dealerId,
+        createdBy: actor.username,
+      } satisfies CreateDeliveryRecordInput);
     }
-    const updated = await this.repo.update(id, {
+    if (record.warrantyActivatedAt) return record;
+
+    const updated = await this.repo.update(record.id, {
       stage: 'Completed',
       overallStatus: 'Completed',
+      ntrId: input.ntrId,
       warrantyActivatedAt: new Date().toISOString(),
-      warrantyActivationSource: source,
-      updatedBy: session.username,
+      warrantyActivationSource: 'NTR',
+      updatedBy: actor.username,
     });
     await logAuditEvent({
       module: 'delivery',
-      recordId: id,
+      recordId: updated.id,
       recordRef: updated.deliveryRef,
       eventType: 'SystemEvent',
       fieldName: 'WarrantyActivated',
-      newValue: source,
-      performedBy: session.username,
+      newValue: 'NTR',
+      performedBy: actor.username,
     });
+    await this.eventPublisher
+      .publishWarrantyActivated({
+        serial: updated.serial,
+        referenceId: updated.deliveryRef,
+        entityId: updated.id,
+        eventDatetime: updated.warrantyActivatedAt as string,
+        actor: { username: actor.username },
+        source: 'NTR',
+      })
+      .catch((err) => console.error('publish WARRANTY_ACTIVATED event error', err));
     return updated;
   }
 
   /** Machine Passport's Delivery section — read-only summary. `null`
    *  when this machine has no delivery record yet. `pdiResult` is read
-   *  through `InspectionService.getInspection()` (never a direct
-   *  `inspections` query from this service) - Delivery links an
+   *  through `InspectionService.listInspectionsByIds()` (never a direct
+   *  `inspections` query from this service, and never the MSEAL-gated
+   *  `getInspection()` - the Passport's own summary field is dealer-
+   *  visible, like `listInspectionsForSerial()`) - Delivery links an
    *  Inspection by id, it does not own or duplicate its fields. */
   async getDeliveryForMachine(serial: string): Promise<MachineDeliverySummary | null> {
     const record = await this.repo.getMostRecentForSerial(serial);
@@ -248,7 +303,7 @@ export class DeliveryService {
     }
     let pdiResult: string | null = null;
     if (record.pdiInspectionId) {
-      const inspection = await this.inspectionService.getInspection(record.pdiInspectionId).catch(() => null);
+      const [inspection] = await this.inspectionService.listInspectionsByIds([record.pdiInspectionId]);
       pdiResult = inspection?.result ?? null;
     }
     return {

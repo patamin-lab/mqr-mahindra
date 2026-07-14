@@ -4,9 +4,9 @@ import { InspectionService } from '@/features/inspection';
 
 const service = new InspectionService();
 
-/** Dealer Approval — server-side enforced via `canDealerApproveInspection`
- *  inside `InspectionService.dealerApprove()` (nav/button visibility is
- *  UX only, per `SECURITY_STANDARD.md`). */
+/** Released to Dealer — the MSEAL-internal decision that ends this
+ *  machine's Import Inspection stage (`canAccessImportInspection`,
+ *  enforced inside `InspectionService.releaseToDealer()`). */
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
@@ -14,11 +14,11 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   }
 
   try {
-    const updated = await service.dealerApprove(params.id, session);
+    const updated = await service.releaseToDealer(params.id, session);
     return NextResponse.json({ ok: true, inspection: updated });
   } catch (err: any) {
-    console.error('dealer approve inspection error', err);
-    const forbidden = typeof err?.message === 'string' && err.message.includes('may not give Dealer Approval');
+    console.error('release to dealer error', err);
+    const forbidden = typeof err?.message === 'string' && err.message.includes('may not access Import Inspection');
     return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: forbidden ? 403 : 400 });
   }
 }

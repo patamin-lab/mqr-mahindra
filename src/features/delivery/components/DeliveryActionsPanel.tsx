@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { swalError, swalSuccessToast } from '@/lib/swal';
 import { fetchJson } from '@/lib/fetchJson';
-import { canApproveDelivery } from '@/lib/scope';
+import { canApproveDelivery, canAccessImportInspection } from '@/lib/scope';
 import type { Role } from '@/lib/types';
 import Card from '@/components/shared/layout/Card';
 import type { DeliveryStage } from '../types';
@@ -77,6 +77,13 @@ export default function DeliveryActionsPanel({
   }
 
   if (stage === 'StockYard' || stage === 'PDI') {
+    if (!canAccessImportInspection(role)) {
+      return (
+        <Card variant="flat" className="p-5 text-xs text-gray-500">
+          {t('pdi.forbiddenReason')}
+        </Card>
+      );
+    }
     return (
       <Card variant="flat" className="space-y-3 p-5">
         {availableInspections.length === 0 ? (
@@ -204,12 +211,13 @@ export default function DeliveryActionsPanel({
   }
 
   if (stage === 'WarrantyActivation') {
-    if (!canApproveDelivery(role)) return null;
+    /** Warranty is never activated manually (business-domain correction) -
+     *  it activates automatically once an NTR record is created for this
+     *  machine (`DeliveryService.activateWarrantyFromNtr`). Nothing to do
+     *  here but wait. */
     return (
-      <Card variant="flat" className="p-5">
-        <button type="button" disabled={busy} onClick={() => call('activate-warranty', {}, 'delivery.activateWarrantyAction')} className="btn-primary">
-          {busy ? '...' : t('delivery.activateWarrantyAction')}
-        </button>
+      <Card variant="flat" className="p-5 text-xs text-gray-500">
+        {t('delivery.warrantyWaitingOnNtr')}
       </Card>
     );
   }
