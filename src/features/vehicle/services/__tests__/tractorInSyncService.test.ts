@@ -289,4 +289,43 @@ describe('TractorInSyncService.sync', () => {
     expect(insertPayload.pdi_status).toBeUndefined();
     expect(insertPayload.pdiStatus).toBeUndefined();
   });
+
+  it('reports missing Product Code / WH Arrival Date as a data-quality count, never as a failure - root cause is a blank sheet cell', async () => {
+    mockRows.mockResolvedValue([
+      row({ productSerial: 'S1', productCode: '', whArrivalDate: '' }),
+      row({ productSerial: 'S2', productCode: 'PC-1', whArrivalDate: '01/06/2026' }),
+    ]);
+    const mocked = mockClient({ existingSerials: ['S1', 'S2'] });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync();
+
+    expect(result.missingProductCode).toBe(1);
+    expect(result.missingWhArrivalDate).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.updated).toBe(2);
+  });
+
+  it('dry run also reports missing Product Code / WH Arrival Date counts (data quality is about the sheet, not the write)', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'S1', productCode: '', whArrivalDate: '' })]);
+    const mocked = mockClient({ existingSerials: [] });
+    state.client = mocked.client;
+
+    const result = await new TractorInSyncService().sync({ dryRun: true });
+
+    expect(result.missingProductCode).toBe(1);
+    expect(result.missingWhArrivalDate).toBe(1);
+  });
+
+  it('persists missing-field counts on the sync run log', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'S1', productCode: '', whArrivalDate: '', productFamily: '5000' })]);
+    const mocked = mockClient({ existingSerials: ['S1'] });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync({ triggeredBy: 'qa_tester' });
+
+    const logged = mocked.syncRunInsert.mock.calls[0][0];
+    expect(logged.missing_product_code).toBe(1);
+    expect(logged.missing_wh_arrival_date).toBe(1);
+  });
 });

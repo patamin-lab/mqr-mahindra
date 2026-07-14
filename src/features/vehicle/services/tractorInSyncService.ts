@@ -21,6 +21,13 @@
  * remains the only conflict/lookup key. PDI Status is read from the sheet
  * but deliberately never written anywhere - it has no `vehicles` column.
  *
+ * v2.4.1 (data-quality reporting): `missingProductCode`/
+ * `missingWhArrivalDate` on the result report how many processed rows had
+ * a blank sheet cell for that field - a data-quality signal about the
+ * sheet, never a sync failure/defect. This sync never generates, infers,
+ * or backfills a missing value; the fix (if any) happens in the sheet
+ * itself, not here.
+ *
  * Triggered manually today (`POST /api/admin/tractor-in/sync`,
  * SuperAdmin-gated) since no scheduler platform exists yet in this repo -
  * a scheduled trigger can be added later by calling `sync()`, with no
@@ -102,7 +109,20 @@ export interface TractorInSyncResult {
   durationMs: number;
   unmatchedProductFamily: TractorInSyncUnmatched[];
   failures: TractorInSyncFailure[];
+  /** Data-quality signal, not a sync failure: count of processed rows
+   *  whose sheet cell for this field is blank. Root cause is always
+   *  upstream (Tractor IN Google Sheet), never this sync - see
+   *  `DATA_QUALITY_REASON`. */
+  missingProductCode: number;
+  missingWhArrivalDate: number;
 }
+
+/** Static, human-readable root-cause note for `missingProductCode`/
+ *  `missingWhArrivalDate` - the sheet cell is blank, this sync never
+ *  infers/generates/backfills a value, and a blank cell is intentionally
+ *  never treated as a failure (see this file's own "only set if present"
+ *  rule for UPDATE). */
+export const DATA_QUALITY_REASON = 'Blank in Tractor IN Google Sheet';
 
 export interface TractorInSyncOptions {
   /** Session username, recorded on the run log for audit only. Ignored in dry-run mode (nothing is logged). */
@@ -157,6 +177,8 @@ export class TractorInSyncService {
     let updated = 0;
     let skipped = 0;
     let failed = 0;
+    let missingProductCode = 0;
+    let missingWhArrivalDate = 0;
     const unmatchedProductFamily: TractorInSyncUnmatched[] = [];
     const failures: TractorInSyncFailure[] = [];
     const nowIso = new Date().toISOString();
@@ -189,6 +211,12 @@ export class TractorInSyncService {
       const productCode = row.productCode.trim() || null;
       const whArrivalDate = parseSheetDate(row.whArrivalDate);
       const deliveryDate = parseSheetDate(row.deliveryDateThai);
+
+      // Data-quality signal, computed from the sheet row itself - counted
+      // once per processed row regardless of dry-run/real, insert/update,
+      // or write outcome. Never a sync failure (see DATA_QUALITY_REASON).
+      if (!productCode) missingProductCode += 1;
+      if (!whArrivalDate) missingWhArrivalDate += 1;
 
       if (dryRun) {
         if (isUpdate) updated += 1;
@@ -270,6 +298,8 @@ export class TractorInSyncService {
       durationMs,
       unmatchedProductFamily,
       failures,
+      missingProductCode,
+      missingWhArrivalDate,
     };
 
     if (!dryRun) await this.recordRun(startedAt, finishedAt, result, options.triggeredBy ?? null);
@@ -295,6 +325,8 @@ export class TractorInSyncService {
         status: result.failed > 0 ? 'partial_failure' : 'success',
         unmatched_product_family: result.unmatchedProductFamily,
         failures: result.failures,
+        missing_product_code: result.missingProductCode,
+        missing_wh_arrival_date: result.missingWhArrivalDate,
         triggered_by: triggeredBy,
       });
       if (error) console.error('Failed to record Tractor IN sync run', error);
