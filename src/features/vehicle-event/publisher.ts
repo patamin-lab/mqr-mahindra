@@ -61,6 +61,10 @@ export interface PublishNtrCompletedInput extends BaseModuleInput {
 export interface PublishPdiCompletedInput extends BaseModuleInput {
   inspector?: string | null;
   result?: string | null;
+  /** The `inspections.id` UUID (never `referenceId`, the human-readable
+   *  `inspection_ref`) - lets the generic timeline adapter build a real
+   *  `/delivery/pdi/[id]` link instead of a dead `#`. */
+  entityId?: string;
 }
 
 export interface PublishMqrOpenedInput extends BaseModuleInput {
@@ -93,10 +97,16 @@ export interface PublishPartsDeliveredInput extends BaseModuleInput {
   quantity?: number | null;
 }
 
-export interface PublishReleasedToDealerInput extends BaseModuleInput {}
+export interface PublishReleasedToDealerInput extends BaseModuleInput {
+  /** The `inspections.id` UUID - see `PublishPdiCompletedInput.entityId`. */
+  entityId?: string;
+}
 
 export interface PublishWarrantyActivatedInput extends BaseModuleInput {
   source?: string | null;
+  /** The `delivery_records.id` UUID - lets the generic timeline adapter
+   *  build a real `/delivery/records/[id]` link instead of a dead `#`. */
+  entityId?: string;
 }
 
 export class VehicleEventPublisher {
@@ -193,7 +203,7 @@ export class VehicleEventPublisher {
       referenceId: input.referenceId,
       eventDatetime: input.eventDatetime,
       title: 'ตรวจสภาพก่อนส่งมอบ (PDI)',
-      metadata: { inspector: input.inspector ?? null, result: input.result ?? null },
+      metadata: { inspector: input.inspector ?? null, result: input.result ?? null, entity_id: input.entityId ?? null },
       actor: input.actor,
     });
   }
@@ -292,6 +302,7 @@ export class VehicleEventPublisher {
       referenceId: input.referenceId,
       eventDatetime: input.eventDatetime,
       title: 'ปล่อยรถให้ดีลเลอร์',
+      metadata: { entity_id: input.entityId ?? null },
       actor: input.actor,
     });
   }
@@ -306,7 +317,7 @@ export class VehicleEventPublisher {
       referenceId: input.referenceId,
       eventDatetime: input.eventDatetime,
       title: 'เริ่มการรับประกัน',
-      metadata: { source: input.source ?? null },
+      metadata: { source: input.source ?? null, entity_id: input.entityId ?? null },
       actor: input.actor,
     });
   }

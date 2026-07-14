@@ -8,7 +8,10 @@ const inspectionService = new InspectionService();
 
 /** PDI (stage 3) — links an existing `Inspection` (ADR-017), never
  *  duplicates its fields onto `delivery_records`. Advances to
- *  `DealerPreparation` once the linked inspection is `Completed`. */
+ *  `DealerPreparation` once the linked inspection is `Completed`. Gated
+ *  server-side by `canAccessImportInspection` inside
+ *  `DeliveryService.linkInspection()` - Dealer roles get 403, not a
+ *  silently-accepted link. */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
@@ -29,6 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ ok: true, delivery: updated });
   } catch (err: any) {
     console.error('link inspection to delivery record error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: 400 });
+    const forbidden = typeof err?.message === 'string' && err.message.includes('may not link an Import Inspection');
+    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: forbidden ? 403 : 400 });
   }
 }

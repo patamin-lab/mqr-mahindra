@@ -420,6 +420,7 @@ export class InspectionService {
       .publishPdiCompleted({
         serial: updated.serial,
         referenceId: updated.inspectionRef,
+        entityId: updated.id,
         eventDatetime: inspectionDate,
         actor: { username: session.username },
         inspector: updated.technicianName,
@@ -484,6 +485,7 @@ export class InspectionService {
       .publishReleasedToDealer({
         serial: updated.serial,
         referenceId: updated.inspectionRef,
+        entityId: updated.id,
         eventDatetime: new Date().toISOString(),
         actor: { username: session.username },
       })

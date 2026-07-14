@@ -9,7 +9,7 @@
  */
 import { logAuditEvent } from '@/lib/db';
 import type { SessionUser } from '@/lib/types';
-import { canApproveDelivery } from '@/lib/scope';
+import { canApproveDelivery, canAccessImportInspection } from '@/lib/scope';
 import { InspectionService } from '@/features/inspection';
 import { VehicleEventPublisher } from '@/features/vehicle-event/publisher';
 import { createVehicleEventPublisher } from '@/features/vehicle-event/factory';
@@ -122,8 +122,14 @@ export class DeliveryService {
 
   /** Links a completed `Inspection` (ADR-017) — never duplicates PDI
    *  fields onto this table. Advances to `DealerPreparation` once the
-   *  linked inspection is `Completed`. */
+   *  linked inspection is `Completed`. Gated to MSEAL roles
+   *  (`canAccessImportInspection`) - a Dealer role must not be able to
+   *  read/act on Import Inspection state through this cross-domain link,
+   *  even though Import Inspection's own CRUD is already MSEAL-only. */
   async linkInspection(id: string, inspectionId: string, inspectionCompleted: boolean, session: SessionUser): Promise<DeliveryRecord> {
+    if (!canAccessImportInspection(session.role)) {
+      throw new Error(`Role ${session.role} may not link an Import Inspection to a Delivery record`);
+    }
     const updated = await this.repo.update(id, {
       stage: inspectionCompleted ? 'DealerPreparation' : 'PDI',
       pdiInspectionId: inspectionId,
@@ -233,15 +239,19 @@ export class DeliveryService {
    *  this vehicle - not every machine will have gone through every prior
    *  Delivery stage by the time NTR completes, and Warranty Activation
    *  must not be blocked on Delivery stage bookkeeping this domain
-   *  correction does not otherwise restructure. */
-  async activateWarrantyFromNtr(input: { vehicleId: string; serial: string; dealerId: string | null; ntrId: string }, session: SessionUser): Promise<DeliveryRecord> {
+   *  correction does not otherwise restructure. Takes a minimal actor
+   *  (`{ username }`), not a full `SessionUser` - this is called from both
+   *  NTR-creation paths (the manual route's full session, and Legacy
+   *  Import's `{ username }`-only actor), and nothing here ever reads a
+   *  role. */
+  async activateWarrantyFromNtr(input: { vehicleId: string; serial: string; dealerId: string | null; ntrId: string }, actor: { username: string }): Promise<DeliveryRecord> {
     let record = await this.repo.getMostRecentForSerial(input.serial);
     if (!record) {
       record = await this.repo.create({
         vehicleId: input.vehicleId,
         serial: input.serial,
         dealerId: input.dealerId,
-        createdBy: session.username,
+        createdBy: actor.username,
       } satisfies CreateDeliveryRecordInput);
     }
     if (record.warrantyActivatedAt) return record;
@@ -252,7 +262,7 @@ export class DeliveryService {
       ntrId: input.ntrId,
       warrantyActivatedAt: new Date().toISOString(),
       warrantyActivationSource: 'NTR',
-      updatedBy: session.username,
+      updatedBy: actor.username,
     });
     await logAuditEvent({
       module: 'delivery',
@@ -261,14 +271,15 @@ export class DeliveryService {
       eventType: 'SystemEvent',
       fieldName: 'WarrantyActivated',
       newValue: 'NTR',
-      performedBy: session.username,
+      performedBy: actor.username,
     });
     await this.eventPublisher
       .publishWarrantyActivated({
         serial: updated.serial,
         referenceId: updated.deliveryRef,
+        entityId: updated.id,
         eventDatetime: updated.warrantyActivatedAt as string,
-        actor: { username: session.username },
+        actor: { username: actor.username },
         source: 'NTR',
       })
       .catch((err) => console.error('publish WARRANTY_ACTIVATED event error', err));

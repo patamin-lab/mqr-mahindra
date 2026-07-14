@@ -23,6 +23,11 @@ vi.mock('@/shared/attachments', () => ({
   })),
 }));
 
+const mockRunNtrWarrantyOrchestration = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/features/ntr/services/ntrPostCreateOrchestration', () => ({
+  runNtrWarrantyOrchestration: mockRunNtrWarrantyOrchestration,
+}));
+
 const { getSession } = await import('@/lib/auth');
 const { POST } = await import('./route');
 
@@ -63,9 +68,14 @@ describe('POST /api/ntr-records — Dealer/Branch Scope authorization', () => {
   beforeEach(() => {
     mockCreate.mockReset();
     mockAssertBranchAccess.mockReset().mockResolvedValue(undefined);
+    mockRunNtrWarrantyOrchestration.mockReset().mockResolvedValue(undefined);
     mockCreate.mockResolvedValue({
       id: 'ntr-1',
       dealer_id: 'D1',
+      serial: 'SN-1',
+      delivery_date: '2026-01-01',
+      product_family_id: 'PF-1',
+      retail_date: null,
       photo_customer_id_attachment_id: null,
       photo_customer_tractor_attachment_id: null,
       photo_serial_plate_attachment_id: null,
@@ -111,5 +121,60 @@ describe('POST /api/ntr-records — Dealer/Branch Scope authorization', () => {
     expect(res.status).toBe(400);
     expect(json.error.message).toMatch(/branch_id does not belong/);
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/ntr-records — NTR post-create Warranty/vehicle/PM orchestration (ADR-028)', () => {
+  beforeEach(() => {
+    mockCreate.mockReset();
+    mockAssertBranchAccess.mockReset().mockResolvedValue(undefined);
+    mockRunNtrWarrantyOrchestration.mockReset().mockResolvedValue(undefined);
+    mockCreate.mockResolvedValue({
+      id: 'ntr-1',
+      dealer_id: 'D1',
+      serial: 'SN-1',
+      delivery_date: '2026-01-01',
+      product_family_id: 'PF-1',
+      retail_date: null,
+      photo_customer_id_attachment_id: null,
+      photo_customer_tractor_attachment_id: null,
+      photo_serial_plate_attachment_id: null,
+      photo_hour_meter_attachment_id: null,
+      photo_signed_document_attachment_id: null,
+      video_attachment_id: null,
+      additional_photos: [],
+    });
+  });
+
+  it('runs the shared orchestration exactly once, with the created record and the actor, after a successful create', async () => {
+    vi.mocked(getSession).mockResolvedValue(session({ role: 'DealerUser', dealerId: 'D1' }));
+    const res = await POST(postRequest(validBody));
+
+    expect(res.status).toBe(201);
+    expect(mockRunNtrWarrantyOrchestration).toHaveBeenCalledTimes(1);
+    expect(mockRunNtrWarrantyOrchestration).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ntr-1', serial: 'SN-1', delivery_date: '2026-01-01', product_family_id: 'PF-1' }),
+      { username: 'alice', role: 'DealerUser' }
+    );
+  });
+
+  it('never fails the NTR create response when the orchestration itself rejects (non-blocking by design)', async () => {
+    vi.mocked(getSession).mockResolvedValue(session({ role: 'DealerUser', dealerId: 'D1' }));
+    mockRunNtrWarrantyOrchestration.mockRejectedValue(new Error('warranty orchestration exploded'));
+
+    const res = await POST(postRequest(validBody));
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+  });
+
+  it('does not run the orchestration at all when NTR creation itself fails', async () => {
+    vi.mocked(getSession).mockResolvedValue(session({ role: 'DealerUser', dealerId: 'D1' }));
+    mockCreate.mockRejectedValue(new Error('duplicate'));
+
+    await POST(postRequest(validBody));
+
+    expect(mockRunNtrWarrantyOrchestration).not.toHaveBeenCalled();
   });
 });
