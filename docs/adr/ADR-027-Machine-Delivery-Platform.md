@@ -6,6 +6,17 @@ Accepted (PR #45, merged 2026-07-13, SHA `de4d8cd`). See
 `docs/releases/FOUNDATION_FREEZE_v1.1.md` for what this ADR's
 architecture froze on merge.
 
+> **Amendment (2026-07-14): ADR-028 (Import Inspection Domain
+> Correction) amends this ADR's Warranty Activation trigger.** Delivery
+> Acceptance no longer auto-activates Warranty; NTR is the sole
+> legitimate trigger (`DeliveryService.activateWarrantyFromNtr()`), and
+> the `'Manual'` activation source/route/UI is deleted entirely. This
+> ADR's own lifecycle-orchestration decision (the nine `delivery_records`
+> stages) is otherwise unchanged and not reopened as its own frozen
+> layer - see ADR-028 for the full correction and
+> `docs/architecture/DELIVERY_PLATFORM.md` for the corrected, current
+> architecture.
+
 **Numbering note**: this is not one of the seven numbers
 `16-ADR-RECOMMENDATIONS.md` reserved (015 Machine Domain v2, 016 Event
 Model, 017 Inspection Domain, 018 Knowledge Model, 019 Engineering

@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { isNonEmptyString, parseWithSchema, ValidationError } from '@/lib/validation';
-import { resolveDealerScope, assertBranchAccess } from '@/lib/dealerBranchScope';
+import { resolveDealerScope, assertBranchAccess, UNRESTRICTED_SCOPE } from '@/lib/dealerBranchScope';
 import { buildNtrRecordCreateBodySchema, NtrRecordCreateBody } from '@/features/ntr/schemas';
 import { NtrRecordCreateInput } from '@/features/ntr/types';
 import { createNtrService } from '@/features/ntr/factory';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 import { AttachmentService } from '@/shared/attachments';
+import { getVehicleBySerial, updateVehicleDeliveryInfo, resolveVehicleProgramVersionStages } from '@/lib/db';
+import { DeliveryService } from '@/features/delivery';
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -97,6 +99,30 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       console.error('attachment reassign/business-complete error (ntr-record)', err);
+    }
+
+    // Business-domain correction: NTR is the ownership-transfer event and
+    // the sole legitimate trigger for Warranty Activation - never manual
+    // (docs/architecture/DELIVERY_PLATFORM.md). Non-blocking: an NTR
+    // record must never fail to save because this orchestration step
+    // failed. "Creates Customer ownership" and "triggers Notifications"
+    // are Reserved for Future Capability (no Customer/Ownership domain,
+    // no Notification service exist in this platform yet) - not
+    // fabricated here.
+    try {
+      const vehicle = await getVehicleBySerial(record.serial, UNRESTRICTED_SCOPE);
+      if (vehicle) {
+        await updateVehicleDeliveryInfo(vehicle.id, { deliveryDate: record.delivery_date, productFamilyId: record.product_family_id });
+        await new DeliveryService().activateWarrantyFromNtr(
+          { vehicleId: vehicle.id, serial: record.serial, dealerId: record.dealer_id, ntrId: record.id },
+          session
+        );
+        if (record.product_family_id) {
+          await resolveVehicleProgramVersionStages(vehicle.id, record.product_family_id, record.retail_date);
+        }
+      }
+    } catch (err) {
+      console.error('warranty activation / PM schedule orchestration error (ntr-record)', err);
     }
 
     return NextResponse.json({ ok: true, data: record }, { status: 201 });

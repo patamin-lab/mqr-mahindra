@@ -204,12 +204,13 @@ export default function DeliveryActionsPanel({
   }
 
   if (stage === 'WarrantyActivation') {
-    if (!canApproveDelivery(role)) return null;
+    /** Warranty is never activated manually (business-domain correction) -
+     *  it activates automatically once an NTR record is created for this
+     *  machine (`DeliveryService.activateWarrantyFromNtr`). Nothing to do
+     *  here but wait. */
     return (
-      <Card variant="flat" className="p-5">
-        <button type="button" disabled={busy} onClick={() => call('activate-warranty', {}, 'delivery.activateWarrantyAction')} className="btn-primary">
-          {busy ? '...' : t('delivery.activateWarrantyAction')}
-        </button>
+      <Card variant="flat" className="p-5 text-xs text-gray-500">
+        {t('delivery.warrantyWaitingOnNtr')}
       </Card>
     );
   }

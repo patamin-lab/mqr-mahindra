@@ -61,14 +61,24 @@ export const canManageEmailHealth = (role: Role) => seesAllDealers(role);
  *  gated here. */
 export const canReviewKnowledge = (role: Role) => seesAllDealers(role);
 
-/** Machine Delivery Platform (ADR-017/ADR-027) - Dealer Approval of a
- *  completed PDI, and manually activating Warranty: SuperAdmin/
+/** Machine Delivery Platform (ADR-027) - Delivery Acceptance: SuperAdmin/
  *  CentralAdmin/DealerAdmin, mirroring `canDelete`/`canManageMasterData`'s
- *  shape (DealerUser excluded). Creating/editing an Inspection or
- *  Delivery record while in progress is open to every role - only these
- *  trust-conferring actions are gated. */
+ *  shape (DealerUser excluded). Creating/editing a Delivery record while
+ *  in progress is open to every role - only this trust-conferring action
+ *  is gated. Warranty Activation is no longer gated by this predicate -
+ *  it is never a manual action (see [[canAccessImportInspection]] /
+ *  `DeliveryService.activateWarrantyFromNtr`). */
 export const canApproveDelivery = (role: Role) =>
   role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';
+
+/** Import Inspection (MSEAL PDI, ADR-017, business-domain correction) -
+ *  belongs exclusively to MSEAL. Dealer users (DealerAdmin/DealerUser)
+ *  may never view, create, edit, or approve an Import Inspection record -
+ *  it is an internal MSEAL quality process performed before a machine is
+ *  Released to Dealer. Reuses the same cross-dealer/system-wide boundary
+ *  as `seesAllDealers`/`canManageEmailHealth`/`canReviewKnowledge`, not a
+ *  new one. */
+export const canAccessImportInspection = (role: Role) => seesAllDealers(role);
 
 export const roleLabelTh: Record<Role, string> = {
   SuperAdmin: 'ผู้ดูแลระบบสูงสุด',

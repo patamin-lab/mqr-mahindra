@@ -267,20 +267,26 @@ describe('flattenRealNavItems / findActiveNavItem', () => {
     expect(findActiveNavItem('/some-unmapped-path', flat)).toBeNull();
   });
 
-  it('Machine Delivery Platform (ADR-017/ADR-027) gets its own nav group with 4 real routes, visible to every role - PDI is one stage inside it, not a second copy anywhere else', () => {
-    const groups = getNavGroups(t, session({ role: 'DealerUser' }));
-    const delivery = groups.find((g) => g.key === 'delivery')!;
-    expect(delivery).toBeDefined();
-    expect(delivery.items).toEqual([
+  it('Machine Delivery Platform (ADR-017/ADR-027) gets its own nav group, visible to every role - Import Inspection (PDI) belongs exclusively to MSEAL (business-domain correction) and is hidden from Dealer roles', () => {
+    const dealerGroups = getNavGroups(t, session({ role: 'DealerUser' }));
+    const dealerDelivery = dealerGroups.find((g) => g.key === 'delivery')!;
+    expect(dealerDelivery).toBeDefined();
+    expect(dealerDelivery.items).toEqual([
+      { href: '/delivery/dashboard', label: 'nav.deliveryDashboard' },
+      { href: '/delivery/records', label: 'nav.deliveryRecords' },
+      { href: '/delivery/reports', label: 'nav.deliveryReports' },
+    ]);
+    const quality = dealerGroups.find((g) => g.key === 'quality')!;
+    expect(quality.items!.some((i) => i.label.toLowerCase().includes('pdi'))).toBe(false);
+
+    const superAdminGroups = getNavGroups(t, superAdmin());
+    const superAdminDelivery = superAdminGroups.find((g) => g.key === 'delivery')!;
+    expect(superAdminDelivery.items).toEqual([
       { href: '/delivery/dashboard', label: 'nav.deliveryDashboard' },
       { href: '/delivery/pdi', label: 'nav.deliveryPdi' },
       { href: '/delivery/records', label: 'nav.deliveryRecords' },
       { href: '/delivery/reports', label: 'nav.deliveryReports' },
     ]);
-    const quality = groups.find((g) => g.key === 'quality')!;
-    expect(quality.items!.some((i) => i.label.toLowerCase().includes('pdi'))).toBe(false);
-
-    const superAdminGroups = getNavGroups(t, superAdmin());
     const engineeringIntelligence = superAdminGroups.find((g) => g.key === 'engineering-intelligence')!;
     expect(engineeringIntelligence.items!.some((i) => i.label.toLowerCase().includes('pdi') || i.label.toLowerCase().includes('delivery'))).toBe(false);
   });

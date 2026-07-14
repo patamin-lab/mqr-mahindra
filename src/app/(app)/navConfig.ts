@@ -44,7 +44,7 @@
  * server-side regardless of what the nav shows.
  */
 import { SessionUser } from '@/lib/types';
-import { canManageMasterData, canManageLegacyImport, canManageEmailHealth, canManageUsers, seesAllDealers } from '@/lib/scope';
+import { canManageMasterData, canManageLegacyImport, canManageEmailHealth, canManageUsers, seesAllDealers, canAccessImportInspection } from '@/lib/scope';
 import type { TranslationVars } from '@/lib/i18n/types';
 
 /**
@@ -178,7 +178,11 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       label: t('nav.deliveryGroup'),
       items: [
         { href: '/delivery/dashboard', label: t('nav.deliveryDashboard') },
-        { href: '/delivery/pdi', label: t('nav.deliveryPdi') },
+        // Import Inspection (MSEAL PDI) belongs exclusively to MSEAL
+        // (business-domain correction) - hidden from Dealer roles, same
+        // two-layer pattern as Legacy Import above (server-side route
+        // check is the real gate; this only hides the nav entry).
+        ...(canAccessImportInspection(session.role) ? [{ href: '/delivery/pdi', label: t('nav.deliveryPdi') }] : []),
         { href: '/delivery/records', label: t('nav.deliveryRecords') },
         { href: '/delivery/reports', label: t('nav.deliveryReports') },
       ],

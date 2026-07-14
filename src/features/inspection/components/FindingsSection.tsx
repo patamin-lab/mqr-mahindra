@@ -8,9 +8,10 @@ import { swalError } from '@/lib/swal';
 import { fetchJson } from '@/lib/fetchJson';
 import Card from '@/components/shared/layout/Card';
 import type { Severity } from '@/lib/types';
-import type { Finding } from '../types';
+import type { Finding, FactoryFeedbackStatus } from '../types';
 
 const SEVERITIES: Severity[] = ['Critical', 'Major', 'Minor'];
+const FACTORY_FEEDBACK_STATUSES: FactoryFeedbackStatus[] = ['NotSent', 'Sent', 'Acknowledged', 'ActionTaken'];
 
 /** Structured Findings may become Knowledge Candidates - "do not
  *  duplicate entry" (task brief). The "Promote to Knowledge" button calls
@@ -56,6 +57,19 @@ export default function FindingsSection({ inspectionId, findings, canEdit }: { i
     }
   }
 
+  async function setFactoryFeedbackStatus(findingId: string, factoryFeedbackStatus: FactoryFeedbackStatus) {
+    try {
+      await fetchJson(`/api/inspections/${inspectionId}/findings/${findingId}/factory-feedback`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ factoryFeedbackStatus }),
+      });
+      router.refresh();
+    } catch (err) {
+      swalError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   return (
     <Card variant="flat" className="p-5">
       <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('pdi.findingsTitle')}</h2>
@@ -82,6 +96,24 @@ export default function FindingsSection({ inspectionId, findings, canEdit }: { i
                 )}
               </div>
               <p className="mt-1 text-xs text-gray-600">{f.description}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <label className="text-xs text-gray-400">{t('pdi.factoryFeedbackStatusLabel')}</label>
+                {canEdit ? (
+                  <select
+                    value={f.factoryFeedbackStatus}
+                    onChange={(e) => setFactoryFeedbackStatus(f.id, e.target.value as FactoryFeedbackStatus)}
+                    className="rounded border border-gray-300 px-2 py-0.5 text-xs"
+                  >
+                    {FACTORY_FEEDBACK_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {t(`pdi.factoryFeedbackStatus.${s}`)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-xs text-gray-500">{t(`pdi.factoryFeedbackStatus.${f.factoryFeedbackStatus}`)}</span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { listAuditLog } from '@/lib/db';
 import { InspectionService } from '@/features/inspection';
+import { canAccessImportInspection } from '@/lib/scope';
 import { AttachmentService } from '@/shared/attachments';
 import { t } from '@/lib/i18n/server';
 import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
@@ -15,29 +16,37 @@ import FindingsSection from '@/features/inspection/components/FindingsSection';
 import MeasurementsSection from '@/features/inspection/components/MeasurementsSection';
 import PartsReplacedSection from '@/features/inspection/components/PartsReplacedSection';
 import InspectionActions from '@/features/inspection/components/InspectionActions';
+import FactoryFeedbackPanel from '@/features/inspection/components/FactoryFeedbackPanel';
 
 const service = new InspectionService();
 const attachmentService = new AttachmentService();
 
 /**
- * PDI Inspection detail (ADR-017). Screen Contract (docs/architecture/
- * INSPECTION_PDI.md §6): Purpose - perform/review one PDI (checklist,
- * findings, evidence, measurements, parts replacement, sign-off, dealer
- * approval). Primary User - Technician, Dealer Admin (approval).
- * Permissions - every role may edit while not Completed; Dealer Approval
- * gated server-side by `canApproveDelivery`. Timeline -
- * `<ActivityTimeline>`, fed by `record_audit_log` (module `'pdi'`), zero
- * component changes. Evidence - `AttachmentService` (module `'pdi'`,
- * entityType `'Inspection'`), the pre-seeded retention policy this
- * platform already reserved for PDI.
+ * Import Inspection detail (ADR-017, business-domain correction). Screen
+ * Contract (docs/architecture/INSPECTION_PDI.md §6): Purpose - perform/
+ * review one Import Inspection event (checklist, findings, evidence,
+ * measurements, parts replacement, sign-off, Release to Dealer). Primary
+ * User - MSEAL technician/inspector. Permissions - belongs exclusively to
+ * MSEAL (`canAccessImportInspection`) - Dealer roles get an empty state,
+ * never the record. Timeline - `<ActivityTimeline>`, fed by
+ * `record_audit_log` (module `'pdi'`), zero component changes. Evidence -
+ * `AttachmentService` (module `'pdi'`, entityType `'Inspection'`).
  */
 export default async function InspectionDetailPage({ params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) return null;
+  if (!canAccessImportInspection(session.role)) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title={t('pdi.title')} />
+        <EmptyState icon="🔒" title={t('pdi.forbiddenTitle')} reason={t('pdi.forbiddenReason')} nextStep={t('pdi.forbiddenNextStep')} />
+      </div>
+    );
+  }
 
   let inspection;
   try {
-    inspection = await service.getInspection(params.id);
+    inspection = await service.getInspection(params.id, session);
   } catch {
     return (
       <div className="space-y-4">
@@ -81,9 +90,10 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
           <InspectionActions
             inspectionId={inspection.id}
             status={inspection.status}
+            result={inspection.result}
             signedOffAt={inspection.signedOffAt}
-            dealerApprovedAt={inspection.dealerApprovedAt}
-            role={session.role}
+            releaseStatus={inspection.releaseStatus}
+            technicianName={inspection.technicianName}
           />
         }
       />
@@ -102,15 +112,32 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
           <p className="text-sm font-medium text-brand-dark">{inspection.signedOffBy ?? '-'}</p>
         </div>
         <div>
-          <p className="text-xs text-gray-500">{t('pdi.dealerApprovedLabel')}</p>
-          <p className="text-sm font-medium text-brand-dark">{inspection.dealerApprovedBy ?? '-'}</p>
+          <p className="text-xs text-gray-500">{t('pdi.inspectionReasonLabel')}</p>
+          <p className="text-sm font-medium text-brand-dark">{t(`pdi.reason.${inspection.inspectionReason}`)}</p>
         </div>
+        <div>
+          <p className="text-xs text-gray-500">{t('pdi.releaseStatusLabel')}</p>
+          <p className="text-sm font-medium text-brand-dark">{t(`pdi.releaseStatus.${inspection.releaseStatus}`)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">{t('pdi.nextRePdiDueDateLabel')}</p>
+          <p className="text-sm font-medium text-brand-dark">{inspection.nextRePdiDueDate ?? '-'}</p>
+        </div>
+        {inspection.previousInspectionId && (
+          <div>
+            <p className="text-xs text-gray-500">{t('pdi.previousInspectionLabel')}</p>
+            <Link href={`/delivery/pdi/${inspection.previousInspectionId}`} className="text-sm font-medium text-brand-red hover:underline">
+              {t('pdi.viewPreviousInspection')} →
+            </Link>
+          </div>
+        )}
       </Card>
 
       <ChecklistEditor inspectionId={inspection.id} checklist={inspection.checklist} canEdit={canEdit} />
       <FindingsSection inspectionId={inspection.id} findings={inspection.findings} canEdit={canEdit} />
       <MeasurementsSection inspectionId={inspection.id} measurements={inspection.measurements} canEdit={canEdit} />
       <PartsReplacedSection inspectionId={inspection.id} partsReplaced={inspection.partsReplaced} canEdit={canEdit} />
+      <FactoryFeedbackPanel inspectionId={inspection.id} factoryFeedback={inspection.factoryFeedback} />
 
       <Card variant="flat" className="p-5">
         <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('knowledge.relatedDocumentsTitle')}</h2>

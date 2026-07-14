@@ -205,6 +205,11 @@ replace it with the official term above in the same change:
 - **"No Data"** / **"ไม่มีข้อมูล"** as empty-state copy - unrelated to this
   pass but already forbidden platform-wide, see
   `.claude/skills/mseal-platform-design/EMPTY_STATE_GUIDELINES.md`.
+- **"Dealer Approval"** / **"Dealer PDI"** (business-domain correction,
+  ADR-028) - Import Inspection has no Dealer Approval concept; use
+  "Release to Dealer" (an MSEAL-only decision) instead. "Dealer PDI"
+  never existed in the corrected model - every inspection in this domain
+  is an Import Inspection.
 
 ## Domain ownership (binding, see `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md` §2a)
 
@@ -227,15 +232,32 @@ replace it with the official term above in the same change:
 - **Engineering Intelligence owns analysis**: AI Engineering, PIP,
   Predictive Quality - consumes Knowledge (never raw Quality/PM/Warranty
   data directly, and never owns a second copy of Knowledge itself).
-- **Delivery owns the lifecycle, Inspection owns PDI** (ADR-027/ADR-017,
-  Machine Delivery Platform). Delivery is the lifecycle-tracking
-  aggregate - Tractor In, Stock Yard, Dealer Preparation, Operator
-  Training, Delivery Acceptance, Warranty Activation. It never duplicates
-  what another domain already owns: Tractor In reads `vehicles` (ADR-012
-  owns that sync), PDI links an Inspection (Inspection domain owns the
-  checklist/findings/evidence), Customer Delivery links an `NtrRecord`
-  (Service > Registration owns NTR's own fields). PDI has exactly one nav
-  entry, under Delivery, not under Quality or Engineering Intelligence.
+- **Delivery owns the lifecycle, Inspection owns Import Inspection**
+  (ADR-027/ADR-017, amended by ADR-028, Machine Delivery Platform).
+  Delivery is the lifecycle-tracking aggregate - Tractor In, Stock Yard,
+  Dealer Preparation, Operator Training, Delivery Acceptance, Warranty
+  Activation. It never duplicates what another domain already owns:
+  Tractor In reads `vehicles` (ADR-012 owns that sync), Import Inspection
+  links an Inspection (Inspection domain owns the checklist/findings/
+  evidence), Customer Delivery links an `NtrRecord` (Service >
+  Registration owns NTR's own fields). Import Inspection has exactly one
+  nav entry, under Delivery, gated to MSEAL roles only - not under
+  Quality or Engineering Intelligence, and never visible to a Dealer
+  role.
+- **Import Inspection** (business-domain correction, ADR-028) - the
+  internal MSEAL quality process performed before a machine is Released
+  to Dealer. "PDI" and "RE-PDI" are inspection **events** within this one
+  capability, not separate capabilities - a machine may have several,
+  chained and immutable. **Import Inspection is not Dealer Delivery** -
+  Dealer Delivery starts only after Release to Dealer. Dealer roles never
+  view, create, edit, or approve Import Inspection (`canAccessImportInspection`,
+  `lib/scope.ts`) - there is no "Dealer Approval" of an inspection.
+- **Release to Dealer** - the MSEAL-only decision ending the Import
+  Inspection stage for one machine, distinct from Delivery Acceptance
+  (a later, Delivery-lifecycle, Dealer-side event).
+- **Warranty Activation is automatic, triggered by NTR only** (ADR-028) -
+  never a manual action, never triggered by Delivery Acceptance. NTR
+  (New Tractor Registration) is the ownership-transfer event.
 - Each of these concepts has **exactly one** nav entry platform-wide.
   Never duplicate a concept's placeholder across two groups to "cover
   both angles" - if a concept genuinely belongs in two places for two

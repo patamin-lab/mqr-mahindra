@@ -32,6 +32,8 @@ const EVENT_CODE_TO_TYPE: Record<string, VehicleEventType> = {
   PART_REQUESTED: 'PartsRequested',
   PART_DELIVERED: 'PartsDelivered',
   INSPECTION: 'Inspection',
+  RELEASED_TO_DEALER: 'ReleasedToDealer',
+  WARRANTY_ACTIVATED: 'WarrantyActivated',
 };
 
 /** Module -> detail-page href builder. A module not listed here (not yet

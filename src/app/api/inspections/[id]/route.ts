@@ -4,6 +4,10 @@ import { InspectionService } from '@/features/inspection';
 
 const service = new InspectionService();
 
+function forbidden(err: any): boolean {
+  return typeof err?.message === 'string' && err.message.includes('may not access Import Inspection');
+}
+
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
@@ -11,11 +15,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 
   try {
-    const inspection = await service.getInspection(params.id);
+    const inspection = await service.getInspection(params.id, session);
     return NextResponse.json({ ok: true, inspection });
   } catch (err: any) {
     console.error('get inspection error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'not found' }, { status: 404 });
+    return NextResponse.json({ ok: false, error: err?.message ?? 'not found' }, { status: forbidden(err) ? 403 : 404 });
   }
 }
 
@@ -71,6 +75,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ ok: true, inspection: updated });
   } catch (err: any) {
     console.error('update inspection error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: forbidden(err) ? 403 : 500 });
   }
 }

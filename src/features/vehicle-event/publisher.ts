@@ -93,6 +93,12 @@ export interface PublishPartsDeliveredInput extends BaseModuleInput {
   quantity?: number | null;
 }
 
+export interface PublishReleasedToDealerInput extends BaseModuleInput {}
+
+export interface PublishWarrantyActivatedInput extends BaseModuleInput {
+  source?: string | null;
+}
+
 export class VehicleEventPublisher {
   constructor(
     private readonly service: VehicleEventService,
@@ -272,6 +278,35 @@ export class VehicleEventPublisher {
       eventDatetime: input.eventDatetime,
       title: 'จัดส่งอะไหล่แล้ว',
       metadata: { part_name: input.partName ?? null, quantity: input.quantity ?? null },
+      actor: input.actor,
+    });
+  }
+
+  /** Import Inspection (MSEAL) releasing this machine to the dealer - the
+   *  event that ends the internal Import Inspection stage. */
+  async publishReleasedToDealer(input: PublishReleasedToDealerInput): Promise<VehicleEvent> {
+    return this.publish({
+      eventCode: 'RELEASED_TO_DEALER',
+      serial: input.serial,
+      sourceModule: 'pdi',
+      referenceId: input.referenceId,
+      eventDatetime: input.eventDatetime,
+      title: 'ปล่อยรถให้ดีลเลอร์',
+      actor: input.actor,
+    });
+  }
+
+  /** Warranty is activated automatically by NTR only - never manually
+   *  (see `DeliveryService.activateWarrantyFromNtr`). */
+  async publishWarrantyActivated(input: PublishWarrantyActivatedInput): Promise<VehicleEvent> {
+    return this.publish({
+      eventCode: 'WARRANTY_ACTIVATED',
+      serial: input.serial,
+      sourceModule: 'delivery',
+      referenceId: input.referenceId,
+      eventDatetime: input.eventDatetime,
+      title: 'เริ่มการรับประกัน',
+      metadata: { source: input.source ?? null },
       actor: input.actor,
     });
   }

@@ -22,13 +22,15 @@ import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-t
 import type { ActivityEvent } from '@/components/shared/activity-timeline/types';
 import { KnowledgeService, type MachineKnownIssue } from '@/features/knowledge';
 import { DeliveryService, type MachineDeliverySummary } from '@/features/delivery';
+import { InspectionService, type Inspection } from '@/features/inspection';
 import { MachineEvent, MachineSummary, MachineWarrantySummary, MachineQualitySummary, MachineRelatedRecord } from './types';
 
 export class MachineService {
   constructor(
     private readonly attachmentService: AttachmentService = new AttachmentService(),
     private readonly knowledgeService: KnowledgeService = new KnowledgeService(),
-    private readonly deliveryService: DeliveryService = new DeliveryService()
+    private readonly deliveryService: DeliveryService = new DeliveryService(),
+    private readonly inspectionService: InspectionService = new InspectionService()
   ) {}
 
   async getMachine360(serial: string, session: SessionUser): Promise<MachineSummary | null> {
@@ -246,5 +248,21 @@ export class MachineService {
    */
   async getMachineDeliverySummary(serial: string): Promise<MachineDeliverySummary | null> {
     return this.deliveryService.getDeliveryForMachine(serial);
+  }
+
+  /**
+   * Machine Passport - complete Import Inspection history (business-domain
+   * correction: "Machine Passport must display the complete Import
+   * Inspection history"). A thin read through
+   * `InspectionService.listInspectionsForSerial()` (oldest-first, so a
+   * chain reads top-to-bottom the way it happened) - Machine owns none of
+   * this data. Not gated by `canAccessImportInspection`: the Passport may
+   * show that inspections occurred (count/dates/technician/result/
+   * release status) to every role, since it is dealer-visible platform-
+   * wide - the full detail screen (findings/evidence) remains MSEAL-only,
+   * gated independently at `/delivery/pdi/[id]`.
+   */
+  async getMachineImportInspectionHistory(serial: string): Promise<Inspection[]> {
+    return this.inspectionService.listInspectionsForSerial(serial);
   }
 }

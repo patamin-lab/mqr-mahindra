@@ -21,7 +21,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (!inspectionId) {
       return NextResponse.json({ ok: false, error: 'inspectionId is required' }, { status: 400 });
     }
-    const inspection = await inspectionService.getInspection(inspectionId);
+    const [inspection] = await inspectionService.listInspectionsByIds([inspectionId]);
+    if (!inspection) {
+      return NextResponse.json({ ok: false, error: `Inspection ${inspectionId} not found` }, { status: 404 });
+    }
     const updated = await service.linkInspection(params.id, inspectionId, inspection.status === 'Completed', session);
     return NextResponse.json({ ok: true, delivery: updated });
   } catch (err: any) {
