@@ -16,12 +16,16 @@ import Papa from 'papaparse';
  *   Product Model | WH Arrival Date | PDI Status | วันที่ส่งมอบ
  *   (Delivery Date, Thai) | Dealer
  *
- * `productCode`, `whArrivalDate`, `deliveryDateThai` and `dealer` are all
- * consumed by `TractorInSyncService` (vehicle master fields `product_code`,
- * `wh_arrival_date`, `delivery_date`, `dealer_id`) - Google Sheet Tractor IN
- * is the sole vehicle master (Business Decision). `pdiStatus` is parsed
- * here for completeness but deliberately never written anywhere - it has
- * no `vehicles` column.
+ * `productCode`, `whArrivalDate`, `deliveryDateThai`, `dealer`, and
+ * `pdiStatus` are all consumed by `TractorInSyncService` (vehicle master
+ * fields `product_code`, `wh_arrival_date`, `delivery_date`, `dealer_id`,
+ * `factory_pdi_status`) - Google Sheet Tractor IN is the sole vehicle
+ * master (Business Decision). `pdiStatus` ("PDI Status" column) is Factory
+ * PDI Status - Factory/Logistics readiness only, independent of the
+ * Import Inspection module's own inspection record
+ * (`docs/business/FIELD_OWNERSHIP_MATRIX.md`). Live sheet values
+ * confirmed 2026-07-15: blank, "QC Passed", "Quarantine" - stored
+ * verbatim, never normalized/invented; blank syncs as `null` ("Pending").
  *
  * `productFamily`/`subModel` (columns 10/11, 0-indexed 9/10) are the
  * Tractor IN sync's source of truth for `vehicles.product_family_id`/

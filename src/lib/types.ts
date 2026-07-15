@@ -54,6 +54,13 @@ export interface Vehicle {
    *  master) - same sync-only-write rule as `product_family_id`/`sub_model`. */
   product_code?: string | null;
   wh_arrival_date?: string | null;
+  /** Factory/Logistics PDI readiness signal from Tractor IN - Factory
+   *  Domain only, independent of the Import Inspection module's own
+   *  `inspections.status`/`.result`. `null` means the factory hasn't
+   *  recorded an outcome yet ("Pending" in this platform's UI/KPI
+   *  language). Never written by `InspectionService`; never read by it
+   *  as if it were an inspection result. */
+  factory_pdi_status?: string | null;
 }
 
 export type Severity = 'Critical' | 'Major' | 'Minor';

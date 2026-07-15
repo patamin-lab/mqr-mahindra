@@ -3,11 +3,12 @@
  *
  * The single, dedicated path that writes `vehicles`' Factory Domain
  * columns (`model`, `engine_number`, `product_code`, `wh_arrival_date`,
- * `product_family_id`, `sub_model`) from the Tractor IN Google Sheet. No
- * other module (NTR, PM, any lookup/search route) may write these
- * columns - they only ever read them. This keeps synchronization
- * entirely out of request-time lookups (no read-through upsert),
- * matching the "one synchronization path" requirement.
+ * `product_family_id`, `sub_model`, `factory_pdi_status`) from the
+ * Tractor IN Google Sheet. No other module (NTR, PM, any lookup/search
+ * route, `InspectionService`) may write these columns - they only ever
+ * read them. This keeps synchronization entirely out of request-time
+ * lookups (no read-through upsert), matching the "one synchronization
+ * path" requirement.
  *
  * v2.4.0 (Business Decision: "Google Sheet Tractor IN is now the only
  * vehicle master"): every master field the sheet carries is now written on
@@ -32,6 +33,21 @@
  * that serial - see `serialsWithNtr` below. `docs/architecture/
  * BUSINESS_INVARIANTS.md`/`docs/business/FIELD_OWNERSHIP_MATRIX.md`
  * document the full rule this enforces.
+ *
+ * Production Pilot (Factory PDI Status integration): `factory_pdi_status`
+ * is now synced from the sheet's "PDI Status" column
+ * (`row.pdiStatus`) - Factory/Logistics readiness only, a wholly
+ * different concept from the Import Inspection module's own inspection
+ * record (`inspections` table, owned exclusively by `InspectionService`).
+ * This sync never reads or writes `inspections` - the two are
+ * independent Sources of Truth by construction, not by convention alone.
+ * Written on INSERT unconditionally (same as every other master field).
+ * On UPDATE, written **only when the sheet's value differs from what is
+ * already stored** (`existingFactoryPdiStatus` below) - unlike the other
+ * master fields' "only if present" rule, this one deliberately *can*
+ * write `null` (the sheet cell going blank is itself a meaningful,
+ * real transition to sync, not data to protect against). Never touches
+ * `dealer_id`/`delivery_date`/Import Inspection in any way.
  *
  * v2.4.1 (data-quality reporting): `missingProductCode`/
  * `missingWhArrivalDate` on the result report how many processed rows had
@@ -178,12 +194,18 @@ export class TractorInSyncService {
     const dealerIds = new Set(dealers.map((d) => d.id.trim().toUpperCase()));
 
     const supabase = getSupabase();
-    const { data: existingRows, error: existingError } = await supabase.from('vehicles').select('serial');
+    const { data: existingRows, error: existingError } = await supabase.from('vehicles').select('serial, factory_pdi_status');
     if (existingError) throw existingError;
     // Working copy - grown as rows are (or, in dry-run, would be) inserted,
     // so a duplicate serial within the sheet itself is only ever planned
     // as one insert + skip-after in both real and dry-run modes.
     const knownSerials = new Set((existingRows ?? []).map((v: { serial: string }) => v.serial));
+    // Factory PDI Status: sync only when changed (Production Pilot) - the
+    // currently-stored value per serial, looked up once, so UPDATE never
+    // writes a value identical to what's already there.
+    const currentFactoryPdiStatus = new Map<string, string | null>(
+      (existingRows ?? []).map((v: { serial: string; factory_pdi_status: string | null }) => [v.serial, v.factory_pdi_status])
+    );
 
     // ADR-037 (Tractor IN Field Scope Amendment, reopens ADR-029): once a
     // serial has a real NTR registration, Dealer and Delivery Date become
@@ -238,6 +260,9 @@ export class TractorInSyncService {
       const productCode = row.productCode.trim() || null;
       const whArrivalDate = parseSheetDate(row.whArrivalDate);
       const deliveryDate = parseSheetDate(row.deliveryDateThai);
+      // Factory PDI Status - stored verbatim, blank sheet cell -> null
+      // ("Pending"). Never normalized/invented beyond trimming.
+      const factoryPdiStatus = row.pdiStatus.trim() || null;
 
       // Data-quality signal, computed from the sheet row itself - counted
       // once per processed row regardless of dry-run/real, insert/update,
@@ -270,7 +295,7 @@ export class TractorInSyncService {
           // already applied to Product Family/Sub Model) - only insert
           // writes every field unconditionally, since there's nothing yet
           // to overwrite.
-          const updatePayload: Record<string, string> = {
+          const updatePayload: Record<string, string | null> = {
             last_synced_at: nowIso,
             sync_source: SYNC_SOURCE,
           };
@@ -284,6 +309,14 @@ export class TractorInSyncService {
           }
           if (productFamilyId) updatePayload.product_family_id = productFamilyId;
           if (subModel) updatePayload.sub_model = subModel;
+          // Factory PDI Status: sync only when changed (Production Pilot) -
+          // deliberately a different rule from the "only if present" loop
+          // above, since a blank sheet cell going blank is itself a real
+          // transition to sync (see module doc comment). Never touches
+          // dealer_id/delivery_date/Import Inspection.
+          if (factoryPdiStatus !== (currentFactoryPdiStatus.get(serial) ?? null)) {
+            updatePayload.factory_pdi_status = factoryPdiStatus;
+          }
 
           const { error } = await supabase.from('vehicles').update(updatePayload).eq('serial', serial);
           if (error) throw error;
@@ -292,6 +325,7 @@ export class TractorInSyncService {
           const { error } = await supabase.from('vehicles').insert({
             serial,
             ...masterFields,
+            factory_pdi_status: factoryPdiStatus,
             product_family_id: productFamilyId,
             sub_model: subModel || null,
             last_synced_at: nowIso,

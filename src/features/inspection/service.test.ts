@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { SessionUser } from '@/lib/types';
 import type { Inspection } from './types';
 
-const { mockLogAuditEvent } = vi.hoisted(() => ({
+const { mockLogAuditEvent, mockCountVehiclesPendingFactoryPdi } = vi.hoisted(() => ({
   mockLogAuditEvent: vi.fn(),
+  mockCountVehiclesPendingFactoryPdi: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
   logAuditEvent: mockLogAuditEvent,
+  countVehiclesPendingFactoryPdi: mockCountVehiclesPendingFactoryPdi,
 }));
 
 import { InspectionService } from './service';
@@ -261,5 +263,44 @@ describe('InspectionService.promoteFindingToKnowledge', () => {
 
     await service.promoteFindingToKnowledge('insp-1', 'f1', session());
     expect(createCandidate).not.toHaveBeenCalled();
+  });
+});
+
+describe('InspectionService.getDashboardStats - Production Pilot: Factory PDI Status', () => {
+  it('pendingImportInspection is Tractor IN\'s Factory PDI Status count, not this module\'s own inspection status', async () => {
+    mockCountVehiclesPendingFactoryPdi.mockResolvedValue(7);
+    const repo = makeRepo({
+      listActive: vi.fn(() =>
+        Promise.resolve([
+          // Every inspection here is Completed - the OLD computation
+          // (status Scheduled/InProgress) would have reported 0.
+          baseInspection({ status: 'Completed', result: 'Pass' }),
+        ])
+      ),
+    });
+    const service = new InspectionService(repo);
+
+    const stats = await service.getDashboardStats(session());
+
+    expect(stats.pendingImportInspection).toBe(7);
+    expect(mockCountVehiclesPendingFactoryPdi).toHaveBeenCalledWith(null);
+  });
+
+  it('passes the dealer scope through to the Factory PDI Status count', async () => {
+    mockCountVehiclesPendingFactoryPdi.mockResolvedValue(2);
+    const repo = makeRepo({ listActive: vi.fn(() => Promise.resolve([])) });
+    const service = new InspectionService(repo);
+
+    await service.getDashboardStats(session(), 'D1');
+
+    expect(mockCountVehiclesPendingFactoryPdi).toHaveBeenCalledWith('D1');
+  });
+
+  it('is still gated MSEAL-only, same as every other InspectionService method', async () => {
+    mockCountVehiclesPendingFactoryPdi.mockResolvedValue(0);
+    const repo = makeRepo({ listActive: vi.fn(() => Promise.resolve([])) });
+    const service = new InspectionService(repo);
+
+    await expect(service.getDashboardStats(session({ role: 'DealerUser' }))).rejects.toThrow(/may not access Import Inspection/);
   });
 });
