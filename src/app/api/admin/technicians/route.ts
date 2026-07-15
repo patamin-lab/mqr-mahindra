@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unauthorizedError } from '@/lib/apiError';
+import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { listAllTechniciansAdmin, createTechnician } from '@/lib/db';
 import { canManageMasterData } from '@/lib/scope';
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorizedError();
   if (!canManageMasterData(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+    return forbiddenError();
   }
   const { searchParams } = new URL(req.url);
   const { dealerId } = resolveDealerScope(session, searchParams.get('dealerId'));
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorizedError();
   if (!canManageMasterData(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+    return forbiddenError();
   }
   try {
     const body = await req.json();

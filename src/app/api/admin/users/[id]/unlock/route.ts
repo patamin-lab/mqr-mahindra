@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unauthorizedError } from '@/lib/apiError';
+import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { getUserById, unlockUserAccount } from '@/lib/db';
 import { canUnlockAccounts, canManageRoleTarget } from '@/lib/scope';
@@ -13,7 +13,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const session = await getSession();
   if (!session) return unauthorizedError();
   if (!canUnlockAccounts(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+    return forbiddenError();
   }
   try {
     const target = await getUserById(params.id);

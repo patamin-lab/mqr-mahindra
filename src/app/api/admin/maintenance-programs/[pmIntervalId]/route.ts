@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unauthorizedError } from '@/lib/apiError';
+import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { setMaintenanceProgramFamilies, syncMaintenanceProgramVersion } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
@@ -12,7 +12,7 @@ export async function PUT(req: NextRequest, { params }: { params: { pmIntervalId
   const session = await getSession();
   if (!session) return unauthorizedError();
   if (!seesAllDealers(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+    return forbiddenError();
   }
 
   try {
