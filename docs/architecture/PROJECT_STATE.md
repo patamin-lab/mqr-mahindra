@@ -23,21 +23,36 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-**v3.1 Customer Ownership, Phase 1 (ADR-033)** - schema only, in
-progress. Three PRs open against `main` as of this writing, none merged:
+**v3.1 Customer Ownership — Governance Gate.** Four PRs open against
+`main` as of this writing, none merged:
 
 | PR | Branch | Content |
 |---|---|---|
 | #50 | `feature/v3-foundation-hardening` | ADR-032, v3.0 Foundation Hardening audit (docs only) |
 | #51 | `feature/customer-ownership-proposal` | ADR-033 architecture proposal (docs only, approved without redesign) |
-| (this PR) | `feature/customer-ownership-schema` | ADR-033 Phase 1 - `customers`/`customer_ownership_history` tables + nullable `vehicles.customer_id`, additive, zero data written |
+| #52 | `feature/customer-ownership-schema` | ADR-033 Phase 1 - `customers`/`customer_ownership_history` tables + nullable `vehicles.customer_id`, additive, zero data written |
+| #53 | `feature/customer-data-governance` | ADR-034, Customer Data Governance - identity/ownership/PII/retention/deletion/access/audit rules, 7 decisions named as requiring Legal/Business approval |
+| (this PR) | `feature/customer-ownership-governance-gate` | Compliance Decision Register - converts ADR-034's 7 open items into tracked decisions with owners/approvers, gates Phases 2-4 |
 
 `customers`, `customer_ownership_history`, and `vehicles.customer_id`
-now exist in the live schema (migration
+exist in the live schema (migration
 `20260715054732_customer_ownership_schema_v3_1`) but are not yet read
-or written by any application code - Phases 2 (human-reviewed backfill),
-3 (dual-run provider), 4 (cutover) remain unimplemented, each its own
-future PR. Full detail: `docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md`,
+or written by any application code. **Every implementation phase is
+currently gated WAIT** per `docs/architecture/
+CUSTOMER_COMPLIANCE_DECISION_REGISTER.md`:
+
+| Phase | Gate | Status |
+|---|---|---|
+| Phase 2 - Backfill | CDR-001 (PDPA review), CDR-002 (retention period), CDR-003 (anonymization design), CDR-006 (request-process owner), CDR-007 (identity-key validation) all Resolved | **WAIT** - 5/5 open |
+| Phase 3 - CustomerService + APIs | Phase 2 complete + CDR-004 (cross-dealer visibility) Resolved | **WAIT** - transitively blocked, CDR-004 open |
+| Phase 4 - UI + Cutover | Phase 3 complete + a full production reporting cycle with no new issue surfaced | **WAIT** - transitively blocked |
+
+None of the open decisions are open-ended engineering questions - each
+is a named Legal, Business, or bounded-Engineering item with a single
+owner. Full detail, including each decision's risk and recommendation:
+`docs/architecture/CUSTOMER_COMPLIANCE_DECISION_REGISTER.md`,
+`docs/adr/ADR-034-Customer-Data-Governance.md`,
+`docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md`,
 `docs/adr/ADR-033-Customer-Ownership.md`.
 
 **v3.0 Foundation Hardening (ADR-032)** - architecture-hardening audit,
