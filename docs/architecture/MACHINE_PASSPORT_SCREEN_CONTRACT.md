@@ -11,7 +11,7 @@ or a future section without re-reading the page source.
 
 | Route | Purpose | Component |
 |---|---|---|
-| `/machines` | Search/landing page - serial search, reuses `VehicleSearchBox` (`basePath="/machines"`) | `src/app/(app)/machines/page.tsx` |
+| `/machines` | Search/landing page - required Model selector (distinct `vehicles.model` values) gates a single search field matching Serial Number/Engine Number/Product Code, reuses `VehicleSearchBox` (`basePath="/machines"`) | `src/app/(app)/machines/page.tsx` |
 | `/machines/[machineId]` | The Passport itself. `machineId` is the machine's **Serial Number**, URL-encoded - same identifier `/vehicles/[serial]` uses, not the `vehicles.id` UUID | `src/app/(app)/machines/[machineId]/page.tsx` |
 
 Both routes require an authenticated session (`getSession()`; `null` →

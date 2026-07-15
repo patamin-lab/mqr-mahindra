@@ -1237,6 +1237,78 @@ export async function searchVehicles(q: string, dealerId: string | null): Promis
   return Array.from(results.values()).slice(0, 20);
 }
 
+/**
+ * Distinct `model` values from Vehicle Master (`vehicles`) - powers the
+ * Vehicle 360 search page's required Model selector. Dealer-scoped like
+ * every other vehicle read (`listVehicles`, `searchVehicles`, above).
+ * Dedup/sort happens in JS rather than a Postgres DISTINCT query - the
+ * `vehicles` table is small enough (hundreds, not millions, of rows per
+ * dealer) that this is the same "select then dedupe" shape `listVehicles`
+ * already uses, not a new query pattern.
+ */
+export async function getDistinctVehicleModels(dealerId: string | null): Promise<string[]> {
+  const supabase = getSupabase();
+  let query = supabase.from('vehicles').select('model').not('model', 'is', null).limit(5000);
+  if (dealerId) query = query.eq('dealer_id', dealerId);
+  const { data, error } = await query;
+  if (error) throw error;
+  const models = new Set<string>();
+  for (const row of (data ?? []) as { model: string | null }[]) {
+    if (row.model?.trim()) models.add(row.model.trim());
+  }
+  return Array.from(models).sort();
+}
+
+export interface VehicleModelSearchResult {
+  id: string;
+  serial: string;
+  engineNumber: string | null;
+  productCode: string | null;
+  dealerName: string | null;
+  deliveryDate: string | null;
+}
+
+/**
+ * Vehicle 360 search, scoped to one Model (required) - a single term
+ * matched across Serial Number, Engine Number, and Product Code (OR
+ * semantics), unlike `searchTractorsForNtr()`'s per-field AND filters
+ * above, which is a genuinely different shape for a different caller
+ * (NTR's Tractor Search step has its own separate serial/engine/model
+ * inputs) - not duplicated here, reused only for its embed/cap/dealer
+ * -scope idiom. Vehicle Master (`vehicles`) only, same as
+ * `searchTractorsForNtr()` - never the external Tractor IN sheet.
+ */
+export async function searchVehiclesByModel(
+  model: string,
+  q: string,
+  dealerId: string | null
+): Promise<VehicleModelSearchResult[]> {
+  const term = q.trim();
+  if (!model.trim() || term.length < 2) return [];
+
+  const supabase = getSupabase();
+  let query = supabase
+    .from('vehicles')
+    .select('id, serial, engine_number, product_code, delivery_date, dealer_id, dealers(short_name, full_name)')
+    .eq('model', model.trim())
+    .or(`serial.ilike.%${term}%,engine_number.ilike.%${term}%,product_code.ilike.%${term}%`)
+    .order('serial')
+    .limit(20);
+  if (dealerId) query = query.eq('dealer_id', dealerId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return ((data ?? []) as any[]).map((v): VehicleModelSearchResult => ({
+    id: v.id,
+    serial: v.serial,
+    engineNumber: v.engine_number,
+    productCode: v.product_code,
+    dealerName: v.dealers?.short_name ?? v.dealers?.full_name ?? null,
+    deliveryDate: v.delivery_date,
+  }));
+}
+
 // ---------- Report number generation ----------
 
 /**
