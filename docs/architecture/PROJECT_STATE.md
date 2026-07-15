@@ -23,10 +23,17 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-**Production Pilot Readiness.** Real code, not audit-only - implements
-ADR-037's approved amendment and three other Production-Pilot-specific
-changes, reusing existing services/forms/mechanisms throughout (no new
-architecture):
+None open. **Production Pilot Readiness** (below) merged to `main` via
+PR #60, squash commit `f927018`, 2026-07-15. CI green on `main` post-merge
+(architecture-check 6/6, `tsc`/`eslint` clean, 739/739 tests, build
+succeeds). Production Pilot's navigation (lifecycle-ordered sidebar, Coming
+Soon hidden for every role) is now the live, active navigation on `main`.
+
+## Recently completed: Production Pilot Readiness (ADR-037 implemented)
+
+Real code, not audit-only - implements ADR-037's approved amendment and
+three other Production-Pilot-specific changes, reusing existing services/
+forms/mechanisms throughout (no new architecture):
 
 1. **Tractor IN scope guard (ADR-037 implemented)** -
    `TractorInSyncService` now excludes `dealer_id` from its UPDATE
