@@ -6,10 +6,11 @@
  * (serial/engine/PM number/MQR number/customer/phone/dealer/branch) is
  * Phase 5c scope, not this page.
  *
- * `basePath` (default `/vehicles`) lets the Machine Digital Passport's
- * `/machines` landing page reuse this exact search box - same
- * `/api/vehicles/search` call, same debounce/result-list behaviour -
- * pointed at `/machines/[machineId]` instead of duplicating the search UI.
+ * `basePath` defaults to `/machines` - Vehicle 360 (ADR-030) consolidated
+ * onto the Machine Passport route/page rather than keeping a second,
+ * near-duplicate `/vehicles/[serial]` implementation; `/vehicles` now just
+ * redirects here. Same `/api/vehicles/search` call, same debounce/result-
+ * list behaviour either way - no second search implementation.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,7 +18,7 @@ import { fetchJson } from '@/lib/fetchJson';
 import type { VehicleSearchResult } from '@/lib/db';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
-export default function VehicleSearchBox({ basePath = '/vehicles' }: { basePath?: string }) {
+export default function VehicleSearchBox({ basePath = '/machines' }: { basePath?: string }) {
   const router = useRouter();
   const { t } = useTranslation();
   const [q, setQ] = useState('');

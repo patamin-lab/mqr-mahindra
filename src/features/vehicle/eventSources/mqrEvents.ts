@@ -5,15 +5,22 @@
  * from `lib/db.ts` instead of a new query, so MQR's own dealer/branch/
  * soft-delete rules stay owned by MQR's data layer.
  */
+import { cache } from 'react';
 import { getVehicleHistory } from '@/lib/db';
 import { MqrRecord, OPEN_STATUSES, SessionUser } from '@/lib/types';
 import { VehicleEvent } from '../types';
 
 const CLOSED_LIKE_STATUSES = ['Repaired', 'Closed'];
 
-export async function fetchMqrRecords(serial: string, session: SessionUser): Promise<MqrRecord[]> {
+/** `React.cache()`-wrapped (Platform Stabilization, ADR-031, performance):
+ *  Machine Passport's Attachments/Warranty/Quality/Activity/Related
+ *  Records sections each independently call this for the same serial
+ *  within one page render - `cache()` dedupes those into a single
+ *  `getVehicleHistory()` read per request, same result, no new query
+ *  path, no behavior change. */
+export const fetchMqrRecords = cache(async (serial: string, session: SessionUser): Promise<MqrRecord[]> => {
   return getVehicleHistory(serial, session);
-}
+});
 
 export function mapMqrRecordsToEvents(records: MqrRecord[]): VehicleEvent[] {
   const events: VehicleEvent[] = [];

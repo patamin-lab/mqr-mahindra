@@ -15,6 +15,7 @@ import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/servic
 import { fetchMqrRecords } from '@/features/vehicle/eventSources/mqrEvents';
 import { fetchMaintenanceHistoryForSerial } from '@/features/maintenance/utils/fetchMaintenanceHistory';
 import { fetchNtrRecordsForSerial } from '@/features/ntr/utils/fetchNtrRecordsForSerial';
+import type { NtrRecord } from '@/features/ntr/types';
 import { Attachment, AttachmentService } from '@/shared/attachments';
 import { calcWarranty } from '@/lib/warranty';
 import { listAuditLogForRecords } from '@/lib/db';
@@ -264,5 +265,17 @@ export class MachineService {
    */
   async getMachineImportInspectionHistory(serial: string): Promise<Inspection[]> {
     return this.inspectionService.listInspectionsForSerial(serial);
+  }
+
+  /**
+   * Vehicle 360 (ADR-030) - NTR registration history for this vehicle. A
+   * thin read through `fetchNtrRecordsForSerial()` (already imported/used
+   * by `getMachineAttachments`/`getMachineAuditTimeline`/
+   * `getMachineRelatedRecords`) - Machine owns none of this data, and this
+   * adds no new query, just a dedicated NTR-detail section alongside the
+   * existing Import Inspection/Warranty/PM/Quality sections.
+   */
+  async getMachineNtrHistory(serial: string, session: SessionUser): Promise<NtrRecord[]> {
+    return fetchNtrRecordsForSerial(serial, session);
   }
 }
