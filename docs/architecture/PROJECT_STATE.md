@@ -23,19 +23,23 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-**v3.1 Customer Ownership — Governance Gate.** Four PRs open against
-`main` as of this writing, none merged:
+**Business Workflow & UX Audit (ADR-035).** Audit only, no code/schema/
+API/UI change - see `docs/architecture/BUSINESS_WORKFLOW_UX_AUDIT.md`
+for the full workflow maps, sidebar redesign, and prioritized roadmap.
+Headline finding: a real, previously-unflagged risk that the Tractor IN
+sync can silently overwrite `vehicles.delivery_date` (the Warranty
+Start = Delivery Date field) after an NTR registration has already set
+it correctly - highest-priority item in the roadmap. Also finds three
+consecutive dead/unmodeled Delivery-lifecycle stages (MSEAL Stock/Ship
+to Dealer/Dealer Stock), a non-existent Troubleshooting workflow, and
+two small nav defects (duplicate PIP entry, "Import Inspection" vs.
+"Quality Inspection" naming drift). Nothing in this document is
+implemented - each of its 5 prioritized items is its own future PR.
 
-| PR | Branch | Content |
-|---|---|---|
-| #50 | `feature/v3-foundation-hardening` | ADR-032, v3.0 Foundation Hardening audit (docs only) |
-| #51 | `feature/customer-ownership-proposal` | ADR-033 architecture proposal (docs only, approved without redesign) |
-| #52 | `feature/customer-ownership-schema` | ADR-033 Phase 1 - `customers`/`customer_ownership_history` tables + nullable `vehicles.customer_id`, additive, zero data written |
-| #53 | `feature/customer-data-governance` | ADR-034, Customer Data Governance - identity/ownership/PII/retention/deletion/access/audit rules, 7 decisions named as requiring Legal/Business approval |
-| (this PR) | `feature/customer-ownership-governance-gate` | Compliance Decision Register - converts ADR-034's 7 open items into tracked decisions with owners/approvers, gates Phases 2-4 |
+## Recently completed: v3.1 Customer Ownership (ADR-033/034), Phase 1 + Governance Gate
 
-`customers`, `customer_ownership_history`, and `vehicles.customer_id`
-exist in the live schema (migration
+PRs #50-#54 all merged. `customers`, `customer_ownership_history`, and
+`vehicles.customer_id` exist in the live schema (migration
 `20260715054732_customer_ownership_schema_v3_1`) but are not yet read
 or written by any application code. **Every implementation phase is
 currently gated WAIT** per `docs/architecture/

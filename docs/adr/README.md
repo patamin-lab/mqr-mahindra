@@ -44,8 +44,9 @@ listing alone.
 | ADR-032 | v3.0 Foundation Hardening | Accepted | Architecture-hardening audit (no code change beyond documentation) confirming single ownership/no duplication/no circular dependency across Vehicle/Machine Passport/Import Inspection/NTR/Warranty/PM/MQR/Timeline/Documents; see `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md` for the full audit, debt register, and v3.1/v3.2/v3.3 roadmap |
 | ADR-033 | Customer Ownership (v3.1) | **Proposed, Phase 1 (schema) merged** | Designs a new Customer bounded context - `customers`/`customer_ownership_history` tables, additive nullable `vehicles.customer_id`. Phase 1 (schema) applied live, additive-only, zero data written. Phases 2-4 (backfill/dual-run/cutover) blocked on ADR-034's Legal/Compliance preconditions. See `docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md` |
 | ADR-034 | Customer Data Governance (v3.1, Phase 1.5) | **Proposed** | Defines identity/ownership/visibility/PII/retention/deletion/correction/access-control/audit rules for the Customer entity ADR-033 built. No code, schema, or migration. Names 7 decisions requiring human/Legal approval before ADR-033 Phase 2 (backfill) may proceed. Tracked as individual decisions, each gated to an implementation phase, in `docs/architecture/CUSTOMER_COMPLIANCE_DECISION_REGISTER.md` |
+| ADR-035 | Business Workflow & UX Audit (v3.1) | **Proposed** (this PR, audit only, not yet merged) | Evaluates the platform by the tractor's real lifecycle (Import → Inspection → Stock → Ship → Delivery → Warranty → Passport → PM → MQR → Troubleshooting → Knowledge) rather than by module. Finds a real Warranty-Start-overwrite risk in the Tractor IN sync, three dead/unmodeled Delivery-lifecycle stages, a non-existent Troubleshooting workflow, and two small nav defects (duplicate PIP entry, "Import Inspection" vs "Quality Inspection" naming). No code/schema/API/UI change. See `docs/architecture/BUSINESS_WORKFLOW_UX_AUDIT.md` for the full workflow maps, sidebar redesign, and prioritized roadmap |
 
-**Next available number: ADR-035.**
+**Next available number: ADR-036.**
 
 ## ADR numbering normalization (this pass)
 
