@@ -9,6 +9,7 @@ import { createNtrService } from '@/features/ntr/factory';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 import type { SessionUser } from '@/lib/types';
+import { unauthorizedError } from '@/lib/apiError';
 
 /** Dealer/Branch Scope Platform Standard, two-layer defense in depth
  *  (matching this app's RLS + `applyScope()` convention elsewhere):
@@ -23,7 +24,7 @@ function isOutOfScope(session: SessionUser, record: NtrRecord): boolean {
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
 
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
 
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
@@ -96,7 +97,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   // Same role gate as MQR's/PM's delete routes (`canDelete()` in scope.ts) -

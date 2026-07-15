@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { searchVehiclesForPm } from '@/lib/db';
 import { resolveDealerScope, resolveBranchScope } from '@/lib/dealerBranchScope';
+import { unauthorizedError } from '@/lib/apiError';
 
 /**
  * Server-side Tractor Master search for the Maintenance search-first
@@ -13,7 +14,7 @@ import { resolveDealerScope, resolveBranchScope } from '@/lib/dealerBranchScope'
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
 
   const { searchParams } = new URL(req.url);

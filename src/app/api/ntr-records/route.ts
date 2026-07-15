@@ -9,11 +9,12 @@ import { runNtrWarrantyOrchestration } from '@/features/ntr/services/ntrPostCrea
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 import { AttachmentService } from '@/shared/attachments';
+import { unauthorizedError } from '@/lib/apiError';
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
 
   let body: Record<string, unknown>;
