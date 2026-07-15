@@ -155,7 +155,7 @@ export default function MaintenanceSearch({ dealers, role, sessionDealerId, sess
           setMode('search');
           setSelectedVehicle(null);
         }}
-        onSaved={(record) => router.push(`/pm-records/${encodeURIComponent(record.id)}`)}
+        onSaved={() => router.push('/pm-records')}
       />
     );
   }
