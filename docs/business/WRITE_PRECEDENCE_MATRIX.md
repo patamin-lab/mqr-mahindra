@@ -31,7 +31,7 @@ already recorded correctly. Concretely:
 | Write attempt | Allowed? | Reasoning |
 |---|---|---|
 | Operational (NTR) sets `dealer_id`/`delivery_date`/customer | **Allowed, always** | NTR is the top of the precedence order for these fields - it is their Source of Truth |
-| Factory (Tractor IN) sets `serial`/`engine_number`/`model`/`product_code`/`wh_arrival_date` | **Allowed, always** | These are Factory Data's own fields - no other domain writes them |
+| Factory (Tractor IN) sets `serial`/`engine_number`/`model`/`product_code`/`wh_arrival_date`/`factory_pdi_status` | **Allowed, always** | These are Factory Data's own fields - no other domain writes them. `factory_pdi_status` (Production Pilot, PR #63) is Tractor IN's Factory/Logistics PDI readiness signal, independent of Import Inspection's own `inspections` table - neither is ever written by the other's module |
 | Factory (Tractor IN) sets `dealer_id`/`delivery_date` **after** Operational (NTR) has already set them | **Not allowed, enforced (PR #60)** | Factory Data must never overwrite Operational Data - `TractorInSyncService` now guards against this |
 | Factory (Tractor IN) sets `dealer_id` **before** any NTR exists | **Allowed** | No Operational Data exists yet to be overwritten - per ADR-037's "narrow, not remove" amendment |
 | Service (PM) writes its own `pm_records` fields | **Allowed, always** | PM is Service Data's own Source of Truth for those fields |
@@ -44,7 +44,8 @@ already recorded correctly. Concretely:
 
 | Writer | Table(s) | Confirmed by |
 |---|---|---|
-| `TractorInSyncService` | `vehicles` (Factory fields; `dealer_id`/`delivery_date` per ADR-037's transition rule) | `tractorInSyncService.ts` |
+| `TractorInSyncService` | `vehicles` (Factory fields incl. `factory_pdi_status`; `dealer_id`/`delivery_date` per ADR-037's transition rule) | `tractorInSyncService.ts` |
+| `InspectionService` | `inspections` only - never `vehicles.factory_pdi_status` | `features/inspection/repository.ts` |
 | NTR (`ntrPostCreateOrchestration.ts`, `SupabaseNtrRepository`) | `ntr_records`; `vehicles.delivery_date`/`product_family_id` only | `lib/db.ts`'s `updateVehicleDeliveryInfo()` |
 | PM (`SupabaseMaintenanceRepository`) | `pm_records` only | No PM write path touches `vehicles`/`ntr_records` |
 | MQR (`api/records/route.ts` and friends) | `records` only | No MQR write path touches `vehicles`/`ntr_records`/`pm_records` |

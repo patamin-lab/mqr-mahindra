@@ -62,7 +62,15 @@ not hold today.
 
 **Stated rule**: ONLY Serial Number, Engine Number, Model, Product
 Code, WH Arrival Date. NEVER Dealer, Delivery Date, Customer, Warranty,
-Ownership.
+Ownership. **Extended (2026-07-15, PR #63)**: Factory PDI Status
+(`vehicles.factory_pdi_status`) is also Factory Domain - a Factory/
+Logistics readiness signal, not an inspection result. It holds by the
+same reasoning as the five fields above: `TractorInSyncService` is its
+only writer, and it is never read or written by `InspectionService` -
+Import Inspection's own inspection record (`inspections`: status,
+result, checklist, findings, etc.) remains a fully independent Source
+of Truth, per `docs/business/FIELD_OWNERSHIP_MATRIX.md`'s row for this
+field.
 
 **RESOLVED (PR #60, 2026-07-15).** Was: VIOLATED, confirmed in code -
 `tractorInSyncService.ts` used to write six
