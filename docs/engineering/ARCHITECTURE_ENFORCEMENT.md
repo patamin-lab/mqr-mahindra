@@ -3,7 +3,7 @@
 `scripts/architecture-check.ts` (`npm run architecture`) is the first
 automated check for the boundary rules `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
 documents as policy. Before this milestone, every compliance finding in
-`docs/engineering/STORAGE_PLATFORM_FINAL.md`/`docs/release/STORAGE_PLATFORM_RELEASE.md`
+`docs/engineering/STORAGE_PLATFORM_FINAL.md`/`docs/releases/STORAGE_PLATFORM_RELEASE.md`
 was produced by manual `grep`/read-through - this script makes the same
 checks repeatable and CI-able (once wired in - see "CI integration"
 below).

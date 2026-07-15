@@ -39,53 +39,73 @@ either a real route or an explicit, disabled "Coming Soon" placeholder -
 never a fake/broken link. Implementation: `src/app/(app)/navConfig.ts`'s
 `getNavGroups(t, session)`, rendered by `src/app/(app)/sidebar.tsx`.
 
+**Update (2026-07-15, Production Pilot Readiness, PR #60):** the table
+below is rewritten to match the current, live navigation - the version
+that follows described a pre-Pilot target that has since shipped
+differently (Legacy Import's nav entry was removed rather than kept
+SuperAdmin-only; Coming Soon placeholders were removed from the code
+entirely rather than left rendered-disabled; Vehicle Lookup and
+Delivery Lifecycle are new top-level groups the original table never
+had). Ground truth is always `src/app/(app)/navConfig.ts`'s
+`getNavGroups()` - re-verify against it, not this table, if the two
+ever drift again.
+
 | Group | Item | Route | Status |
 |---|---|---|---|
-| 🏠 Dashboard | Platform Overview | `/dashboard` | **Real** (rebuilt this pass) |
-| 🚜 Machines | Machine Registry | `/vehicles` | Real (existing) |
-| | Machine Passport | - | Coming Soon |
-| | New Tractor Registration | `/ntr` | Real (existing) |
-| | Legacy Import | `/admin/legacy-import` | Real (existing, SuperAdmin) |
-| 🔧 Service | Preventive Maintenance | `/pm-records` | Real (existing) |
-| | Warranty | - | Coming Soon (no module/table) |
-| | Campaigns > Service Campaign (Future) | - | Coming Soon |
-| | Campaigns > Product Improvement Plan (Future) | - | Coming Soon |
-| ⚠️ Quality | Dashboard (แดชบอร์ดคุณภาพ) | `/quality/dashboard` | Real (moved MQR dashboard) |
-| | Cases (รายงานปัญหาคุณภาพ) | `/records` | Real (existing) |
-| | Analytics (การวิเคราะห์) | - | Coming Soon |
-| | Troubleshooting (การแก้ไขปัญหา) | - | Coming Soon (moved here from Engineering Intelligence - see §2a) |
-| | Knowledge (องค์ความรู้) | `/quality/knowledge` | **Real** (Engineering Knowledge Platform, ADR-018) |
-| 🧠 Engineering Intelligence | AI Engineering | - | Coming Soon |
-| | Product Improvement Plans (PIP) | - | Coming Soon |
-| | Predictive Quality | - | Coming Soon |
-| 📊 Reports (cross-cutting, not a domain - see §2b) | Executive / Operations / Dealer / Export | - | Coming Soon (all four - no module) |
-| ⚙️ Administration | Users | `/admin/users` | Real (existing) |
-| | Master Data (subgroup: Dealers/Branches/Technicians/Problem Codes/PM Intervals/Product Families/Product Family Models/Maintenance Programs) | `/admin/*` | Real (existing) |
-| | Import History | `/admin/import-history` | **Real** (new this pass) |
-| | Audit | - | Coming Soon (no cross-module audit UI yet) |
-| | Sessions | - | Coming Soon (only self-service `/profile/security` exists, no admin cross-user view) |
-| | System Health | `/admin/email-health` | Real (existing, relabeled) |
-| | Settings | - | Coming Soon |
+| 🏠 Dashboard | Platform Overview | `/dashboard` | Real |
+| 🚜 Vehicle Lookup | Vehicle 360 | `/machines` | Real - persistent, always-available lookup, its own top-level group (not nested under any one lifecycle stage); `/vehicles` is a pure redirect, no separate entry |
+| 🔍 Import & Inspection (MSEAL only) | Dashboard | `/delivery/pdi/dashboard` | Real |
+| | Import Inspection | `/delivery/pdi` | Real |
+| 🚚 Delivery Lifecycle | New Tractor Delivery (NTR) | `/ntr` | Real |
+| 🔧 Service | Preventive Maintenance | `/pm-records` | Real |
+| ⚠️ Quality | Dashboard (แดชบอร์ดคุณภาพ) | `/quality/dashboard` | Real |
+| | Cases (รายงานปัญหาคุณภาพ) | `/records` | Real |
+| | Knowledge (องค์ความรู้) | `/quality/knowledge` | Real (Engineering Knowledge Platform, ADR-018) |
+| ⚙️ Administration | Users | `/admin/users` | Real |
+| | Master Data (subgroup: Dealers/Branches/Technicians/Problem Codes/PM Intervals/Product Families/Product Family Models/Maintenance Programs) | `/admin/*` | Real |
+| | Import History | `/admin/import-history` | Real |
+| | Email Health | `/admin/email-health` | Real |
+
+**Removed entirely for Production Pilot** ("Production Pilot exposes
+only completed workflows," `navConfig.ts`'s own doc comment) - no
+longer scaffolded even as disabled Coming Soon rows, for any role
+including SuperAdmin: Machine Passport as a separate nav entry (folded
+into Vehicle 360 above), Legacy Import's nav entry (route and Import
+History still reachable directly), Warranty, Service Campaign, PIP,
+Quality Analytics, Troubleshooting, the entire Engineering Intelligence
+group, the entire Reports group, Audit, Sessions, Settings. These are
+named, real, still-open gaps (not silently dropped) - tracked in
+`docs/architecture/BUSINESS_WORKFLOW_UX_AUDIT.md`/
+`BUSINESS_WORKFLOW_CONSOLIDATION_AUDIT.md`. The underlying
+`CapabilityStatus`/`comingSoon` mechanism is unchanged and ready for
+the next capability that needs the same treatment post-Pilot; only the
+inert placeholder rows and the `comingSoon()` construction helper were
+deleted from the code.
 
 **Open item, not silently resolved**: PDI (Pre-Delivery Inspection) and
 Parts Request appeared in the old flat Official Menu Standard
 (`docs/standards/DOMAIN_LANGUAGE_STANDARD.md`) as recognized future
-modules, but have no entry - real or Coming Soon - in this new
-navigation, because the brief's own Target Navigation omits them. They
-remain named future modules in the Architecture Blueprint's Business
-Capability Map. Whether they should get a Coming Soon nav entry too is a
-deliberate call for product direction, flagged here rather than decided
-unilaterally.
+modules. Note this now reads ambiguously: a *different* "PDI" (MSEAL's
+own Import Inspection domain, ADR-028) does have a real nav group
+today (🔍 Import & Inspection, above) - that is not the same capability
+as the dealer-facing "PDI (Pre-Delivery Inspection)"/Parts Request this
+paragraph originally meant, which still has no nav entry anywhere.
+Whether dealer-facing PDI/Parts Request should get a Coming Soon (or
+now, no-entry-until-built) treatment is a deliberate call for product
+direction, flagged here rather than decided unilaterally.
 
 Role gating is unchanged in spirit from before: nav visibility is
 UX-only, every route re-checks the same `lib/scope.ts` predicate
 server-side (`docs/standards/SECURITY_STANDARD.md`).
 
-### 2c. Navigation Visibility Rule - capability status, not roadmap (post-Foundation Freeze refinement)
+### 2c. Navigation Visibility Rule - capability status, not roadmap (post-Foundation Freeze refinement; Production Pilot policy supersedes the SuperAdmin exception below)
 
 **Navigation Principle**: Navigation represents platform capabilities.
-Users see available capabilities. SuperAdmin may see future
-capabilities. Navigation is never the roadmap.
+Users see available capabilities. Navigation is never the roadmap.
+~~SuperAdmin may see future capabilities.~~ **Suspended for the
+duration of Production Pilot** (see the update below) - the mechanism
+that would allow it is unchanged, but the exception itself does not
+apply today.
 
 **Capability Principle**: Every capability has an Owner (the domain that
 owns it - §2a/§2b above), a Status (`CapabilityStatus`), a Permission
@@ -95,31 +115,40 @@ always derived from capability state + authorization, never from
 hardcoded module names.
 
 **Navigation represents available business capability, not the product
-roadmap.** Every leaf in the table above carries a `CapabilityStatus`
-(`navConfig.ts`): `ACTIVE` for a real, built route; `COMING_SOON`,
-`PREVIEW`, `BETA`, or `DEVELOPMENT` for everything not yet a capability a
-regular user can act on (every "Coming Soon" row in the table above is
-`COMING_SOON` today - the other three statuses exist for a future
-capability that's further along than "Coming Soon" but not yet general-
-availability, without inventing a new flag or filter when that happens).
+roadmap.** Every leaf carries a `CapabilityStatus` (`navConfig.ts`):
+`ACTIVE` for a real, built route; `COMING_SOON`, `PREVIEW`, `BETA`, or
+`DEVELOPMENT` for everything not yet a capability a regular user can
+act on - the other three statuses exist for a future capability that's
+further along than "Coming Soon" but not yet general-availability,
+without inventing a new flag or filter when that happens.
 
-`getNavGroups()` applies one rule, uniformly, to every leaf regardless of
-which group it belongs to: **SuperAdmin sees every status** (the full
-roadmap, exactly as this table documents it); **every other role sees
-only `ACTIVE` leaves** - an unfinished capability is hidden completely,
-never shown as a disabled placeholder. If every item in a group (or
-subgroup) is non-`ACTIVE`, the whole group is omitted for non-SuperAdmin
-roles - e.g. today, Engineering Intelligence (all three items Coming
-Soon) and Reports (all four items Coming Soon) are both invisible to
-every role except SuperAdmin, and Service's Campaigns subgroup and
-Quality's Analytics/Troubleshooting/Knowledge items disappear for
-non-SuperAdmin while Service/Quality's own real items remain. This is a
-generic, status-driven filter (`isCapabilityVisible()`,
-`filterGroupsByCapability()`) - there is no code naming "Engineering
-Intelligence" or any other module in the filtering logic itself, so a
-future capability (Dealer Portal, IoT, Predictive Maintenance,
-Notifications, ...) gets this same SuperAdmin-only treatment automatically
-the moment it's added at a non-`ACTIVE` status.
+**Update (2026-07-15, Production Pilot Readiness, PR #60):**
+`getNavGroups()` now applies one rule, uniformly, to every leaf
+regardless of role: **only `ACTIVE` leaves are visible, for every role
+including SuperAdmin** ("Production Pilot exposes only completed
+workflows"). The paragraph below describing a SuperAdmin-sees-everything
+exception was accurate for the pre-Pilot Foundation Freeze design and
+is superseded, not deleted, since the mechanism it describes
+(`isCapabilityVisible()` taking a role parameter) still exists in the
+code - `_role` is simply unused while this policy is in effect. If
+every item in a group (or subgroup) is non-`ACTIVE`, the whole group is
+omitted entirely, for every role - e.g. the entire former Engineering
+Intelligence and Reports groups, and Service's Campaigns subgroup, are
+gone from the nav tree, not merely hidden from non-SuperAdmin roles.
+This is a generic, status-driven filter
+(`isCapabilityVisible()`/`filterGroupsByCapability()`) - there is no
+code naming any specific module in the filtering logic itself, so a
+future capability gets this same hidden-until-`ACTIVE` treatment
+automatically the moment it's added at a non-`ACTIVE` status.
+
+**Pre-Pilot design (superseded by the update above, kept for history,
+not current behavior):** `getNavGroups()` used to apply one rule,
+uniformly, to every leaf regardless of which group it belonged to:
+**SuperAdmin sees every status** (the full roadmap); **every other role
+sees only `ACTIVE` leaves** - an unfinished capability hidden
+completely, never shown as a disabled placeholder. If every item in a
+group (or subgroup) was non-`ACTIVE`, the whole group was omitted for
+non-SuperAdmin roles only.
 
 This is a UX-visibility refinement only, not a new authorization
 boundary: every gated leaf already had `href: null` (no real route to

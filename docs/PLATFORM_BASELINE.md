@@ -83,7 +83,7 @@ the documented allowlist for the operational-surface exception:
 **MASP Platform Foundation v1.1.0 - STATUS: ACCEPTED.** Originally
 frozen and released as v1.0.0 (v2.1 sub-release for Storage Platform
 specifically - see `CHANGELOG_STORAGE_PLATFORM.md`,
-`RELEASE_NOTES_v2.1.md`, `docs/release/STORAGE_PLATFORM_RELEASE.md`),
+`RELEASE_NOTES_v2.1.md`, `docs/releases/STORAGE_PLATFORM_RELEASE.md`),
 then accepted following a real Vercel Preview deployment + live UAT
 (upload/preview/download/delete/signed-URL/CORS/large-file/error-handling,
 all VERIFIED against the deployed Preview and independently

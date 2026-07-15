@@ -232,15 +232,22 @@ capability's Status plus the viewer's authorization, never from a
 hardcoded module name in the filtering logic, and never rendered as a
 placeholder for a role that should not see it.
 
-- **Users see capabilities.** Every role other than SuperAdmin sees only
-  `ACTIVE` capabilities - a capability that is Coming Soon, Preview,
-  Beta, or in Development is hidden completely for that role, not shown
-  disabled.
+- **Users see capabilities.** Every role sees only `ACTIVE` capabilities -
+  a capability that is Coming Soon, Preview, Beta, or in Development is
+  hidden completely for that role, not shown disabled.
 - **SuperAdmin may see future capabilities.** SuperAdmin sees every
   status - the platform's full roadmap - because SuperAdmin's job
   includes verifying what is coming, not because SuperAdmin's role is
   "more trusted" in the authorization sense for any one capability
-  (Capability visibility is not authorization, below).
+  (Capability visibility is not authorization, below). **Temporarily
+  suspended for the duration of Production Pilot** ("Production Pilot
+  exposes only completed workflows" applies to every role, including
+  SuperAdmin, per PR #60, 2026-07-15) - the mechanism this bullet
+  describes is unchanged and the exception resumes whenever Pilot status
+  is lifted; this note is a factual correction, not itself a
+  Constitutional Amendment (no Architecture/Governance Review has
+  formally revisited this bullet - one should accompany whatever
+  decision makes the suspension permanent or ends it).
 - A group of navigation entries with zero visible capabilities for the
   current viewer is hidden automatically, never rendered empty and never
   padded with a placeholder to keep the group visible.

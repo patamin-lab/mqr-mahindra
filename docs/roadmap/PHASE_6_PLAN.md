@@ -1,5 +1,18 @@
 # Phase 6 Plan (Planning Only)
 
+**Historical, superseded by `docs/ROADMAP.md`'s own "Recommended next
+implementation order"** (Documentation Cleanup for Production Pilot,
+2026-07-15) — this document's priority order (Workflow Engine →
+Notification Platform → Machine Domain extension → Dashboard →
+Analytics → AI Platform) predates and was never reconciled against
+`docs/ROADMAP.md`'s current recommended order (Machine Digital Passport
+→ Knowledge Platform → Machine Delivery Platform → Service Platform v1.0
+→ AI Troubleshooting → ...), which has since shipped most of Machine
+Domain/Dashboard/Analytics-adjacent work under different names (Machine
+Digital Passport, Knowledge Platform, Machine Delivery Platform). Kept
+here as a record of the reasoning below, not as a live priority order -
+`docs/ROADMAP.md` is the one canonical "what's next" document.
+
 No implementation performed or implied by this document. Priority order
 and scope for the next body of work after Storage Platform v2.1,
 Architecture Governance/Enforcement, and NTR Historical Import Framework
