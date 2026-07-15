@@ -1,5 +1,14 @@
 # Capability Dependency Map
 
+> **v3.0 Foundation Hardening note (ADR-032):** this map predates
+> ADR-017/018/027/028/029/030/031 and does not show Inspection/Delivery/
+> Knowledge/Vehicle 360 as their own nodes. See
+> `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md` §5 for the
+> current, feature-module-grain dependency diagram (Vehicle → Import
+> Inspection → NTR → Warranty → PM → MQR → Timeline → Documents, plus
+> Machine Passport as the one aggregation reading all of them). No
+> circular dependency or boundary violation was found in that audit.
+
 ## Relationship to existing documents
 
 `docs/governance/CAPABILITY_MAP.md` shows each domain's own capability
