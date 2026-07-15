@@ -111,7 +111,6 @@ export interface MachineDeliverySummary {
   ntrId: string | null;
   trainingCompleted: boolean;
   warrantyActivatedAt: string | null;
-  href: string;
 }
 
 /** Official KPI set (Machine Delivery Dashboard Screen Contract, see

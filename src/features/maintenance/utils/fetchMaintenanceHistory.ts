@@ -7,6 +7,7 @@
  * each module implements its own provider" is meant to establish: Vehicle
  * depends on Maintenance, never the reverse.
  */
+import { cache } from 'react';
 import { SessionUser } from '@/lib/types';
 import { MaintenanceService } from '../services/maintenanceService';
 import { SupabaseMaintenanceRepository } from '../repositories/supabaseMaintenanceRepository';
@@ -20,8 +21,14 @@ import { MaintenanceRecord } from '../types';
  *  and match `branchName` against the legacy free-text `session.branch`
  *  display string (fragile - whitespace/rename drift from the real
  *  `branches.name`), instead of the real `branch_id` UUID
- *  (`session.branchId`). */
-export async function fetchMaintenanceHistoryForSerial(serial: string, session: SessionUser): Promise<MaintenanceRecord[]> {
+ *  (`session.branchId`).
+ *
+ *  `React.cache()`-wrapped (Platform Stabilization, ADR-031, performance):
+ *  Machine Passport's Attachments/Activity/Related Records sections and
+ *  its own PM section each independently call this for the same serial
+ *  within one page render - `cache()` dedupes those into a single
+ *  `listHistory()` read per request, same result, no behavior change. */
+export const fetchMaintenanceHistoryForSerial = cache(async (serial: string, session: SessionUser): Promise<MaintenanceRecord[]> => {
   const repository = new SupabaseMaintenanceRepository();
   const service = new MaintenanceService(repository);
 
@@ -40,4 +47,4 @@ export async function fetchMaintenanceHistoryForSerial(serial: string, session: 
   // History Center's search box) - narrow to an exact match here so
   // consumers never see another vehicle's records.
   return result.data.filter((r) => r.serial === serial);
-}
+});

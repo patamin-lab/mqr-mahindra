@@ -22,6 +22,17 @@ Structured around the task brief's own ten requested Output sections.
 > creation route). See `docs/architecture/INSPECTION_PDI.md`'s own
 > correction notice for the Inspection-side detail.
 
+> **Platform Stabilization (2026-07-15, ADR-031):** the General Delivery
+> lifecycle-tracking UI (`/delivery/dashboard`, `/delivery/records`,
+> `/delivery/records/[id]`, `/delivery/records/new`, `/delivery/reports`)
+> was removed - it had carried zero navigation entries since ADR-029 and
+> had no other caller. `DeliveryService`/`DeliveryRepository`, the
+> `delivery_records`/`delivery_trainings` data model, and every
+> `/api/delivery-records/**`/`/api/delivery/**` route below are
+> unchanged - `MachineDeliverySection` (Vehicle 360) and
+> `activateWarrantyFromNtr()` (NTR creation) still call this service
+> directly. Import Inspection (`/delivery/pdi/**`) is unaffected.
+
 ## 1. Machine Delivery Architecture
 
 Machine remains the platform center (ADR-009, unchanged). Delivery is a

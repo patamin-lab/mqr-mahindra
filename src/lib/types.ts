@@ -1,7 +1,5 @@
 export type Role = 'SuperAdmin' | 'CentralAdmin' | 'DealerAdmin' | 'DealerUser';
 
-export const ROLE_VALUES: Role[] = ['SuperAdmin', 'CentralAdmin', 'DealerAdmin', 'DealerUser'];
-
 export interface SessionUser {
   username: string;
   fullName: string;
@@ -372,23 +370,6 @@ export function canTransitionMqrStatus(from: StatusValue, to: StatusValue, role:
   if (role === 'SuperAdmin') return true;
   return MQR_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
 }
-
-/** Thai labels for the shared audit trail's event types, used by both the
- *  MQR and PM Timeline UIs. */
-export const AUDIT_EVENT_LABELS_TH: Record<AuditEventType, string> = {
-  Created: 'สร้างรายการ',
-  StatusChanged: 'เปลี่ยนสถานะ',
-  FieldChanged: 'แก้ไขข้อมูล',
-  AttachmentAdded: 'เพิ่มไฟล์แนบ',
-  AttachmentRemoved: 'ลบไฟล์แนบ',
-  RcaUpdated: 'อัปเดตข้อมูลการวิเคราะห์สาเหตุ (RCA)',
-  SeverityChanged: 'เปลี่ยนระดับความรุนแรง',
-  AssignmentChanged: 'เปลี่ยนผู้รับผิดชอบ',
-  Locked: 'ล็อกข้อมูล',
-  Unlocked: 'ปลดล็อกข้อมูล',
-  Deleted: 'ลบรายการ',
-  SystemEvent: 'เหตุการณ์ระบบ',
-};
 
 /** Shared, immutable audit trail (`record_audit_log`) - one system-logged
  *  entry per business event, reused by MQR (`records`), PM (`pm_records`),
