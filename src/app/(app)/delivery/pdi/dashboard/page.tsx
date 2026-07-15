@@ -1,7 +1,9 @@
+import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { InspectionService } from '@/features/inspection';
 import { canAccessImportInspection } from '@/lib/scope';
+import { FACTORY_PDI_STATUS_PENDING_SENTINEL } from '@/lib/db';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
@@ -9,12 +11,19 @@ import EmptyState from '@/components/shared/layout/EmptyState';
 
 const service = new InspectionService();
 
-function KpiCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card variant="flat" className="p-4">
+function KpiCard({ label, value, href }: { label: string; value: string | number; href?: string }) {
+  const content = (
+    <Card variant="flat" className={`p-4${href ? ' transition hover:shadow-md' : ''}`}>
       <p className="text-xs text-gray-500">{label}</p>
       <p className="mt-1 text-2xl font-bold text-brand-dark">{value}</p>
     </Card>
+  );
+  return href ? (
+    <Link href={href} className="block">
+      {content}
+    </Link>
+  ) : (
+    content
   );
 }
 
@@ -48,7 +57,11 @@ export default async function ImportInspectionDashboardPage() {
       <PageHeader title={t('pdi.dashboardTitle')} subtitle={t('pdi.dashboardSubtitle')} titleClassName="text-2xl font-bold text-brand-dark" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label={t('pdi.pendingImportInspectionLabel')} value={stats.pendingImportInspection} />
+        <KpiCard
+          label={t('pdi.pendingImportInspectionLabel')}
+          value={stats.pendingImportInspection}
+          href={`/delivery/pdi?factoryPdiStatus=${encodeURIComponent(FACTORY_PDI_STATUS_PENDING_SENTINEL)}`}
+        />
         <KpiCard label={t('pdi.pendingRePdiLabel')} value={stats.pendingRePdi} />
         <KpiCard label={t('pdi.expiredInspectionLabel')} value={stats.expiredInspection} />
         <KpiCard label={t('pdi.releasedToDealerLabel')} value={stats.releasedToDealer} />

@@ -350,6 +350,18 @@
       "Completed": "Completed",
       "Cancelled": "Cancelled"
     },
+    "factoryPdiStatusLabel": "Factory PDI Status",
+    "factoryPdiStatusAllLabel": "All",
+    "factoryPdiStatus": {
+      "Pending": "Pending",
+      "QcPassed": "QC Passed",
+      "Quarantine": "Quarantine"
+    },
+    "factoryPdiStatusFilterNote": "Showing machines by Factory PDI Status (from Tractor IN) - not by Inspection Record status.",
+    "factoryPdiStatusColumnLabel": "Factory PDI Status",
+    "modelLabel": "Model",
+    "notStartedLabel": "Not started",
+    "startInspectionAction": "Start Inspection",
     "resultLabel": "Result",
     "result": {
       "Pass": "Pass",

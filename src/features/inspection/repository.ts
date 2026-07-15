@@ -114,6 +114,7 @@ export class InspectionRepository {
     if (filters.releaseStatus) query = query.eq('release_status', filters.releaseStatus);
     if (filters.dealerId) query = query.eq('dealer_id', filters.dealerId);
     if (filters.serial) query = query.eq('serial', filters.serial);
+    if (filters.serials) query = query.in('serial', filters.serials);
     if (filters.q) query = query.or(`inspection_ref.ilike.%${filters.q}%,serial.ilike.%${filters.q}%,technician_name.ilike.%${filters.q}%`);
     const { data, error } = await query;
     if (error) throw error;

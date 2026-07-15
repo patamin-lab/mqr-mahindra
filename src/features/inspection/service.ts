@@ -7,7 +7,7 @@
  * server-side by `canAccessImportInspection` (`lib/scope.ts`), never by
  * nav/button visibility alone (`SECURITY_STANDARD.md`).
  */
-import { logAuditEvent } from '@/lib/db';
+import { logAuditEvent, countVehiclesPendingFactoryPdi } from '@/lib/db';
 import type { SessionUser } from '@/lib/types';
 import { canAccessImportInspection } from '@/lib/scope';
 import { KnowledgeService } from '@/features/knowledge';
@@ -125,13 +125,26 @@ export class InspectionService {
    *  aggregation over one scoped read (`listActive()`), the same
    *  "aggregate in JS, not a second reporting engine" pattern
    *  `DeliveryService.getDashboardStats()`/`dashboardStats()` (`lib/db.ts`)
-   *  already use. */
+   *  already use.
+   *
+   *  Production Pilot (Factory PDI Status): `pendingImportInspection` is
+   *  now Tractor IN's own Factory PDI Status signal
+   *  (`countVehiclesPendingFactoryPdi()` - vehicles the factory has not
+   *  yet recorded a PDI outcome for), not this module's own inspection-
+   *  record status. This is a strictly earlier, more accurate "waiting
+   *  for inspection" count - it includes machines with no Inspection
+   *  record created yet at all, which the old
+   *  Scheduled/InProgress-inspection-count could never see. Reading
+   *  Tractor IN's own field does not make this module a writer of it -
+   *  see `docs/business/FIELD_OWNERSHIP_MATRIX.md`. */
   async getDashboardStats(session: SessionUser, dealerId?: string): Promise<InspectionDashboardStats> {
     assertMsealAccess(session.role);
-    const inspections = await this.repo.listActive(dealerId);
+    const [inspections, pendingImportInspection] = await Promise.all([
+      this.repo.listActive(dealerId),
+      countVehiclesPendingFactoryPdi(dealerId ?? null),
+    ]);
     const today = new Date().toISOString().slice(0, 10);
 
-    const pendingImportInspection = inspections.filter((i) => i.status === 'Scheduled' || i.status === 'InProgress').length;
     const pendingRePdi = inspections.filter((i) => i.releaseStatus === 'RequiresRePdi').length;
     const expiredInspection = inspections.filter((i) => isInspectionExpired(i, today)).length;
     const releasedToDealer = inspections.filter((i) => i.releaseStatus === 'ReleasedToDealer').length;

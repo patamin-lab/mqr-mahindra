@@ -18,13 +18,21 @@ interface VehiclesTableConfig {
    *  Field Scope Amendment guard excludes dealer_id/delivery_date from the
    *  UPDATE payload for these. Defaults to none (no serial has an NTR). */
   ntrSerials?: string[];
+  /** Currently-stored `factory_pdi_status` per serial - Production Pilot's
+   *  "sync only when changed" rule compares the sheet's value against
+   *  this. Defaults to `null` (nothing stored yet) for any serial not
+   *  listed here. */
+  existingFactoryPdiStatus?: Record<string, string | null>;
   insertError?: (payload: Record<string, unknown>) => { message: string; code?: string } | null;
   updateError?: (serial: string) => { message: string; code?: string } | null;
 }
 
 function mockClient(config: VehiclesTableConfig) {
   const select = vi.fn().mockResolvedValue({
-    data: config.existingSerials.map((serial) => ({ serial })),
+    data: config.existingSerials.map((serial) => ({
+      serial,
+      factory_pdi_status: config.existingFactoryPdiStatus?.[serial] ?? null,
+    })),
     error: null,
   });
   const insert = vi.fn((payload: Record<string, unknown>) => {
@@ -326,16 +334,78 @@ describe('TractorInSyncService.sync', () => {
     expect(updatePayload).toMatchObject({ dealer_id: 'KTV', delivery_date: '2026-07-15' });
   });
 
-  it('never writes PDI Status anywhere - it has no vehicles column', async () => {
-    mockRows.mockResolvedValue([row({ productSerial: 'NEW1', pdiStatus: 'Passed' })]);
+  it('Production Pilot: syncs Factory PDI Status on INSERT unconditionally, same as every other master field', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'NEW1', pdiStatus: 'QC Passed' })]);
     const mocked = mockClient({ existingSerials: [] });
     state.client = mocked.client;
 
     await new TractorInSyncService().sync();
 
     const insertPayload = mocked.insert.mock.calls[0][0];
-    expect(insertPayload.pdi_status).toBeUndefined();
-    expect(insertPayload.pdiStatus).toBeUndefined();
+    expect(insertPayload.factory_pdi_status).toBe('QC Passed');
+  });
+
+  it('Production Pilot: a blank PDI Status cell syncs as null ("Pending") on INSERT', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'NEW1', pdiStatus: '' })]);
+    const mocked = mockClient({ existingSerials: [] });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const insertPayload = mocked.insert.mock.calls[0][0];
+    expect(insertPayload.factory_pdi_status).toBeNull();
+  });
+
+  it('Production Pilot: writes Factory PDI Status on UPDATE when the sheet value changed', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'EXIST1', pdiStatus: 'Quarantine' })]);
+    const mocked = mockClient({ existingSerials: ['EXIST1'], existingFactoryPdiStatus: { EXIST1: 'QC Passed' } });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload.factory_pdi_status).toBe('Quarantine');
+  });
+
+  it('Production Pilot: does NOT write Factory PDI Status on UPDATE when the sheet value is unchanged ("sync only when changed")', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'EXIST1', pdiStatus: 'QC Passed' })]);
+    const mocked = mockClient({ existingSerials: ['EXIST1'], existingFactoryPdiStatus: { EXIST1: 'QC Passed' } });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload.factory_pdi_status).toBeUndefined();
+  });
+
+  it('Production Pilot: the sheet cell going blank is a real transition and syncs as null, unlike other master fields\' "never blank out" rule', async () => {
+    mockRows.mockResolvedValue([row({ productSerial: 'EXIST1', pdiStatus: '' })]);
+    const mocked = mockClient({ existingSerials: ['EXIST1'], existingFactoryPdiStatus: { EXIST1: 'QC Passed' } });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload.factory_pdi_status).toBeNull();
+  });
+
+  it('Production Pilot: Factory PDI Status sync never touches dealer_id/delivery_date, even once an NTR exists', async () => {
+    mockRows.mockResolvedValue([
+      row({ productSerial: 'DELIVERED1', pdiStatus: 'QC Passed', dealer: 'ktv', deliveryDateThai: '15/07/2569' }),
+    ]);
+    const mocked = mockClient({
+      existingSerials: ['DELIVERED1'],
+      ntrSerials: ['DELIVERED1'],
+      existingFactoryPdiStatus: { DELIVERED1: 'Quarantine' },
+    });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload.factory_pdi_status).toBe('QC Passed');
+    expect(updatePayload.dealer_id).toBeUndefined();
+    expect(updatePayload.delivery_date).toBeUndefined();
   });
 
   it('reports missing Product Code / WH Arrival Date as a data-quality count, never as a failure - root cause is a blank sheet cell', async () => {

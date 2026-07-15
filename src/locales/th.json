@@ -350,6 +350,18 @@
       "Completed": "เสร็จสิ้น",
       "Cancelled": "ยกเลิก"
     },
+    "factoryPdiStatusLabel": "สถานะ PDI จากโรงงาน",
+    "factoryPdiStatusAllLabel": "ทั้งหมด",
+    "factoryPdiStatus": {
+      "Pending": "รอดำเนินการ",
+      "QcPassed": "ผ่าน QC",
+      "Quarantine": "กักกัน"
+    },
+    "factoryPdiStatusFilterNote": "แสดงเครื่องจักรตามสถานะ PDI จากโรงงาน (Tractor IN) - ไม่ใช่สถานะใบตรวจสอบ",
+    "factoryPdiStatusColumnLabel": "สถานะ PDI จากโรงงาน",
+    "modelLabel": "รุ่น",
+    "notStartedLabel": "ยังไม่เริ่ม",
+    "startInspectionAction": "เริ่มตรวจสอบ",
     "resultLabel": "ผลการตรวจ",
     "result": {
       "Pass": "ผ่าน",

@@ -174,6 +174,11 @@ export interface InspectionListFilters {
   releaseStatus?: ReleaseStatus;
   dealerId?: string;
   serial?: string;
+  /** Multiple exact serials - backs the Import Inspection list's Factory
+   *  PDI Status filter (look up inspections for a vehicle set resolved
+   *  from `vehicles`, not from this table). Distinct from `serial`
+   *  (single, exact) above. */
+  serials?: string[];
   q?: string;
 }
 
@@ -186,6 +191,9 @@ export interface InspectionListFilters {
  *  (`factoryFeedback` is free-text correspondence, not an identifier) -
  *  see the Screen Contract's "Reserved for Future Capability" section. */
 export interface InspectionDashboardStats {
+  /** Tractor IN's own Factory PDI Status signal (vehicles with no
+   *  recorded factory PDI outcome yet) - not this module's own inspection
+   *  status. See `InspectionService.getDashboardStats()`'s doc comment. */
   pendingImportInspection: number;
   pendingRePdi: number;
   /** Live-computed via `isInspectionExpired()`, never a stored/stale flag. */

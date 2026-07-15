@@ -926,6 +926,58 @@ export async function listVehicles(dealerId: string | null): Promise<VehicleSear
   }));
 }
 
+/** "Pending" in this platform's Factory PDI Status language means the
+ *  Tractor IN sheet has not yet recorded a PDI outcome for this unit -
+ *  `factory_pdi_status IS NULL` (grounded against the live sheet's own
+ *  values: blank/"QC Passed"/"Quarantine" - "Pending" has no literal
+ *  sheet value, so the only reading of "still awaiting" that's actually
+ *  true of the data is "nothing recorded yet"). Neither `null` nor
+ *  either real value is invented here - see `TractorInSyncService`'s
+ *  module doc comment for the full grounding. */
+export const FACTORY_PDI_STATUS_PENDING_SENTINEL = 'Pending';
+
+/** Import Inspection Dashboard KPI - "Pending Import Inspection" (Factory
+ *  Domain signal, not the Import Inspection module's own inspection-
+ *  record status). Same plain-count-query shape as
+ *  `countVehiclesForSession()`. */
+export async function countVehiclesPendingFactoryPdi(dealerId?: string | null): Promise<number> {
+  const supabase = getSupabase();
+  let query = supabase.from('vehicles').select('*', { count: 'exact', head: true }).is('factory_pdi_status', null);
+  if (dealerId) query = query.eq('dealer_id', dealerId);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export interface VehicleFactoryPdiStatusResult {
+  id: string;
+  serial: string;
+  model: string | null;
+  dealerId: string | null;
+  factoryPdiStatus: string | null;
+}
+
+/** Backs the Import Inspection list's Factory PDI Status filter - vehicle-
+ *  centric (not inspection-centric), so a vehicle with no Inspection
+ *  record yet still appears as "waiting for inspection." Pass
+ *  `FACTORY_PDI_STATUS_PENDING_SENTINEL` for the null/Pending case;
+ *  any other string is matched literally against the sheet's own value. */
+export async function listVehiclesByFactoryPdiStatus(status: string, dealerId?: string | null): Promise<VehicleFactoryPdiStatusResult[]> {
+  const supabase = getSupabase();
+  let query = supabase.from('vehicles').select('id, serial, model, dealer_id, factory_pdi_status').order('serial').limit(2000);
+  query = status === FACTORY_PDI_STATUS_PENDING_SENTINEL ? query.is('factory_pdi_status', null) : query.eq('factory_pdi_status', status);
+  if (dealerId) query = query.eq('dealer_id', dealerId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((v) => ({
+    id: v.id,
+    serial: v.serial,
+    model: v.model,
+    dealerId: v.dealer_id,
+    factoryPdiStatus: v.factory_pdi_status,
+  }));
+}
+
 export interface PmVehicleSearchFilters {
   dealerId?: string | null;
   branchId?: string | null;
