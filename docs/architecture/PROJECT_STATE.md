@@ -23,19 +23,38 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-**v3.1 Customer Ownership — Governance Gate.** Four PRs open against
-`main` as of this writing, none merged:
+**Business Workflow Consolidation (ADR-036).** Audit only, no
+code/schema/API/UI change - see `docs/architecture/
+BUSINESS_WORKFLOW_CONSOLIDATION_AUDIT.md` and the new companion
+`docs/architecture/BUSINESS_INVARIANTS.md`. A sharper, field-level pass
+over ADR-035's ground (below), against this milestone's own precise
+Tractor IN/NTR/PM/MQR field-scope rules. **Headline finding**:
+`vehicles.dealer_id` is written exclusively by the Tractor IN sync
+today (NTR never writes it), and `vehicles.delivery_date` can be
+silently overwritten by a later Tractor IN sync after NTR has already
+activated warranty - both violate this milestone's stated rule, and
+both trace to ADR-029's deliberate `dealer_id` sync-scope extension - a
+real, named conflict between an Accepted architecture decision and a
+newly-clarified business rule, flagged for explicit resolution, not
+silently patched. Also confirms Repair/MQR Closed need **zero** new
+work (already the `Repaired`/`Closed` values `StatusValue` has always
+had). Nothing in this document is implemented - its 8-item prioritized
+plan (P0-P7) is each its own future PR.
 
-| PR | Branch | Content |
-|---|---|---|
-| #50 | `feature/v3-foundation-hardening` | ADR-032, v3.0 Foundation Hardening audit (docs only) |
-| #51 | `feature/customer-ownership-proposal` | ADR-033 architecture proposal (docs only, approved without redesign) |
-| #52 | `feature/customer-ownership-schema` | ADR-033 Phase 1 - `customers`/`customer_ownership_history` tables + nullable `vehicles.customer_id`, additive, zero data written |
-| #53 | `feature/customer-data-governance` | ADR-034, Customer Data Governance - identity/ownership/PII/retention/deletion/access/audit rules, 7 decisions named as requiring Legal/Business approval |
-| (this PR) | `feature/customer-ownership-governance-gate` | Compliance Decision Register - converts ADR-034's 7 open items into tracked decisions with owners/approvers, gates Phases 2-4 |
+## Recently completed: Business Workflow & UX Audit (ADR-035)
 
-`customers`, `customer_ownership_history`, and `vehicles.customer_id`
-exist in the live schema (migration
+Workflow-level pass over the tractor lifecycle (not yet merged, PR #57)
+- full detail `docs/architecture/BUSINESS_WORKFLOW_UX_AUDIT.md`. Found
+three dead/unmodeled Delivery-lifecycle stages (MSEAL Stock/Ship to
+Dealer/Dealer Stock), a non-existent Troubleshooting workflow, and two
+small nav defects (duplicate PIP entry, "Import Inspection" vs.
+"Quality Inspection" naming drift) - all still open, restated and
+built upon by ADR-036 above, not resolved by either audit.
+
+## Recently completed: v3.1 Customer Ownership (ADR-033/034), Phase 1 + Governance Gate
+
+PRs #50-#54 all merged. `customers`, `customer_ownership_history`, and
+`vehicles.customer_id` exist in the live schema (migration
 `20260715054732_customer_ownership_schema_v3_1`) but are not yet read
 or written by any application code. **Every implementation phase is
 currently gated WAIT** per `docs/architecture/
