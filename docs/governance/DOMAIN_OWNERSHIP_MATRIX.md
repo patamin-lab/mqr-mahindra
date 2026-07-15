@@ -1,5 +1,14 @@
 # Domain Ownership Matrix
 
+> **v3.0 Foundation Hardening note (ADR-032):** this matrix predates
+> ADR-017/018/027/028/029/030/031 and does not name Inspection, Delivery,
+> Knowledge, or Vehicle 360 as their own rows - they exist today as
+> concrete sub-domains of "Service"/"Machine" below. See
+> `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md` §1 for the
+> current, feature-module-grain ownership map. A full refresh of this
+> matrix to bounded-context-level accuracy is named as follow-up debt
+> there, not done in this pass.
+
 ## Relationship to existing documents
 
 `docs/architecture/blueprint/02-DOMAIN-MODEL-AND-CONTEXT-MAP.md` (frozen
