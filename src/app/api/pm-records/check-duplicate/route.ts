@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
+import { unauthorizedError } from '@/lib/apiError';
 
 /** Pre-save duplicate check (same tractor + PM interval + performed date) -
  *  a warning only, never a hard block; the client decides whether to show
@@ -9,7 +10,7 @@ import { MaintenanceService } from '@/features/maintenance/services/maintenanceS
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
 
   const { searchParams } = new URL(req.url);

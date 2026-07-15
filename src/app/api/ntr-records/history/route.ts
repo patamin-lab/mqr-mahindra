@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { createNtrService } from '@/features/ntr/factory';
 import { parseNtrHistoryFilterFromSearchParams } from '@/features/ntr/utils/parseHistoryFilter';
+import { unauthorizedError } from '@/lib/apiError';
 
 /**
  * Tractor Registry's server-side, paginated, filtered, searchable query -
@@ -11,7 +12,7 @@ import { parseNtrHistoryFilterFromSearchParams } from '@/features/ntr/utils/pars
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
 
   const { searchParams } = new URL(req.url);

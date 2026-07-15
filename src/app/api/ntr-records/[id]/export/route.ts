@@ -7,13 +7,14 @@ import { renderNtrRecordPdf } from '@/features/ntr/services/ntrPdf';
 import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { unauthorizedError } from '@/lib/apiError';
 
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED', message: 'unauthorized' } }, { status: 401 });
+    return unauthorizedError();
   }
 
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
