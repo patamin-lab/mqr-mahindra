@@ -14,6 +14,7 @@ import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalErrorToast, swalLoading, swalClose } from '@/lib/swal';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import TextField from '@/components/shared/forms/TextField';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
 import DealerBranchSelector from '@/components/shared/scope/DealerBranchSelector';
 import type { Dealer, Role } from '@/lib/types';
@@ -187,14 +188,18 @@ export default function NtrSearch({ dealers, role, sessionDealerId, sessionBranc
       </div>
 
       {searched && !searching && results.length === 0 && (
-        <div className="rounded border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500 space-y-3">
-          <p>{t('ntr.noTractorFound')}</p>
-          {serial.trim() && (
-            <button type="button" onClick={createTractorAndSelect} className="rounded bg-brand-red px-4 py-2 text-sm text-white hover:bg-brand-dark">
-              {t('ntr.createTractorButton')}
-            </button>
-          )}
-        </div>
+        <EmptyState
+          title={t('common.notFound')}
+          reason={t('ntr.noTractorFound')}
+          nextStep={t('ntr.noTractorFoundNextStep')}
+          action={
+            serial.trim() ? (
+              <button type="button" onClick={createTractorAndSelect} className="rounded bg-brand-red px-4 py-2 text-sm text-white hover:bg-brand-dark">
+                {t('ntr.createTractorButton')}
+              </button>
+            ) : undefined
+          }
+        />
       )}
 
       {results.length > 0 && (

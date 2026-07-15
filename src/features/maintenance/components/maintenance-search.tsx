@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { isValidThaiMobile } from '@/lib/validation';
 import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/swal';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
@@ -360,7 +361,7 @@ function MaintenanceCreateForm({
 
   function validate(): string | null {
     if (!customerName.trim()) return 'กรุณากรอกชื่อลูกค้า';
-    if (!/^0\d{9}$/.test(customerPhone.replace(/\D/g, ''))) return 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก)';
+    if (!isValidThaiMobile(customerPhone)) return 'กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก)';
     if (!hourMeter.trim() || Number.isNaN(Number(hourMeter))) return 'กรุณากรอกชั่วโมงเครื่องยนต์';
     if (!pmIntervalId) return 'กรุณาเลือกรอบ PM';
     if (!technicianId) return 'กรุณาเลือกช่างซ่อม';

@@ -10,10 +10,9 @@ import { sendRecordNotification } from '@/lib/email';
 import { AttachmentService } from '@/shared/attachments';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { THAI_MOBILE_REGEX } from '@/lib/validation';
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
-
-const THAI_MOBILE_RE = /^0[0-9]{9}$/;
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -60,11 +59,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (customerPhone && !THAI_MOBILE_RE.test(customerPhone)) {
+    if (customerPhone && !THAI_MOBILE_REGEX.test(customerPhone)) {
       return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidCustomerPhone') }, { status: 400 });
     }
     const reporterPhoneDigits = String(body.reporterPhone ?? '').replace(/[^0-9]/g, '');
-    if (reporterPhoneDigits && !THAI_MOBILE_RE.test(reporterPhoneDigits)) {
+    if (reporterPhoneDigits && !THAI_MOBILE_REGEX.test(reporterPhoneDigits)) {
       return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidReporterPhone') }, { status: 400 });
     }
 

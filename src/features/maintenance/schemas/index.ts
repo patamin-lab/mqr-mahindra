@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { translate } from '@/lib/i18n/translate';
 import { Locale, DEFAULT_LOCALE } from '@/lib/i18n/types';
+import { THAI_MOBILE_REGEX } from '@/lib/validation';
 
 /**
  * Coerces "", null, undefined, or a non-string value to `null`; trims a
@@ -33,7 +34,7 @@ const buildMaintenanceCustomerPhoneSchema = (locale: Locale) =>
   z.preprocess((val) => {
     if (typeof val !== 'string') return val;
     return val.replace(/\D/g, '');
-  }, z.string().regex(/^0\d{9}$/, translate(locale, 'validation.invalidPhone')).transform((digits) => `${digits.slice(0, 3)}-${digits.slice(3)}`));
+  }, z.string().regex(THAI_MOBILE_REGEX, translate(locale, 'validation.invalidPhone')).transform((digits) => `${digits.slice(0, 3)}-${digits.slice(3)}`));
 
 /**
  * Maintenance Record status - intentionally a loose non-empty string, not a

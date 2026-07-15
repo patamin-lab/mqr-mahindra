@@ -64,6 +64,7 @@
     "searchTitle": "Search Tractor",
     "searchSerialPlaceholder": "Type at least 3 characters",
     "noTractorFound": "No tractor matches your search.",
+    "noTractorFoundNextStep": "Check the serial or engine number and try again.",
     "createTractorButton": "Create New Tractor",
     "registerTitle": "New Tractor Registration (NTR)",
     "backToSearch": "Back to Search",
