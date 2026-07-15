@@ -158,8 +158,11 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       icon: '🚜',
       label: t('nav.machinesGroup'),
       items: [
-        { href: '/vehicles', label: t('nav.vehicle360') },
-        { href: '/machines', label: t('nav.machinePassport') },
+        // Vehicle 360 consolidation (ADR-030): one nav entry, not two -
+        // `/vehicles` and `/machines` used to be near-duplicate pages over
+        // the same MachineService/getVehicleSummary calls; `/vehicles` now
+        // just redirects to `/machines`, so it never needs its own entry.
+        { href: '/machines', label: t('nav.vehicle360') },
         { href: '/ntr', label: t('nav.ntrRecords') },
         ...(canManageLegacyImport(session.role) ? [{ href: '/admin/legacy-import', label: t('nav.legacyImport') }] : []),
       ],

@@ -4,8 +4,11 @@ import { t } from '@/lib/i18n/server';
 import { MachineSummary } from '../types';
 
 /**
- * Machine Digital Passport - Identity section. Every field maps to an
- * existing `MachineSummary`/`vehicles` row column - no new query.
+ * Vehicle 360 (Machine Digital Passport) - Vehicle Master section. Every
+ * field maps to an existing `MachineSummary`/`vehicles` row column - no
+ * new query. Dealer reuses `summary.dealerName`/`dealerId`, the exact same
+ * fields `MachineOwnershipPanel` already reads - one summary object, two
+ * display groupings, never a second dealer lookup.
  * Manufacturing Country has no column anywhere in the schema today
  * (confirmed against `lib/types.ts`'s `Vehicle` and `VehicleSummary`) -
  * shown honestly as "not tracked yet" rather than invented. Variant and
@@ -39,6 +42,7 @@ export default function MachineIdentityPanel({
         <DetailRow label={t('common.engineNumber')} value={summary.engineNumber ?? 'N/A'} />
         <DetailRow label={t('csv.productCode')} value={productCode ?? 'N/A'} />
         <DetailRow label={t('common.model')} value={summary.model ?? 'N/A'} />
+        <DetailRow label={t('common.dealer')} value={summary.dealerName ?? summary.dealerId ?? 'N/A'} />
         <DetailRow label={t('machinePassport.variant')} value={subModel ?? t('machinePassport.notTrackedYet')} />
         <DetailRow label={t('common.productFamily')} value={summary.productFamilyName ?? 'N/A'} />
         <DetailRow label={t('csv.whArrivalDate')} value={whArrivalDate ?? 'N/A'} />

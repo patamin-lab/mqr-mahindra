@@ -175,3 +175,15 @@ describe('MachineService.getMachineKnowledgeSummary (ADR-018)', () => {
     expect(result).toEqual(knownIssues);
   });
 });
+
+describe('MachineService.getMachineNtrHistory (Vehicle 360, ADR-030)', () => {
+  it('is a thin passthrough to fetchNtrRecordsForSerial - Machine never queries ntr_records directly', async () => {
+    const ntrRecords = [{ id: 'ntr-1', ntr_number: 'NTR-1', status: 'Completed', delivery_date: '2026-01-04' }];
+    mockFetchNtrRecords.mockResolvedValue(ntrRecords);
+
+    const result = await service.getMachineNtrHistory('S1', session());
+
+    expect(mockFetchNtrRecords).toHaveBeenCalledWith('S1', expect.objectContaining({ username: 'alice' }));
+    expect(result).toEqual(ntrRecords);
+  });
+});

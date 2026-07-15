@@ -35,11 +35,12 @@ describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', 
     expect(warranty).toEqual({ href: null, icon: undefined, label: 'nav.warranty', comingSoon: true });
   });
 
-  it('activates Machine Passport as a real route (Machine Digital Passport v1.0) - no longer Coming Soon', () => {
+  it('Vehicle 360 consolidation (ADR-030): one nav entry at /machines, no separate /vehicles entry', () => {
     const groups = getNavGroups(t, session());
     const machines = groups.find((g) => g.key === 'machines')!;
-    const passport = machines.items!.find((i) => i.label === 'nav.machinePassport');
-    expect(passport).toEqual({ href: '/machines', label: 'nav.machinePassport' });
+    const vehicle360 = machines.items!.find((i) => i.label === 'nav.vehicle360');
+    expect(vehicle360).toEqual({ href: '/machines', label: 'nav.vehicle360' });
+    expect(machines.items!.some((i) => i.href === '/vehicles')).toBe(false);
   });
 
   it('hides Legacy Import (Machines group) from every role except SuperAdmin', () => {
@@ -250,15 +251,15 @@ describe('flattenRealNavItems / findActiveNavItem', () => {
     const groups = getNavGroups(t, superAdmin());
     const flat = flattenRealNavItems(groups);
     expect(flat.every((i) => !!i.href)).toBe(true);
-    expect(flat.some((i) => i.href === '/vehicles')).toBe(true);
+    expect(flat.some((i) => i.href === '/machines')).toBe(true);
     expect(flat.some((i) => i.href === '/admin/dealers')).toBe(true);
   });
 
   it('finds the active item by pathname prefix, ignoring Coming Soon leaves entirely', () => {
     const groups = getNavGroups(t, superAdmin());
     const flat = flattenRealNavItems(groups);
-    const active = findActiveNavItem('/vehicles/ABC123', flat);
-    expect(active?.href).toBe('/vehicles');
+    const active = findActiveNavItem('/machines/ABC123', flat);
+    expect(active?.href).toBe('/machines');
   });
 
   it('returns null for a pathname matching no real route', () => {

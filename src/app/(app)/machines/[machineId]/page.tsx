@@ -17,6 +17,7 @@ import MachineAiInsightsPanel from '@/features/machine/components/MachineAiInsig
 import MachineCompletenessPanel from '@/features/machine/components/MachineCompletenessPanel';
 import MachineIotPanel from '@/features/machine/components/MachineIotPanel';
 import MachineImportInspectionSection from '@/features/machine/components/sections/MachineImportInspectionSection';
+import MachineNtrSection from '@/features/machine/components/sections/MachineNtrSection';
 import MachineDeliverySection from '@/features/machine/components/sections/MachineDeliverySection';
 import MachineWarrantySection from '@/features/machine/components/sections/MachineWarrantySection';
 import MachinePmSection from '@/features/machine/components/sections/MachinePmSection';
@@ -69,7 +70,11 @@ const machineService = new MachineService();
  * no new table, no new authorization surface, and the Lifecycle milestone
  * timeline is still the one `MachineService.getMachineTimeline()` feed
  * (filtering is a client-side show/hide over the same rows, not a second
- * timeline).
+ * timeline). v1.6 (Vehicle 360 consolidation, ADR-030) retires the separate
+ * `/vehicles/[serial]` page (now a redirect here) and adds an NTR section
+ * (`MachineService.getMachineNtrHistory()` -> `fetchNtrRecordsForSerial()`,
+ * an existing read, no new query) - this page is now the one Vehicle 360
+ * destination, not a second, smaller implementation alongside it.
  *
  * Every section below is either read from `MachineService` (a thin facade
  * over existing module reads - ADR-009) or is a self-contained async
@@ -138,6 +143,10 @@ export default async function MachinePassportPage({ params }: RouteParams) {
 
       <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
         <MachineImportInspectionSection serial={machineId} session={session} />
+      </Suspense>
+
+      <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
+        <MachineNtrSection serial={machineId} session={session} />
       </Suspense>
 
       <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
