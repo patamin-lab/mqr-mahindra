@@ -41,13 +41,10 @@ listing alone.
 | ADR-029 | Quality Inspection Navigation Consolidation & Vehicle Master Data Expansion | Accepted | Reopens ADR-012 to extend Tractor IN sync to `product_code`/`wh_arrival_date`/`model`/`engine_number`/`dealer_id` on both insert and update; nav-only consolidation of the Delivery group into a Quality Inspection group; NTR/Import Inspection/Machine Passport read vehicle master data consistently; NTR gains an Edit screen |
 | ADR-030 | Vehicle 360 Consolidation | Accepted | Retires the separate `/vehicles/[serial]` page (now a redirect) in favor of Machine Passport (`/machines/[machineId]`) as the one Vehicle 360 destination; adds an NTR section (`MachineService.getMachineNtrHistory()`, thin reuse of `fetchNtrRecordsForSerial()`) and Dealer to the renamed Vehicle Master section - no new table/service/timeline |
 | ADR-031 | Platform Stabilization | Accepted | Post-ADR-028/029/030 cleanup: removes the now-unreachable General Delivery lifecycle UI + its 10 dead API routes, 150 orphaned translation keys, and dedupes Machine Passport's repeated per-serial MQR/PM/NTR reads via `React.cache()` - no new feature, no redesign |
-| ADR-032 | v3.0 Foundation Hardening | **Proposed** (open PR #50, not yet merged) | Architecture-hardening audit (no code change beyond documentation) confirming single ownership/no duplication/no circular dependency across Vehicle/Machine Passport/Import Inspection/NTR/Warranty/PM/MQR/Timeline/Documents; see `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md` for the full audit, debt register, and v3.1/v3.2/v3.3 roadmap |
+| ADR-032 | v3.0 Foundation Hardening | Accepted | Architecture-hardening audit (no code change beyond documentation) confirming single ownership/no duplication/no circular dependency across Vehicle/Machine Passport/Import Inspection/NTR/Warranty/PM/MQR/Timeline/Documents; see `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md` for the full audit, debt register, and v3.1/v3.2/v3.3 roadmap |
 | ADR-033 | Customer Ownership (v3.1) | **Proposed** (this PR, architecture-only, not yet merged) | Designs (does not build) a new Customer bounded context - `customers` table, ownership-history table, additive nullable `vehicles.customer_id` - reconciling the frozen Blueprint's already-named Customer context and `MACHINE_DATA_OWNERSHIP.md`'s already-named "Owner Identity" gap; see `docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md` for full design, migration strategy, and risks. PII/retention sign-off required before any implementation PR |
 
-**Next available number: ADR-034.** (034, not 032, because ADR-032 is
-claimed by the still-open PR #50 at the time of writing - same "an
-in-flight PR's number is claimed, do not reuse it" precedent this index
-already used for ADR-022/023, below.)
+**Next available number: ADR-034.**
 
 ## ADR numbering normalization (this pass)
 
