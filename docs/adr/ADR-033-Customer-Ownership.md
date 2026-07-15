@@ -2,10 +2,34 @@
 
 ## Status
 
-**Proposed.** Architecture-only decision record — no code, no schema
-migration, no data change has been made. Full design in
-`docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md`; this ADR records the
-decision and its scope, not the detailed design itself.
+**Proposed, Phase 1 (schema) implemented.** The design below was
+approved by the repository owner without redesign. This PR implements
+only Phase 1 of the Migration Strategy — schema, additive-only, zero
+data written. Phases 2 (backfill), 3 (dual-run), and 4 (cutover) remain
+unimplemented, each its own future PR requiring its own approval,
+per the Rollout Strategy already specified in
+`docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md`. Full design in that
+document; this ADR records the decision and its scope, not the detailed
+design itself.
+
+## Implementation Note (Phase 1, this PR)
+
+Applied directly against the live schema (project `lhlzzxjayywqhqtjzfiu`,
+migration `20260715054732_customer_ownership_schema_v3_1`, additive-only,
+zero rows written by the migration itself — verified: `customers` 0
+rows, `customer_ownership_history` 0 rows, `vehicles.customer_id` 0
+non-null out of 331 vehicles). Created exactly the two tables and one
+column the design specifies — `customers`, `customer_ownership_history`,
+and a nullable `vehicles.customer_id` FK — with RLS enabled and a
+permissive `ALL`/`true` policy on both new tables, the same pattern
+already used by every other table in this platform (`inspections_all`,
+`delivery_records_all` confirmed as the precedent before writing this
+migration). No `CustomerService`, no API route, no UI, no backfill, and
+no existing table's column touched beyond the one additive FK on
+`vehicles`. Supabase security/performance advisors show no new issue
+class beyond the two expected `rls_policy_always_true` INFO/WARN entries
+every other table in this platform already carries (68 total across the
+platform; these two tables contribute 2 of them, not a new pattern).
 
 ## Problem
 
@@ -87,16 +111,22 @@ for an operationally-created entity).
 ## Recommendation
 
 **PROCEED**, conditional on Legal/Compliance PII sign-off before any
-schema PR, and explicit human approval of this design before any code
-is written. No redesign of any existing domain required.
+backfill (Phase 2) work, and explicit human approval of each subsequent
+phase before it is implemented. No redesign of any existing domain
+required. Phase 1 (this PR) recommendation: **PASS** — see the schema
+implementation PR's own Production Readiness Assessment for evidence.
 
 ## Consequences
 
-- No behavior change from this ADR alone — it is a design document.
+- **No behavior change from Phase 1** — two new, empty tables and one
+  new, all-null column exist in production; nothing reads or writes
+  them yet. Every existing domain's behavior is unchanged.
 - Unblocks CRM and Service Operations analytics work that depends on a
-  real Customer identity, per ADR-032's own Roadmap v3.1 framing.
-- The next PR (if approved) is schema + backfill only, gated on a named
-  PII review — not a combined schema+feature PR.
+  real Customer identity, per ADR-032's own Roadmap v3.1 framing —
+  once later phases build on this foundation.
+- The next PR (Phase 2, backfill) requires the Legal/Compliance PII
+  sign-off named in Risk 2 before it is opened — not a formality, a
+  precondition on scheduling that work at all.
 
 ## Verification
 

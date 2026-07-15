@@ -23,9 +23,25 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
+**v3.1 Customer Ownership, Phase 1 (ADR-033)** - schema only, in
+progress. Three PRs open against `main` as of this writing, none merged:
+
+| PR | Branch | Content |
+|---|---|---|
+| #50 | `feature/v3-foundation-hardening` | ADR-032, v3.0 Foundation Hardening audit (docs only) |
+| #51 | `feature/customer-ownership-proposal` | ADR-033 architecture proposal (docs only, approved without redesign) |
+| (this PR) | `feature/customer-ownership-schema` | ADR-033 Phase 1 - `customers`/`customer_ownership_history` tables + nullable `vehicles.customer_id`, additive, zero data written |
+
+`customers`, `customer_ownership_history`, and `vehicles.customer_id`
+now exist in the live schema (migration
+`20260715054732_customer_ownership_schema_v3_1`) but are not yet read
+or written by any application code - Phases 2 (human-reviewed backfill),
+3 (dual-run provider), 4 (cutover) remain unimplemented, each its own
+future PR. Full detail: `docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md`,
+`docs/adr/ADR-033-Customer-Ownership.md`.
+
 **v3.0 Foundation Hardening (ADR-032)** - architecture-hardening audit,
-no code or schema change. **PR #50, open, not merged** as of this
-writing (`feature/v3-foundation-hardening` branch). Full detail:
+no code or schema change. Full detail:
 `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md`.
 
 Outcome: **PASS**. All 9 named business domains (Vehicle, Machine
@@ -36,9 +52,8 @@ violations, 5 duplicate implementations, 5 dead/test-only methods, an
 API envelope-shape split by module era - full list in the audit doc's
 Technical Debt Register (§11), none blocking.
 
-Proposed next three milestones (ADR-032 §10, not yet started):
-- **v3.1 - Customer Ownership Foundation**: real `customers` master table
-  + resolution service.
+Remaining v3 roadmap (ADR-032 §10):
+- **v3.1 - Customer Ownership Foundation** (in progress, Phase 1 above).
 - **v3.2 - Service Operations Consolidation**: backfill `vehicle_id` FK
   onto `ntr_records`/`pm_records`/`records` (currently denormalized
   `serial`-string linking, no FK - the one real schema inconsistency the

@@ -1,8 +1,11 @@
 # Customer Ownership — Architecture Proposal (v3.1)
 
-**Status: PROPOSED. Architecture only — no code, no schema, no migration
-has been applied.** This document is the deliverable ADR-033 references;
-ADR-033 records the decision, this document carries the design detail.
+**Status: Approved. Phase 1 (schema) of the Migration Strategy below is
+implemented** (migration `20260715054732_customer_ownership_schema_v3_1`,
+additive-only, zero data written). **Phases 2–4 remain unimplemented.**
+This document is the deliverable ADR-033 references; ADR-033 records
+the decision, this document carries the design detail and is updated in
+place as each phase lands rather than restated.
 
 ## Relationship to existing documents
 
@@ -249,9 +252,10 @@ proposal; see Impact Analysis).
 Additive-only, four phases, each independently reversible until the
 next begins:
 
-1. **Schema** (separate implementation PR, after this proposal is
-   approved): create `customers`, `customer_ownership_history`, add
-   `vehicles.customer_id` nullable. Zero existing column touched.
+1. **Schema — IMPLEMENTED** (this PR): created `customers`,
+   `customer_ownership_history`, added `vehicles.customer_id` nullable.
+   Zero existing column touched, zero data written. See the schema PR's
+   own migration safety assessment for verification detail.
 2. **Backfill** (script, human-reviewed, not auto-applied): for every
    vehicle, walk its records in the **same precedence order the
    existing `VEHICLE_SUMMARY_PROVIDERS` registry already uses** — most
