@@ -21,14 +21,22 @@ quick fix.
 ## Where to look, in order
 
 1. Root `CLAUDE.md` — what the app is, schema, RBAC, deployment.
-2. `docs/ARCHITECTURE.md` — current vs. target architecture.
-3. `.claude/rules/` — the specific convention area you're about to touch.
-4. `.claude/skills/` — is there already a documented procedure for this?
-5. `.claude/playbooks/` — multi-step operational procedures (deploys,
+2. `docs/governance/AI_ENGINEERING_PLAYBOOK.md` — mission, reading order,
+   Production Pilot allowed/not-allowed scope, and the Before-Every-PR
+   checklist. Read this before implementation or business-logic changes.
+3. ~~`docs/ARCHITECTURE.md`~~ **Stale — do not use for current
+   architecture.** That file is a Sprint-1-era snapshot (single-module
+   MQR world, an aspirational `modules/` layout never adopted — see
+   "Sprint 1 status" below). The current architecture reference is
+   `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`, per the
+   Playbook above.
+4. `.claude/rules/` — the specific convention area you're about to touch.
+5. `.claude/skills/` — is there already a documented procedure for this?
+6. `.claude/playbooks/` — multi-step operational procedures (deploys,
    module onboarding, incident response).
-6. `.claude/prompts/` — reusable prompt templates for recurring requests,
+7. `.claude/prompts/` — reusable prompt templates for recurring requests,
    useful when *delegating* a piece of work to another session/agent.
-7. `templates/` and `shared/` — reuse before writing something new.
+8. `templates/` and `shared/` — reuse before writing something new.
 
 ## Sprint 1 status (read this before assuming anything has moved)
 
@@ -43,8 +51,9 @@ a planned sprint, is not part of this sprint's scope.
 ## Hard constraints that apply to every change, not just Sprint 1
 
 - Two-layer tenant isolation (RLS + `applyScope()`) is mandatory for any
-  new table — see `docs/ARCHITECTURE.md` §5 and
-  `.claude/rules/03-data-access-security.md`.
+  new table — see `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`'s
+  Authorization rules section and `.claude/rules/03-data-access-security.md`
+  (not `docs/ARCHITECTURE.md` §5 — that file is stale, see above).
 - SweetAlert2 is the only UI feedback mechanism — no `alert()`, no ad-hoc
   banners.
 - Timestamps shown to a user must go through the shared GMT+7 formatter.
