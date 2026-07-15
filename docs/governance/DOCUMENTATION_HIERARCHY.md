@@ -87,6 +87,13 @@ not numbered layers in the content-precedence chain above:
   Engineering Principles section - the Constitution states them, ch.01
   remains their detailed articulation and rationale; the Constitution
   does not duplicate ch.01, it elevates its headline principles.
+- **AI Engineering Playbook** (`docs/governance/
+  AI_ENGINEERING_PLAYBOOK.md`) is the operational reading-order and
+  Before-Every-PR checklist for an AI engineering session specifically -
+  same altitude as this document and `DOCUMENTATION_POLICY.md`: it
+  indexes the content layers above, never competes with them. Referenced
+  from `.claude/CLAUDE.md`'s "Where to look, in order" as the first
+  stop after root `CLAUDE.md`.
 
 ## Precedence Rules (consolidated, not new)
 
