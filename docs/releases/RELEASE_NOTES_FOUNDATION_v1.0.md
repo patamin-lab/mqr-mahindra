@@ -118,12 +118,11 @@ Scope-limited per this release's own instruction — this is not a general
 audit of every review finding from every PR, only what's genuinely worth
 tracking:
 
-- **`docs/release/` vs. `docs/releases/` duplication** — two differently-named
-  release-notes directories exist (`docs/release/STORAGE_PLATFORM_RELEASE.md`
-  alone in the singular form; six files + an archive in the plural form,
-  now including this release's own two documents). Needs a decision on
-  which is canonical and a one-time consolidation — not done here to avoid
-  unrelated churn during a freeze.
+- ~~**`docs/release/` vs. `docs/releases/` duplication**~~ **Resolved**
+  (Documentation Cleanup for Production Pilot, 2026-07-15) — the stray
+  singular `docs/release/` directory (`STORAGE_PLATFORM_RELEASE.md`
+  alone) was moved into the canonical plural `docs/releases/`, and its
+  four inbound references updated. `docs/release/` no longer exists.
 - **Sparse Manufacturing Year / Variant data ownership** — see Machine
   Domain v1.0 above; the *documentation* is now correct, but the
   underlying data itself remains sparse until Tractor IN sync populates

@@ -77,6 +77,47 @@ because it shipped and moved to maintenance.
   Acceptance). New MSEAL-only Import Inspection Dashboard
   (`/delivery/pdi/dashboard`).
   `docs/adr/ADR-028-Import-Inspection-Domain-Correction.md`.
+- ✓ **Quality Inspection Consolidation & Vehicle Master Expansion**
+  (ADR-029, PR #47) — nav-only consolidation of the Delivery group into
+  a Quality Inspection group; Tractor IN sync scope extended to
+  `product_code`/`wh_arrival_date`/`model`/`engine_number`/`dealer_id`;
+  NTR gains an Edit screen. **Note**: the `dealer_id` sync-scope
+  extension this ADR made was later reopened and narrowed by ADR-037
+  (below) - see that entry.
+- ✓ **Vehicle 360 Consolidation** (ADR-030, PR #48) — retires the
+  separate `/vehicles/[serial]` page (now a redirect) in favor of
+  Machine Passport as the one Vehicle 360 destination.
+- ✓ **Platform Stabilization** (ADR-031, PR #49) — removes the
+  unreachable General Delivery lifecycle UI, its 10 dead API routes,
+  and 150 orphaned translation keys; dedupes Machine Passport's
+  per-serial reads via `React.cache()`.
+- ✓ **v3.0 Foundation Hardening** (ADR-032, PR #50) — architecture
+  audit confirming single ownership/no duplication/no circular
+  dependency across every domain; produced the v3.1/v3.2/v3.3 roadmap.
+  `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md`.
+- ✓ **Customer Ownership, Phase 1 (v3.1)** (ADR-033/034, PR #51-#54) —
+  additive `customers`/`customer_ownership_history` schema and nullable
+  `vehicles.customer_id`; zero data written. Phases 2-4 (backfill/
+  dual-run/cutover) remain blocked on Legal/Compliance decisions
+  tracked in `docs/architecture/CUSTOMER_COMPLIANCE_DECISION_REGISTER.md`.
+- ✓ **Vehicle 360 Search / PM Redirect fixes** (PR #55, #56) — Vehicle
+  360 search gated by Model across Serial/Engine/Product Code; PM
+  create now redirects to the PM list instead of a detail page.
+- ✓ **Production Pilot Readiness** (ADR-035/036/037, PR #60,
+  2026-07-15) — closes the Source-of-Truth conflict ADR-029 introduced:
+  `TractorInSyncService` no longer writes `dealer_id` once a serial has
+  a real Active NTR, and never writes `delivery_date` again after that
+  point (ADR-037, reopening ADR-029). Platform-wide timestamp format
+  (`dd/MMM/yyyy hh:mm:ss a`, Asia/Bangkok). NTR create/edit consolidated
+  into one dual-mode form with an Activity Timeline. Sidebar
+  reorganized by business lifecycle - Legacy Import's nav entry
+  removed, all Coming Soon placeholders hidden for every role including
+  SuperAdmin. `docs/adr/ADR-035-Business-Workflow-UX-Audit.md`,
+  `ADR-036-Business-Workflow-Consolidation.md`,
+  `ADR-037-Tractor-IN-Field-Scope-Amendment.md`. **Still open, not
+  resolved by this milestone**: MSEAL Stock/Ship to Dealer/Dealer
+  Stock's fate (ADR-035 R-1), Troubleshooting's fate, MQR NTR auto-fill,
+  machine-type classification.
 
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),
@@ -175,8 +216,8 @@ Full operational detail: `docs/OPERATIONS.md`.
 |---|---|---|
 | 1 | Sync Improvements — retry-failed-rows endpoint, single-vehicle sync endpoint, richer health endpoint (success_rate, last error, version) | Not started |
 | 2 | Google Sheet Master Data — sheet owner adds Product Family/Sub Model columns, backfill `vehicles.sub_model`, remove PM's model-derivation fallback only once `product_family_id` is 100% populated | Not started — blocked on external sheet-owner action |
-| 3 | Vehicle 360 — full lifecycle timeline (Tractor IN → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History), read-only Vehicle Overview page | Not started |
-| 4 | Workflow — Draft → Submitted → Approved → Delivered → Warranty Active, with audit trail and role approval | Not started |
+| 3 | Vehicle 360 — full lifecycle timeline (Tractor IN → NTR → PM → Warranty → Complaint → ORC → Parts → Campaign → Owner History), read-only Vehicle Overview page | **Superseded by "Recommended next implementation order" below** — Machine Digital Passport (PR #39) and Vehicle 360 Consolidation (ADR-030, PR #48) already ship most of this scope under `/machines`; re-verify remaining gap (Complaint/ORC/Parts/Campaign chain) before treating this row as still "Not started" |
+| 4 | Workflow — Draft → Submitted → Approved → Delivered → Warranty Active, with audit trail and role approval | **Superseded by "Recommended next implementation order" below** — Machine Delivery Platform v1.0 (PR #45, ADR-017/027) already implemented this workflow with an audit trail; this row predates that work |
 | 5 | Reporting — cross-module KPI dashboard (tractor count, delivery, PM, warranty, ORC, complaints, dealer KPI, sync status) | Not started |
 | 6 | Engineering Quality — architecture ADRs, coding standards, folder structure, dead code/translation cleanup, API documentation, performance budget, error monitoring, security review | Not started |
 | 7 | Technical Debt — close every item tracked in `docs/OPERATIONS.md` §10 | Not started |

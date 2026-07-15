@@ -23,11 +23,24 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-None open. **Production Pilot Readiness** (below) merged to `main` via
-PR #60, squash commit `f927018`, 2026-07-15. CI green on `main` post-merge
-(architecture-check 6/6, `tsc`/`eslint` clean, 739/739 tests, build
-succeeds). Production Pilot's navigation (lifecycle-ordered sidebar, Coming
-Soon hidden for every role) is now the live, active navigation on `main`.
+**Documentation Cleanup for Production Pilot** (this PR, not yet merged).
+Closes the drift left by ADR-035/036/037 living only in three open,
+mutually-conflicting PR branches (#57/#58/#59) that never merged - their
+ADR documents and companion business docs are brought into `main` here,
+with every "today"/"VIOLATED"/"future PR" verdict that PR #60 already
+resolved corrected to "RESOLVED"/"implemented," and every genuinely-open
+gap (MSEAL Stock/Ship to Dealer/Dealer Stock's fate, Troubleshooting,
+MQR NTR auto-fill) left accurately marked open. No code, schema, or
+architecture change - documentation only. Recommends closing PR #57,
+#58, and #59 as superseded (see this PR's own description for full
+justification).
+
+**Previously completed, still current**: **Production Pilot Readiness**
+merged to `main` via PR #60, squash commit `f927018`, 2026-07-15. CI
+green on `main` post-merge (architecture-check 6/6, `tsc`/`eslint`
+clean, 739/739 tests, build succeeds). Production Pilot's navigation
+(lifecycle-ordered sidebar, Coming Soon hidden for every role) is now
+the live, active navigation on `main`.
 
 ## Recently completed: Production Pilot Readiness (ADR-037 implemented)
 
@@ -79,26 +92,32 @@ timestamp format, and nav restructuring), `next build` succeeds.
 
 ## Recently completed: Business Architecture Consolidation (ADR-037)
 
-Audit + formal Architecture Amendment (not yet merged) - see
-`docs/architecture/BUSINESS_ARCHITECTURE_CONSOLIDATION.md` and
+Audit + formal Architecture Amendment, Accepted and implemented - see
+`docs/adr/ADR-037-Tractor-IN-Field-Scope-Amendment.md`,
+`docs/architecture/BUSINESS_ARCHITECTURE_CONSOLIDATION.md`, and
 `docs/business/MACHINE_LIFECYCLE.md`/`FIELD_OWNERSHIP_MATRIX.md`/
-`WRITE_PRECEDENCE_MATRIX.md`. Resolved the ADR-029 conflict ADR-035/036
-both named but did not decide - recommendation **APPROVE**, now
-implemented above.
+`WRITE_PRECEDENCE_MATRIX.md` (brought into `main` via the Documentation
+Cleanup PR, superseding the original open-and-conflicting PR #59).
+Resolved the ADR-029 conflict ADR-035/036 both named but did not
+decide - recommendation **APPROVE**, implemented above (PR #60).
 
 ## Recently completed: Business Workflow Consolidation (ADR-036)
 
-Field-level pass confirming the ADR-029 conflict (PR #58, not yet
-merged) - full detail `docs/architecture/BUSINESS_WORKFLOW_CONSOLIDATION_AUDIT.md`,
-`docs/architecture/BUSINESS_INVARIANTS.md`. Confirmed Repair/MQR Closed
-need zero new work; confirmed MQR NTR auto-fill and machine-type
-classification as genuine gaps, not violations - restated and resolved
-(the ADR-029 conflict specifically) by ADR-037 above.
+Field-level pass confirming the ADR-029 conflict, Accepted - full
+detail `docs/architecture/BUSINESS_WORKFLOW_CONSOLIDATION_AUDIT.md`,
+`docs/architecture/BUSINESS_INVARIANTS.md` (brought into `main` via the
+Documentation Cleanup PR, superseding the original open-and-conflicting
+PR #58). Confirmed Repair/MQR Closed need zero new work; confirmed MQR
+NTR auto-fill and machine-type classification as genuine gaps, not
+violations - restated and resolved (the ADR-029 conflict specifically)
+by ADR-037 above.
 
 ## Recently completed: Business Workflow & UX Audit (ADR-035)
 
-Workflow-level pass over the tractor lifecycle (not yet merged, PR #57)
-- full detail `docs/architecture/BUSINESS_WORKFLOW_UX_AUDIT.md`. Found
+Workflow-level pass over the tractor lifecycle, Accepted - full detail
+`docs/architecture/BUSINESS_WORKFLOW_UX_AUDIT.md` (brought into `main`
+via the Documentation Cleanup PR, superseding the original
+open-and-conflicting PR #57). Found
 three dead/unmodeled Delivery-lifecycle stages (MSEAL Stock/Ship to
 Dealer/Dealer Stock), a non-existent Troubleshooting workflow, and two
 small nav defects (duplicate PIP entry, "Import Inspection" vs.

@@ -5,6 +5,14 @@ Lifecycle section (`MachineLifecyclePanel`) shows, and exactly what signal
 each one is derived from - written so a future reader never has to
 reverse-engineer the badge logic from the component source.
 
+**Not the same document as `docs/business/MACHINE_LIFECYCLE.md`**
+(same filename, different directory, different purpose, added later,
+ADR-037) - that document is a business-level state machine (Factory →
+Imported → ... → Retired) with transition triggers/roles/validation
+rules, independent of any one screen; this document is what one
+specific UI panel renders. Cross-referenced both ways so the name
+collision doesn't read as an accidental duplicate.
+
 ## The nine stages
 
 | Stage | Reached when | Signal |
