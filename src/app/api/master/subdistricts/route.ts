@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { MasterDataService } from '@/shared/master-data';
 
@@ -9,7 +10,7 @@ import { MasterDataService } from '@/shared/master-data';
  *  Standard's canonical Address Platform API naming (ADR-011). */
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   const districtId = new URL(req.url).searchParams.get('district_id');
   if (!districtId) return NextResponse.json({ ok: true, subdistricts: [] });

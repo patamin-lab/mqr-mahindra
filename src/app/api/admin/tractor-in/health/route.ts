@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { getTractorInSyncHealth } from '@/lib/db';
 
@@ -12,7 +13,7 @@ import { getTractorInSyncHealth } from '@/lib/db';
  */
 export async function GET() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
   if (session.role !== 'SuperAdmin') {
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }

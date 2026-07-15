@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession, signSession, SESSION_COOKIE, SESSION_MINUTES } from '@/lib/auth';
 import { findUserByUsername } from '@/lib/db';
 import {
@@ -21,7 +22,7 @@ import { SessionUser } from '@/lib/types';
  *  still a password the user knows and can supply as "current". */
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   const body = await req.json();
   const currentPassword = String(body.currentPassword ?? '');
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await findUserByUsername(session.username);
-  if (!user) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!user) return unauthorizedError();
 
   const currentOk = await verifyPassword(currentPassword, user);
   if (!currentOk) {

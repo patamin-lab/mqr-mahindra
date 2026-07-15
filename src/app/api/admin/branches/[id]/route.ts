@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSupabase } from '@/lib/supabase';
 import { getSession } from '@/lib/auth';
 import { updateBranch } from '@/lib/db';
@@ -7,7 +8,7 @@ import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
   if (!canManageMasterData(session.role)) {
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }

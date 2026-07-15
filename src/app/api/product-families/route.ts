@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { MasterDataService } from '@/shared/master-data';
 
@@ -6,7 +7,7 @@ import { MasterDataService } from '@/shared/master-data';
  *  registration form) - mirrors /api/pm-intervals, not an admin route. */
 export async function GET() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   const productFamilies = await MasterDataService.getActiveProductFamilies();
   return NextResponse.json({ ok: true, productFamilies });

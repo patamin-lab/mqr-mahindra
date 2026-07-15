@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { findUserByUsername } from '@/lib/db';
 import { getSessionByOwnerAndId, revokeSession } from '@/lib/authServices/sessionService';
@@ -10,9 +11,9 @@ import { getSessionByOwnerAndId, revokeSession } from '@/lib/authServices/sessio
  *  otherwise pass any session_id UUID it guessed. */
 export async function POST(_req: NextRequest, { params }: { params: { sessionId: string } }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
   const user = await findUserByUsername(session.username);
-  if (!user) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!user) return unauthorizedError();
 
   const target = await getSessionByOwnerAndId(user.id, params.sessionId);
   if (!target) return NextResponse.json({ ok: false, error: 'ไม่พบเซสชันนี้' }, { status: 404 });

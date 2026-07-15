@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { OrphanCleanupService } from '@/shared/attachments';
 
@@ -29,7 +30,7 @@ const orphanCleanupService = new OrphanCleanupService();
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== 'SuperAdmin') {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
 
   const { searchParams } = new URL(req.url);

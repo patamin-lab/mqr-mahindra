@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { getRecordByJobId, updateRecord, softDeleteRecord, getVehicleBySerial } from '@/lib/db';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
@@ -23,7 +24,7 @@ const CLOSING_STATUSES = new Set(['Repaired', 'Closed']);
 export async function GET(req: NextRequest, { params }: { params: { jobId: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
   const record = await getRecordByJobId(decodeURIComponent(params.jobId), session);
   if (!record) {
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
 export async function PATCH(req: NextRequest, { params }: { params: { jobId: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!canUpdateStatus(session.role)) {
@@ -203,7 +204,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
 export async function DELETE(req: NextRequest, { params }: { params: { jobId: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!canDelete(session.role)) {

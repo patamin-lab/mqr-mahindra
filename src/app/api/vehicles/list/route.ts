@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { listVehicles } from '@/lib/db';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   // Vehicles are dealer-level master data (synced from the "Tractor IN"
   // sheet, often with no branch_id) - scoped to dealer only, not branch;

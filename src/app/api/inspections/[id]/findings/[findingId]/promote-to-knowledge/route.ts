@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { InspectionService } from '@/features/inspection';
 
@@ -12,7 +13,7 @@ const service = new InspectionService();
 export async function POST(_req: NextRequest, { params }: { params: { id: string; findingId: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
 
   try {

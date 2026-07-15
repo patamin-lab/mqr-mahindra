@@ -59,10 +59,11 @@ export async function fetchJson<T = any>(url: string, init?: RequestInit): Promi
     );
   }
 
-  // Most routes answer errors as a plain string in `json.error`. Newer
-  // routes (the PM Record write endpoints) answer with `{ code, message }`
-  // instead - support both shapes so callers always get a displayable
-  // string rather than the object itself stringifying to "[object Object]".
+  // Routes answer errors either as a plain string in `json.error`, or as
+  // `{ code, message }` (the structured convention most routes are being
+  // migrated to, `src/lib/apiError.ts`) - support both shapes so callers
+  // always get a displayable string rather than the object itself
+  // stringifying to "[object Object]".
   const errorCode = json?.error && typeof json.error === 'object' ? json.error.code : undefined;
   const errorMessage =
     typeof json?.error === 'string'

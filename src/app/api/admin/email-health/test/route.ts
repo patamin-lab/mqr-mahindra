@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { findUserByUsername } from '@/lib/db';
 import { canManageEmailHealth } from '@/lib/scope';
@@ -10,7 +11,7 @@ import { sendTestEmail } from '@/lib/email';
  *  the requesting admin's own registered email if `to` isn't supplied. */
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
   if (!canManageEmailHealth(session.role)) {
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }
