@@ -162,7 +162,7 @@ export default async function DashboardPage({
                       <td className="py-1.5 pr-3 text-gray-600">
                         {j.model ?? '-'}{' '}
                         {j.serial && (
-                          <Link href={`/vehicles/${encodeURIComponent(j.serial)}`} className="hover:text-brand-red hover:underline">
+                          <Link href={`/machines/${encodeURIComponent(j.serial)}`} className="hover:text-brand-red hover:underline">
                             ({j.serial})
                           </Link>
                         )}

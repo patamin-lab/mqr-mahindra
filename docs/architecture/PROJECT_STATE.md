@@ -23,24 +23,42 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-**Documentation Cleanup for Production Pilot** (this PR, not yet merged).
-Closes the drift left by ADR-035/036/037 living only in three open,
-mutually-conflicting PR branches (#57/#58/#59) that never merged - their
-ADR documents and companion business docs are brought into `main` here,
-with every "today"/"VIOLATED"/"future PR" verdict that PR #60 already
-resolved corrected to "RESOLVED"/"implemented," and every genuinely-open
-gap (MSEAL Stock/Ship to Dealer/Dealer Stock's fate, Troubleshooting,
-MQR NTR auto-fill) left accurately marked open. No code, schema, or
-architecture change - documentation only. Recommends closing PR #57,
-#58, and #59 as superseded (see this PR's own description for full
-justification).
+None open. This section previously described the Documentation Cleanup
+PR (#61) as "not yet merged" for two PRs' worth of history after it
+actually merged (2026-07-15) - stale self-referential text, corrected
+here while investigating Production Pilot blockers, not a new decision.
 
-**Previously completed, still current**: **Production Pilot Readiness**
-merged to `main` via PR #60, squash commit `f927018`, 2026-07-15. CI
-green on `main` post-merge (architecture-check 6/6, `tsc`/`eslint`
-clean, 739/739 tests, build succeeds). Production Pilot's navigation
-(lifecycle-ordered sidebar, Coming Soon hidden for every role) is now
-the live, active navigation on `main`.
+**Last shipped**: **Factory PDI Status integration** (PR #63, squash
+commit `18a5237`, 2026-07-15; doc-consistency follow-up `fb2a4d6`) -
+`vehicles.factory_pdi_status`, synced from Tractor IN's "PDI Status"
+sheet column (grounded against the live sheet: blank/`"QC Passed"`/
+`"Quarantine"`, no literal "Pending" value - implemented as `IS NULL`).
+Import Inspection Dashboard's "Pending Import Inspection" KPI now
+counts this Factory Domain signal instead of the module's own
+inspection-record status, and is clickable through to the existing
+Import Inspection list, filterable by Factory PDI Status
+(vehicle-centric, so a machine with no Inspection record yet still
+shows as waiting). Zero impact on Import Inspection's own ownership of
+`inspections` (verified structurally: `InspectionRepository` remains
+the only reference to that table name anywhere in `src/`).
+
+**Previously completed, still current**: **Documentation Cleanup for
+Production Pilot** merged via PR #61, squash commit `bcaf17e`,
+2026-07-15 - brought ADR-035/036/037 and their companion business docs
+into `main` (they had lived only in three open, mutually-conflicting PR
+branches #57/#58/#59 that never merged), corrected every "today"/
+"VIOLATED"/"future PR" verdict PR #60 already resolved, fixed unrelated
+pre-existing drift (stale ADR-022/023/025 index rows, a stray
+`docs/release/` directory, `MSEAL_DESIGN_FRAMEWORK.md`'s pre-Pilot nav
+table). Recommended PR #57/#58/#59 be closed as superseded - **still
+open as of this pass, not yet actioned** (see Remaining Technical Debt
+below). **`docs/governance/AI_ENGINEERING_PLAYBOOK.md`** (PR #62,
+squash commit `c40eda7`) established as the Bootstrap Standard - first
+stop in `.claude/CLAUDE.md`'s "Where to look, in order," right after
+root `CLAUDE.md`. **Production Pilot Readiness** merged via PR #60,
+squash commit `f927018` - Production Pilot's navigation
+(lifecycle-ordered sidebar, Coming Soon hidden for every role) is the
+live, active navigation on `main`.
 
 ## Recently completed: Production Pilot Readiness (ADR-037 implemented)
 
@@ -175,6 +193,17 @@ Remaining v3 roadmap (ADR-032 §10):
 
 | PR | Title | ADR |
 |---|---|---|
+| #63 | Factory PDI Status integration from Tractor IN | - |
+| #62 | AI Engineering Playbook - Production Pilot operating rules | - |
+| #61 | Documentation Cleanup for Production Pilot | ADR-035/036/037 (brought to `main`) |
+| #60 | Production Pilot Readiness - Tractor IN scope guard, timestamp standard, NTR consolidation, lifecycle sidebar | ADR-037 (implemented) |
+| #56 | PM create redirects to list, not detail page | - |
+| #55 | Vehicle 360 search - Model-gated across Serial/Engine/Product Code | - |
+| #54 | Customer Ownership Governance Gate - Compliance Decision Register | - |
+| #53 | Customer Data Governance - policy only, no code | ADR-034 |
+| #52 | Customer Ownership schema - Phase 1 | ADR-033 |
+| #51 | Customer Ownership architecture proposal - design only | ADR-033 |
+| #50 | v3.0 Foundation Hardening - architecture audit, domain map, technical debt register | ADR-032 |
 | #49 | Platform Stabilization - post-ADR-028/029/030 cleanup | ADR-031 |
 | #48 | Vehicle 360 consolidation - expand Machine Passport | ADR-030 |
 | #47 | Quality Inspection nav consolidation + Vehicle Master Data expansion | ADR-029 |
@@ -201,11 +230,15 @@ process, never a routine PR.
 
 ## ADR index
 
-`docs/adr/README.md` is canonical. ADR-001 through ADR-032 exist;
-**next available number: ADR-033**. ADR-015/016/019-021 remain reserved
+`docs/adr/README.md` is canonical - this section was stale (said
+"ADR-001 through ADR-032, next ADR-033" for two PRs' worth of history
+after ADR-033 through ADR-037 landed); corrected here, not re-derived
+independently of the canonical index. ADR-001 through ADR-037 exist;
+**next available number: ADR-038**. ADR-015/016/019/020 remain reserved
 (Machine Domain v2, Event Model, Engineering Intelligence, Analytics
 Domain - Inspection/017 and Knowledge/018 already consumed their
-reservations).
+reservations; 021's reservation was reconciled against ADR-026, which
+actually consumed it, during the Documentation Cleanup pass).
 
 ## Domain ownership (current, per ADR-032 audit)
 
@@ -244,6 +277,15 @@ changed since).
 
 ## Known documentation gaps (not fixed this pass)
 
+- **PR #57/#58/#59 remain open**, unactioned, despite being recommended
+  for closure (as superseded by PR #61) twice now - a real, cheap
+  cleanup action still not taken.
+- **Domain ownership table below predates Delivery (ADR-027) and
+  Customer (ADR-033) as their own rows** - both are real, live domains
+  (`src/features/delivery/`, `customers`/`customer_ownership_history`
+  tables) not reflected in that table's list. Not rewritten here to
+  avoid an unreviewed rewrite of a table last produced by ADR-032's
+  own audit - flagged as a gap for that audit's own next revision.
 - `docs/ROADMAP.md` is a stale Sprint-1-through-5-era phase plan
   (predates ADR-017 onward entirely; states "currently zero test
   coverage," no longer true - `vitest` suite exists). ADR-032's own

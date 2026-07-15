@@ -390,7 +390,7 @@ export default function MaintenanceHistory({
         size: 130,
         cell: (c) =>
           c.getValue() ? (
-            <Link href={`/vehicles/${encodeURIComponent(c.getValue() as string)}`} className="text-brand-red hover:underline">
+            <Link href={`/machines/${encodeURIComponent(c.getValue() as string)}`} className="text-brand-red hover:underline">
               {c.getValue()}
             </Link>
           ) : (
