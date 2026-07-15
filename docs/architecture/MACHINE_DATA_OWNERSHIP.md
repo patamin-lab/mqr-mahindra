@@ -7,6 +7,13 @@ optimistically - which fields it *can't* show yet because no owning
 table/column exists. Written so a future contributor never has to grep the
 schema to find out whether a gap is a bug or a known, documented limit.
 
+> **v3.1 note (ADR-033, proposed, not yet approved or built):** this
+> file's own "Ownership has no identity table"/"Owner History" gaps,
+> below, have a proposed fix - see `docs/architecture/
+> CUSTOMER_OWNERSHIP_PROPOSAL.md`. Nothing below is resolved yet; this
+> pointer exists so a future reader checks the proposal's status before
+> assuming the gap is still fully open or already closed.
+
 ## Principle: the Passport owns nothing
 
 `MachineService` and every Passport panel are a read-only aggregation

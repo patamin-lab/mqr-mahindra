@@ -1,5 +1,12 @@
 # Repository Structure Map
 
+> **v3.0 Foundation Hardening note (ADR-032):** the `src/features/`
+> list below was stale (missing `delivery/`, `inspection/`, `knowledge/`,
+> `mqr/`) - corrected in this pass. See
+> `docs/architecture/V3_FOUNDATION_HARDENING_AUDIT.md` for the current
+> feature-module-grain ownership/dependency detail this map doesn't go
+> into.
+
 ## Relationship to existing documents
 
 Root `CLAUDE.md` §4 already has a repository-structure listing for
@@ -37,7 +44,7 @@ service means `src/shared/`, never the top-level placeholder.
 |---|---|
 | `src/app/` | Routes (App Router) - `login/`, `(app)/` (authenticated shell), `api/` |
 | `src/components/` | Shared UI (`components/shared/`) - see MSEAL Design Framework (ADR-023) for the widget/layout/form catalog |
-| `src/features/` | Business modules - currently `machine/`, `maintenance/`, `maintenance-due/`, `mqr/`, `ntr/`, `vehicle/`, `vehicle-event/`, `vehicle-health/` (verified via `ls src/features/`) - each is a bounded context per `02-DOMAIN-MODEL-AND-CONTEXT-MAP.md` |
+| `src/features/` | Business modules - currently `delivery/`, `inspection/`, `knowledge/`, `machine/`, `maintenance/`, `maintenance-due/`, `mqr/`, `ntr/`, `vehicle/`, `vehicle-event/`, `vehicle-health/` (re-verified via `ls src/features/`, v3.0 Foundation Hardening pass) - each is a bounded context per `02-DOMAIN-MODEL-AND-CONTEXT-MAP.md`. Note `mqr/` holds only its `VehicleSummaryProvider` - MQR's own service/repository logic still lives directly in `src/lib/db.ts`, unlike every other module here (see `V3_FOUNDATION_HARDENING_AUDIT.md` §11.2) |
 | `src/lib/` | Infrastructure - direct external-system integration (Supabase, Google Drive, Resend, JWT) per `PLATFORM_ARCHITECTURE_STANDARDS.md`'s layer table |
 | `src/shared/` | Platform services - `import/` (ADR-024, ex-ADR-009), `master-data/` (ADR-011/012), `attachments/` (ADR-010) |
 | `src/locales/` | i18n dictionaries (`th.json`/`en.json`) |
