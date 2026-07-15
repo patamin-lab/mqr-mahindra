@@ -128,7 +128,12 @@ not-yet-built capabilities) - **not** an approval to build them now.
 
 - Customer has no documented deletion/retention rule anywhere in
   `CORE_DOMAIN_MODEL.md`/`ENTITY_MODEL.md` - worth a follow-up given PII
-  implications (see `SECURITY_BOUNDARY.md`'s PII section).
+  implications (see `SECURITY_BOUNDARY.md`'s PII section). **v3.1 note
+  (ADR-033, proposed, not yet approved or built)**: a Customer Ownership
+  proposal exists (`docs/architecture/CUSTOMER_OWNERSHIP_PROPOSAL.md`)
+  that would make the `customers` table real - it explicitly does not
+  resolve this retention-rule gap and requires Legal/Compliance sign-off
+  before any implementation, per that proposal's own Risks section.
 - Warranty, Knowledge Case, PIP, and Recall have no schema today - every
   "Update Rule"/"Lifecycle" entry above is forward-looking guidance, not
   a description of built behavior. Do not cite this matrix as evidence
