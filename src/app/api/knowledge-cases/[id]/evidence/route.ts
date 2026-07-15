@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { KnowledgeService, type KnowledgeEvidenceSourceType } from '@/features/knowledge';
 
@@ -15,7 +16,7 @@ const SOURCE_TYPES: KnowledgeEvidenceSourceType[] = ['Quality', 'PM', 'Warranty'
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
 
   try {

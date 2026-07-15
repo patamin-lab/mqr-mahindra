@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { getDistinctVehicleModels } from '@/lib/db';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   // Same dealer-only scoping as /api/vehicles/list - vehicles are
   // dealer-level master data.

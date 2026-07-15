@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { getRecordByJobId } from '@/lib/db';
 import { MasterDataService } from '@/shared/master-data';
@@ -13,7 +14,7 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest, { params }: { params: { jobId: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!canExport(session.role)) {

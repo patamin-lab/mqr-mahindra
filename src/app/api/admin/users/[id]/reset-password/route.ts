@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession, sha256Hex } from '@/lib/auth';
 import { getUserById, resetUserPassword } from '@/lib/db';
 import { canManageUsers, canManageRoleTarget } from '@/lib/scope';
@@ -6,7 +7,7 @@ import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
   if (!canManageUsers(session.role)) {
     return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
   }

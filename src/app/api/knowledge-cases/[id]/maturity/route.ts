@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { KnowledgeService, KNOWLEDGE_MATURITY_VALUES, type KnowledgeMaturity } from '@/features/knowledge';
 
@@ -13,7 +14,7 @@ const service = new KnowledgeService();
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
 
   try {

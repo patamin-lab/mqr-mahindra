@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { AttachmentService, toUserFacingAttachmentError } from '@/shared/attachments';
 
@@ -10,7 +11,7 @@ const attachmentService = new AttachmentService();
  *  alone) and resolves a display URL for the caller. */
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   const body = await req.json().catch(() => null);
   const attachmentId = body?.attachmentId as string | undefined;

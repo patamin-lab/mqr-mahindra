@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { AttachmentService, AttachmentType, toUserFacingAttachmentError } from '@/shared/attachments';
 import convertHeic from 'heic-convert';
@@ -43,7 +44,7 @@ const attachmentService = new AttachmentService();
  */
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   const form = await req.formData();
   const file = form.get('file') as File | null;
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
  *  a URL themselves. */
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   const { searchParams } = new URL(req.url);
   const moduleName = searchParams.get('module');

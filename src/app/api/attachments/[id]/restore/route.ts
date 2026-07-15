@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { AttachmentService, toUserFacingAttachmentError } from '@/shared/attachments';
 
@@ -10,7 +11,7 @@ interface RouteParams {
 
 export async function POST(_req: NextRequest, { params }: RouteParams) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   try {
     const attachment = await attachmentService.restore(params.id);

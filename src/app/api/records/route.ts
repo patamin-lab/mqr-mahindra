@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { createRecord, getVehicleBySerial } from '@/lib/db';
 import { MasterDataService } from '@/shared/master-data';
@@ -17,7 +18,7 @@ const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
   const locale = getLocaleFromCookieHeader(req.headers.get('cookie'));
   if (!seesAllDealers(session.role) && !session.dealerId) {

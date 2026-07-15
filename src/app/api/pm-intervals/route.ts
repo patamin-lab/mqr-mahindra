@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { listActivePmIntervals } from '@/lib/db';
 
@@ -8,7 +9,7 @@ import { listActivePmIntervals } from '@/lib/db';
  *  via PM Program (see docs on listActivePmIntervals). */
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!session) return unauthorizedError();
 
   const { searchParams } = new URL(req.url);
   const model = searchParams.get('model');

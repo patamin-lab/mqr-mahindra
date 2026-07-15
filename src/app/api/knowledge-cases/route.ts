@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unauthorizedError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { KnowledgeService, type KnowledgeMaturity } from '@/features/knowledge';
 
@@ -11,7 +12,7 @@ const service = new KnowledgeService();
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
 
   const { searchParams } = new URL(req.url);
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    return unauthorizedError();
   }
 
   try {
