@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unauthorizedError } from '@/lib/apiError';
+import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
 import { listAllDealersAdmin, createDealer } from '@/lib/db';
 import { seesAllDealers } from '@/lib/scope';
@@ -8,7 +8,7 @@ export async function GET() {
   const session = await getSession();
   if (!session) return unauthorizedError();
   if (!seesAllDealers(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+    return forbiddenError();
   }
   const dealers = await listAllDealersAdmin();
   return NextResponse.json({ ok: true, dealers });
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorizedError();
   if (!seesAllDealers(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+    return forbiddenError();
   }
   try {
     const body = await req.json();

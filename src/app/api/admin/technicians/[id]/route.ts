@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unauthorizedError } from '@/lib/apiError';
+import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSupabase } from '@/lib/supabase';
 import { getSession } from '@/lib/auth';
 import { updateTechnician } from '@/lib/db';
@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const session = await getSession();
   if (!session) return unauthorizedError();
   if (!canManageMasterData(session.role)) {
-    return NextResponse.json({ ok: false, error: 'ไม่มีสิทธิ์เข้าถึง' }, { status: 403 });
+    return forbiddenError();
   }
   try {
     const supabase = getSupabase();
