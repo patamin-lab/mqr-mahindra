@@ -314,7 +314,6 @@ export class DeliveryService {
       ntrId: record.ntrId,
       trainingCompleted,
       warrantyActivatedAt: record.warrantyActivatedAt,
-      href: `/delivery/records/${record.id}`,
     };
   }
 

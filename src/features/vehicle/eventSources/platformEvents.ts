@@ -45,7 +45,12 @@ const EVENT_CODE_TO_TYPE: Record<string, VehicleEventType> = {
 const HREF_BY_MODULE: Record<string, (referenceId: string, entityId: string | null) => string | null> = {
   ntr: (referenceId) => `/ntr/${encodeURIComponent(referenceId)}`,
   pdi: (_referenceId, entityId) => (entityId ? `/delivery/pdi/${encodeURIComponent(entityId)}` : null),
-  delivery: (_referenceId, entityId) => (entityId ? `/delivery/records/${encodeURIComponent(entityId)}` : null),
+  // Platform Stabilization (ADR-031): the General Delivery lifecycle
+  // detail page this used to link to was removed as unreachable dead UI -
+  // `delivery` events still render on the timeline, just without a
+  // working link (the file's own documented convention for a module with
+  // no detail page), rather than a dangling href.
+  delivery: () => null,
 };
 
 function mapPlatformEvent(event: PlatformEvent): VehicleEvent {

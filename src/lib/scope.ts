@@ -3,7 +3,9 @@ import { Role } from './types';
 /** SuperAdmin (full system) and CentralAdmin (head-office, all dealers) see every dealer's records. */
 export const seesAllDealers = (role: Role) => role === 'SuperAdmin' || role === 'CentralAdmin';
 
-/** Who can manage parts stock (not built into the v1 UI, kept for parity). */
+/** Who can manage parts stock (not built into the v1 UI, kept for parity
+ *  with the reserved `parts` table - see the Platform Stabilization
+ *  (ADR-031) database cleanup report). */
 export const canManageParts = (role: Role) =>
   role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';
 
@@ -28,7 +30,6 @@ export const canManageLegacyImport = (role: Role) => role === 'SuperAdmin';
 /** Master-data / user management (Phase 2). */
 export const canManageUsers = (role: Role) => role !== 'DealerUser';
 export const canDeleteUsers = (role: Role) => role === 'SuperAdmin';
-export const canCreateSuperAdmin = (role: Role) => role === 'SuperAdmin';
 export const canManageMasterData = (role: Role) =>
   role === 'SuperAdmin' || role === 'CentralAdmin' || role === 'DealerAdmin';
 
@@ -40,8 +41,6 @@ export const canManageMasterData = (role: Role) =>
  *  matching this file's own "no inline role checks" convention. */
 export const canInviteUsers = (role: Role) => role !== 'DealerUser';
 export const canUnlockAccounts = (role: Role) => role !== 'DealerUser';
-export const canForceResetPassword = (role: Role) => role !== 'DealerUser';
-export const canForceLogoutAllSessions = (role: Role) => role !== 'DealerUser';
 
 /** Authentication Platform v3.0.1 (Issue 3/4) - viewing Email Health and
  *  sending a test email. Unlike the per-user admin actions above, there

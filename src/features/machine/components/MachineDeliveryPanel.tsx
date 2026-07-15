@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import Card from '@/components/shared/layout/Card';
 import DetailRow from '@/components/shared/layout/DetailRow';
 import EmptyState from '@/components/shared/layout/EmptyState';
@@ -8,7 +7,10 @@ import { MachineDeliverySummary } from '@/features/delivery';
 /**
  * Machine Digital Passport - Delivery section (ADR-017/ADR-027), backed by
  * `MachineService.getMachineDeliverySummary()` -> `DeliveryService`. Read
- * only; Machine owns no Delivery data of its own.
+ * only; Machine owns no Delivery data of its own. No "view full record"
+ * link (Platform Stabilization, ADR-031) - the General Delivery
+ * lifecycle-tracking UI this used to link to was removed as unreachable
+ * dead UI; this summary is the complete view now.
  */
 export default function MachineDeliveryPanel({ delivery }: { delivery: MachineDeliverySummary | null }) {
   if (!delivery) {
@@ -35,9 +37,7 @@ export default function MachineDeliveryPanel({ delivery }: { delivery: MachineDe
         <DetailRow label={t('machinePassport.deliveryTrainingCompleted')} value={delivery.trainingCompleted ? '✓' : '—'} />
         <DetailRow label={t('machinePassport.deliveryWarrantyActivated')} value={delivery.warrantyActivatedAt ?? '—'} />
       </div>
-      <Link href={delivery.href} className="mt-4 inline-block text-sm font-medium text-brand-primary hover:underline">
-        {t('machinePassport.deliveryViewFull')} ({delivery.deliveryRef}) →
-      </Link>
+      <p className="mt-4 text-xs text-gray-400">{delivery.deliveryRef}</p>
     </Card>
   );
 }

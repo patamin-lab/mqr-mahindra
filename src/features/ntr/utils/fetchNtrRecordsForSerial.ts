@@ -6,6 +6,7 @@
  * `features/maintenance/utils/fetchMaintenanceHistory.ts`'s
  * `fetchMaintenanceHistoryForSerial()` exactly.
  */
+import { cache } from 'react';
 import { SessionUser } from '@/lib/types';
 import { createNtrService } from '../factory';
 import { NtrRecord } from '../types';
@@ -22,8 +23,14 @@ import { NtrRecord } from '../types';
  *  the legacy free-text `session.branch` display name as if it were a
  *  `branch_id` filter value, which could never match a real `branches.id`
  *  UUID, so a DealerUser's Machine 360 view silently saw zero NTR
- *  attachments/records for their own vehicles). */
-export async function fetchNtrRecordsForSerial(serial: string, session: SessionUser): Promise<NtrRecord[]> {
+ *  attachments/records for their own vehicles).
+ *
+ *  `React.cache()`-wrapped (Platform Stabilization, ADR-031, performance):
+ *  Machine Passport's Attachments/Activity/Related Records/NTR sections
+ *  each independently call this for the same serial within one page
+ *  render - `cache()` dedupes those into a single `listHistory()` read
+ *  per request, same result, no behavior change. */
+export const fetchNtrRecordsForSerial = cache(async (serial: string, session: SessionUser): Promise<NtrRecord[]> => {
   const service = createNtrService();
 
   const result = await service.listHistory(
@@ -39,4 +46,4 @@ export async function fetchNtrRecordsForSerial(serial: string, session: SessionU
   // as Maintenance's fetchMaintenanceHistoryForSerial) - narrow to an
   // exact match so consumers never see another vehicle's records.
   return result.data.filter((r) => r.serial === serial);
-}
+});
