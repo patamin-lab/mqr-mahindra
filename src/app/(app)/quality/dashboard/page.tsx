@@ -16,7 +16,11 @@ import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Card from '@/components/shared/layout/Card';
 import KpiCard from '@/components/shared/dashboard/KpiCard';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import DashboardFilterBar from './DashboardFilterBar';
+
+const CHART_EMPTY_REASON = 'ไม่มีงานซ่อมในช่วงเวลาหรือตัวกรองที่เลือก';
+const CHART_EMPTY_NEXT_STEP = 'ลองปรับช่วงเวลาหรือเงื่อนไขตัวกรองด้านบน';
 
 function Panel({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
@@ -215,7 +219,7 @@ export default async function DashboardPage({
           </Panel>
           <Panel title="Pareto: ความถี่ปัญหาตามอาการ" note="แท่งเรียงจากมากไปน้อย — ปัญหาส่วนน้อยที่เป็นต้นเหตุของงานซ่อมส่วนใหญ่">
             {stats.pareto.length === 0 ? (
-              <p className="text-sm text-gray-400 py-10 text-center">ยังไม่มีข้อมูล</p>
+              <EmptyState title="ยังไม่มีข้อมูล" reason={CHART_EMPTY_REASON} nextStep={CHART_EMPTY_NEXT_STEP} />
             ) : (
               <ParetoChart data={stats.pareto} />
             )}
@@ -225,14 +229,14 @@ export default async function DashboardPage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Panel title="ปัญหาตามรุ่นรถ (Top 12)">
             {byModelData.length === 0 ? (
-              <p className="text-sm text-gray-400 py-10 text-center">ยังไม่มีข้อมูล</p>
+              <EmptyState title="ยังไม่มีข้อมูล" reason={CHART_EMPTY_REASON} nextStep={CHART_EMPTY_NEXT_STEP} />
             ) : (
               <SimpleBarChart data={byModelData} dataKey="count" labelKey="modelLabel" angledLabels color="#9c1c1c" />
             )}
           </Panel>
           <Panel title="งานในช่วงนี้แยกตามความรุนแรง">
             {severityBreakdownData.length === 0 ? (
-              <p className="text-sm text-gray-400 py-10 text-center">ยังไม่มีข้อมูล</p>
+              <EmptyState title="ยังไม่มีข้อมูล" reason={CHART_EMPTY_REASON} nextStep={CHART_EMPTY_NEXT_STEP} />
             ) : (
               <SimpleBarChart data={severityBreakdownData} dataKey="count" labelKey="severityLabel" color="#d68910" />
             )}
@@ -242,14 +246,14 @@ export default async function DashboardPage({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <Panel title="งานในช่วงนี้แยกตามสถานะ">
             {statusBreakdownData.length === 0 ? (
-              <p className="text-sm text-gray-400 py-10 text-center">ยังไม่มีข้อมูล</p>
+              <EmptyState title="ยังไม่มีข้อมูล" reason={CHART_EMPTY_REASON} nextStep={CHART_EMPTY_NEXT_STEP} />
             ) : (
               <StatusBarChart data={statusBreakdownData} />
             )}
           </Panel>
           <Panel title="อะไหล่ที่เปลี่ยนบ่อย (Top 10)" note="นับจากข้อความ 'อะไหล่ที่เสียหาย' ที่ช่างกรอกตอนปิดงาน">
             {stats.topParts.length === 0 ? (
-              <p className="text-sm text-gray-400 py-10 text-center">ยังไม่มีข้อมูล</p>
+              <EmptyState title="ยังไม่มีข้อมูล" reason={CHART_EMPTY_REASON} nextStep={CHART_EMPTY_NEXT_STEP} />
             ) : (
               <ol className="text-sm space-y-1.5">
                 {stats.topParts.map((p, i) => (
@@ -275,14 +279,14 @@ export default async function DashboardPage({
           )}
           <Panel title="อันดับสาขา (จำนวนงาน)">
             {stats.branchLeaderboard.length === 0 ? (
-              <p className="text-sm text-gray-400 py-6 text-center">ยังไม่มีข้อมูล</p>
+              <EmptyState title="ยังไม่มีข้อมูล" reason={CHART_EMPTY_REASON} nextStep={CHART_EMPTY_NEXT_STEP} />
             ) : (
               <LeaderboardTable rows={stats.branchLeaderboard} />
             )}
           </Panel>
           <Panel title="อันดับช่าง (จำนวนงาน)">
             {stats.technicianLeaderboard.length === 0 ? (
-              <p className="text-sm text-gray-400 py-6 text-center">ยังไม่มีข้อมูล</p>
+              <EmptyState title="ยังไม่มีข้อมูล" reason={CHART_EMPTY_REASON} nextStep={CHART_EMPTY_NEXT_STEP} />
             ) : (
               <LeaderboardTable rows={stats.technicianLeaderboard} />
             )}

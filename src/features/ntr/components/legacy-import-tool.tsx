@@ -25,6 +25,7 @@ import { swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import ImportWizard from '@/shared/import/components/ImportWizard';
 import ImportSessionHistoryTable from './ImportSessionHistoryTable';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import type { NtrImportMode, NtrImportPreview, NtrImportSession } from '../types';
 
 interface FileInfo {
@@ -476,7 +477,7 @@ export default function LegacyImportTool() {
         {loadingSessions ? (
           <p className="text-sm text-gray-400">{t('common.loading')}</p>
         ) : sessions.length === 0 ? (
-          <p className="text-sm text-gray-400">{t('common.notFound')}</p>
+          <EmptyState title={t('common.notFound')} reason={t('importHistory.emptyReason')} nextStep={t('importHistory.emptyNextStep')} />
         ) : (
           <ImportSessionHistoryTable sessions={sessions.slice(0, 3)} locale={locale} t={t} />
         )}

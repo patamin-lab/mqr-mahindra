@@ -10,11 +10,11 @@ import { sendRecordNotification } from '@/lib/email';
 import { AttachmentService } from '@/shared/attachments';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { THAI_MOBILE_REGEX } from '@/lib/validation';
 
 const attachmentService = new AttachmentService();
 
 const SEVERITY_VALUES: Severity[] = ['Critical', 'Major', 'Minor'];
-const THAI_MOBILE_RE = /^0[0-9]{9}$/;
 // Per spec section 8: the second notification email fires when a job is
 // closed out ("ปิดงาน" / ซ่อมสำเร็จ). Only fire once, on the transition into
 // this set — not on every subsequent edit while already closed.
@@ -77,10 +77,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { jobId: str
       if (!customerName) {
         return NextResponse.json({ ok: false, error: translate(locale, 'validation.enterCustomerName') }, { status: 400 });
       }
-      if (customerPhone && !THAI_MOBILE_RE.test(customerPhone)) {
+      if (customerPhone && !THAI_MOBILE_REGEX.test(customerPhone)) {
         return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidCustomerPhone') }, { status: 400 });
       }
-      if (reporterPhoneDigits && !THAI_MOBILE_RE.test(reporterPhoneDigits)) {
+      if (reporterPhoneDigits && !THAI_MOBILE_REGEX.test(reporterPhoneDigits)) {
         return NextResponse.json({ ok: false, error: translate(locale, 'validation.invalidReporterPhone') }, { status: 400 });
       }
       if (!repairDate) {

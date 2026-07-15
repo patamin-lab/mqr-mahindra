@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Technician, Dealer } from '@/lib/types';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalLoading, swalClose } from '@/lib/swal';
+import ActiveBadge from '@/components/shared/admin/ActiveBadge';
 
 export default function TechniciansTable({
   initialTechnicians,
@@ -172,9 +173,7 @@ export default function TechniciansTable({
                   </td>
                   <td className="px-3 py-2">{t.dealer_id}</td>
                   <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs ${t.active === false ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
-                      {t.active === false ? 'ปิดใช้งาน' : 'ใช้งาน'}
-                    </span>
+                    <ActiveBadge active={t.active} />
                   </td>
                   <td className="px-3 py-2 space-x-2 whitespace-nowrap">
                     {isEditing ? (

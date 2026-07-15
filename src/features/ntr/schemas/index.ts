@@ -4,6 +4,7 @@ import { Locale, DEFAULT_LOCALE } from '@/lib/i18n/types';
 import { NTR_ATTACHMENT_TYPES } from '../types';
 import { MasterDataService } from '@/shared/master-data';
 import type { CustomerType } from '@/shared/master-data';
+import { THAI_MOBILE_REGEX } from '@/lib/validation';
 
 /** Same preprocessors as `src/features/maintenance/schemas/index.ts` -
  *  reused verbatim rather than redefined, so "" / null / undefined all
@@ -20,7 +21,7 @@ const buildNtrCustomerPhoneSchema = (locale: Locale) =>
   z.preprocess((val) => {
     if (typeof val !== 'string') return val;
     return val.replace(/\D/g, '');
-  }, z.string().regex(/^0\d{9}$/, translate(locale, 'validation.invalidPhone')).transform((digits) => `${digits.slice(0, 3)}-${digits.slice(3)}`));
+  }, z.string().regex(THAI_MOBILE_REGEX, translate(locale, 'validation.invalidPhone')).transform((digits) => `${digits.slice(0, 3)}-${digits.slice(3)}`));
 
 const buildOptionalLatitude = (locale: Locale) =>
   z

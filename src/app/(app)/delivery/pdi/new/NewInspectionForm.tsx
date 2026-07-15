@@ -6,6 +6,7 @@ import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { swalError } from '@/lib/swal';
 import { fetchJson } from '@/lib/fetchJson';
 import Card from '@/components/shared/layout/Card';
+import EmptyState from '@/components/shared/layout/EmptyState';
 // Vehicle Master search-by-serial/engine-number reuses the existing NTR
 // Tractor Search endpoint (`searchTractorsForNtr()` in `lib/db.ts`) rather
 // than a second vehicle-search implementation - it already reads `vehicles`
@@ -115,7 +116,7 @@ export default function NewInspectionForm({ defaultTechnicianName }: { defaultTe
       </button>
 
       {searched && !searching && results.length === 0 && (
-        <div className="rounded border border-dashed border-gray-300 bg-gray-50 p-6 text-center text-sm text-gray-500">{t('ntr.noTractorFound')}</div>
+        <EmptyState title={t('common.notFound')} reason={t('ntr.noTractorFound')} nextStep={t('ntr.noTractorFoundNextStep')} />
       )}
 
       {results.length > 0 && (

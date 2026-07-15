@@ -5,6 +5,7 @@ import { AdminUser, Dealer, Role } from '@/lib/types';
 import { assignableRoles, canDeleteUsers, canInviteUsers, canManageRoleTarget, canUnlockAccounts, roleLabelTh } from '@/lib/scope';
 import { swalConfirm, swalError, swalSuccess, swalPrompt, swalLoading, swalClose } from '@/lib/swal';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import ActiveBadge from '@/components/shared/admin/ActiveBadge';
 
 export default function UsersTable({
   initialUsers,
@@ -322,9 +323,7 @@ export default function UsersTable({
                     })()}
                   </td>
                   <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded text-xs ${u.active === false ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-700'}`}>
-                      {u.active === false ? 'ปิดใช้งาน' : 'ใช้งาน'}
-                    </span>
+                    <ActiveBadge active={u.active} />
                     {u.locked_until && new Date(u.locked_until).getTime() > Date.now() && (
                       <span className="ml-1 px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700">ถูกล็อก</span>
                     )}

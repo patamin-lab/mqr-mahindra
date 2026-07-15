@@ -19,6 +19,15 @@ export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/** 10-digit Thai mobile number starting with 0 (e.g. 0812345678). Callers
+ *  strip non-digit characters before testing - this regex assumes that. */
+export const THAI_MOBILE_REGEX = /^0\d{9}$/;
+
+/** Strips non-digit characters then checks against `THAI_MOBILE_REGEX`. */
+export function isValidThaiMobile(value: string): boolean {
+  return THAI_MOBILE_REGEX.test(value.replace(/\D/g, ''));
+}
+
 export function parseJsonBody<T>(body: unknown): T {
   return body as T;
 }

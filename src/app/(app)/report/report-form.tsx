@@ -22,6 +22,7 @@ import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
 import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
 import DealerBranchSelector from '@/components/shared/scope/DealerBranchSelector';
+import { THAI_MOBILE_REGEX } from '@/lib/validation';
 
 interface VehicleInfo {
   serial: string;
@@ -47,8 +48,6 @@ function formatPhoneDisplay(digits: string) {
   if (d.length <= 6) return `${d.slice(0, 3)}-${d.slice(3)}`;
   return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6, 10)}`;
 }
-
-const PHONE_RE = /^0[0-9]{9}$/;
 
 export default function ReportForm({
   problemCodes,
@@ -397,11 +396,11 @@ export default function ReportForm({
       swalError('กรุณากรอกชื่อลูกค้า');
       return;
     }
-    if (customerPhone && !PHONE_RE.test(customerPhone)) {
+    if (customerPhone && !THAI_MOBILE_REGEX.test(customerPhone)) {
       swalError('เบอร์โทรลูกค้าไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)');
       return;
     }
-    if (reporterPhone && !PHONE_RE.test(reporterPhone)) {
+    if (reporterPhone && !THAI_MOBILE_REGEX.test(reporterPhone)) {
       swalError('เบอร์โทรผู้แจ้งไม่ถูกต้อง (ต้องเป็นเลข 10 หลัก ขึ้นต้นด้วย 0)');
       return;
     }

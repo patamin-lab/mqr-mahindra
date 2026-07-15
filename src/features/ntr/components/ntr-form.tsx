@@ -21,6 +21,7 @@
  */
 import { useRef, useState } from 'react';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
+import { isValidThaiMobile } from '@/lib/validation';
 import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/swal';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import TextField from '@/components/shared/forms/TextField';
@@ -218,7 +219,7 @@ export default function NtrForm(props: NtrFormProps) {
   function validate(): string | null {
     const hasStructuredName = customerFirstName.trim() || customerLastName.trim();
     if (!customerName.trim() && !hasStructuredName) return t('validation.enterCustomerName');
-    if (!/^0\d{9}$/.test(customerPhone.replace(/\D/g, ''))) return t('validation.invalidPhone');
+    if (!isValidThaiMobile(customerPhone)) return t('validation.invalidPhone');
     if (!deliveryDate) return t('validation.specifyDeliveryDate');
     if (!isEdit) {
       if (!photos.customer_id.url) return t('validation.uploadCustomerIdPhoto');

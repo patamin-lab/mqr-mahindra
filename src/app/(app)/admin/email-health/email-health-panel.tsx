@@ -5,6 +5,7 @@ import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalLoading, swalClose, swalError, swalSuccess } from '@/lib/swal';
 import type { EmailHealthStatus } from '@/lib/authServices/emailHealthService';
 import type { EmailSendResult } from '@/lib/email';
+import { formatDateTimeLocalized } from '@/lib/thaiDate';
 
 const STATUS_LABEL: Record<EmailHealthStatus['status'], string> = {
   NotConfigured: 'ยังไม่ได้ตั้งค่า',
@@ -20,7 +21,7 @@ const STATUS_COLOR: Record<EmailHealthStatus['status'], string> = {
 
 function formatDateTime(iso: string | null): string {
   if (!iso) return '-';
-  return new Date(iso).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+  return formatDateTimeLocalized(iso, 'th');
 }
 
 export default function EmailHealthPanel({ initialHealth }: { initialHealth: EmailHealthStatus }) {

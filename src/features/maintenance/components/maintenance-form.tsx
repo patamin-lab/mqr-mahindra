@@ -7,6 +7,7 @@ import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalLoading, swalClose, swalSuccessToast, swalErrorToast } from '@/lib/swal';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { isNonEmptyString } from '../utils/validation';
+import { isValidThaiMobile } from '@/lib/validation';
 import type { MaintenanceRecord } from '../types';
 import type { PmInterval } from '@/lib/types';
 import type { AttachmentType } from '@/shared/attachments';
@@ -163,7 +164,7 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
       swalErrorToast(t('validation.enterCustomerName'));
       return;
     }
-    if (!/^0\d{9}$/.test(customerPhone.replace(/\D/g, ''))) {
+    if (!isValidThaiMobile(customerPhone)) {
       swalErrorToast(t('validation.invalidPhone'));
       return;
     }

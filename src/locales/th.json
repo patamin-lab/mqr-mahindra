@@ -64,6 +64,7 @@
     "searchTitle": "ค้นหารถแทรกเตอร์",
     "searchSerialPlaceholder": "พิมพ์อย่างน้อย 3 ตัวอักษร",
     "noTractorFound": "ไม่พบรถแทรกเตอร์ที่ตรงกับเงื่อนไขค้นหา",
+    "noTractorFoundNextStep": "ตรวจสอบหมายเลขเครื่องยนต์หรือหมายเลขตัวถังแล้วลองอีกครั้ง",
     "createTractorButton": "สร้างรถแทรกเตอร์ใหม่ในระบบ",
     "registerTitle": "ลงทะเบียนส่งมอบรถใหม่ (NTR)",
     "backToSearch": "กลับไปค้นหา",
