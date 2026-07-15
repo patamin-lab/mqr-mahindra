@@ -23,19 +23,87 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-**v3.1 Customer Ownership — Governance Gate.** Four PRs open against
-`main` as of this writing, none merged:
+**Production Pilot Readiness.** Real code, not audit-only - implements
+ADR-037's approved amendment and three other Production-Pilot-specific
+changes, reusing existing services/forms/mechanisms throughout (no new
+architecture):
 
-| PR | Branch | Content |
-|---|---|---|
-| #50 | `feature/v3-foundation-hardening` | ADR-032, v3.0 Foundation Hardening audit (docs only) |
-| #51 | `feature/customer-ownership-proposal` | ADR-033 architecture proposal (docs only, approved without redesign) |
-| #52 | `feature/customer-ownership-schema` | ADR-033 Phase 1 - `customers`/`customer_ownership_history` tables + nullable `vehicles.customer_id`, additive, zero data written |
-| #53 | `feature/customer-data-governance` | ADR-034, Customer Data Governance - identity/ownership/PII/retention/deletion/access/audit rules, 7 decisions named as requiring Legal/Business approval |
-| (this PR) | `feature/customer-ownership-governance-gate` | Compliance Decision Register - converts ADR-034's 7 open items into tracked decisions with owners/approvers, gates Phases 2-4 |
+1. **Tractor IN scope guard (ADR-037 implemented)** -
+   `TractorInSyncService` now excludes `dealer_id` from its UPDATE
+   payload once a serial has a real, Active NTR registration, and never
+   writes `delivery_date` again after that point either - closes the
+   Source-of-Truth violation ADR-035/036/037 all named. Insert-time and
+   pre-NTR update-time behavior unchanged.
+2. **Platform-wide timestamp format** - `formatDateTimeLocalized()`
+   (13 call sites, one shared function) now renders
+   `dd/MMM/yyyy hh:mm:ss a` in Asia/Bangkok regardless of UI language
+   (e.g. "15/Jul/2026 09:45:18 AM"). Pure business dates
+   (`formatDateLocalized()` - delivery date, performed date, etc.) are
+   unchanged and stay locale-varying.
+3. **NTR Edit consolidated into the New NTR form (One Form, Dual Mode)**
+   - the smaller, previously-separate `NtrEditForm` is retired; both
+   create and edit now share `features/ntr/components/ntr-form.tsx`.
+   Photos/GPS/customer info/hour meter/salesperson are all editable in
+   both modes; Vehicle Master/Factory Domain fields (Serial, Engine
+   Number, Model, Product Family, Sub Model, Product Code, Dealer) stay
+   read-only in both, unchanged design principle. Branch becomes
+   editable in Edit mode (dealer-internal correction, not Factory
+   Domain). NTR's detail page also gained an Activity Timeline section
+   (`record_audit_log`-backed, same shared component MQR/PM/Knowledge
+   already use - `"ntr"` was always a valid `AuditModule`, just never
+   rendered before).
+4. **Sidebar reorganized by business lifecycle** - Vehicle Lookup
+   (Machine Passport) elevated to its own top-level entry; New Tractor
+   Delivery moved into a new Delivery Lifecycle group; "Quality
+   Inspection" renamed to "Import & Inspection" (the group label was
+   the one place still using the wrong term - ADR-028 already corrected
+   the domain, item labels already said "Import Inspection"). Legacy
+   Import's nav entry removed entirely (route/Import History still
+   reachable directly). Coming Soon capabilities (Troubleshooting,
+   Engineering Intelligence, Reports, Warranty, PIP, Service Campaign)
+   are now hidden for every role, including SuperAdmin, for the
+   duration of Production Pilot - the underlying `CapabilityStatus`/
+   `effectiveStatus` mechanism is unchanged, ready for the next
+   capability post-Pilot.
 
-`customers`, `customer_ownership_history`, and `vehicles.customer_id`
-exist in the live schema (migration
+Validation: `architecture-check` 6/6 PASS, `tsc`/`eslint` clean, full
+test suite passing (new/updated tests for the Tractor IN guard,
+timestamp format, and nav restructuring), `next build` succeeds.
+
+## Recently completed: Business Architecture Consolidation (ADR-037)
+
+Audit + formal Architecture Amendment (not yet merged) - see
+`docs/architecture/BUSINESS_ARCHITECTURE_CONSOLIDATION.md` and
+`docs/business/MACHINE_LIFECYCLE.md`/`FIELD_OWNERSHIP_MATRIX.md`/
+`WRITE_PRECEDENCE_MATRIX.md`. Resolved the ADR-029 conflict ADR-035/036
+both named but did not decide - recommendation **APPROVE**, now
+implemented above.
+
+## Recently completed: Business Workflow Consolidation (ADR-036)
+
+Field-level pass confirming the ADR-029 conflict (PR #58, not yet
+merged) - full detail `docs/architecture/BUSINESS_WORKFLOW_CONSOLIDATION_AUDIT.md`,
+`docs/architecture/BUSINESS_INVARIANTS.md`. Confirmed Repair/MQR Closed
+need zero new work; confirmed MQR NTR auto-fill and machine-type
+classification as genuine gaps, not violations - restated and resolved
+(the ADR-029 conflict specifically) by ADR-037 above.
+
+## Recently completed: Business Workflow & UX Audit (ADR-035)
+
+Workflow-level pass over the tractor lifecycle (not yet merged, PR #57)
+- full detail `docs/architecture/BUSINESS_WORKFLOW_UX_AUDIT.md`. Found
+three dead/unmodeled Delivery-lifecycle stages (MSEAL Stock/Ship to
+Dealer/Dealer Stock), a non-existent Troubleshooting workflow, and two
+small nav defects (duplicate PIP entry, "Import Inspection" vs.
+"Quality Inspection" naming drift) - MSEAL Stock/Ship to Dealer/Dealer
+Stock's fate is still open (ADR-035's R-1, restated as Implementation
+Sequence item 6 in ADR-037's audit), not resolved by any of the three
+passes.
+
+## Recently completed: v3.1 Customer Ownership (ADR-033/034), Phase 1 + Governance Gate
+
+PRs #50-#54 all merged. `customers`, `customer_ownership_history`, and
+`vehicles.customer_id` exist in the live schema (migration
 `20260715054732_customer_ownership_schema_v3_1`) but are not yet read
 or written by any application code. **Every implementation phase is
 currently gated WAIT** per `docs/architecture/

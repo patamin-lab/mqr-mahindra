@@ -14,6 +14,10 @@ vi.mock('@/lib/db', () => ({
 
 interface VehiclesTableConfig {
   existingSerials: string[];
+  /** Serials with a real, Active NTR registration - ADR-037's Tractor IN
+   *  Field Scope Amendment guard excludes dealer_id/delivery_date from the
+   *  UPDATE payload for these. Defaults to none (no serial has an NTR). */
+  ntrSerials?: string[];
   insertError?: (payload: Record<string, unknown>) => { message: string; code?: string } | null;
   updateError?: (serial: string) => { message: string; code?: string } | null;
 }
@@ -35,13 +39,21 @@ function mockClient(config: VehiclesTableConfig) {
   }));
   const syncRunInsert = vi.fn().mockResolvedValue({ error: null });
 
+  const ntrSelect = vi.fn(() => ({
+    eq: vi.fn().mockResolvedValue({
+      data: (config.ntrSerials ?? []).map((serial) => ({ serial })),
+      error: null,
+    }),
+  }));
+
   const from = vi.fn((table: string) => {
     if (table === 'vehicles') return { select, update, insert };
     if (table === 'tractor_in_sync_runs') return { insert: syncRunInsert };
+    if (table === 'ntr_records') return { select: ntrSelect };
     throw new Error(`unexpected table: ${table}`);
   });
 
-  return { client: { from }, from, select, insert, update, syncRunInsert };
+  return { client: { from }, from, select, insert, update, syncRunInsert, ntrSelect };
 }
 
 const state: { client: unknown } = { client: null };
@@ -276,6 +288,42 @@ describe('TractorInSyncService.sync', () => {
       delivery_date: '2026-07-15',
       dealer_id: 'KTV',
     });
+  });
+
+  it('ADR-037: excludes dealer_id/delivery_date from UPDATE once the serial has a real NTR registration', async () => {
+    mockRows.mockResolvedValue([
+      row({
+        productSerial: 'DELIVERED1',
+        productCode: 'PC-100',
+        whArrivalDate: '01/06/2026',
+        deliveryDateThai: '15/07/2569',
+        dealer: 'ktv',
+      }),
+    ]);
+    const mocked = mockClient({ existingSerials: ['DELIVERED1'], ntrSerials: ['DELIVERED1'] });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const updatePayload = mocked.update.mock.calls[0][0];
+    // Factory Domain fields still sync normally.
+    expect(updatePayload).toMatchObject({ product_code: 'PC-100', wh_arrival_date: '2026-06-01' });
+    // Operational Data (NTR-owned) fields are never touched once an NTR exists.
+    expect(updatePayload.dealer_id).toBeUndefined();
+    expect(updatePayload.delivery_date).toBeUndefined();
+  });
+
+  it('ADR-037: still syncs dealer_id/delivery_date on UPDATE for a serial with no NTR yet (pre-delivery stock)', async () => {
+    mockRows.mockResolvedValue([
+      row({ productSerial: 'INSTOCK1', deliveryDateThai: '15/07/2569', dealer: 'ktv' }),
+    ]);
+    const mocked = mockClient({ existingSerials: ['INSTOCK1'], ntrSerials: [] });
+    state.client = mocked.client;
+
+    await new TractorInSyncService().sync();
+
+    const updatePayload = mocked.update.mock.calls[0][0];
+    expect(updatePayload).toMatchObject({ dealer_id: 'KTV', delivery_date: '2026-07-15' });
   });
 
   it('never writes PDI Status anywhere - it has no vehicles column', async () => {
