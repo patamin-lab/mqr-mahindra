@@ -89,18 +89,34 @@ export function formatDateLocalized(value: string | number | Date, locale: 'th' 
   return `${dd} ${ENGLISH_MONTHS_SHORT[month - 1]} ${year}`;
 }
 
-/** Full timestamp, locale-aware - same date representation as
- *  `formatDateLocalized()` plus a 24h time-of-day suffix. */
-export function formatDateTimeLocalized(value: string | number | Date, locale: 'th' | 'en'): string {
+/** Production Pilot Timestamp Standard (platform-wide): every full
+ *  timestamp (created/updated/audit-log moment - as opposed to a pure
+ *  business date like `delivery_date`/`performed_date`, which stays
+ *  locale-varying via `formatDateLocalized()`) always renders as
+ *  `dd/MMM/yyyy hh:mm:ss a` in Thailand local time, regardless of UI
+ *  language - e.g. "15/Jul/2026 09:45:18 AM". `locale` is accepted but
+ *  intentionally unused: every one of this function's ~13 call sites
+ *  already treats its return value as "the" timestamp display, so the
+ *  format changed here rather than forking a second function and
+ *  updating every caller. */
+export function formatDateTimeLocalized(value: string | number | Date, _locale: 'th' | 'en'): string {
   const d = value instanceof Date ? value : new Date(value);
-  const datePart = formatDateLocalized(d, locale);
-  const timePart = new Intl.DateTimeFormat('en-GB', {
+  const { day, month, year } = bangkokDateParts(d);
+  const timeParts = new Intl.DateTimeFormat('en-US', {
     timeZone: BANGKOK_TZ,
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false,
-  }).format(d);
-  return `${datePart} ${timePart}`;
+    second: '2-digit',
+    hour12: true,
+  }).formatToParts(d);
+  const get = (type: string) => timeParts.find((p) => p.type === type)?.value ?? '';
+  const dd = String(day).padStart(2, '0');
+  const mmm = ENGLISH_MONTHS_SHORT[month - 1];
+  const hh = get('hour').padStart(2, '0');
+  const mm = get('minute');
+  const ss = get('second');
+  const ampm = get('dayPeriod').toUpperCase();
+  return `${dd}/${mmm}/${year} ${hh}:${mm}:${ss} ${ampm}`;
 }
 
 /** `YYYYMMDD_HHMM` in Thailand local time - for filenames (e.g.

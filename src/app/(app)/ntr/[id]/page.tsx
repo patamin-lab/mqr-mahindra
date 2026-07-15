@@ -6,9 +6,11 @@ import { MasterDataService } from '@/shared/master-data';
 import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/service';
 import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
 import { calcWarranty } from '@/lib/warranty';
+import { listAuditLog } from '@/lib/db';
 import { createNtrService } from '@/features/ntr/factory';
 import NtrDeleteButton from './delete-button';
 import NtrPrintButton from './print-button';
+import NtrActivityTimelineSection from './activity-timeline-section';
 import { t, getServerLocale } from '@/lib/i18n/server';
 import { APP_NAME, APP_VERSION } from '@/lib/branding';
 import PageHeader from '@/components/shared/layout/PageHeader';
@@ -18,6 +20,7 @@ import AttachmentGallery, { AttachmentGalleryItem } from '@/components/shared/at
 import DetailRow from '@/components/shared/layout/DetailRow';
 import Timeline from '@/components/shared/timeline/Timeline';
 import TimelineItem from '@/components/shared/timeline/TimelineItem';
+import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import type { NtrAttachmentType } from '@/features/ntr/types';
 import type { VehicleEvent } from '@/features/vehicle/types';
 
@@ -89,12 +92,24 @@ export default async function NtrDetailPage({ params }: RouteParams) {
 
   const allowDelete = canDelete(session.role);
 
-  const [branch, productFamily, summary, timeline] = await Promise.all([
+  const [branch, productFamily, summary, timeline, auditLog] = await Promise.all([
     record.branch_id ? MasterDataService.getBranch(record.branch_id) : Promise.resolve(null),
     record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
     getVehicleSummary(record.serial, session),
     getVehicleTimeline(record.serial, session),
+    listAuditLog('ntr', record.id),
   ]);
+  // Activity Timeline (field-level change log) - same shared mechanism
+  // MQR/PM/Knowledge already use over the same record_audit_log table;
+  // "ntr" has always been a valid AuditModule, this page simply never
+  // rendered it before now (see the render site below for how this
+  // differs from "Section 6: Tractor Timeline").
+  const activityEvents = mapAuditLogToActivityEvents(auditLog, {
+    entityType: 'ntr',
+    entityId: record.id,
+    entityRef: record.ntr_number,
+    vehicleSerial: record.serial,
+  });
 
   const warranty = calcWarranty(record.retail_date, new Date().toISOString().slice(0, 10), 'other');
   const fullCustomerName =
@@ -271,6 +286,19 @@ export default async function NtrDetailPage({ params }: RouteParams) {
               <TimelineRow key={`${event.type}-${event.referenceNumber}-${idx}`} event={event} />
             ))}
           </Timeline>
+        </Card>
+      )}
+
+      {/* Section 6b: Activity Timeline - field-level audit log, same
+          component/behavior as MQR's own Activity Timeline section
+          (`<ActivityTimeline>` renders its own heading - no second one
+          added here). Distinct from "Section 6: Tractor Timeline" above
+          (the Machine Lifecycle's own coarse milestone timeline,
+          `vehicle_events`) - the two are intentionally separate
+          mechanisms (ADR-032), not a duplicate. */}
+      {activityEvents.length > 0 && (
+        <Card as="section" variant="flat" className="p-5 print:hidden">
+          <NtrActivityTimelineSection events={activityEvents} />
         </Card>
       )}
 

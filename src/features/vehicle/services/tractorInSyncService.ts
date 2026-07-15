@@ -1,13 +1,13 @@
 /**
  * Tractor IN Sync Service.
  *
- * The single, dedicated path that writes `vehicles`' master-data columns
- * (`model`, `engine_number`, `product_code`, `wh_arrival_date`,
- * `delivery_date`, `dealer_id`, `product_family_id`, `sub_model`) from the
- * Tractor IN Google Sheet. No other module (NTR, PM, any lookup/search
- * route) may write these columns - they only ever read them. This keeps
- * synchronization entirely out of request-time lookups (no read-through
- * upsert), matching the "one synchronization path" requirement.
+ * The single, dedicated path that writes `vehicles`' Factory Domain
+ * columns (`model`, `engine_number`, `product_code`, `wh_arrival_date`,
+ * `product_family_id`, `sub_model`) from the Tractor IN Google Sheet. No
+ * other module (NTR, PM, any lookup/search route) may write these
+ * columns - they only ever read them. This keeps synchronization
+ * entirely out of request-time lookups (no read-through upsert),
+ * matching the "one synchronization path" requirement.
  *
  * v2.4.0 (Business Decision: "Google Sheet Tractor IN is now the only
  * vehicle master"): every master field the sheet carries is now written on
@@ -20,6 +20,18 @@
  * field unconditionally since there's nothing yet to overwrite. `serial`
  * remains the only conflict/lookup key. PDI Status is read from the sheet
  * but deliberately never written anywhere - it has no `vehicles` column.
+ *
+ * v3.1 (ADR-037, Tractor IN Field Scope Amendment, reopens ADR-029):
+ * `dealer_id`/`delivery_date` are Factory Domain fields only until a real
+ * NTR registration exists for that serial - Operational Data (NTR) owns
+ * them from that point on. This sync still writes both on INSERT (a
+ * brand-new serial can never already have an NTR) and still writes both
+ * on UPDATE *for a serial with no NTR yet* (pre-delivery stock has no
+ * other dealer/date signal available); once `ntr_records` has an Active
+ * row for that serial, UPDATE excludes both fields, permanently, for
+ * that serial - see `serialsWithNtr` below. `docs/architecture/
+ * BUSINESS_INVARIANTS.md`/`docs/business/FIELD_OWNERSHIP_MATRIX.md`
+ * document the full rule this enforces.
  *
  * v2.4.1 (data-quality reporting): `missingProductCode`/
  * `missingWhArrivalDate` on the result report how many processed rows had
@@ -173,6 +185,21 @@ export class TractorInSyncService {
     // as one insert + skip-after in both real and dry-run modes.
     const knownSerials = new Set((existingRows ?? []).map((v: { serial: string }) => v.serial));
 
+    // ADR-037 (Tractor IN Field Scope Amendment, reopens ADR-029): once a
+    // serial has a real NTR registration, Dealer and Delivery Date become
+    // Operational Data (NTR-owned) - Tractor IN must never write either
+    // one for that serial again, on any later sync. Before an NTR exists,
+    // Tractor IN's own `dealer_id`/`delivery_date` remain the only signal
+    // available (pre-delivery stock), so this guard only narrows UPDATE,
+    // never blocks INSERT (a brand-new serial can never already have an
+    // NTR - see `serialsWithNtr`'s use below, update path only).
+    const { data: ntrSerialRows, error: ntrSerialError } = await supabase
+      .from('ntr_records')
+      .select('serial')
+      .eq('record_status', 'Active');
+    if (ntrSerialError) throw ntrSerialError;
+    const serialsWithNtr = new Set((ntrSerialRows ?? []).map((r: { serial: string }) => r.serial));
+
     let inserted = 0;
     let updated = 0;
     let skipped = 0;
@@ -247,7 +274,12 @@ export class TractorInSyncService {
             last_synced_at: nowIso,
             sync_source: SYNC_SOURCE,
           };
+          // ADR-037: dealer_id/delivery_date are excluded here, never
+          // overwritten, once this serial has a real NTR registration -
+          // see `serialsWithNtr` above.
+          const hasNtr = serialsWithNtr.has(serial);
           for (const [key, value] of Object.entries(masterFields)) {
+            if (hasNtr && (key === 'dealer_id' || key === 'delivery_date')) continue;
             if (value) updatePayload[key] = value;
           }
           if (productFamilyId) updatePayload.product_family_id = productFamilyId;

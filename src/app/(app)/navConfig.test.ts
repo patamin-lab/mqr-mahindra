@@ -20,7 +20,7 @@ function session(overrides: Partial<SessionUser> = {}): SessionUser {
 
 const superAdmin = () => session({ role: 'SuperAdmin', dealerId: null, branchId: null });
 
-describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', () => {
+describe('getNavGroups (Business Workflow Consolidation, ADR-035/036/037 - lifecycle-ordered, Production Pilot)', () => {
   it('always includes the Dashboard group with a single real Platform Overview item', () => {
     const groups = getNavGroups(t, session());
     const dashboard = groups.find((g) => g.key === 'dashboard');
@@ -28,30 +28,37 @@ describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', 
     expect(dashboard!.items).toEqual([{ href: '/dashboard', label: 'nav.platformOverview' }]);
   });
 
-  it('marks not-yet-built leaves as Coming Soon with a null href, never a fake route (visible to SuperAdmin)', () => {
-    const groups = getNavGroups(t, superAdmin());
-    const service = groups.find((g) => g.key === 'service')!;
-    const warranty = service.items!.find((i) => i.label === 'nav.warranty');
-    expect(warranty).toEqual({ href: null, icon: undefined, label: 'nav.warranty', comingSoon: true });
+  it('Vehicle Lookup is its own top-level group (not nested under a lifecycle stage) with exactly one item, Vehicle 360', () => {
+    const groups = getNavGroups(t, session());
+    const vehicleLookup = groups.find((g) => g.key === 'vehicleLookup')!;
+    expect(vehicleLookup).toBeDefined();
+    expect(vehicleLookup.items).toEqual([{ href: '/machines', label: 'nav.vehicle360' }]);
   });
 
   it('Vehicle 360 consolidation (ADR-030): one nav entry at /machines, no separate /vehicles entry', () => {
     const groups = getNavGroups(t, session());
-    const machines = groups.find((g) => g.key === 'machines')!;
-    const vehicle360 = machines.items!.find((i) => i.label === 'nav.vehicle360');
-    expect(vehicle360).toEqual({ href: '/machines', label: 'nav.vehicle360' });
-    expect(machines.items!.some((i) => i.href === '/vehicles')).toBe(false);
+    const vehicleLookup = groups.find((g) => g.key === 'vehicleLookup')!;
+    expect(vehicleLookup.items!.some((i) => i.href === '/vehicles')).toBe(false);
   });
 
-  it('hides Legacy Import (Machines group) from every role except SuperAdmin', () => {
+  it('New Tractor Delivery (NTR) lives under Delivery Lifecycle, not Vehicle Lookup - a workflow step, not the persistent lookup', () => {
+    const groups = getNavGroups(t, session());
+    const deliveryLifecycle = groups.find((g) => g.key === 'deliveryLifecycle')!;
+    expect(deliveryLifecycle).toBeDefined();
+    expect(deliveryLifecycle.items).toEqual([{ href: '/ntr', label: 'nav.ntrRecords' }]);
+
+    const vehicleLookup = groups.find((g) => g.key === 'vehicleLookup')!;
+    expect(vehicleLookup.items!.some((i) => i.href === '/ntr')).toBe(false);
+  });
+
+  it('Legacy Import has no nav entry for any role, including SuperAdmin - removed entirely for Production Pilot', () => {
     const dealerAdmin = getNavGroups(t, session({ role: 'DealerAdmin' }));
     const superAdminGroups = getNavGroups(t, superAdmin());
 
-    const machinesForDealerAdmin = dealerAdmin.find((g) => g.key === 'machines')!;
-    expect(machinesForDealerAdmin.items!.some((i) => i.href === '/admin/legacy-import')).toBe(false);
-
-    const machinesForSuperAdmin = superAdminGroups.find((g) => g.key === 'machines')!;
-    expect(machinesForSuperAdmin.items!.some((i) => i.href === '/admin/legacy-import')).toBe(true);
+    const flatDealer = flattenRealNavItems(dealerAdmin);
+    const flatSuperAdmin = flattenRealNavItems(superAdminGroups);
+    expect(flatDealer.some((i) => i.href === '/admin/legacy-import')).toBe(false);
+    expect(flatSuperAdmin.some((i) => i.href === '/admin/legacy-import')).toBe(false);
   });
 
   it('omits the Administration group entirely for a role with zero visible admin items (DealerUser)', () => {
@@ -80,82 +87,44 @@ describe('getNavGroups (MSEAL Design Framework, ADR-023, Navigation Standard)', 
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('PIP (pre-merge refinement) lives under Engineering Intelligence, not Quality - exactly one Quality-adjacent copy removed, not duplicated', () => {
-    const groups = getNavGroups(t, superAdmin());
-    const quality = groups.find((g) => g.key === 'quality')!;
-    const engineeringIntelligence = groups.find((g) => g.key === 'engineering-intelligence')!;
-
-    expect(quality.items!.some((i) => i.label === 'nav.pip')).toBe(false);
-    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.pip' && i.comingSoon)).toBe(true);
-  });
-
-  it('Service > Campaigns keeps its own PIP entry unchanged (a different reference, not a duplicate page - both Coming Soon)', () => {
-    const groups = getNavGroups(t, superAdmin());
-    const service = groups.find((g) => g.key === 'service')!;
-    const campaigns = service.subgroups!.find((s) => s.label === 'nav.campaigns')!;
-    expect(campaigns.items.some((i) => i.label === 'nav.pip' && i.comingSoon)).toBe(true);
-  });
-
-  it('Engineering Intelligence exposes only AI Engineering, PIP, and Predictive Quality - no Knowledge Engine or Troubleshooting entry (owned by Quality instead)', () => {
-    const groups = getNavGroups(t, superAdmin());
-    const engineeringIntelligence = groups.find((g) => g.key === 'engineering-intelligence')!;
-    expect(engineeringIntelligence.items).toEqual([
-      { href: null, icon: undefined, label: 'nav.aiAnalysis', comingSoon: true },
-      { href: null, icon: undefined, label: 'nav.pip', comingSoon: true },
-      { href: null, icon: undefined, label: 'nav.prediction', comingSoon: true },
-    ]);
-    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.knowledgeEngine')).toBe(false);
-    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.troubleshooting')).toBe(false);
-    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.insights')).toBe(false);
-  });
-
-  it('Quality owns exactly one Troubleshooting entry (execution), not duplicated under Engineering Intelligence (analysis)', () => {
-    const groups = getNavGroups(t, superAdmin());
-    const quality = groups.find((g) => g.key === 'quality')!;
-    const engineeringIntelligence = groups.find((g) => g.key === 'engineering-intelligence')!;
-
-    expect(quality.items!.some((i) => i.label === 'nav.troubleshooting' && i.comingSoon)).toBe(true);
-    expect(engineeringIntelligence.items!.some((i) => i.label === 'nav.troubleshooting')).toBe(false);
-  });
-
-  it('Service > Campaigns no longer includes Recall (removed - no Recall module/data exists)', () => {
-    const groups = getNavGroups(t, superAdmin());
-    const service = groups.find((g) => g.key === 'service')!;
-    const campaigns = service.subgroups!.find((s) => s.label === 'nav.campaigns')!;
-    expect(campaigns.items.some((i) => i.label === 'nav.recall')).toBe(false);
-  });
-
-  it('Knowledge (Engineering Knowledge Platform, ADR-018) is now a real route under Quality - same label, same position, no longer Coming Soon', () => {
+  it('Quality owns exactly one Quality Cases (MQR) entry and Knowledge - no Troubleshooting/Analytics placeholder scaffolded (Production Pilot hides them regardless of role)', () => {
     const groups = getNavGroups(t, superAdmin());
     const quality = groups.find((g) => g.key === 'quality')!;
     expect(quality.items).toEqual([
       { href: '/quality/dashboard', label: 'nav.qualityDashboard' },
       { href: '/records', label: 'nav.qualityCases' },
-      { href: null, icon: undefined, label: 'nav.qualityAnalytics', comingSoon: true },
-      { href: null, icon: undefined, label: 'nav.troubleshooting', comingSoon: true },
       { href: '/quality/knowledge', label: 'nav.qualityKnowledge' },
     ]);
   });
 
-  it('Knowledge being ACTIVE (not Coming Soon) means every role sees it, unlike Analytics/Troubleshooting which stay SuperAdmin-only', () => {
+  it('Engineering Intelligence and Reports groups do not exist at all - both were 100% not-yet-built capabilities', () => {
+    const groups = getNavGroups(t, superAdmin());
+    expect(groups.find((g) => g.key === 'engineering-intelligence')).toBeUndefined();
+    expect(groups.find((g) => g.key === 'reports')).toBeUndefined();
+  });
+
+  it('Service keeps only its real PM Records item - Warranty and the Campaigns subgroup (both 100% not-yet-built) do not exist', () => {
+    const groups = getNavGroups(t, superAdmin());
+    const service = groups.find((g) => g.key === 'service')!;
+    expect(service.items).toEqual([{ href: '/pm-records', label: 'nav.pmRecords' }]);
+    expect(service.subgroups).toBeUndefined();
+  });
+
+  it('Knowledge (Engineering Knowledge Platform, ADR-018) is a real route under Quality for every role', () => {
     const groups = getNavGroups(t, session());
     const quality = groups.find((g) => g.key === 'quality')!;
-    expect(quality.items).toEqual([
-      { href: '/quality/dashboard', label: 'nav.qualityDashboard' },
-      { href: '/records', label: 'nav.qualityCases' },
-      { href: '/quality/knowledge', label: 'nav.qualityKnowledge' },
-    ]);
+    expect(quality.items!.some((i) => i.href === '/quality/knowledge')).toBe(true);
   });
 });
 
-describe('Navigation Visibility Rule (capability status + authorization, post-Foundation Freeze)', () => {
+describe('Navigation Visibility Rule (Production Pilot: Coming Soon hidden for every role, including SuperAdmin)', () => {
   it('effectiveStatus derives ACTIVE for a real route and COMING_SOON for a comingSoon placeholder, with an explicit status override winning over both', () => {
     expect(effectiveStatus({ href: '/x', label: 'L' })).toBe('ACTIVE');
     expect(effectiveStatus({ href: null, label: 'L', comingSoon: true })).toBe('COMING_SOON');
     expect(effectiveStatus({ href: null, label: 'L', comingSoon: true, status: 'PREVIEW' })).toBe('PREVIEW');
   });
 
-  it('isCapabilityVisible: SuperAdmin sees every capability status; every other role sees only ACTIVE', () => {
+  it('isCapabilityVisible: only ACTIVE is visible, for every role including SuperAdmin (Production Pilot policy)', () => {
     const comingSoonItem = { href: null, label: 'L', comingSoon: true } as const;
     const activeItem = { href: '/x', label: 'L' } as const;
 
@@ -163,12 +132,12 @@ describe('Navigation Visibility Rule (capability status + authorization, post-Fo
     expect(isCapabilityVisible(comingSoonItem, 'DealerUser')).toBe(false);
     expect(isCapabilityVisible(comingSoonItem, 'DealerAdmin')).toBe(false);
     expect(isCapabilityVisible(comingSoonItem, 'CentralAdmin')).toBe(false);
-    expect(isCapabilityVisible(comingSoonItem, 'SuperAdmin')).toBe(true);
+    expect(isCapabilityVisible(comingSoonItem, 'SuperAdmin')).toBe(false);
   });
 
-  it('hides every unfinished (non-ACTIVE) leaf completely for DealerUser, DealerAdmin, and CentralAdmin - never rendered as a disabled placeholder', () => {
-    for (const role of ['DealerUser', 'DealerAdmin', 'CentralAdmin'] as const) {
-      const groups = getNavGroups(t, session({ role, dealerId: role === 'CentralAdmin' ? null : 'D1' }));
+  it('no Coming Soon leaf appears anywhere in the nav tree, for any role, including SuperAdmin', () => {
+    for (const role of ['DealerUser', 'DealerAdmin', 'CentralAdmin', 'SuperAdmin'] as const) {
+      const groups = getNavGroups(t, session({ role, dealerId: role === 'CentralAdmin' || role === 'SuperAdmin' ? null : 'D1' }));
       for (const group of groups) {
         for (const item of group.items ?? []) {
           expect(item.comingSoon).not.toBe(true);
@@ -182,67 +151,23 @@ describe('Navigation Visibility Rule (capability status + authorization, post-Fo
     }
   });
 
-  it('SuperAdmin still sees every Coming Soon placeholder, unchanged from before this refinement', () => {
-    const groups = getNavGroups(t, superAdmin());
-    const comingSoonCount = groups
-      .flatMap((g) => [...(g.items ?? []), ...(g.subgroups ?? []).flatMap((s) => s.items)])
-      .filter((i) => i.comingSoon).length;
-    expect(comingSoonCount).toBeGreaterThan(0);
-  });
-
-  it('a group whose every item is a non-ACTIVE capability is hidden entirely for non-SuperAdmin - Engineering Intelligence (all 3 items Coming Soon)', () => {
-    const groups = getNavGroups(t, session({ role: 'DealerAdmin' }));
-    expect(groups.find((g) => g.key === 'engineering-intelligence')).toBeUndefined();
-
-    const superAdminGroups = getNavGroups(t, superAdmin());
-    expect(superAdminGroups.find((g) => g.key === 'engineering-intelligence')).toBeDefined();
-  });
-
-  it('a group whose every item is a non-ACTIVE capability is hidden entirely for non-SuperAdmin - Reports (all 4 items Coming Soon)', () => {
-    const groups = getNavGroups(t, session({ role: 'CentralAdmin', dealerId: null }));
-    expect(groups.find((g) => g.key === 'reports')).toBeUndefined();
-
-    const superAdminGroups = getNavGroups(t, superAdmin());
-    expect(superAdminGroups.find((g) => g.key === 'reports')).toBeDefined();
-  });
-
-  it('this is a generic status-driven rule, not a per-module special case - every remaining group for a non-SuperAdmin role has at least one ACTIVE leaf', () => {
-    const groups = getNavGroups(t, session({ role: 'DealerUser' }));
-    for (const group of groups) {
-      const items = group.items ?? [];
-      const subItems = (group.subgroups ?? []).flatMap((s) => s.items);
-      expect(items.length + subItems.length).toBeGreaterThan(0);
+  it('this is a generic status-driven rule, not a per-module special case - every remaining group for any role has at least one ACTIVE leaf', () => {
+    for (const role of ['DealerUser', 'DealerAdmin', 'CentralAdmin', 'SuperAdmin'] as const) {
+      const groups = getNavGroups(t, session({ role, dealerId: role === 'CentralAdmin' || role === 'SuperAdmin' ? null : 'D1' }));
+      for (const group of groups) {
+        const items = group.items ?? [];
+        const subItems = (group.subgroups ?? []).flatMap((s) => s.items);
+        expect(items.length + subItems.length).toBeGreaterThan(0);
+      }
     }
   });
 
-  it('Service keeps its real PM Records item but hides Warranty and the entire Campaigns subgroup (both fully Coming Soon) for non-SuperAdmin', () => {
-    const groups = getNavGroups(t, session({ role: 'DealerAdmin' }));
-    const service = groups.find((g) => g.key === 'service')!;
-    expect(service.items).toEqual([{ href: '/pm-records', label: 'nav.pmRecords' }]);
-    expect(service.subgroups).toBeUndefined();
-  });
-
-  it('Quality keeps its three real items (Dashboard, Cases, Knowledge) but hides Analytics/Troubleshooting (Coming Soon) for non-SuperAdmin', () => {
-    const groups = getNavGroups(t, session({ role: 'DealerUser' }));
-    const quality = groups.find((g) => g.key === 'quality')!;
-    expect(quality.items).toEqual([
-      { href: '/quality/dashboard', label: 'nav.qualityDashboard' },
-      { href: '/records', label: 'nav.qualityCases' },
-      { href: '/quality/knowledge', label: 'nav.qualityKnowledge' },
-    ]);
-  });
-
-  it('Administration hides Audit/Sessions/Settings (Coming Soon) from DealerAdmin/CentralAdmin but keeps them for SuperAdmin', () => {
-    const dealerAdmin = getNavGroups(t, session({ role: 'DealerAdmin' })).find((g) => g.key === 'administration')!;
-    expect(dealerAdmin.items!.some((i) => i.label === 'nav.adminAudit')).toBe(false);
-    expect(dealerAdmin.items!.some((i) => i.label === 'nav.adminSessions')).toBe(false);
-    expect(dealerAdmin.items!.some((i) => i.label === 'nav.adminSettings')).toBe(false);
-    expect(dealerAdmin.items!.some((i) => i.href === '/admin/users')).toBe(true);
-
+  it('Administration hides Audit/Sessions/Settings for every role, including SuperAdmin - none are scaffolded at all', () => {
     const superAdminGroups = getNavGroups(t, superAdmin()).find((g) => g.key === 'administration')!;
-    expect(superAdminGroups.items!.some((i) => i.label === 'nav.adminAudit')).toBe(true);
-    expect(superAdminGroups.items!.some((i) => i.label === 'nav.adminSessions')).toBe(true);
-    expect(superAdminGroups.items!.some((i) => i.label === 'nav.adminSettings')).toBe(true);
+    expect(superAdminGroups.items!.some((i) => i.label === 'nav.adminAudit')).toBe(false);
+    expect(superAdminGroups.items!.some((i) => i.label === 'nav.adminSessions')).toBe(false);
+    expect(superAdminGroups.items!.some((i) => i.label === 'nav.adminSettings')).toBe(false);
+    expect(superAdminGroups.items!.some((i) => i.href === '/admin/users')).toBe(true);
   });
 });
 
@@ -268,19 +193,17 @@ describe('flattenRealNavItems / findActiveNavItem', () => {
     expect(findActiveNavItem('/some-unmapped-path', flat)).toBeNull();
   });
 
-  it('Quality Inspection (Dashboard + Import Inspection) belongs exclusively to MSEAL (business-domain correction) - the whole group is hidden from Dealer roles, and no General Delivery Dashboard/Deliveries/Delivery Reports nav entries remain', () => {
+  it('Import & Inspection (Dashboard + Import Inspection) belongs exclusively to MSEAL (business-domain correction) - the whole group is hidden from Dealer roles', () => {
     const dealerGroups = getNavGroups(t, session({ role: 'DealerUser' }));
     expect(dealerGroups.find((g) => g.key === 'qualityInspection')).toBeUndefined();
-    expect(dealerGroups.find((g) => g.key === 'delivery')).toBeUndefined();
 
     const superAdminGroups = getNavGroups(t, superAdmin());
-    const qualityInspection = superAdminGroups.find((g) => g.key === 'qualityInspection')!;
-    expect(qualityInspection).toBeDefined();
-    expect(qualityInspection.items).toEqual([
+    const importInspection = superAdminGroups.find((g) => g.key === 'qualityInspection')!;
+    expect(importInspection).toBeDefined();
+    expect(importInspection.label).toBe('nav.importInspectionGroup');
+    expect(importInspection.items).toEqual([
       { href: '/delivery/pdi/dashboard', label: 'nav.qualityInspectionDashboard' },
       { href: '/delivery/pdi', label: 'nav.qualityInspectionImport' },
     ]);
-    const engineeringIntelligence = superAdminGroups.find((g) => g.key === 'engineering-intelligence')!;
-    expect(engineeringIntelligence.items!.some((i) => i.label.toLowerCase().includes('pdi') || i.label.toLowerCase().includes('delivery'))).toBe(false);
   });
 });

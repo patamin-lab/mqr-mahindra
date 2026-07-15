@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { createNtrService } from '@/features/ntr/factory';
+import { MasterDataService } from '@/shared/master-data';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import NtrEditForm from './NtrEditForm';
@@ -47,6 +48,26 @@ export default async function NtrEditPage({ params }: RouteParams) {
     );
   }
 
+  // Vehicle Master / Factory Domain display data - resolved here (same
+  // pattern the detail page already uses for branch/product family),
+  // never re-derived by the form itself. Branches are scoped to this
+  // record's own (fixed) dealer, since only Branch is editable here -
+  // Dealer itself never changes after an NTR is created.
+  const [dealer, productFamily, branches] = await Promise.all([
+    MasterDataService.getDealerById(record.dealer_id),
+    record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
+    MasterDataService.getBranchesForDealer(record.dealer_id),
+  ]);
+
+  const vehicleInfo = {
+    serial: record.serial,
+    engineNumber: record.engine_number,
+    productCode: null,
+    dealerLabel: dealer?.short_name ?? dealer?.full_name ?? record.dealer_id,
+    productFamilyName: productFamily?.name ?? null,
+    subModel: record.variant,
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -58,7 +79,7 @@ export default async function NtrEditPage({ params }: RouteParams) {
           </Link>
         }
       />
-      <NtrEditForm record={record} />
+      <NtrEditForm record={record} vehicleInfo={vehicleInfo} branches={branches} />
     </div>
   );
 }

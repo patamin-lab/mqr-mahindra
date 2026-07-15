@@ -21,10 +21,16 @@ describe('formatDateLocalized', () => {
 });
 
 describe('formatDateTimeLocalized', () => {
-  it('appends a 24h Bangkok-local time to the localized date', () => {
+  it('renders the Production Pilot Timestamp Standard (dd/MMM/yyyy hh:mm:ss a, Asia/Bangkok), regardless of locale', () => {
+    // 2026-07-01T10:15:00Z is 2026-07-01 17:15:00 in Bangkok (UTC+7).
     const th = formatDateTimeLocalized('2026-07-01T10:15:00Z', 'th');
     const en = formatDateTimeLocalized('2026-07-01T10:15:00Z', 'en');
-    expect(th).toBe('01 กรกฎาคม 2569 17:15');
-    expect(en).toBe('01 Jul 2026 17:15');
+    expect(th).toBe('01/Jul/2026 05:15:00 PM');
+    expect(en).toBe('01/Jul/2026 05:15:00 PM');
+  });
+
+  it('renders a morning (AM) timestamp with seconds and zero-padded hour', () => {
+    // 2026-07-15T02:45:18Z is 2026-07-15 09:45:18 in Bangkok (UTC+7).
+    expect(formatDateTimeLocalized('2026-07-15T02:45:18Z', 'en')).toBe('15/Jul/2026 09:45:18 AM');
   });
 });
