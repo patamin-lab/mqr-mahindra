@@ -6,6 +6,7 @@ import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanc
 import MaintenanceForm from '@/features/maintenance/components/maintenance-form';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import { AttachmentService } from '@/shared/attachments';
 
 const attachmentService = new AttachmentService();
@@ -37,9 +38,7 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
           }
         />
 
-        <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p>{t('pmDetail.notFound')}</p>
-        </div>
+        <EmptyState icon="🔍" title={t('pmDetail.notFound')} reason={t('pmDetail.notFoundReason')} nextStep={t('pmDetail.notFoundNextStep')} />
       </div>
     );
   }
@@ -57,9 +56,7 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
           }
         />
 
-        <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>{t('pmDetail.errorPrefix', { error: result.error })}</p>
-        </div>
+        <EmptyState icon="⚠️" title={t('pmEdit.title')} reason={t('pmDetail.errorPrefix', { error: result.error })} nextStep={t('pmDetail.errorNextStep')} />
       </div>
     );
   }
@@ -77,9 +74,7 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
           }
         />
 
-        <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>{t('pmDetail.unexpectedError')}</p>
-        </div>
+        <EmptyState icon="⚠️" title={t('pmEdit.title')} reason={t('pmDetail.unexpectedError')} nextStep={t('pmDetail.unexpectedErrorNextStep')} />
       </div>
     );
   }

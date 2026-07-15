@@ -215,7 +215,7 @@ export default async function RecordsPage({
                 <td className="px-4 py-3">
                   {r.model ?? '-'}{' '}
                   {r.serial ? (
-                    <Link href={`/vehicles/${encodeURIComponent(r.serial)}`} className="text-gray-400 hover:text-brand-red hover:underline">
+                    <Link href={`/machines/${encodeURIComponent(r.serial)}`} className="text-gray-400 hover:text-brand-red hover:underline">
                       ({r.serial})
                     </Link>
                   ) : (

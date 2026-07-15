@@ -10,6 +10,7 @@ import MaintenanceGpsDetail from '@/features/maintenance/components/maintenance-
 import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import AttachmentGallery, { AttachmentGalleryItem } from '@/components/shared/attachments/AttachmentGallery';
 import DetailRow from '@/components/shared/layout/DetailRow';
 import { AttachmentService } from '@/shared/attachments';
@@ -41,9 +42,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           }
         />
 
-        <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p>{t('pmDetail.notFound')}</p>
-        </div>
+        <EmptyState icon="🔍" title={t('pmDetail.notFound')} reason={t('pmDetail.notFoundReason')} nextStep={t('pmDetail.notFoundNextStep')} />
       </div>
     );
   }
@@ -61,9 +60,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           }
         />
 
-        <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>{t('pmDetail.errorPrefix', { error: result.error })}</p>
-        </div>
+        <EmptyState icon="⚠️" title={t('pmDetail.title')} reason={t('pmDetail.errorPrefix', { error: result.error })} nextStep={t('pmDetail.errorNextStep')} />
       </div>
     );
   }
@@ -81,9 +78,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           }
         />
 
-        <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>{t('pmDetail.unexpectedError')}</p>
-        </div>
+        <EmptyState icon="⚠️" title={t('pmDetail.title')} reason={t('pmDetail.unexpectedError')} nextStep={t('pmDetail.unexpectedErrorNextStep')} />
       </div>
     );
   }
@@ -163,7 +158,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
               {record.serial ?? 'N/A'}
               {record.serial && (
                 <Link
-                  href={`/vehicles/${encodeURIComponent(record.serial)}`}
+                  href={`/machines/${encodeURIComponent(record.serial)}`}
                   className="ml-2 text-xs text-brand-red hover:underline"
                 >
                   {t('pmDetail.viewVehicle360')}

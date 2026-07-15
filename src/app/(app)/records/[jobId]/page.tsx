@@ -158,7 +158,7 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             {record.model ?? '-'} ({record.serial ?? '-'})
             {record.serial && (
               <Link
-                href={`/vehicles/${encodeURIComponent(record.serial)}`}
+                href={`/machines/${encodeURIComponent(record.serial)}`}
                 className="ml-2 text-xs text-brand-red hover:underline print:hidden"
               >
                 {t('pmDetail.viewVehicle360')}

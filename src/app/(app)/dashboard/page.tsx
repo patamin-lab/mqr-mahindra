@@ -9,7 +9,6 @@ import Card from '@/components/shared/layout/Card';
 import KpiCard from '@/components/shared/dashboard/KpiCard';
 import QuickActionCard from '@/components/shared/dashboard/QuickActionCard';
 import HealthCard, { HealthStatus } from '@/components/shared/dashboard/HealthCard';
-import EmptyState from '@/components/shared/layout/EmptyState';
 import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTimeline';
 import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import Link from 'next/link';
@@ -24,15 +23,20 @@ import Link from 'next/link';
  *
  * Dashboard Philosophy: a dashboard is a decision center, not a statistics
  * page - every widget here either answers "what should I do next" (Quick
- * Actions) or is a real number backed by a real query. Widgets with no real
- * data source yet (Active Warranty, Open PM, Service Campaigns - PIP lives
- * under Engineering Intelligence, see `navConfig.ts` - none of Warranty/
- * PM-due aggregation/Service Campaign exist as queryable data today, see
- * `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`'s Gap Analysis) render as a
- * named, explained Coming Soon `EmptyState` rather than a fabricated "0" or
- * a silent omission. Recall itself was removed as a nav/dashboard concept
- * entirely (UI Terminology & Navigation Cleanup) - no Recall module/data
- * exists and it had no distinct destination from Service Campaigns.
+ * Actions) or is a real number backed by a real query.
+ *
+ * Production Pilot (2026-07-15): the "Reserved for domains with no real
+ * data source yet" Coming Soon section (Active Warranty/Open PM/Service
+ * Campaign `EmptyState` tiles) was removed - it contradicted this
+ * platform's own Production Pilot policy, already applied to the sidebar
+ * nav in PR #60 ("Production Pilot exposes only completed workflows...
+ * an unfinished capability is hidden completely, never shown disabled").
+ * Showing three permanently-disabled tiles to every role, including
+ * SuperAdmin, on the single most-visited page was the one place that
+ * policy wasn't actually applied. The underlying gap (no Warranty/PM-due/
+ * Service Campaign data source exists yet) is unchanged and still
+ * tracked in `docs/architecture/MSEAL_DESIGN_FRAMEWORK.md`'s Gap
+ * Analysis - only the always-visible placeholder was removed.
  *
  * "Today's Activities" (ADR-023 refinement) reuses the same
  * `<ActivityTimeline>` platform standard every module's own record detail
@@ -92,7 +96,7 @@ export default async function PlatformOverviewPage() {
           <KpiCard
             label={t('dashboard.registeredMachines')}
             value={registeredMachines}
-            action={<Link href="/vehicles" className="text-brand-red hover:underline">{t('dashboard.viewMachineRegistry')} →</Link>}
+            action={<Link href="/machines" className="text-brand-red hover:underline">{t('dashboard.viewMachineRegistry')} →</Link>}
           />
           <KpiCard
             label={t('dashboard.openQualityCases')}
@@ -124,7 +128,7 @@ export default async function PlatformOverviewPage() {
         <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.quickActions')}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <QuickActionCard icon="📝" label={t('dashboard.registerNewTractor')} description={t('dashboard.startNewTractorRegistration')} href="/ntr" />
-          <QuickActionCard icon="🚜" label={t('dashboard.machineRegistry')} description={t('dashboard.searchMachinesBySerialModel')} href="/vehicles" />
+          <QuickActionCard icon="🚜" label={t('dashboard.machineRegistry')} description={t('dashboard.searchMachinesBySerialModel')} href="/machines" />
           <QuickActionCard icon="⚠️" label={t('dashboard.qualityCasesAction')} description={t('dashboard.reviewOpenQualityCases')} href="/records" />
           {canSeeImports && (
             <QuickActionCard icon="📥" label={t('dashboard.legacyImport')} description={t('dashboard.importHistoricalNtrData')} href="/admin/legacy-import" />
@@ -141,34 +145,6 @@ export default async function PlatformOverviewPage() {
           </Card>
         </div>
       )}
-
-      {/* ---------- Reserved for domains with no real data source yet ---------- */}
-      <div>
-        <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.comingSoonTitle')}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <EmptyState
-            icon="🛡️"
-            title={t('dashboard.activeWarrantyTitle')}
-            reason={t('dashboard.activeWarrantyReason')}
-            nextStep={t('dashboard.activeWarrantyNextStep')}
-            comingSoon
-          />
-          <EmptyState
-            icon="🔧"
-            title={t('dashboard.openPmTitle')}
-            reason={t('dashboard.openPmReason')}
-            nextStep={t('dashboard.openPmNextStep')}
-            comingSoon
-          />
-          <EmptyState
-            icon="📢"
-            title={t('dashboard.serviceCampaignsTitle')}
-            reason={t('dashboard.serviceCampaignsReason')}
-            nextStep={t('dashboard.serviceCampaignsNextStep')}
-            comingSoon
-          />
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { canManageLegacyImport } from '@/lib/scope';
 import { t } from '@/lib/i18n/server';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import LegacyImportTool from '@/features/ntr/components/legacy-import-tool';
 
 export const dynamic = 'force-dynamic';
@@ -17,9 +18,12 @@ export default async function LegacyImportPage() {
 
   if (!canManageLegacyImport(session.role)) {
     return (
-      <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-        <p>{t('validation.unauthorizedLegacyImport')}</p>
-      </div>
+      <EmptyState
+        icon="🔒"
+        title={t('importHistory.unauthorizedTitle')}
+        reason={t('validation.unauthorizedLegacyImport')}
+        nextStep={t('importHistory.unauthorizedNextStep')}
+      />
     );
   }
 

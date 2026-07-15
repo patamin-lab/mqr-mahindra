@@ -5,6 +5,7 @@ import { createNtrService } from '@/features/ntr/factory';
 import { MasterDataService } from '@/shared/master-data';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import NtrEditForm from './NtrEditForm';
 
 interface RouteParams {
@@ -30,9 +31,7 @@ export default async function NtrEditPage({ params }: RouteParams) {
     return (
       <div className="space-y-4">
         <PageHeader title={t('ntr.editTitle')} />
-        <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p>{t('ntr.notFound')}</p>
-        </div>
+        <EmptyState icon="🔍" title={t('ntr.notFound')} reason={t('ntr.notFoundReason')} nextStep={t('ntr.notFoundNextStep')} />
       </div>
     );
   }
@@ -41,9 +40,7 @@ export default async function NtrEditPage({ params }: RouteParams) {
     return (
       <div className="space-y-4">
         <PageHeader title={t('ntr.editTitle')} />
-        <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>{t('validation.unauthorizedRecordAccess')}</p>
-        </div>
+        <EmptyState icon="🔒" title={t('ntr.unauthorizedTitle')} reason={t('validation.unauthorizedRecordAccess')} nextStep={t('ntr.unauthorizedNextStep')} />
       </div>
     );
   }

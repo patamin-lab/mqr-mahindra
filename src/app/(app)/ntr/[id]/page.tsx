@@ -15,6 +15,7 @@ import { t, getServerLocale } from '@/lib/i18n/server';
 import { APP_NAME, APP_VERSION } from '@/lib/branding';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import StatusPill from '@/components/shared/status/StatusPill';
 import AttachmentGallery, { AttachmentGalleryItem } from '@/components/shared/attachments/AttachmentGallery';
 import DetailRow from '@/components/shared/layout/DetailRow';
@@ -70,9 +71,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
             </Link>
           }
         />
-        <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p>{t('ntr.notFound')}</p>
-        </div>
+        <EmptyState icon="🔍" title={t('ntr.notFound')} reason={t('ntr.notFoundReason')} nextStep={t('ntr.notFoundNextStep')} />
       </div>
     );
   }
@@ -83,9 +82,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
     return (
       <div className="space-y-4">
         <PageHeader title={t('ntr.detailTitle')} />
-        <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-          <p>{t('validation.unauthorizedRecordAccess')}</p>
-        </div>
+        <EmptyState icon="🔒" title={t('ntr.unauthorizedTitle')} reason={t('validation.unauthorizedRecordAccess')} nextStep={t('ntr.unauthorizedNextStep')} />
       </div>
     );
   }
@@ -205,7 +202,7 @@ export default async function NtrDetailPage({ params }: RouteParams) {
             <p className="text-xs uppercase tracking-wide text-gray-500">{t('common.serial')}</p>
             <p className="mt-1 text-sm text-gray-900">
               {record.serial}
-              <Link href={`/vehicles/${encodeURIComponent(record.serial)}`} className="ml-2 text-xs text-brand-red hover:underline">
+              <Link href={`/machines/${encodeURIComponent(record.serial)}`} className="ml-2 text-xs text-brand-red hover:underline">
                 {t('pmDetail.viewVehicle360')}
               </Link>
             </p>

@@ -28,9 +28,12 @@ export default async function ImportHistoryPage() {
 
   if (!canManageLegacyImport(session.role)) {
     return (
-      <div className="rounded border border-red-200 bg-red-50 p-6 text-red-700">
-        <p>{t('validation.unauthorizedLegacyImport')}</p>
-      </div>
+      <EmptyState
+        icon="🔒"
+        title={t('importHistory.unauthorizedTitle')}
+        reason={t('validation.unauthorizedLegacyImport')}
+        nextStep={t('importHistory.unauthorizedNextStep')}
+      />
     );
   }
 
@@ -43,8 +46,8 @@ export default async function ImportHistoryPage() {
       {sessions.length === 0 ? (
         <EmptyState
           title={t('common.notFound')}
-          reason="No import has been run yet."
-          nextStep="Run a Legacy Import from Machines > Legacy Import to see history here."
+          reason={t('importHistory.emptyReason')}
+          nextStep={t('importHistory.emptyNextStep')}
         />
       ) : (
         <div className="rounded border border-gray-200 bg-white p-4 shadow-sm">

@@ -7,6 +7,7 @@ import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Skeleton from '@/components/shared/layout/Skeleton';
+import EmptyState from '@/components/shared/layout/EmptyState';
 import MachineNextActionPanel from '@/features/machine/components/MachineNextActionPanel';
 import MachineIdentityPanel from '@/features/machine/components/MachineIdentityPanel';
 import MachineLifecyclePanel from '@/features/machine/components/MachineLifecyclePanel';
@@ -108,11 +109,12 @@ export default async function MachinePassportPage({ params }: RouteParams) {
             </Link>
           }
         />
-        <div className="rounded border border-yellow-200 bg-yellow-50 p-6 text-yellow-800">
-          <p className="font-semibold">{t('machinePassport.notFoundTitle')}</p>
-          <p className="text-sm">{t('machinePassport.notFoundReason')}</p>
-          <p className="text-sm">{t('machinePassport.notFoundNextStep')}</p>
-        </div>
+        <EmptyState
+          icon="🔍"
+          title={t('machinePassport.notFoundTitle')}
+          reason={t('machinePassport.notFoundReason')}
+          nextStep={t('machinePassport.notFoundNextStep')}
+        />
       </div>
     );
   }
