@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { SessionUser } from '@/lib/types';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import { APP_NAME } from '@/lib/branding';
-import { getNavGroups, effectiveStatus, NavItem } from './navConfig';
+import { getNavGroups, effectiveStatus, flattenRealNavItems, findActiveNavItem, NavItem } from './navConfig';
 
 export interface SidebarProps {
   session: SessionUser;
@@ -18,6 +18,13 @@ export default function Sidebar({ session, open, onClose }: SidebarProps) {
   const { t } = useTranslation();
 
   const groups = getNavGroups(t, session);
+  // Single source of truth with PlatformHeader's own breadcrumb lookup -
+  // picks the one most-specific matching route so sibling items whose
+  // hrefs happen to be path-prefixes of each other (e.g. Incoming PDI
+  // `/delivery/pdi` and Dashboard MSEAL PDI `/delivery/pdi/dashboard`)
+  // never both highlight at once (see `findActiveNavItem`'s own doc
+  // comment).
+  const activeHref = findActiveNavItem(pathname, flattenRealNavItems(groups))?.href ?? null;
 
   function NavLink(item: NavItem) {
     const { href, icon, label } = item;
@@ -42,7 +49,7 @@ export default function Sidebar({ session, open, onClose }: SidebarProps) {
         </div>
       );
     }
-    const active = pathname === href || pathname.startsWith(href + '/');
+    const active = href === activeHref;
     return (
       <Link
         href={href}

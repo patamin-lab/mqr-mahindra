@@ -293,8 +293,19 @@ export function flattenRealNavItems(groups: NavGroup[]): NavItem[] {
 }
 
 /** Finds the nav entry whose `href` prefixes the current pathname - used
- *  by `PlatformHeader` to derive the module title/breadcrumb without a
- *  second, independently-maintained title list. */
+ *  by `PlatformHeader` to derive the module title/breadcrumb, and by
+ *  `Sidebar` to decide which single item to highlight, without either one
+ *  keeping its own independently-maintained matching logic.
+ *
+ *  Picks the *longest* matching `href`, not merely the first one in array
+ *  order: `/delivery/pdi` (Incoming PDI) and `/delivery/pdi/dashboard`
+ *  (Dashboard MSEAL PDI) are sibling nav items where one happens to be a
+ *  path-prefix of the other, so a pathname of `/delivery/pdi/dashboard`
+ *  matches both - only the longer, more specific one is the actual active
+ *  page. Every other route in this nav has no such sibling-prefix overlap,
+ *  so this changes nothing for them. */
 export function findActiveNavItem(pathname: string, items: NavItem[]): NavItem | null {
-  return items.find((item) => item.href && (pathname === item.href || pathname.startsWith(item.href + '/'))) ?? null;
+  const matches = items.filter((item): item is NavItem & { href: string } => !!item.href && (pathname === item.href || pathname.startsWith(item.href + '/')));
+  if (matches.length === 0) return null;
+  return matches.reduce((best, item) => (item.href.length > best.href.length ? item : best));
 }
