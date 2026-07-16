@@ -8,8 +8,8 @@ import Card from '@/components/shared/layout/Card';
 import KpiCard from '@/components/shared/dashboard/KpiCard';
 import QuickActionCard from '@/components/shared/dashboard/QuickActionCard';
 import HealthCard, { HealthStatus } from '@/components/shared/dashboard/HealthCard';
-import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTimeline';
-import { mapMixedAuditLogToActivityEvents, getActivityEntityHref } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import DashboardActivityTimelineSection from './activity-timeline-section';
 import Link from 'next/link';
 
 /**
@@ -148,7 +148,7 @@ export default async function PlatformOverviewPage() {
         <div>
           <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.todaysActivities')}</h2>
           <Card variant="flat" className="p-5">
-            <ActivityTimeline events={todaysActivityEvents} entityLabel="Record" getEntityHref={getActivityEntityHref} />
+            <DashboardActivityTimelineSection events={todaysActivityEvents} />
           </Card>
         </div>
       )}
