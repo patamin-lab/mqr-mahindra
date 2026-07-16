@@ -1,5 +1,15 @@
 # Roadmap
 
+**Retirement note (2026-07-16, ADR-038, Product Owner decision)**:
+Historical NTR Import (formerly "Legacy Import"), referenced throughout
+this document as an active/Production capability built via PR #36, is
+permanently retired. This document is not otherwise rewritten to reflect
+that (it already predates ADR-017 onward and is tracked as its own,
+separate rewrite/retirement debt - see `docs/architecture/PROJECT_STATE.md`'s
+"Known documentation gaps") - this note exists so a reader of the
+still-stale sections below doesn't mistake historical build history for
+current capability status.
+
 ## Release: Foundation v1.0
 
 **Foundation Freeze v1.0 declared 2026-07-12, extended to v1.1 on
@@ -296,7 +306,7 @@ recommends it, per Foundation Freeze v1.0's own scope.
 3. Identify risks.
 4. Open a PR.
 5. Run lint, typecheck, tests, production build, and architecture check.
-6. Never modify Legacy Import unless explicitly requested.
+6. ~~Never modify Legacy Import unless explicitly requested.~~ **Superseded**: Legacy Import (Historical NTR Import) is permanently retired by explicit Product Owner decision - ADR-038, 2026-07-16. This rule protected a feature that no longer exists.
 7. Never duplicate master data.
 8. Tractor IN remains the single source of truth.
 9. `vehicles` remains the application master.

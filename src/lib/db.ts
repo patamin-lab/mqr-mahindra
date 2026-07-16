@@ -1210,9 +1210,6 @@ export interface NtrTractorCreateInput {
   dealerId: string;
   branchId: string | null;
   deliveryDate: string | null;
-  /** Traceability metadata only, not business logic - set only by the
-   *  Legacy Import service (see docs/standards/SECURITY_STANDARD.md). */
-  importSessionId?: string | null;
 }
 
 /**
@@ -1235,7 +1232,7 @@ export async function createVehicleManual(input: NtrTractorCreateInput): Promise
       dealer_id: input.dealerId,
       branch_id: input.branchId,
       delivery_date: input.deliveryDate,
-      import_session_id: input.importSessionId ?? null,
+      import_session_id: null,
     })
     .select('*')
     .single();

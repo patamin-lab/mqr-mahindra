@@ -29,9 +29,9 @@ export class FetchJsonError extends Error {
  * navigation), but it can't attach a custom header - only same-origin
  * `fetch`/XHR can, and a cross-origin one would need a CORS preflight
  * this app never allows. `middleware.ts` rejects any mutating `/api/*`
- * request missing this header. The couple of call sites that bypass
- * `fetchJson` (logout, the NTR legacy-import upload) set it directly -
- * see `middleware.ts` for the enforcement side.
+ * request missing this header. The one call site that bypasses `fetchJson`
+ * (logout) sets it directly - see `middleware.ts` for the enforcement
+ * side.
  */
 export const CSRF_HEADER = 'x-mqr-csrf';
 export const CSRF_HEADER_VALUE = '1';

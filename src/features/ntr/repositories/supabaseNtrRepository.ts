@@ -10,7 +10,7 @@ import { applyScope } from '@/lib/db';
 import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import type { SessionUser } from '@/lib/types';
 import { MasterDataService } from '@/shared/master-data';
-import { NtrLegacyImportVehicleInput, NtrRepository } from './ntrRepository';
+import { NtrRepository } from './ntrRepository';
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 
 /** "In warranty" means `retail_date` within the general (non-powertrain)
@@ -57,27 +57,6 @@ export class SupabaseNtrRepository implements NtrRepository {
       .maybeSingle();
     if (error) throw error;
     return (data as NtrRecord) ?? null;
-  }
-
-  /** Chunked - `.in('serial', [...])` with thousands of distinct serials
-   *  in one request builds a URL long enough to hit "414 Request-URI Too
-   *  Large" in front of Supabase (confirmed via a live 10,000-row Legacy
-   *  Import UAT run). A small, fixed number of parallel chunked requests
-   *  instead of one per row (the defect this method was added to fix)
-   *  or one unbounded request (the regression this chunking then fixed). */
-  async findActiveBySerials(serials: string[]): Promise<Map<string, NtrRecord>> {
-    if (serials.length === 0) return new Map();
-    const chunkSize = 200;
-    const batches: string[][] = [];
-    for (let i = 0; i < serials.length; i += chunkSize) batches.push(serials.slice(i, i + chunkSize));
-    const results = await Promise.all(
-      batches.map(async (batch) => {
-        const { data, error } = await this.client.from(this.table).select('*').eq('record_status', 'Active').in('serial', batch);
-        if (error) throw error;
-        return data as NtrRecord[];
-      })
-    );
-    return new Map(results.flat().map((r) => [r.serial, r]));
   }
 
   /** Generates the business-facing NTR number NTR-[DealerCode]-[Year]-[Running]
@@ -304,56 +283,4 @@ export class SupabaseNtrRepository implements NtrRepository {
     return { data: (data ?? []) as NtrRecord[], total: count ?? 0 };
   }
 
-  /** Calls the `commit_ntr_legacy_import_row` Postgres function - one RPC
-   *  call is one Postgres transaction, so Tractor + NTR + Timeline + Audit
-   *  either all land together or none do (a raised exception, e.g. the
-   *  function's own duplicate-serial race check, rolls back everything
-   *  the call did). See docs/adr/ADR-008-Google-Drive-Decoupling.md. */
-  async commitLegacyImportRow(
-    sessionId: string,
-    vehicle: NtrLegacyImportVehicleInput,
-    ntr: NtrRecordCreateInput,
-    actor: { username: string }
-  ): Promise<NtrRecord> {
-    const { data, error } = await this.client.rpc('commit_ntr_legacy_import_row', {
-      p_session_id: sessionId,
-      p_vehicle: {
-        model: vehicle.model,
-        engine_number: vehicle.engineNumber,
-        branch_id: vehicle.branchId,
-        delivery_date: vehicle.deliveryDate,
-      },
-      p_ntr: {
-        dealer_id: ntr.dealer_id,
-        branch_id: ntr.branch_id,
-        serial: ntr.serial,
-        model: ntr.model,
-        engine_number: ntr.engine_number,
-        salesperson: ntr.salesperson,
-        receiving_person: ntr.receiving_person,
-        customer_title: ntr.customer_title,
-        customer_first_name: ntr.customer_first_name,
-        customer_last_name: ntr.customer_last_name,
-        customer_name: ntr.customer_name,
-        customer_phone: ntr.customer_phone,
-        customer_address: ntr.customer_address,
-        customer_subdistrict: ntr.customer_subdistrict,
-        customer_district: ntr.customer_district,
-        customer_province: ntr.customer_province,
-        customer_postal_code: ntr.customer_postal_code,
-        customer_type: ntr.customer_type,
-        product_family_id: ntr.product_family_id,
-        variant: ntr.variant,
-        retail_date: ntr.retail_date,
-        delivery_date: ntr.delivery_date,
-        pdi_date: ntr.pdi_date,
-        pdi_number: ntr.pdi_number,
-        manufacturing_year: ntr.manufacturing_year,
-        hour_meter: ntr.hour_meter,
-      },
-      p_actor: actor.username,
-    });
-    if (error) throw error;
-    return data as NtrRecord;
-  }
 }

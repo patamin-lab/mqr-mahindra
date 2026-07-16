@@ -1,6 +1,16 @@
 # Universal Import Framework
 
-`src/shared/import/` — the reusable Import Wizard framework every module's bulk/historical-data import is meant to use. NTR Legacy Import is the first, and today only, real consumer; every piece here is generic over a module's own `ImportContract`, with zero NTR-specific knowledge baked in. See `docs/adr/ADR-024-Universal-Import-Framework.md` for the original framework's rationale (renumbered from `ADR-009` by the Platform Governance Framework's ADR normalization pass - see that ADR's own note and `docs/adr/README.md`) and `docs/adr/ADR-022-Import-Platform-v2.md` for the four services added below.
+> **Note (2026-07-16, ADR-038)**: NTR Legacy Import - this framework's
+> first and, until now, only real consumer - is permanently retired
+> (Product Owner decision). The framework described below (`src/shared/
+> import/`) is **not** itself retired by that decision (a separate ADR-024/
+> ADR-022 architectural layer), but it currently has no adopter beyond
+> `TransformationLibrary.normalizeDate()` (used independently by
+> `TractorInSyncService`). Kept as platform infrastructure for a future
+> import module, flagged as technical debt, not deleted - see
+> `docs/adr/ADR-038-Historical-NTR-Import-Retirement.md`'s Scope section.
+
+`src/shared/import/` — the reusable Import Wizard framework every module's bulk/historical-data import is meant to use. NTR Legacy Import was the first, and until its retirement the only, real consumer; every piece here is generic over a module's own `ImportContract`, with zero NTR-specific knowledge baked in. See `docs/adr/ADR-024-Universal-Import-Framework.md` for the original framework's rationale (renumbered from `ADR-009` by the Platform Governance Framework's ADR normalization pass - see that ADR's own note and `docs/adr/README.md`) and `docs/adr/ADR-022-Import-Platform-v2.md` for the four services added below.
 
 ## Import Platform v2 additions (ADR-022)
 

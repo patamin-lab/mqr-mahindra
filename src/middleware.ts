@@ -4,12 +4,6 @@ import { CSRF_HEADER } from './lib/fetchJson';
 
 const SESSION_COOKIE = 'mqr_session';
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-// NTR Legacy Import is frozen - "never modify Legacy Import unless
-// explicitly requested" (root CLAUDE.md). Its upload/preview/commit calls
-// use a raw `fetch()` that predates this header; exempting its routes
-// here avoids touching that code at all, the same tradeoff this repo has
-// made for every other Legacy Import constraint.
-const CSRF_EXEMPT_API_PREFIXES = ['/api/ntr/import'];
 
 // Pages/routes reachable with NO session at all - the entry points into the
 // password-reset/invitation flows (Authentication Platform v3.0), plus the
@@ -97,7 +91,6 @@ export async function middleware(req: NextRequest) {
   if (
     pathname.startsWith('/api/') &&
     MUTATING_METHODS.has(req.method) &&
-    !matchesPrefix(pathname, CSRF_EXEMPT_API_PREFIXES) &&
     !req.headers.get(CSRF_HEADER)
   ) {
     return NextResponse.json({ ok: false, error: 'คำขอไม่ถูกต้อง (CSRF)' }, { status: 403 });

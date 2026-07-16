@@ -18,15 +18,6 @@ export const canDelete = (role: Role) => role === 'SuperAdmin' || role === 'Deal
 /** Dealer User cannot export. Dealer Admin export is scoped to their own dealer at the query level. */
 export const canExport = (role: Role) => role !== 'DealerUser';
 
-/** Legacy Import (NTR) - Super Administrator only, per spec: "Dealer users,
- *  Dealer Admin, Technician must never see this feature." Enforced here
- *  (server-side route check) and by hiding the nav entry entirely for
- *  every other role - the same two-layer pattern every other permission
- *  boundary in this app uses. This is intentionally an application-layer
- *  control, not an RLS control - see docs/standards/SECURITY_STANDARD.md
- *  §Application-layer authorization for why. */
-export const canManageLegacyImport = (role: Role) => role === 'SuperAdmin';
-
 /** Master-data / user management (Phase 2). */
 export const canManageUsers = (role: Role) => role !== 'DealerUser';
 export const canDeleteUsers = (role: Role) => role === 'SuperAdmin';

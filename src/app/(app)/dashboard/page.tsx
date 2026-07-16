@@ -1,7 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { countVehiclesForSession, countOpenQualityCases, getTractorInSyncHealth, listTodaysAuditLog } from '@/lib/db';
-import { createNtrImportService } from '@/features/ntr/factory';
-import { canManageLegacyImport, seesAllDealers } from '@/lib/scope';
+import { seesAllDealers } from '@/lib/scope';
 import { formatThaiDateTime } from '@/lib/thaiDate';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
@@ -49,30 +48,32 @@ import Link from 'next/link';
  * own dealer without an additional join this pass doesn't build - shown
  * only to roles that already see platform-wide data everywhere else on this
  * page, never unscoped-leaked to a role that shouldn't see it.
+ *
+ * Historical NTR Import (formerly Legacy Import) retirement (2026-07-16,
+ * Product Owner decision, ADR-038): this page's "Pending Imports" KPI and
+ * "Legacy Import" Quick Action - the platform's one entry point into that
+ * capability - are removed. Nothing else on this page changes.
  */
 export default async function PlatformOverviewPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const canSeeImports = canManageLegacyImport(session.role);
   const canSeeSystemHealth = seesAllDealers(session.role);
   const canSeeTodaysActivities = seesAllDealers(session.role);
 
-  // Promise.allSettled, not Promise.all: these five widgets are independent
-  // and each already renders its own "no data" fallback - one query failing
-  // (e.g. a transient DB error) must never take down the other four.
-  const [registeredMachinesResult, openQualityCasesResult, pendingImportsResult, syncHealthResult, todaysAuditLogResult] =
+  // Promise.allSettled, not Promise.all: these widgets are independent and
+  // each already renders its own "no data" fallback - one query failing
+  // (e.g. a transient DB error) must never take down the others.
+  const [registeredMachinesResult, openQualityCasesResult, syncHealthResult, todaysAuditLogResult] =
     await Promise.allSettled([
       countVehiclesForSession(session),
       countOpenQualityCases(session),
-      canSeeImports ? createNtrImportService().listSessions().then((rows) => rows.filter((r) => r.status === 'Pending').length) : Promise.resolve(null),
       canSeeSystemHealth ? getTractorInSyncHealth() : Promise.resolve(null),
       canSeeTodaysActivities ? listTodaysAuditLog() : Promise.resolve(null),
     ]);
 
   const registeredMachines = registeredMachinesResult.status === 'fulfilled' ? registeredMachinesResult.value : 0;
   const openQualityCases = openQualityCasesResult.status === 'fulfilled' ? openQualityCasesResult.value : 0;
-  const pendingImports = pendingImportsResult.status === 'fulfilled' ? pendingImportsResult.value : null;
   const syncHealth = syncHealthResult.status === 'fulfilled' ? syncHealthResult.value : null;
   const todaysAuditLog = todaysAuditLogResult.status === 'fulfilled' ? todaysAuditLogResult.value : null;
 
@@ -104,13 +105,6 @@ export default async function PlatformOverviewPage() {
             accent={openQualityCases > 0 ? 'text-brand-red' : 'text-brand-dark'}
             action={<Link href="/quality/dashboard" className="text-brand-red hover:underline">{t('dashboard.viewQualityDashboard')} →</Link>}
           />
-          {canSeeImports && (
-            <KpiCard
-              label={t('dashboard.pendingImports')}
-              value={pendingImports ?? 0}
-              action={<Link href="/admin/import-history" className="text-brand-red hover:underline">{t('dashboard.viewImportHistory')} →</Link>}
-            />
-          )}
           {canSeeSystemHealth && syncHealth && (
             <HealthCard
               label={t('dashboard.systemHealth')}
@@ -130,9 +124,6 @@ export default async function PlatformOverviewPage() {
           <QuickActionCard icon="📝" label={t('dashboard.registerNewTractor')} description={t('dashboard.startNewTractorRegistration')} href="/ntr" />
           <QuickActionCard icon="🚜" label={t('dashboard.machineRegistry')} description={t('dashboard.searchMachinesBySerialModel')} href="/machines" />
           <QuickActionCard icon="⚠️" label={t('dashboard.qualityCasesAction')} description={t('dashboard.reviewOpenQualityCases')} href="/records" />
-          {canSeeImports && (
-            <QuickActionCard icon="📥" label={t('dashboard.legacyImport')} description={t('dashboard.importHistoricalNtrData')} href="/admin/legacy-import" />
-          )}
         </div>
       </div>
 

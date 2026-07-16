@@ -51,7 +51,7 @@
  * server-side regardless of what the nav shows.
  */
 import { SessionUser } from '@/lib/types';
-import { canManageMasterData, canManageLegacyImport, canManageEmailHealth, canManageUsers, seesAllDealers, canAccessImportInspection } from '@/lib/scope';
+import { canManageMasterData, canManageEmailHealth, canManageUsers, seesAllDealers, canAccessImportInspection } from '@/lib/scope';
 import type { TranslationVars } from '@/lib/i18n/types';
 
 /**
@@ -250,15 +250,13 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
   // Audit/Sessions/Settings have no real page yet - named, real gaps
   // (not scaffolded as inert Coming Soon placeholders here, Production
   // Pilot hides them regardless of role - same reasoning as every other
-  // removed placeholder above). Legacy Import's nav entry is removed
-  // entirely for Production Pilot (the underlying `/admin/legacy-import`
-  // route and Import History still work, reachable directly - historical
-  // data migration is a one-time admin action, not part of the Pilot's
-  // day-to-day nav).
+  // removed placeholder above). Historical NTR Import (formerly Legacy
+  // Import) and Import History are permanently retired (Product Owner
+  // decision, ADR-038, 2026-07-16) - no nav entry, no route, no code path
+  // of any kind, not merely hidden for Production Pilot.
   const isAdminRole = canManageUsers(session.role);
   const adminItems: NavItem[] = [
     ...(isAdminRole ? [{ href: '/admin/users', icon: '👥', label: t('nav.adminUsers') }] : []),
-    ...(canManageLegacyImport(session.role) ? [{ href: '/admin/import-history', label: t('nav.adminImportHistory') }] : []),
     ...(canManageEmailHealth(session.role) ? [{ href: '/admin/email-health', label: t('nav.adminEmailHealth') }] : []),
   ];
 

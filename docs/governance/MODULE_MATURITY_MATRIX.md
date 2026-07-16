@@ -19,6 +19,7 @@ two sources rather than re-deriving status from scratch.
 | **Partial** | Some real code/data exists, but the domain is not fully realized (e.g. a capability named but no dedicated table, or wired for only one module) |
 | **Design-only** | Architecture/governance documentation exists, no schema or running code |
 | **Not started** | Not named anywhere as buildable yet, or named only as a future capability with zero design detail |
+| **Retired** | Was built and in real use, deliberately removed by an explicit decision (Product Owner or ADR) - no code path remains; distinct from "Not started," which never existed |
 
 ## Matrix
 
@@ -44,8 +45,8 @@ two sources rather than re-deriving status from scratch.
 | PIP (as an Engineering Intelligence deliverable) | Not started | No table; ownership assigned by ADR-023's addendum, nothing built |
 | Recall | Not started | Not named in 02/17 at all; first named in this governance framework |
 | Reports / Analytics | Partial | Quality Dashboard (`/quality/dashboard`) is real and built; cross-domain Reports nav (ADR-023, proposed) is Coming Soon everywhere else |
-| Administration | Production | Users/Master Data screens/Import History/System Health all built |
-| Import Platform | Production (v1, NTR), Proposed (v2 extensions) | ADR-024 (Universal Import Framework, this pass's renumbering) built and NTR-adopted; ADR-022 (Import Platform v2, proposed PR #36) extends it, not yet merged |
+| Administration | Production | Users/Master Data screens/System Health all built. Import History retired alongside Historical NTR Import (ADR-038, 2026-07-16) |
+| Import Platform | **Retired** (v1, NTR), Proposed (v2 extensions, framework only) | ADR-024 (Universal Import Framework)'s only real adopter, NTR's Historical Import, is permanently retired (ADR-038, 2026-07-16, Product Owner decision) - `/api/ntr/import/*`, the wizard, and the service layer are deleted. The framework itself (`src/shared/import/`) is not retired, now unconsumed except `TransformationLibrary.normalizeDate()`; ADR-022 (Import Platform v2, proposed PR #36) would extend it for a future module, not yet merged |
 | Timeline | Production (both feeds) | Two distinct, intentionally separate implementations, both live: Machine Lifecycle (`vehicle_events` + per-module `VehicleEventSource`, coarse milestones on Vehicle 360) and Activity Timeline (`shared/activity-timeline/`, field-level, now used by MQR/PM/NTR/Inspection/Delivery/Knowledge's own record-detail pages plus Machine Passport's aggregated feed) - see `V3_FOUNDATION_HARDENING_AUDIT.md` §5 |
 | Notifications | Not started | `NotificationBell` is a static placeholder with zero backing service (`DOMAIN_OWNERSHIP_MATRIX.md`) |
 | MSEAL Design Framework (governance-adjacent, not a domain) | Proposed | ADR-023, open PR #37, pre-merge refinement already applied on that branch |

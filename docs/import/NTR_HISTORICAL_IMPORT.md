@@ -1,7 +1,15 @@
 # NTR Historical Import Framework
 
-> **Status: Foundation (feature-frozen), reaffirmed as of MASP Platform
-> Foundation v1.1.0** (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`;
+> **RETIRED (2026-07-16, ADR-038, Product Owner decision).** Historical
+> NTR Import (formerly "Legacy Import") is permanently retired - no route,
+> page, API, or code path described below still exists. This document is
+> kept as historical record of how existing, already-imported `ntr_records`
+> data got into the system, not as active documentation. See
+> `docs/adr/ADR-038-Historical-NTR-Import-Retirement.md`.
+>
+> **Superseded status line (kept for history, no longer current):**
+> Status: Foundation (feature-frozen), reaffirmed as of MASP Platform
+> Foundation v1.1.0 (`docs/releases/MASP_PLATFORM_FOUNDATION_V1.1.md`;
 > originally frozen at v1.0.0, see `docs/releases/archive/`). Further
 > work on this framework is bug fixes and security hardening only, not
 > new capability, until an explicit future decision reopens it.

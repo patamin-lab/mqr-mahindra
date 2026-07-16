@@ -23,10 +23,24 @@ Architecture Standards, ADRs, and Design Framework per
 
 ## Current milestone
 
-None open. This section previously described the Documentation Cleanup
-PR (#61) as "not yet merged" for two PRs' worth of history after it
-actually merged (2026-07-15) - stale self-referential text, corrected
-here while investigating Production Pilot blockers, not a new decision.
+**Open, not yet merged**: **Historical NTR Import Retirement** (ADR-038,
+2026-07-16, Product Owner decision) - permanently retires Historical NTR
+Import (formerly "Legacy Import") and Import History. Removes the
+Dashboard Quick Action/KPI, both admin pages, the entire `/api/ntr/import/*`
+API surface, the import wizard/service/repository code, the
+`canManageLegacyImport` permission, and all associated translations/tests.
+Does not touch existing `ntr_records` data, `source`/`import_session_id`
+provenance fields, or the Universal Import Framework (`src/shared/import/`,
+a separate ADR-024 layer, now unconsumed but not itself retired). See
+`docs/adr/ADR-038-Historical-NTR-Import-Retirement.md` for full scope.
+
+This section previously described the Documentation Cleanup PR (#61) as
+"not yet merged" for two PRs' worth of history after it actually merged
+(2026-07-15) - stale self-referential text, corrected at the time, not a
+new decision. Note: this document's own "Recent history" table and
+"Domain ownership" section are known to predate several since-merged PRs
+(#64-#68, a consistency-sweep series) - not caught up here, out of this
+retirement task's scope; flagged again under Known documentation gaps.
 
 **Last shipped**: **Factory PDI Status integration** (PR #63, squash
 commit `18a5237`, 2026-07-15; doc-consistency follow-up `fb2a4d6`) -
@@ -233,12 +247,15 @@ process, never a routine PR.
 `docs/adr/README.md` is canonical - this section was stale (said
 "ADR-001 through ADR-032, next ADR-033" for two PRs' worth of history
 after ADR-033 through ADR-037 landed); corrected here, not re-derived
-independently of the canonical index. ADR-001 through ADR-037 exist;
-**next available number: ADR-038**. ADR-015/016/019/020 remain reserved
+independently of the canonical index. ADR-001 through ADR-038 exist;
+**next available number: ADR-039**. ADR-015/016/019/020 remain reserved
 (Machine Domain v2, Event Model, Engineering Intelligence, Analytics
 Domain - Inspection/017 and Knowledge/018 already consumed their
 reservations; 021's reservation was reconciled against ADR-026, which
-actually consumed it, during the Documentation Cleanup pass).
+actually consumed it, during the Documentation Cleanup pass). ADR-038
+(Historical NTR Import Retirement, 2026-07-16) is a Product Owner
+decision superseding ADR-008/024's Production-status framing of that
+feature - see ADR-038 itself for full scope.
 
 ## Domain ownership (current, per ADR-032 audit)
 
@@ -277,6 +294,11 @@ changed since).
 
 ## Known documentation gaps (not fixed this pass)
 
+- **This document's "Recent history" table and "Last shipped" narrative
+  predate PRs #64-#68** (a consistency-sweep series: shared components/
+  validators/formatters/empty states, then three API error-response-helper
+  tranches) - not caught up during the Historical NTR Import Retirement
+  pass (ADR-038); out of that task's scope.
 - **PR #57/#58/#59 remain open**, unactioned, despite being recommended
   for closure (as superseded by PR #61) twice now - a real, cheap
   cleanup action still not taken.

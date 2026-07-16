@@ -185,7 +185,6 @@
     "pmRecords": "Preventive Maintenance",
     "ntrRecords": "New Tractor Registration",
     "newTractorRegistration": "Register New Tractor",
-    "legacyImport": "Legacy Import",
     "vehicle360": "Vehicle 360",
     "adminDealers": "Dealers",
     "adminBranches": "Branches",
@@ -214,7 +213,6 @@
     "qualityCases": "รายงานปัญหาคุณภาพ",
     "qualityKnowledge": "องค์ความรู้",
     "administrationGroup": "Administration",
-    "adminImportHistory": "Import History",
     "comingSoon": "Coming Soon"
   },
   "dashboard": {
@@ -225,8 +223,6 @@
     "viewMachineRegistry": "View Machine Registry",
     "openQualityCases": "รายงานปัญหาคุณภาพที่เปิดอยู่",
     "viewQualityDashboard": "View Quality Dashboard",
-    "pendingImports": "Pending Imports",
-    "viewImportHistory": "View Import History",
     "systemHealth": "System Health (Vehicle Master sync)",
     "neverRun": "Never run",
     "machinesSynced": "{count} machines synced",
@@ -237,8 +233,6 @@
     "searchMachinesBySerialModel": "Search machines by serial/model",
     "qualityCasesAction": "รายงานปัญหาคุณภาพ",
     "reviewOpenQualityCases": "ตรวจสอบรายงานปัญหาคุณภาพที่เปิดอยู่",
-    "legacyImport": "Legacy Import",
-    "importHistoricalNtrData": "Import historical NTR data",
     "todaysActivities": "Today's Activities",
     "comingSoonTitle": "Coming Soon",
     "activeWarrantyTitle": "Active Warranty",
@@ -531,11 +525,7 @@
     "uploadCustomerIdPhoto": "Please upload a photo of the customer's ID card.",
     "uploadSerialPlatePhoto": "Please upload a photo of the serial number plate.",
     "uploadSignedDocumentPhoto": "Please upload a photo of the signed delivery document.",
-    "tractorAlreadyRegistered": "This tractor is already registered (NTR {ntrNumber}).",
-    "unauthorizedLegacyImport": "You do not have permission to use the Legacy Import tool.",
-    "importFileRequired": "Please upload an import file.",
-    "importFileUnreadable": "This file could not be read. Please check it is a valid .xlsx or .csv file and try again.",
-    "importSessionNotFound": "This import session was not found."
+    "tractorAlreadyRegistered": "This tractor is already registered (NTR {ntrNumber})."
   },
   "pdf": {
     "mqrTitle": "Market Quality Report",
@@ -908,11 +898,5 @@
     "ReleasedToDealer": "Released to Dealer",
     "WarrantyActivated": "Warranty Activated",
     "Other": "Other"
-  },
-  "importHistory": {
-    "emptyReason": "No import has been run yet.",
-    "emptyNextStep": "Run a Legacy Import from the Dashboard's Legacy Import quick action to see history here.",
-    "unauthorizedTitle": "Access restricted",
-    "unauthorizedNextStep": "Contact a Super Administrator if you need historical NTR import data."
   }
 }

@@ -1,12 +1,13 @@
 /**
  * NTR post-create Warranty/vehicle/PM orchestration (ADR-028, business-
  * domain correction) — everything that must happen once an NTR record
- * exists, regardless of which of the two NTR-creation paths produced it
- * (the manual `/api/ntr-records` route, or Legacy Import's
- * `commitLegacyImportRow`). Extracted here so both callers run the exact
- * same logic instead of duplicating it. NTR is the ownership-transfer
- * event and the sole legitimate trigger for Warranty Activation (never
- * manual) and for the PM schedule being proactively resolved.
+ * exists. Historically shared by two NTR-creation paths - the manual
+ * `/api/ntr-records` route, and (until its retirement, ADR-038,
+ * 2026-07-16) Historical NTR Import's `commitLegacyImportRow` - so both
+ * callers ran the exact same logic instead of duplicating it; only the
+ * manual route remains today. NTR is the ownership-transfer event and the
+ * sole legitimate trigger for Warranty Activation (never manual) and for
+ * the PM schedule being proactively resolved.
  *
  * Non-blocking by design: an NTR record must never fail to exist because
  * this orchestration failed - every step below is best-effort, logged on
