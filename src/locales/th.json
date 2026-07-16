@@ -222,7 +222,7 @@
     "registeredMachines": "เครื่องจักรที่ลงทะเบียน",
     "viewMachineRegistry": "ดูทะเบียนเครื่องจักร",
     "openQualityCases": "รายงานปัญหาคุณภาพที่เปิดอยู่",
-    "viewQualityDashboard": "ดูแดชบอร์ดคุณภาพ",
+    "viewOpenQualityCases": "ดูรายงานปัญหาคุณภาพที่เปิดอยู่",
     "systemHealth": "สถานะระบบ (การซิงค์ข้อมูลเครื่องจักรหลัก)",
     "neverRun": "ยังไม่เคยทำงาน",
     "machinesSynced": "ซิงค์แล้ว {count} เครื่อง",

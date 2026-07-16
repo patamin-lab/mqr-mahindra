@@ -45,9 +45,17 @@ export interface ActivityTimelineProps {
    *  (or does nothing, if it has no matching section); the component only
    *  ever emits the generic target key. */
   onNavigate?: (target: NonNullable<ActivityEvent['navigationTarget']>) => void;
+  /** Additive, like `onNavigate` - a cross-module feed (Platform Overview's
+   *  "Today's Activities") passes this so each row links out to the record
+   *  it's actually about (see `getActivityEntityHref` in
+   *  `mapAuditLogToActivityEvents.ts`). A single-record page's own timeline
+   *  omits it - that page already *is* the record, a self-link would be a
+   *  no-op link, not a fix. Returning `null`/undefined renders no link for
+   *  that event, same as omitting the prop entirely. */
+  getEntityHref?: (event: ActivityEvent) => string | null | undefined;
 }
 
-export default function ActivityTimeline({ events, entityLabel, onNavigate }: ActivityTimelineProps) {
+export default function ActivityTimeline({ events, entityLabel, onNavigate, getEntityHref }: ActivityTimelineProps) {
   const { t, locale } = useTranslation();
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [query, setQuery] = useState('');
@@ -128,6 +136,7 @@ export default function ActivityTimeline({ events, entityLabel, onNavigate }: Ac
               t={t}
               formattedDate={formatDateTimeLocalized(event.timestamp, locale)}
               onNavigate={onNavigate}
+              getEntityHref={getEntityHref}
             />
           ))}
         </ol>

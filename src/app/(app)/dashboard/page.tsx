@@ -9,7 +9,7 @@ import KpiCard from '@/components/shared/dashboard/KpiCard';
 import QuickActionCard from '@/components/shared/dashboard/QuickActionCard';
 import HealthCard, { HealthStatus } from '@/components/shared/dashboard/HealthCard';
 import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTimeline';
-import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import { mapMixedAuditLogToActivityEvents, getActivityEntityHref } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import Link from 'next/link';
 
 /**
@@ -53,6 +53,22 @@ import Link from 'next/link';
  * Product Owner decision, ADR-038): this page's "Pending Imports" KPI and
  * "Legacy Import" Quick Action - the platform's one entry point into that
  * capability - are removed. Nothing else on this page changes.
+ *
+ * Zero-Compromise UI Review (2026-07-16): four "no dead-end card"/"reduce
+ * clicks" fixes - (1) both widget rows now grid to their real, fixed item
+ * count (`lg:grid-cols-3` - Primary KPIs never exceeds 3, Quick Actions is
+ * exactly 3) instead of `lg:grid-cols-4`, which always left an empty
+ * trailing cell on desktop; (2) "Open Quality Cases" now links straight to
+ * the filtered record list (`/records?status=open`, new pseudo-status
+ * supported by `listRecords()`/`listRecordsPaginated()` - see `lib/db.ts`)
+ * instead of the Quality domain dashboard - one click to the actual list
+ * the number describes, not two; (3) the "Quality Cases" Quick Action's own
+ * description already promised "review open cases" but its `href` opened
+ * the unfiltered list - now matches its own description, same
+ * `/records?status=open` destination as (2); (4) "Today's Activities" rows
+ * now link to the record each event is actually about via
+ * `getActivityEntityHref()` - previously a dead end, since the cross-module
+ * feed had no page of its own to scroll to.
  */
 export default async function PlatformOverviewPage() {
   const session = await getSession();
@@ -93,7 +109,7 @@ export default async function PlatformOverviewPage() {
       {/* ---------- Primary KPIs (real, role-aware) ---------- */}
       <div>
         <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.platformKpis')}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <KpiCard
             label={t('dashboard.registeredMachines')}
             value={registeredMachines}
@@ -103,7 +119,7 @@ export default async function PlatformOverviewPage() {
             label={t('dashboard.openQualityCases')}
             value={openQualityCases}
             accent={openQualityCases > 0 ? 'text-brand-red' : 'text-brand-dark'}
-            action={<Link href="/quality/dashboard" className="text-brand-red hover:underline">{t('dashboard.viewQualityDashboard')} →</Link>}
+            action={<Link href="/records?status=open" className="text-brand-red hover:underline">{t('dashboard.viewOpenQualityCases')} →</Link>}
           />
           {canSeeSystemHealth && syncHealth && (
             <HealthCard
@@ -120,10 +136,10 @@ export default async function PlatformOverviewPage() {
       {/* ---------- Quick Actions ---------- */}
       <div>
         <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.quickActions')}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <QuickActionCard icon="📝" label={t('dashboard.registerNewTractor')} description={t('dashboard.startNewTractorRegistration')} href="/ntr" />
           <QuickActionCard icon="🚜" label={t('dashboard.machineRegistry')} description={t('dashboard.searchMachinesBySerialModel')} href="/machines" />
-          <QuickActionCard icon="⚠️" label={t('dashboard.qualityCasesAction')} description={t('dashboard.reviewOpenQualityCases')} href="/records" />
+          <QuickActionCard icon="⚠️" label={t('dashboard.qualityCasesAction')} description={t('dashboard.reviewOpenQualityCases')} href="/records?status=open" />
         </div>
       </div>
 
@@ -132,7 +148,7 @@ export default async function PlatformOverviewPage() {
         <div>
           <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.todaysActivities')}</h2>
           <Card variant="flat" className="p-5">
-            <ActivityTimeline events={todaysActivityEvents} entityLabel="Record" />
+            <ActivityTimeline events={todaysActivityEvents} entityLabel="Record" getEntityHref={getActivityEntityHref} />
           </Card>
         </div>
       )}

@@ -222,7 +222,7 @@
     "registeredMachines": "Registered Machines",
     "viewMachineRegistry": "View Machine Registry",
     "openQualityCases": "รายงานปัญหาคุณภาพที่เปิดอยู่",
-    "viewQualityDashboard": "View Quality Dashboard",
+    "viewOpenQualityCases": "View Open Cases",
     "systemHealth": "System Health (Vehicle Master sync)",
     "neverRun": "Never run",
     "machinesSynced": "{count} machines synced",
