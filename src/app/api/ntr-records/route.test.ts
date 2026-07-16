@@ -48,6 +48,7 @@ function session(overrides: Record<string, unknown> = {}) {
 const validBody = {
   branch_id: null,
   serial: 'SN-1',
+  salesperson: 'Somchai Sales',
   customer_name: 'Somchai',
   customer_phone: '0812345678',
   delivery_date: '2026-01-01',

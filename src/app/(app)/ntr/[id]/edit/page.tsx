@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import { canAccessDealerBranch, resolveDealerScope } from '@/lib/dealerBranchScope';
+import { getVehicleBySerial } from '@/lib/db';
 import { createNtrService } from '@/features/ntr/factory';
 import { MasterDataService } from '@/shared/master-data';
 import { t } from '@/lib/i18n/server';
@@ -49,17 +50,24 @@ export default async function NtrEditPage({ params }: RouteParams) {
   // pattern the detail page already uses for branch/product family),
   // never re-derived by the form itself. Branches are scoped to this
   // record's own (fixed) dealer, since only Branch is editable here -
-  // Dealer itself never changes after an NTR is created.
-  const [dealer, productFamily, branches] = await Promise.all([
+  // Dealer itself never changes after an NTR is created. Model/Engine
+  // Number/Sub Model are point-in-time snapshots already on the NTR record
+  // itself (never a live join back to `vehicles` - see `NtrRecord`'s own
+  // doc comment); Product Code has no such snapshot column, so it's the
+  // one field here resolved live via `getVehicleBySerial` (previously
+  // always `null` - a gap fixed by the NTR Form Update, 2026-07).
+  const [dealer, productFamily, branches, vehicle] = await Promise.all([
     MasterDataService.getDealerById(record.dealer_id),
     record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
     MasterDataService.getBranchesForDealer(record.dealer_id),
+    getVehicleBySerial(record.serial, resolveDealerScope(session)),
   ]);
 
   const vehicleInfo = {
     serial: record.serial,
+    model: record.model,
     engineNumber: record.engine_number,
-    productCode: null,
+    productCode: vehicle?.product_code ?? null,
     dealerLabel: dealer?.short_name ?? dealer?.full_name ?? record.dealer_id,
     productFamilyName: productFamily?.name ?? null,
     subModel: record.variant,

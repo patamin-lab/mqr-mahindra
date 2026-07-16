@@ -7,6 +7,7 @@ import type { Branch } from '@/lib/types';
 
 interface VehicleInfo {
   serial: string;
+  model: string | null;
   engineNumber: string | null;
   productCode: string | null;
   dealerLabel: string | null;

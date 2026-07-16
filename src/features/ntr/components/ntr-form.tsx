@@ -22,11 +22,13 @@
 import { useRef, useState } from 'react';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { isValidThaiMobile } from '@/lib/validation';
+import { seesAllDealers } from '@/lib/scope';
 import { swalConfirm, swalErrorToast, swalLoading, swalClose, swalSuccessToast } from '@/lib/swal';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import AddressSelector, { type AddressValue } from '@/components/shared/scope/AddressSelector';
+import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import { readGpsFromImageFile } from '@/components/shared/gps/exif';
 import { googleMapsUrlFor, type GpsLocation } from '@/components/shared/gps/types';
@@ -36,9 +38,13 @@ import AttachmentPhotoTile from '@/components/shared/attachments/AttachmentPhoto
 import type { AttachmentType } from '@/shared/attachments';
 import { CUSTOMER_TYPE_VALUES, type CustomerType } from '@/shared/master-data/lookup/customerType';
 import { CUSTOMER_TITLE_VALUES, CUSTOMER_TITLE_LABELS_TH } from '@/shared/master-data/lookup/customerTitle';
-import type { Branch } from '@/lib/types';
+import type { Branch, Dealer, Role } from '@/lib/types';
 import type { NtrTractorSearchResult } from '@/lib/db';
 import type { NtrAdditionalPhoto, NtrAttachmentType, NtrRecord } from '../types';
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const EMPTY_GPS: GpsLocation = { latitude: null, longitude: null, accuracy: null, googleMapsUrl: null };
 
@@ -81,6 +87,7 @@ function formatPhoneInput(raw: string): string {
  *  duplicates a Factory Domain lookup. */
 interface NtrFormVehicleInfo {
   serial: string;
+  model: string | null;
   engineNumber: string | null;
   productCode: string | null;
   dealerLabel: string | null;
@@ -92,6 +99,22 @@ type NtrFormProps =
   | {
       mode: 'create';
       tractor: NtrTractorSearchResult;
+      /** Full active dealer list - only non-empty for a role that
+       *  `seesAllDealers` (mirrors `ntr/new/page.tsx`'s own
+       *  `showDealerField` gate); a pinned role never receives the full
+       *  list, so it can't leak via this form either. */
+      dealers: Dealer[];
+      role: Role;
+      sessionDealerId: string | null;
+      /** Display name for a pinned dealer (DealerAdmin/DealerUser) - same
+       *  reason `DealerBranchSelector` takes this prop instead of looking
+       *  it up itself (the hook never populates `availableDealers` for a
+       *  pinned role). */
+      pinnedDealerName?: string | null;
+      /** Prefills Salesperson for a dealer-side actor registering their
+       *  own delivery - MSEAL has no personal dealer/salesperson identity,
+       *  so it stays blank/free-entry for them (see `validate()`). */
+      sessionFullName: string;
       onBack: () => void;
       onSaved: (record: NtrRecord) => void;
     }
@@ -109,7 +132,17 @@ export default function NtrForm(props: NtrFormProps) {
   const record = isEdit ? props.record : null;
 
   const [branchId, setBranchId] = useState(isEdit ? props.record.branch_id ?? '' : '');
-  const [salesperson, setSalesperson] = useState(record?.salesperson ?? '');
+  // Salesperson: a dealer-side actor (DealerAdmin/DealerUser) registering
+  // their own delivery defaults to their own name (still a free-text
+  // field, editable - a DealerUser account is a shared branch/team login,
+  // not always one individual, per `useDealerBranchScope`'s own doc
+  // comment, so locking it outright would be wrong). MSEAL
+  // (`seesAllDealers`) has no personal dealer/salesperson identity and
+  // starts blank. Edit mode always keeps the record's own existing value -
+  // never overwritten by whoever happens to be editing it.
+  const [salesperson, setSalesperson] = useState(
+    record?.salesperson ?? (props.mode === 'create' && !seesAllDealers(props.role) ? props.sessionFullName : '')
+  );
   const [customerTitle, setCustomerTitle] = useState(record?.customer_title ?? '');
   const [customerFirstName, setCustomerFirstName] = useState(record?.customer_first_name ?? '');
   const [customerLastName, setCustomerLastName] = useState(record?.customer_last_name ?? '');
@@ -123,19 +156,42 @@ export default function NtrForm(props: NtrFormProps) {
     postalCode: record?.customer_postal_code ?? '',
   });
   const [customerType, setCustomerType] = useState<CustomerType | ''>(record?.customer_type ?? '');
-  // Delivery Date auto-fills from Vehicle Master (Tractor IN sheet,
-  // `vehicles.delivery_date`) on create - never duplicated/re-entered
-  // once the sheet has it; the manual date input is the fallback for a
-  // tractor Tractor IN hasn't synced yet. In Edit mode this is always the
-  // record's own existing delivery_date (a correction to what NTR itself
-  // recorded - does not cascade to `vehicles.delivery_date`, which stays
-  // whatever Warranty Activation already set; see ADR-037).
-  const [manualDeliveryDate, setManualDeliveryDate] = useState(
-    isEdit ? props.record.delivery_date.slice(0, 10) : new Date().toISOString().slice(0, 10)
+  // Delivery Date (NTR Form Update, 2026-07) - always an editable date
+  // input in both modes, never a read-only echo of the Tractor IN sheet's
+  // `vehicles.delivery_date` (the operator must be able to correct a wrong
+  // or not-yet-synced sync value). Still pre-filled from the Tractor's own
+  // delivery_date when Tractor IN already has it (the best available
+  // default), falling back to today otherwise. Edit mode always starts
+  // from the record's own existing delivery_date (a correction to what
+  // NTR itself recorded - does not cascade to `vehicles.delivery_date`,
+  // which stays whatever Warranty Activation already set; see ADR-037).
+  const [deliveryDate, setDeliveryDate] = useState(
+    isEdit ? props.record.delivery_date.slice(0, 10) : props.tractor.delivery_date ?? todayIso()
   );
-  const tractorDeliveryDate = !isEdit ? props.tractor.delivery_date : null;
-  const deliveryDate = tractorDeliveryDate ?? manualDeliveryDate;
   const [hourMeter, setHourMeter] = useState(record?.hour_meter != null ? String(record.hour_meter) : '');
+  // Dealer (NTR Form Update, 2026-07) - create mode only, since dealer_id
+  // is fixed forever once a record exists (`NtrRecordUpdateInput`
+  // deliberately excludes it - "a mistake here is corrected by deleting
+  // and re-registering"). Reuses the same Dealer/Branch Scope Platform
+  // Standard hook every other dealer-switching UI in the app already uses
+  // (`ntr-search.tsx`'s own `DealerBranchSelector`), just for its Dealer
+  // half - Branch keeps coming from the selected Tractor, unchanged.
+  // Called unconditionally (Rules of Hooks); inert/never rendered in Edit
+  // mode.
+  const dealerScope = useDealerBranchScope({
+    role: props.mode === 'create' ? props.role : 'DealerUser',
+    sessionDealerId: props.mode === 'create' ? props.sessionDealerId : null,
+    sessionBranchId: null,
+    initialDealers: props.mode === 'create' ? props.dealers : [],
+    initialDealerId: props.mode === 'create' ? props.sessionDealerId : null,
+  });
+  // A pinned role's `dealer_id` is always the session's own - never
+  // resolvable via `dealerScope.currentDealer` (its `availableDealers` is
+  // deliberately `[]` for a pinned role, so it can never leak the full
+  // dealer list to a non-privileged session). The server ignores/pins
+  // this value anyway for a non-privileged role (`resolveDealerScope`), so
+  // sending the raw session dealer id here is always correct.
+  const selectedDealerId = props.mode === 'create' ? (dealerScope.isDealerPinned ? props.sessionDealerId : dealerScope.currentDealer?.id ?? null) : null;
   const [gps, setGps] = useState<GpsLocation>(
     record
       ? {
@@ -221,6 +277,9 @@ export default function NtrForm(props: NtrFormProps) {
     if (!customerName.trim() && !hasStructuredName) return t('validation.enterCustomerName');
     if (!isValidThaiMobile(customerPhone)) return t('validation.invalidPhone');
     if (!deliveryDate) return t('validation.specifyDeliveryDate');
+    if (deliveryDate > todayIso()) return t('validation.deliveryDateFuture');
+    if (!salesperson.trim()) return t('validation.enterSalesperson');
+    if (props.mode === 'create' && !selectedDealerId) return t('validation.selectDealer');
     if (!isEdit) {
       if (!photos.customer_id.url) return t('validation.uploadCustomerIdPhoto');
       if (!photos.serial_plate.url) return t('validation.uploadSerialPlatePhoto');
@@ -306,8 +365,14 @@ export default function NtrForm(props: NtrFormProps) {
           credentials: 'same-origin',
           body: JSON.stringify({
             ...sharedPayload,
-            dealer_id: props.tractor.dealer_id,
-            branch_id: props.tractor.branch_id,
+            dealer_id: selectedDealerId,
+            // The tractor's own branch only still applies if the operator
+            // kept the tractor's own dealer selected - a branch never
+            // belongs to more than one dealer, so switching dealer must
+            // clear it rather than send a mismatched pair (the API's own
+            // `assertBranchAccess` would otherwise reject the whole
+            // request with FORBIDDEN_BRANCH).
+            branch_id: selectedDealerId === props.tractor.dealer_id ? props.tractor.branch_id : null,
             serial: props.tractor.serial,
             model: props.tractor.model,
             engine_number: props.tractor.engine_number,
@@ -369,12 +434,20 @@ export default function NtrForm(props: NtrFormProps) {
     ? props.vehicleInfo
     : {
         serial: props.tractor.serial,
+        model: props.tractor.model,
         engineNumber: props.tractor.engine_number,
         productCode: props.tractor.product_code,
         dealerLabel: props.tractor.dealer_name ?? props.tractor.dealer_id,
         productFamilyName: props.tractor.product_family_name,
         subModel: props.tractor.sub_model,
       };
+
+  const dealerOptions = dealerScope.isDealerPinned
+    ? [{ value: selectedDealerId ?? '', label: props.mode === 'create' ? props.pinnedDealerName ?? selectedDealerId ?? '-' : '-' }]
+    : [
+        { value: '', label: t('ntr.selectDealerPlaceholder') },
+        ...dealerScope.availableDealers.map((d: Dealer) => ({ value: d.id, label: d.short_name })),
+      ];
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -427,7 +500,13 @@ export default function NtrForm(props: NtrFormProps) {
         <h2 className="text-sm font-semibold text-gray-600">{t('ntr.tractorInfoTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           {/* Vehicle Master / Factory Domain - read-only in both modes,
-              always synced from Tractor IN, never chosen or edited here. */}
+              always synced from Tractor IN, never chosen or edited here
+              (Model/Sub Model/Product Code/Engine Number all resolve from
+              the same selected Tractor - see `NtrFormVehicleInfo`). */}
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">{t('csv.model')}</label>
+            <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.model ?? '-'}</p>
+          </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">{t('common.engineNumber')}</label>
             <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.engineNumber ?? '-'}</p>
@@ -436,10 +515,24 @@ export default function NtrForm(props: NtrFormProps) {
             <label className="block text-xs text-gray-500 mb-1">{t('csv.productCode')}</label>
             <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.productCode ?? '-'}</p>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">{t('common.dealer')}</label>
-            <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.dealerLabel ?? '-'}</p>
-          </div>
+          {/* Dealer (NTR Form Update, 2026-07) - editable, RBAC-gated
+              dropdown in Create mode only; `dealer_id` is fixed forever
+              once a record exists, so Edit mode keeps the original
+              read-only display. */}
+          {props.mode === 'create' ? (
+            <SelectField
+              label={`${t('common.dealer')} *`}
+              value={selectedDealerId ?? ''}
+              onChange={(v) => void dealerScope.changeDealer(v || null)}
+              options={dealerOptions}
+              disabled={submitting || dealerScope.isDealerPinned}
+            />
+          ) : (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('common.dealer')}</label>
+              <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.dealerLabel ?? '-'}</p>
+            </div>
+          )}
           <div>
             <label className="block text-xs text-gray-500 mb-1">{t('common.productFamily')}</label>
             <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.productFamilyName ?? '-'}</p>
@@ -466,21 +559,18 @@ export default function NtrForm(props: NtrFormProps) {
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">{`${t('csv.deliveryDate')} *`}</label>
-            {tractorDeliveryDate ? (
-              <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{tractorDeliveryDate}</p>
-            ) : (
-              <input
-                type="date"
-                required
-                className="w-full rounded border px-2 py-1.5 text-sm"
-                value={manualDeliveryDate}
-                onChange={(e) => setManualDeliveryDate(e.target.value)}
-                disabled={submitting}
-              />
-            )}
+            <input
+              type="date"
+              required
+              max={todayIso()}
+              className="w-full rounded border px-2 py-1.5 text-sm"
+              value={deliveryDate}
+              onChange={(e) => setDeliveryDate(e.target.value)}
+              disabled={submitting}
+            />
           </div>
           <TextField label={t('pdf.hourMeter')} value={hourMeter} onChange={setHourMeter} disabled={submitting} />
-          <TextField label={t('csv.salesperson')} value={salesperson} onChange={setSalesperson} disabled={submitting} />
+          <TextField label={`${t('csv.salesperson')} *`} value={salesperson} onChange={setSalesperson} disabled={submitting} />
         </div>
 
         <h2 className="text-sm font-semibold text-gray-600">{t('pdf.gpsLocation')}</h2>
