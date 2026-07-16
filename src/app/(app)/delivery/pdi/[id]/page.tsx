@@ -111,7 +111,12 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
         </div>
         <div>
           <p className="text-xs text-gray-500">{t('csv.model')}</p>
-          <p className="text-sm font-medium text-brand-dark">{vehicle?.model ?? '-'}</p>
+          <p className="text-sm font-medium text-brand-dark">
+            {vehicle?.model ?? '-'}
+            <Link href={`/machines/${encodeURIComponent(inspection.serial)}`} className="ml-2 text-xs text-brand-red hover:underline">
+              {t('pmDetail.viewVehicle360')}
+            </Link>
+          </p>
         </div>
         <div>
           <p className="text-xs text-gray-500">{t('common.dealer')}</p>
