@@ -8,8 +8,8 @@ import Card from '@/components/shared/layout/Card';
 import KpiCard from '@/components/shared/dashboard/KpiCard';
 import QuickActionCard from '@/components/shared/dashboard/QuickActionCard';
 import HealthCard, { HealthStatus } from '@/components/shared/dashboard/HealthCard';
-import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTimeline';
-import { mapMixedAuditLogToActivityEvents, getActivityEntityHref } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import { mapMixedAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import DashboardActivityTimelineSection from './activity-timeline-section';
 import Link from 'next/link';
 
 /**
@@ -55,20 +55,42 @@ import Link from 'next/link';
  * capability - are removed. Nothing else on this page changes.
  *
  * Zero-Compromise UI Review (2026-07-16): four "no dead-end card"/"reduce
- * clicks" fixes - (1) both widget rows now grid to their real, fixed item
- * count (`lg:grid-cols-3` - Primary KPIs never exceeds 3, Quick Actions is
- * exactly 3) instead of `lg:grid-cols-4`, which always left an empty
- * trailing cell on desktop; (2) "Open Quality Cases" now links straight to
- * the filtered record list (`/records?status=open`, new pseudo-status
- * supported by `listRecords()`/`listRecordsPaginated()` - see `lib/db.ts`)
- * instead of the Quality domain dashboard - one click to the actual list
- * the number describes, not two; (3) the "Quality Cases" Quick Action's own
+ * clicks" fixes - (1) both widget rows grid to their real, fixed item count
+ * (Primary KPIs never exceeds 3, hence `lg:grid-cols-3`) instead of always
+ * `lg:grid-cols-4`, which left an empty trailing cell on desktop; (2) "Open
+ * Quality Cases" now links straight to the filtered record list
+ * (`/records?status=open`, new pseudo-status supported by
+ * `listRecords()`/`listRecordsPaginated()` - see `lib/db.ts`) instead of the
+ * Quality domain dashboard - one click to the actual list the number
+ * describes, not two; (3) the "Quality Cases" Quick Action's own
  * description already promised "review open cases" but its `href` opened
  * the unfiltered list - now matches its own description, same
  * `/records?status=open` destination as (2); (4) "Today's Activities" rows
  * now link to the record each event is actually about via
  * `getActivityEntityHref()` - previously a dead end, since the cross-module
  * feed had no page of its own to scroll to.
+ *
+ * Production incident fix (2026-07-16): the (4) fix above originally passed
+ * `getEntityHref={getActivityEntityHref}` - a function - directly from this
+ * async Server Component to `<ActivityTimeline>` (a Client Component),
+ * which Next.js's Server/Client boundary forbids (only serializable data
+ * may cross it) - this compiles and builds fine (this route is dynamic, so
+ * `next build` never actually renders it with real data) but throws on
+ * every real request. Fixed by moving the `<ActivityTimeline>` render into
+ * `./activity-timeline-section.tsx` ('use client'), which imports and calls
+ * `getActivityEntityHref` itself - only `events` (plain data) now crosses
+ * the boundary, matching every other module's own
+ * `activity-timeline-section.tsx` wrapper (e.g. `records/[jobId]`'s, for
+ * its `onNavigate`).
+ *
+ * PM Records Quick Action (2026-07-16): added a fourth Quick Action linking
+ * to `/pm-records` (Preventive Maintenance) - Quick Actions grid moved to
+ * `lg:grid-cols-4` to match the new real item count of 4. No role gate: `
+ * /pm-records` and its sidebar nav entry (`navConfig.ts`'s Service group)
+ * are already visible to every authenticated role with no predicate in
+ * `scope.ts` restricting them - hiding this Quick Action for any role would
+ * contradict the app's actual, already-shipped access model rather than
+ * enforce one.
  */
 export default async function PlatformOverviewPage() {
   const session = await getSession();
@@ -136,10 +158,11 @@ export default async function PlatformOverviewPage() {
       {/* ---------- Quick Actions ---------- */}
       <div>
         <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.quickActions')}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <QuickActionCard icon="📝" label={t('dashboard.registerNewTractor')} description={t('dashboard.startNewTractorRegistration')} href="/ntr" />
           <QuickActionCard icon="🚜" label={t('dashboard.machineRegistry')} description={t('dashboard.searchMachinesBySerialModel')} href="/machines" />
           <QuickActionCard icon="⚠️" label={t('dashboard.qualityCasesAction')} description={t('dashboard.reviewOpenQualityCases')} href="/records?status=open" />
+          <QuickActionCard icon="🔧" label={t('dashboard.pmRecordsAction')} description={t('dashboard.managePmRecords')} href="/pm-records" />
         </div>
       </div>
 
@@ -148,7 +171,7 @@ export default async function PlatformOverviewPage() {
         <div>
           <h2 className="text-lg font-semibold text-brand-dark mb-3">{t('dashboard.todaysActivities')}</h2>
           <Card variant="flat" className="p-5">
-            <ActivityTimeline events={todaysActivityEvents} entityLabel="Record" getEntityHref={getActivityEntityHref} />
+            <DashboardActivityTimelineSection events={todaysActivityEvents} />
           </Card>
         </div>
       )}

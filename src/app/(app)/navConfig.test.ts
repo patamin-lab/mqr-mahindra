@@ -191,6 +191,15 @@ describe('flattenRealNavItems / findActiveNavItem', () => {
     expect(findActiveNavItem('/some-unmapped-path', flat)).toBeNull();
   });
 
+  it('picks the longest matching href when one sibling item\'s href prefixes another\'s (Incoming PDI vs Dashboard MSEAL PDI) - previously caused both to highlight at once in the sidebar', () => {
+    const groups = getNavGroups(t, superAdmin());
+    const flat = flattenRealNavItems(groups);
+    expect(findActiveNavItem('/delivery/pdi/dashboard', flat)?.href).toBe('/delivery/pdi/dashboard');
+    expect(findActiveNavItem('/delivery/pdi', flat)?.href).toBe('/delivery/pdi');
+    expect(findActiveNavItem('/delivery/pdi/some-inspection-id', flat)?.href).toBe('/delivery/pdi');
+    expect(findActiveNavItem('/delivery/pdi/new', flat)?.href).toBe('/delivery/pdi');
+  });
+
   it('Import & Inspection (Dashboard + Import Inspection) belongs exclusively to MSEAL (business-domain correction) - the whole group is hidden from Dealer roles', () => {
     const dealerGroups = getNavGroups(t, session({ role: 'DealerUser' }));
     expect(dealerGroups.find((g) => g.key === 'qualityInspection')).toBeUndefined();
