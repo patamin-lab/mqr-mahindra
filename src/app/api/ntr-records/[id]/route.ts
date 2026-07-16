@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { canDelete } from '@/lib/scope';
-import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import { canDelete, seesAllDealers } from '@/lib/scope';
+import { canAccessDealerBranch, assertBranchAccess } from '@/lib/dealerBranchScope';
 import { parseWithSchema, ValidationError } from '@/lib/validation';
 import { buildNtrRecordUpdateBodySchema, NtrRecordUpdateBody } from '@/features/ntr/schemas';
 import { NtrRecord } from '@/features/ntr/types';
@@ -83,6 +83,29 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         { ok: false, error: { code: 'FORBIDDEN', message: translate(locale, 'validation.unauthorizedRecordAccess') } },
         { status: 403 }
       );
+    }
+
+    // Dealer reassignment (NTR Form Update, 2026-07) - only a role that
+    // sees every dealer may actually change it; any other role's
+    // dealer_id is always ignored, never trusted, same zero-leakage rule
+    // the create route already applies via `resolveDealerScope`. Silently
+    // dropped rather than rejected with a 403, matching how a pinned
+    // role's dealer_id is silently overridden (not errored) on create.
+    if (input.dealer_id !== undefined && !seesAllDealers(session.role)) {
+      delete input.dealer_id;
+    }
+    // If the dealer is actually changing, the (possibly also-changing)
+    // branch_id must belong to the *new* dealer - the create route's own
+    // `assertBranchAccess` check, reused here rather than reimplemented.
+    if (input.dealer_id !== undefined && input.dealer_id !== existing.dealer_id) {
+      try {
+        await assertBranchAccess(input.dealer_id, input.branch_id ?? null);
+      } catch {
+        return NextResponse.json(
+          { ok: false, error: { code: 'VALIDATION_ERROR', message: 'branch_id does not belong to dealer_id' } },
+          { status: 400 }
+        );
+      }
     }
 
     const record = await service.update(params.id, input, { username: session.username, role: session.role });

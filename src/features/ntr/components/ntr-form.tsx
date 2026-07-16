@@ -122,7 +122,23 @@ type NtrFormProps =
       mode: 'edit';
       record: NtrRecord;
       vehicleInfo: NtrFormVehicleInfo;
+      /** The record's own dealer's branches - the initial Branch option
+       *  list. Superseded client-side (never refetched from these props
+       *  again) once a `seesAllDealers` actor picks a *different* dealer -
+       *  see the Dealer field's `onChange` below. */
       branches: Branch[];
+      /** Full active dealer list - same `seesAllDealers`-gated shape as
+       *  Create mode's own `dealers` prop; only non-empty for a role that
+       *  may actually change Dealer here. */
+      dealers: Dealer[];
+      role: Role;
+      /** The *acting* session's own dealer (not the record's) - needed so
+       *  a pinned actor is validated against their own dealer, not
+       *  whatever this record happens to belong to (those two are always
+       *  equal in practice, since a pinned role can only ever reach this
+       *  page for their own dealer's record - `canAccessDealerBranch` -
+       *  but the field stays explicit rather than assumed). */
+      sessionDealerId: string | null;
       onSaved: (record: NtrRecord) => void;
     };
 
@@ -169,29 +185,64 @@ export default function NtrForm(props: NtrFormProps) {
     isEdit ? props.record.delivery_date.slice(0, 10) : props.tractor.delivery_date ?? todayIso()
   );
   const [hourMeter, setHourMeter] = useState(record?.hour_meter != null ? String(record.hour_meter) : '');
-  // Dealer (NTR Form Update, 2026-07) - create mode only, since dealer_id
-  // is fixed forever once a record exists (`NtrRecordUpdateInput`
-  // deliberately excludes it - "a mistake here is corrected by deleting
-  // and re-registering"). Reuses the same Dealer/Branch Scope Platform
-  // Standard hook every other dealer-switching UI in the app already uses
-  // (`ntr-search.tsx`'s own `DealerBranchSelector`), just for its Dealer
-  // half - Branch keeps coming from the selected Tractor, unchanged.
-  // Called unconditionally (Rules of Hooks); inert/never rendered in Edit
-  // mode.
+  // Dealer (NTR Form Update, 2026-07) - editable in both modes now. Reuses
+  // the same Dealer/Branch Scope Platform Standard hook every other
+  // dealer-switching UI in the app already uses (`ntr-search.tsx`'s own
+  // `DealerBranchSelector`), just for its Dealer half - Branch has its own
+  // separate cascade below rather than this hook's Branch half, since the
+  // hook additionally pins *Branch* for `DealerUser` specifically, which
+  // would regress this form's existing (unrelated to Dealer) behavior of
+  // letting every role freely pick among their own dealer's branches.
+  // Initial value: the acting user's own dealer on Create (nothing to
+  // default from yet); the record's actual current dealer on Edit
+  // ("existing data must display correctly").
   const dealerScope = useDealerBranchScope({
-    role: props.mode === 'create' ? props.role : 'DealerUser',
-    sessionDealerId: props.mode === 'create' ? props.sessionDealerId : null,
+    role: props.role,
+    sessionDealerId: props.sessionDealerId,
     sessionBranchId: null,
-    initialDealers: props.mode === 'create' ? props.dealers : [],
-    initialDealerId: props.mode === 'create' ? props.sessionDealerId : null,
+    initialDealers: props.dealers,
+    initialDealerId: props.mode === 'create' ? props.sessionDealerId : props.record.dealer_id,
   });
-  // A pinned role's `dealer_id` is always the session's own - never
+  // A pinned role's `dealer_id` is always their own session dealer - never
   // resolvable via `dealerScope.currentDealer` (its `availableDealers` is
   // deliberately `[]` for a pinned role, so it can never leak the full
   // dealer list to a non-privileged session). The server ignores/pins
-  // this value anyway for a non-privileged role (`resolveDealerScope`), so
-  // sending the raw session dealer id here is always correct.
-  const selectedDealerId = props.mode === 'create' ? (dealerScope.isDealerPinned ? props.sessionDealerId : dealerScope.currentDealer?.id ?? null) : null;
+  // this value anyway for a non-privileged role on create
+  // (`resolveDealerScope`) and strips it entirely on update
+  // (`api/ntr-records/[id]/route.ts`), so sending the raw session dealer
+  // id here is always correct. For an unpinned (`seesAllDealers`) actor,
+  // fall back to the record's own dealer_id in Edit mode if it somehow
+  // isn't in `availableDealers` (e.g. a since-deactivated dealer) - never
+  // silently show/submit nothing for an existing, valid record.
+  const selectedDealerId = dealerScope.isDealerPinned
+    ? props.sessionDealerId
+    : dealerScope.currentDealer?.id ?? (props.mode === 'edit' ? props.record.dealer_id : null);
+  // Branch (Edit mode only) - starts from the record's own dealer's
+  // branches (server-fetched, `props.branches`). Only re-fetched when a
+  // `seesAllDealers` actor picks a *different* dealer than the record's
+  // original one; switching back restores the original list/selection
+  // exactly, with no extra fetch.
+  const [editBranches, setEditBranches] = useState<Branch[]>(props.mode === 'edit' ? props.branches : []);
+  async function handleDealerChange(newDealerId: string | null) {
+    await dealerScope.changeDealer(newDealerId);
+    if (props.mode !== 'edit') return;
+    if (newDealerId === props.record.dealer_id) {
+      setEditBranches(props.branches);
+      setBranchId(props.record.branch_id ?? '');
+      return;
+    }
+    setBranchId('');
+    if (!newDealerId) {
+      setEditBranches([]);
+      return;
+    }
+    try {
+      const json = await fetchJson<{ branches: Branch[] }>(`/api/branches?dealerId=${encodeURIComponent(newDealerId)}`);
+      setEditBranches(json.branches ?? []);
+    } catch {
+      setEditBranches([]);
+    }
+  }
   const [gps, setGps] = useState<GpsLocation>(
     record
       ? {
@@ -279,7 +330,7 @@ export default function NtrForm(props: NtrFormProps) {
     if (!deliveryDate) return t('validation.specifyDeliveryDate');
     if (deliveryDate > todayIso()) return t('validation.deliveryDateFuture');
     if (!salesperson.trim()) return t('validation.enterSalesperson');
-    if (props.mode === 'create' && !selectedDealerId) return t('validation.selectDealer');
+    if (!selectedDealerId) return t('validation.selectDealer');
     if (!isEdit) {
       if (!photos.customer_id.url) return t('validation.uploadCustomerIdPhoto');
       if (!photos.serial_plate.url) return t('validation.uploadSerialPlatePhoto');
@@ -352,6 +403,9 @@ export default function NtrForm(props: NtrFormProps) {
           credentials: 'same-origin',
           body: JSON.stringify({
             ...sharedPayload,
+            // The route strips this for any role that doesn't
+            // `seesAllDealers` - always safe to send.
+            dealer_id: selectedDealerId,
             branch_id: branchId || null,
           }),
         });
@@ -442,8 +496,17 @@ export default function NtrForm(props: NtrFormProps) {
         subModel: props.tractor.sub_model,
       };
 
+  // In Create mode, prefer `pinnedDealerName` (the acting user's own
+  // dealer, resolved at the page level via `MasterDataService.getDealerById` -
+  // always reliable) over `vehicle.dealerLabel`, which falls back to the
+  // raw `dealer_id` code for a brand-new tractor with no Tractor IN sync
+  // yet (`ntr-search.tsx`'s `createTractorAndSelect()` has no dealer name
+  // to give it). In Edit mode, `vehicle.dealerLabel` is always already a
+  // real resolved name (`MasterDataService.getDealerById()` in
+  // `edit/page.tsx`), so it's the only source needed there.
+  const pinnedDealerLabel = (props.mode === 'create' ? props.pinnedDealerName : null) ?? vehicle.dealerLabel ?? selectedDealerId ?? '-';
   const dealerOptions = dealerScope.isDealerPinned
-    ? [{ value: selectedDealerId ?? '', label: props.mode === 'create' ? props.pinnedDealerName ?? selectedDealerId ?? '-' : '-' }]
+    ? [{ value: selectedDealerId ?? '', label: pinnedDealerLabel }]
     : [
         { value: '', label: t('ntr.selectDealerPlaceholder') },
         ...dealerScope.availableDealers.map((d: Dealer) => ({ value: d.id, label: d.short_name })),
@@ -516,23 +579,18 @@ export default function NtrForm(props: NtrFormProps) {
             <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.productCode ?? '-'}</p>
           </div>
           {/* Dealer (NTR Form Update, 2026-07) - editable, RBAC-gated
-              dropdown in Create mode only; `dealer_id` is fixed forever
-              once a record exists, so Edit mode keeps the original
-              read-only display. */}
-          {props.mode === 'create' ? (
-            <SelectField
-              label={`${t('common.dealer')} *`}
-              value={selectedDealerId ?? ''}
-              onChange={(v) => void dealerScope.changeDealer(v || null)}
-              options={dealerOptions}
-              disabled={submitting || dealerScope.isDealerPinned}
-            />
-          ) : (
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">{t('common.dealer')}</label>
-              <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.dealerLabel ?? '-'}</p>
-            </div>
-          )}
+              dropdown in both modes now. A pinned role (DealerAdmin/
+              DealerUser) always sees a single, disabled option (their own
+              dealer, or the record's - guaranteed the same one); only a
+              `seesAllDealers` actor can actually pick a different dealer,
+              including in Edit mode. */}
+          <SelectField
+            label={`${t('common.dealer')} *`}
+            value={selectedDealerId ?? ''}
+            onChange={(v) => void handleDealerChange(v || null)}
+            options={dealerOptions}
+            disabled={submitting || dealerScope.isDealerPinned}
+          />
           <div>
             <label className="block text-xs text-gray-500 mb-1">{t('common.productFamily')}</label>
             <p className="rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-sm text-gray-700">{vehicle.productFamilyName ?? '-'}</p>
@@ -549,7 +607,7 @@ export default function NtrForm(props: NtrFormProps) {
               label={t('common.branch')}
               value={branchId}
               onChange={setBranchId}
-              options={[{ value: '', label: t('common.allBranches') }, ...props.branches.map((b) => ({ value: b.id, label: b.name }))]}
+              options={[{ value: '', label: t('common.allBranches') }, ...editBranches.map((b) => ({ value: b.id, label: b.name }))]}
               disabled={submitting}
             />
           )}

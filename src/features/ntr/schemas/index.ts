@@ -149,6 +149,14 @@ export type NtrRecordCreateBody = z.infer<ReturnType<typeof buildNtrRecordCreate
 export const buildNtrRecordUpdateBodySchema = (locale: Locale = DEFAULT_LOCALE) =>
   z
     .object({
+      // Only a role that `seesAllDealers` may actually change this - the
+      // route strips it from any other role's parsed body before calling
+      // the service (zero-leakage, same rule the create route applies via
+      // `resolveDealerScope`). Required-if-present here only guards
+      // against clearing it to empty; whether it's *allowed at all* is an
+      // authorization decision, not a validation one, so it stays outside
+      // this schema.
+      dealer_id: requiredTrimmedString(translate(locale, 'validation.selectDealer')).optional(),
       branch_id: nullableTrimmedString,
       salesperson: requiredTrimmedString(translate(locale, 'validation.enterSalesperson')),
       receiving_person: nullableTrimmedString,
