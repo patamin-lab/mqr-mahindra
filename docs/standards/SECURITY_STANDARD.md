@@ -60,13 +60,14 @@ is from a SuperAdmin," only "this is the `anon` role." Consequently:
 
 - **Every role-based permission boundary in this codebase is an
   application-layer control, not an RLS control.** `canDelete()`,
-  `canManageUsers()`, `canExport()`, and — the newest example —
-  `canManageLegacyImport()` (NTR's Legacy Import, restricted to
-  SuperAdmin only per spec) are all enforced exclusively in application
+  `canManageUsers()`, `canExport()`, and `canManageEmailHealth()`
+  (`seesAllDealers`-only) are all enforced exclusively in application
   code: a role check in the API route before any database access, plus a
   hidden/absent UI entry for every other role. RLS on the tables these
   features touch stays permissive for the `anon` role (matching every
-  other table in the app), not narrowed per-feature.
+  other table in the app), not narrowed per-feature. (`canManageLegacyImport()`
+  was a prior example of this pattern - retired with NTR Legacy Import,
+  ADR-038, 2026-07-16.)
 - **This is an intentional architectural decision for MASP v1.x, not a
   security omission.** Building true DB-level role enforcement would
   require either a second, more restricted Supabase key/role this app

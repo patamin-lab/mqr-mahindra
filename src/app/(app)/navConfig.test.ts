@@ -51,7 +51,7 @@ describe('getNavGroups (Business Workflow Consolidation, ADR-035/036/037 - lifec
     expect(vehicleLookup.items!.some((i) => i.href === '/ntr')).toBe(false);
   });
 
-  it('Legacy Import has no nav entry for any role, including SuperAdmin - removed entirely for Production Pilot', () => {
+  it('Historical NTR Import (formerly Legacy Import) and Import History have no nav entry for any role, including SuperAdmin - permanently retired (ADR-038)', () => {
     const dealerAdmin = getNavGroups(t, session({ role: 'DealerAdmin' }));
     const superAdminGroups = getNavGroups(t, superAdmin());
 
@@ -59,6 +59,8 @@ describe('getNavGroups (Business Workflow Consolidation, ADR-035/036/037 - lifec
     const flatSuperAdmin = flattenRealNavItems(superAdminGroups);
     expect(flatDealer.some((i) => i.href === '/admin/legacy-import')).toBe(false);
     expect(flatSuperAdmin.some((i) => i.href === '/admin/legacy-import')).toBe(false);
+    expect(flatDealer.some((i) => i.href === '/admin/import-history')).toBe(false);
+    expect(flatSuperAdmin.some((i) => i.href === '/admin/import-history')).toBe(false);
   });
 
   it('omits the Administration group entirely for a role with zero visible admin items (DealerUser)', () => {
@@ -66,14 +68,10 @@ describe('getNavGroups (Business Workflow Consolidation, ADR-035/036/037 - lifec
     expect(groups.find((g) => g.key === 'administration')).toBeUndefined();
   });
 
-  it('shows Administration > Import History only to SuperAdmin, alongside Users for every non-DealerUser role', () => {
+  it('shows Administration > Users for every non-DealerUser role', () => {
     const dealerAdmin = getNavGroups(t, session({ role: 'DealerAdmin' })).find((g) => g.key === 'administration');
     expect(dealerAdmin).toBeDefined();
     expect(dealerAdmin!.items!.some((i) => i.href === '/admin/users')).toBe(true);
-    expect(dealerAdmin!.items!.some((i) => i.href === '/admin/import-history')).toBe(false);
-
-    const superAdminGroups = getNavGroups(t, superAdmin()).find((g) => g.key === 'administration');
-    expect(superAdminGroups!.items!.some((i) => i.href === '/admin/import-history')).toBe(true);
   });
 
   it('nests Master Data as an Administration subgroup, gated the same as before (canManageMasterData)', () => {

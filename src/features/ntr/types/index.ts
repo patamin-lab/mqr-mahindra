@@ -10,7 +10,6 @@
  * stays historically accurate even if the vehicle's master data changes
  * later.
  */
-import type { ColumnMappingResult, ImportWarning } from '@/shared/import';
 import type { CustomerType } from '@/shared/master-data';
 
 /** Alias for the MASP Platform's shared Customer Type lookup
@@ -139,19 +138,18 @@ export interface NtrRecord {
 }
 
 /** Shape accepted when registering a tractor via the search-first
- *  workflow, and (separately) by Legacy Import's row-commit path - kept
- *  as one shared type since both write the same table via the same
- *  repository method. `dealer_id` is resolved server-side from the
+ *  workflow. `dealer_id` is resolved server-side from the
  *  session (never trusted from the client), same zero-leakage principle
  *  as every other create path in this app - it is listed here because
  *  the Repository layer still needs it to build the insert payload.
  *
  *  `receiving_person`/`pdi_date`/`manufacturing_year`/`video_url`/
- *  `retail_date` stay on this type because Legacy Import still populates
- *  them (see `ntrImportService.ts`); the manual registration form (NTR
- *  Form Update, 2026-07) no longer collects them - `api/ntr-records/
- *  route.ts` sets each to `null` explicitly for that path instead of
- *  accepting them from the request body. */
+ *  `retail_date` stay on this type because existing, already-imported
+ *  records (via the now-retired Historical NTR Import, ADR-038) still
+ *  carry values in these fields; the manual registration form (NTR Form
+ *  Update, 2026-07) no longer collects them - `api/ntr-records/route.ts`
+ *  sets each to `null` explicitly for that path instead of accepting them
+ *  from the request body. */
 export type NtrRecordCreateInput = Pick<
   NtrRecord,
   | 'dealer_id'
@@ -199,8 +197,9 @@ export type NtrRecordCreateInput = Pick<
   gps_accuracy?: number | null;
   google_maps_url?: string | null;
   additional_photos?: NtrAdditionalPhoto[];
-  /** Set only by the Legacy Import service - never accepted from a
-   *  regular create request body. */
+  /** Historically set only by the now-retired Historical NTR Import
+   *  service (ADR-038) - never accepted from a regular create request
+   *  body. */
   source?: NtrSource;
   import_session_id?: string | null;
 };
@@ -292,126 +291,10 @@ export interface NtrHistoryResult {
 // `vehicles`-table query - this module imports them from there rather
 // than re-declaring, since `vehicles` is platform-owned, not NTR-owned.
 
-// ---------- Legacy Import ----------
-
-/** Pipeline stage, not just done/failed - Drive archiving is a separate,
- *  retryable stage after a successful import, never a gate on it (see
- *  docs/adr/ADR-008-Google-Drive-Decoupling.md). 'Archive Failed' loops
- *  back to 'Archive Pending' on retry. */
-export type NtrImportSessionStatus = 'Pending' | 'Validated' | 'Imported' | 'Archive Pending' | 'Archived' | 'Archive Failed';
-
-export interface NtrImportSession {
-  id: string;
-  importer: string;
-  filename: string;
-  original_file_url: string | null;
-  status: NtrImportSessionStatus;
-  total_records: number;
-  valid_count: number;
-  duplicate_count: number;
-  skipped_count: number;
-  failed_count: number;
-  errors: NtrImportRowError[];
-  /** Base64 of the originally uploaded file - the only thing preview()/
-   *  commit()/the archive step need, so none of them ever depend on
-   *  Google Drive being reachable. Cleared once archived_at is set. */
-  file_content: string | null;
-  file_checksum: string | null;
-  /** When the DB transaction (commit) finished - distinct from
-   *  archived_at, since archiving now happens later and can fail/retry
-   *  independently of a successful import. */
-  imported_at: string | null;
-  archive_job_id: string | null;
-  archive_attempts: number;
-  last_archive_attempt_at: string | null;
-  archive_error: string | null;
-  archived_at: string | null;
-  started_at: string;
-  completed_at: string | null;
-  created_by: string;
-  updated_by: string | null;
-  updated_at: string;
-}
-
-export interface NtrImportRowError {
-  row: number;
-  serial: string | null;
-  reason: string;
-}
-
-/** One row from the uploaded legacy-import file, after column mapping but
- *  before validation. */
-export interface NtrImportRow {
-  row: number;
-  dealer_id: string;
-  branch_id: string | null;
-  serial: string;
-  model: string | null;
-  engine_number: string | null;
-  customer_title: string | null;
-  customer_first_name: string | null;
-  customer_last_name: string | null;
-  customer_name: string;
-  customer_phone: string;
-  customer_address: string | null;
-  customer_subdistrict: string | null;
-  customer_district: string | null;
-  customer_province: string | null;
-  customer_postal_code: string | null;
-  customer_type: NtrCustomerType | null;
-  product_family_id: string | null;
-  variant: string | null;
-  retail_date: string | null;
-  delivery_date: string;
-  pdi_date: string | null;
-  pdi_number: string | null;
-  manufacturing_year: number | null;
-  salesperson: string | null;
-  receiving_person: string | null;
-  hour_meter: number | null;
-}
-
-export type NtrImportRowOutcome = 'valid' | 'duplicate' | 'skipped' | 'failed';
-
-export interface NtrImportRowResult {
-  row: number;
-  serial: string | null;
-  outcome: NtrImportRowOutcome;
-  reason?: string;
-}
-
-/** Legacy Import Mode (default): an unknown Product Serial Number
- *  auto-creates a Tractor (today's existing, working behavior for
- *  genuinely pre-system tractors) and raises a WARNING rather than
- *  blocking the row. Strict Import Mode: an unknown Product Serial
- *  Number is rejected outright (FAILED), no Tractor is created. Not
- *  persisted on `ntr_import_sessions` (no schema change) - the caller
- *  (import UI) is responsible for passing the same mode to `commit()`
- *  that it used for `preview()`; see `ntrImportService.ts`'s class doc
- *  comment. */
-export type NtrImportMode = 'legacy' | 'strict';
-
-/** Nothing is written until the caller confirms - `preview()` only reads
- *  and validates; `commit()` is the only method that writes. `columnMapping`
- *  is the Import Wizard's Step 3 "Mapped Columns"/"Ignored Columns"/
- *  "Unknown Columns"/"Missing Required Columns" report (see
- *  `src/shared/import/ColumnMappingService.ts`). `warnings` never affects
- *  `validCount`/whether a row imports - see
- *  `docs/import/NTR_HISTORICAL_IMPORT.md`'s Duplicate Detection section
- *  for exactly which conditions are warnings vs. hard failures. */
-export interface NtrImportPreview {
-  totalRecords: number;
-  validCount: number;
-  duplicateCount: number;
-  skippedCount: number;
-  failedCount: number;
-  rows: NtrImportRowResult[];
-  columnMapping: ColumnMappingResult;
-  warnings: ImportWarning[];
-  /** Milliseconds this preview/commit pass took end to end - `null` is
-   *  never returned here (only the shared framework's still-in-progress
-   *  `ImportResult.processingTime` can be null); always measured after
-   *  the fact. */
-  executionTimeMs: number;
-  importMode: NtrImportMode;
-}
+// Historical NTR Import (formerly Legacy Import) is permanently retired
+// (2026-07-16, Product Owner decision, ADR-038) - its wizard/session/row
+// types (NtrImportSession, NtrImportRow, NtrImportPreview, etc.) are
+// removed along with the feature. `source`/`import_session_id` remain on
+// `NtrRecord` below (provenance metadata on already-imported records, not
+// import-feature implementation) - see docs/adr/ADR-038 for the retirement
+// decision and what's kept vs. removed.

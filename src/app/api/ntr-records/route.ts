@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
   // registration form (NTR Form Update, 2026-07 - Delivery Date is the
   // Delivery section's only, required date field) - explicitly null here
   // rather than accepted from the request body. `NtrRecordCreateInput`
-  // keeps these fields because Legacy Import (a separate create path)
-  // still populates them.
+  // keeps these fields because existing, already-imported records (via
+  // the now-retired Historical NTR Import, ADR-038) still carry values in
+  // them.
   const input: NtrRecordCreateInput = {
     dealer_id: dealerId,
     ...parsedBody,

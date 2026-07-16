@@ -31,7 +31,7 @@ re-derived):
 
 | Lifecycle Stage | MSEAL (`SuperAdmin`/`CentralAdmin`) | Dealer (`DealerAdmin`/`DealerUser`) | Admin (`SuperAdmin` only) | Future Customer |
 |---|---|---|---|---|
-| Tractor IN sync | System-triggered, no per-role UI | No access | Can trigger manually (Legacy Import screens gate on `canManageLegacyImport` = `SuperAdmin` only) | N/A |
+| Tractor IN sync | System-triggered, no per-role UI | No access | Can trigger manually (`/api/admin/tractor-in/sync`, inline `SuperAdmin`-only check - not `canManageLegacyImport`, which was NTR Legacy Import's own predicate, retired with that feature, ADR-038, 2026-07-16) | N/A |
 | Import Inspection | Full access (`canAccessImportInspection` = `seesAllDealers`) | **No access at all** - confirmed by design (`scope.ts`'s own comment: "Dealer users may never view, create, edit, or approve an Import Inspection record") | Same as MSEAL | N/A |
 | MSEAL Stock / Ship to Dealer / Dealer Stock | Would be MSEAL/Dealer split once built | Would be Dealer-scoped once built | n/a | N/A |
 | NTR (New Tractor Delivery) | Full access (all roles create/view NTR - no role restricts NTR creation) | Full access, dealer/branch-scoped | Full access | N/A - Customer has no login (frozen rule, ADR-033/034) |

@@ -61,9 +61,9 @@ against the structure that actually exists in `src/` today.
   server-side (`record.dealer_id !== session.dealerId` → 403), independent
   of the page's own UI-level gating. See `SECURITY_STANDARD.md`. Note that
   every role boundary in this app — including a module-specific one like
-  NTR's `canManageLegacyImport()` (SuperAdmin-only) — is an
-  application-layer control, not an RLS control, since this app has no
-  Supabase Auth; see `SECURITY_STANDARD.md` §Application-layer
+  Import Inspection's `canAccessImportInspection()` (`seesAllDealers`-only)
+  — is an application-layer control, not an RLS control, since this app
+  has no Supabase Auth; see `SECURITY_STANDARD.md` §Application-layer
   authorization before assuming RLS enforces a new module's role
   restriction.
 - [ ] **Audit.** Every create/update/delete/lock-state-change call is

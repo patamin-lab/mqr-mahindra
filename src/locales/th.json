@@ -185,7 +185,6 @@
     "pmRecords": "งานเช็คระยะ",
     "ntrRecords": "ลงทะเบียนส่งมอบรถใหม่ (NTR)",
     "newTractorRegistration": "ลงทะเบียนรถใหม่",
-    "legacyImport": "นำเข้าข้อมูลย้อนหลัง",
     "vehicle360": "Vehicle 360",
     "adminDealers": "ผู้แทนจำหน่าย",
     "adminBranches": "สาขา",
@@ -214,7 +213,6 @@
     "qualityCases": "รายงานปัญหาคุณภาพ",
     "qualityKnowledge": "องค์ความรู้",
     "administrationGroup": "ผู้ดูแลระบบ",
-    "adminImportHistory": "ประวัติการนำเข้าข้อมูล",
     "comingSoon": "เร็ว ๆ นี้"
   },
   "dashboard": {
@@ -225,8 +223,6 @@
     "viewMachineRegistry": "ดูทะเบียนเครื่องจักร",
     "openQualityCases": "รายงานปัญหาคุณภาพที่เปิดอยู่",
     "viewQualityDashboard": "ดูแดชบอร์ดคุณภาพ",
-    "pendingImports": "การนำเข้าที่รอดำเนินการ",
-    "viewImportHistory": "ดูประวัติการนำเข้าข้อมูล",
     "systemHealth": "สถานะระบบ (การซิงค์ข้อมูลเครื่องจักรหลัก)",
     "neverRun": "ยังไม่เคยทำงาน",
     "machinesSynced": "ซิงค์แล้ว {count} เครื่อง",
@@ -237,8 +233,6 @@
     "searchMachinesBySerialModel": "ค้นหาเครื่องจักรตามหมายเลขเครื่อง/รุ่น",
     "qualityCasesAction": "รายงานปัญหาคุณภาพ",
     "reviewOpenQualityCases": "ตรวจสอบรายงานปัญหาคุณภาพที่เปิดอยู่",
-    "legacyImport": "นำเข้าข้อมูลย้อนหลัง",
-    "importHistoricalNtrData": "นำเข้าข้อมูล NTR ย้อนหลัง",
     "todaysActivities": "กิจกรรมวันนี้",
     "comingSoonTitle": "เร็ว ๆ นี้",
     "activeWarrantyTitle": "การรับประกันที่ใช้งานอยู่",
@@ -531,11 +525,7 @@
     "uploadCustomerIdPhoto": "กรุณาอัปโหลดรูปบัตรประชาชนลูกค้า",
     "uploadSerialPlatePhoto": "กรุณาอัปโหลดรูปแผ่นป้ายหมายเลขตัวรถ",
     "uploadSignedDocumentPhoto": "กรุณาอัปโหลดรูปเอกสารส่งมอบที่ลงนามแล้ว",
-    "tractorAlreadyRegistered": "รถแทรกเตอร์คันนี้จดทะเบียนแล้ว (เลขที่ {ntrNumber})",
-    "unauthorizedLegacyImport": "ไม่มีสิทธิ์ใช้งานเครื่องมือนำเข้าข้อมูลย้อนหลัง",
-    "importFileRequired": "กรุณาอัปโหลดไฟล์นำเข้า",
-    "importFileUnreadable": "ไม่สามารถอ่านไฟล์นี้ได้ กรุณาตรวจสอบว่าเป็นไฟล์ .xlsx หรือ .csv ที่ถูกต้องแล้วลองใหม่อีกครั้ง",
-    "importSessionNotFound": "ไม่พบรายการนำเข้านี้"
+    "tractorAlreadyRegistered": "รถแทรกเตอร์คันนี้จดทะเบียนแล้ว (เลขที่ {ntrNumber})"
   },
   "pdf": {
     "mqrTitle": "ใบรายงานปัญหาคุณภาพ (Market Quality Report)",
@@ -908,11 +898,5 @@
     "ReleasedToDealer": "ปล่อยรถให้ดีลเลอร์",
     "WarrantyActivated": "เริ่มการรับประกัน",
     "Other": "อื่นๆ"
-  },
-  "importHistory": {
-    "emptyReason": "ยังไม่มีการนำเข้าข้อมูล",
-    "emptyNextStep": "เรียกใช้ Legacy Import จากปุ่มด่วนในแดชบอร์ดเพื่อดูประวัติที่นี่",
-    "unauthorizedTitle": "จำกัดการเข้าถึง",
-    "unauthorizedNextStep": "ติดต่อผู้ดูแลระบบสูงสุดหากคุณต้องการข้อมูลนำเข้า NTR ย้อนหลัง"
   }
 }

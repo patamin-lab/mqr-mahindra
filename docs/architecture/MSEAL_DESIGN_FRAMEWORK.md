@@ -63,15 +63,13 @@ ever drift again.
 | | Knowledge (องค์ความรู้) | `/quality/knowledge` | Real (Engineering Knowledge Platform, ADR-018) |
 | ⚙️ Administration | Users | `/admin/users` | Real |
 | | Master Data (subgroup: Dealers/Branches/Technicians/Problem Codes/PM Intervals/Product Families/Product Family Models/Maintenance Programs) | `/admin/*` | Real |
-| | Import History | `/admin/import-history` | Real |
 | | Email Health | `/admin/email-health` | Real |
 
 **Removed entirely for Production Pilot** ("Production Pilot exposes
 only completed workflows," `navConfig.ts`'s own doc comment) - no
 longer scaffolded even as disabled Coming Soon rows, for any role
 including SuperAdmin: Machine Passport as a separate nav entry (folded
-into Vehicle 360 above), Legacy Import's nav entry (route and Import
-History still reachable directly), Warranty, Service Campaign, PIP,
+into Vehicle 360 above), Warranty, Service Campaign, PIP,
 Quality Analytics, Troubleshooting, the entire Engineering Intelligence
 group, the entire Reports group, Audit, Sessions, Settings. These are
 named, real, still-open gaps (not silently dropped) - tracked in
@@ -81,6 +79,13 @@ named, real, still-open gaps (not silently dropped) - tracked in
 the next capability that needs the same treatment post-Pilot; only the
 inert placeholder rows and the `comingSoon()` construction helper were
 deleted from the code.
+
+**Permanently retired, not merely hidden (2026-07-16, ADR-038, Product
+Owner decision)**: Historical NTR Import (formerly "Legacy Import") and
+Import History. Unlike the Pilot-suspended items above, no route, page,
+API, nav entry, or code path of any kind remains for either - this is a
+product decision to remove the capability, not a Pilot-duration visibility
+choice awaiting a "post-Pilot" resumption.
 
 **Open item, not silently resolved**: PDI (Pre-Delivery Inspection) and
 Parts Request appeared in the old flat Official Menu Standard
@@ -228,11 +233,12 @@ answers "what should the user do next," not just "what is the number."
 
 - **Platform Overview** (`/dashboard`) - platform-wide, role-aware.
   Real KPIs today: Registered Machines (role-scoped vehicle count),
-  Open Quality Cases (role-scoped open-MQR count), Pending Imports
-  (SuperAdmin only), System Health (reuses the existing Tractor-IN sync
-  health check, `seesAllDealers` roles only). Quick Actions: Register
-  New Tractor, Machine Registry, Quality Cases, Legacy Import
-  (SuperAdmin). **Today's Activities** (pre-merge refinement, real widget,
+  Open Quality Cases (role-scoped open-MQR count), System Health (reuses
+  the existing Tractor-IN sync health check, `seesAllDealers` roles only).
+  Quick Actions: Register New Tractor, Machine Registry, Quality Cases.
+  (Pending Imports KPI and Legacy Import Quick Action retired alongside
+  Historical NTR Import - ADR-038, 2026-07-16.) **Today's Activities**
+  (pre-merge refinement, real widget,
   `seesAllDealers` roles only) reuses `<ActivityTimeline>` - the same
   platform-standard component every module's own record page already
   renders through, not a second timeline - fed by every
@@ -310,10 +316,11 @@ see §8 Migration Roadmap):
 - **Primary Action**: one of the Quick Actions.
 - **Success Criteria**: user reaches the right module in one click.
 - **Permissions**: `getSession()` gate; per-widget role checks
-  (`canManageLegacyImport`, `seesAllDealers`) hide, never fake, data.
+  (`seesAllDealers`) hide, never fake, data.
 - **Navigation**: Dashboard group, single item.
-- **KPIs**: Registered Machines, Open Quality Cases, Pending Imports,
-  System Health.
+- **KPIs**: Registered Machines, Open Quality Cases, System Health.
+  (Pending Imports KPI retired alongside Historical NTR Import - ADR-038,
+  2026-07-16.)
 - **Quick Actions**: as listed in §3.
 - **Timeline**: **Today's Activities** (pre-merge refinement) - real,
   `<ActivityTimeline>`, `seesAllDealers` roles only (see §7 for the scoping
@@ -324,7 +331,12 @@ see §8 Migration Roadmap):
   page-specific - present on every authenticated page via `PlatformHeader`,
   not just this one.
 
-### Import History (`/admin/import-history`)
+### Import History (`/admin/import-history`) - RETIRED (ADR-038, 2026-07-16)
+
+**Permanently retired, Product Owner decision - this screen no longer
+exists.** The contract below is kept as historical record of what was
+built, not a description of current state.
+
 - **Purpose**: full, auditable Legacy Import session history.
 - **Primary User**: Super Administrator.
 - **Primary Decision**: did a given import run succeed; which session to

@@ -53,9 +53,12 @@ Dealer
 ├── Technicians             (Master Data - built, organizational only, no branch FK yet - open gap)
 ├── Machines                 (via Customer AND directly, both are real FKs - ENTITY_RELATIONSHIP.md)
 ├── Users                      (Administration - RBAC, scoped to this Dealer)
-├── Dealer KPI                  (Reports/Analytics - 09, DASHBOARD_MODEL.md)
-└── Import History                (Import Platform - sessions scoped to importer's context, not yet dealer-scoped itself - see Import Platform's own known gap, ADR-023 proposed) 
+└── Dealer KPI                  (Reports/Analytics - 09, DASHBOARD_MODEL.md)
 ```
+
+Import History (formerly listed here) is retired along with Historical NTR
+Import - ADR-038, 2026-07-16, Product Owner decision. No longer a leaf of
+any capability tree.
 
 ## Customer
 
@@ -110,11 +113,13 @@ Engineering Intelligence
 Administration
 ├── Users                  (built - RBAC via lib/scope.ts, 4 roles)
 ├── Master Data              (built - Dealers/Branches/Technicians/Problem Codes/PM Intervals/Product Families/Maintenance Programs)
-├── Import History             (built, ADR-023 proposed - /admin/import-history)
 ├── Audit                        (data exists per-record via record_audit_log; no cross-module admin UI yet)
 ├── Sessions                       (self-service only, /profile/security - no admin cross-user view yet)
 └── System Health                    (built - Tractor-IN sync health, /admin/email-health)
 ```
+
+Import History (`/admin/import-history`) is retired along with Historical
+NTR Import - ADR-038, 2026-07-16, Product Owner decision.
 
 ## Cross-references not repeated here
 
@@ -136,8 +141,8 @@ tree here would imply a domain shape they explicitly don't have.
   are all named here as capability-tree leaves with **no implementation**
   - consistent with 17's own practice of naming a capability before it's
   built; this tree does not authorize building any of them.
-- Import History under Dealer is flagged as not-yet-dealer-scoped -
-  real, existing gap (Legacy Import/Import History today is SuperAdmin
-  -only, not per-dealer at all) worth a future decision in
-  `DECISION_MATRIX.md`'s successor once Import Platform grows a
-  multi-tenant import story.
+- **Resolved by retirement, not by building it**: the previous gap noted
+  here ("Import History under Dealer is not yet dealer-scoped") no longer
+  applies - Historical NTR Import and Import History are permanently
+  retired (ADR-038, 2026-07-16, Product Owner decision), not extended to
+  be dealer-scoped.

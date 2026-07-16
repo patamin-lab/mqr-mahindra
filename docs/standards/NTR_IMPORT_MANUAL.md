@@ -1,5 +1,10 @@
 # NTR Legacy Import — Template Manual
 
+> **RETIRED (2026-07-16, ADR-038, Product Owner decision).** The
+> `/admin/legacy-import` tool this manual describes no longer exists.
+> Kept as historical record only - see
+> `docs/adr/ADR-038-Historical-NTR-Import-Retirement.md`.
+
 How to prepare a historical-data file for the NTR Legacy Import tool
 (`/admin/legacy-import`, Super Administrator only). This is the short
 operator-facing quick reference - see
