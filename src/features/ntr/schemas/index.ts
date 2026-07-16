@@ -17,6 +17,16 @@ const nullableTrimmedString = z.preprocess(
 const requiredTrimmedString = (message: string) =>
   z.preprocess((val) => (typeof val === 'string' ? val.trim() : val), z.string().min(1, message));
 
+/** Delivery Date: required, non-empty, never in the future (NTR Form
+ *  Update, 2026-07 - a registration records a delivery that already
+ *  happened). Shared by both the create and update body schemas so the
+ *  rule can never drift between them. */
+const buildDeliveryDateSchema = (locale: Locale) =>
+  requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')).refine(
+    (val) => val <= new Date().toISOString().slice(0, 10),
+    { message: translate(locale, 'validation.deliveryDateFuture') }
+  );
+
 const buildNtrCustomerPhoneSchema = (locale: Locale) =>
   z.preprocess((val) => {
     if (typeof val !== 'string') return val;
@@ -96,7 +106,7 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     serial: requiredTrimmedString(translate(locale, 'validation.selectVehicle')),
     model: nullableTrimmedString,
     engine_number: nullableTrimmedString,
-    salesperson: nullableTrimmedString,
+    salesperson: requiredTrimmedString(translate(locale, 'validation.enterSalesperson')),
     customer_title: nullableTrimmedString,
     customer_first_name: nullableTrimmedString,
     customer_last_name: nullableTrimmedString,
@@ -110,7 +120,7 @@ export const buildNtrRecordCreateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
     customer_type: customerTypeSchema,
     product_family_id: nullableTrimmedString,
     variant: nullableTrimmedString,
-    delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
+    delivery_date: buildDeliveryDateSchema(locale),
     pdi_number: nullableTrimmedString,
     hour_meter: z.preprocess(
       (val) => (val === undefined || val === null || val === '' ? null : val),
@@ -139,8 +149,16 @@ export type NtrRecordCreateBody = z.infer<ReturnType<typeof buildNtrRecordCreate
 export const buildNtrRecordUpdateBodySchema = (locale: Locale = DEFAULT_LOCALE) =>
   z
     .object({
+      // Only a role that `seesAllDealers` may actually change this - the
+      // route strips it from any other role's parsed body before calling
+      // the service (zero-leakage, same rule the create route applies via
+      // `resolveDealerScope`). Required-if-present here only guards
+      // against clearing it to empty; whether it's *allowed at all* is an
+      // authorization decision, not a validation one, so it stays outside
+      // this schema.
+      dealer_id: requiredTrimmedString(translate(locale, 'validation.selectDealer')).optional(),
       branch_id: nullableTrimmedString,
-      salesperson: nullableTrimmedString,
+      salesperson: requiredTrimmedString(translate(locale, 'validation.enterSalesperson')),
       receiving_person: nullableTrimmedString,
       customer_title: nullableTrimmedString,
       customer_first_name: nullableTrimmedString,
@@ -156,7 +174,7 @@ export const buildNtrRecordUpdateBodySchema = (locale: Locale = DEFAULT_LOCALE) 
       product_family_id: nullableTrimmedString,
       variant: nullableTrimmedString,
       retail_date: nullableTrimmedString,
-      delivery_date: requiredTrimmedString(translate(locale, 'validation.specifyDeliveryDate')),
+      delivery_date: buildDeliveryDateSchema(locale),
       pdi_date: nullableTrimmedString,
       pdi_number: nullableTrimmedString,
       manufacturing_year: optionalManufacturingYear,

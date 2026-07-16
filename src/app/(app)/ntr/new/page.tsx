@@ -18,6 +18,7 @@ export default async function NtrNewPage() {
       role={session.role}
       sessionDealerId={session.dealerId}
       sessionBranchId={session.branchId}
+      sessionFullName={session.fullName}
       pinnedDealerName={pinnedDealer?.short_name}
       pinnedBranchName={pinnedBranch?.name}
     />

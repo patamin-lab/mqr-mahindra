@@ -26,11 +26,12 @@ interface Props {
   role: Role;
   sessionDealerId: string | null;
   sessionBranchId: string | null;
+  sessionFullName: string;
   pinnedDealerName?: string | null;
   pinnedBranchName?: string | null;
 }
 
-export default function NtrSearch({ dealers, role, sessionDealerId, sessionBranchId, pinnedDealerName, pinnedBranchName }: Props) {
+export default function NtrSearch({ dealers, role, sessionDealerId, sessionBranchId, sessionFullName, pinnedDealerName, pinnedBranchName }: Props) {
   const router = useRouter();
   const { t } = useTranslation();
   const [mode, setMode] = useState<'search' | 'form'>('search');
@@ -152,6 +153,11 @@ export default function NtrSearch({ dealers, role, sessionDealerId, sessionBranc
       <NtrForm
         mode="create"
         tractor={selectedTractor}
+        dealers={dealers}
+        role={role}
+        sessionDealerId={sessionDealerId}
+        sessionFullName={sessionFullName}
+        pinnedDealerName={pinnedDealerName}
         onBack={() => {
           setMode('search');
           setSelectedTractor(null);

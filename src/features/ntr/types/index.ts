@@ -205,13 +205,18 @@ export type NtrRecordCreateInput = Pick<
 };
 
 /** Shape accepted when editing an existing registration. All fields
- *  optional (partial patch) - `serial`/`dealer_id`/`ntr_number` are never
- *  editable (the tractor and its dealer of record don't change after
- *  registration; a mistake here is corrected by deleting and
- *  re-registering, matching how MQR/PM handle a wrong-vehicle mistake). */
+ *  optional (partial patch) - `serial`/`ntr_number` are never editable
+ *  (a wrong-vehicle mistake is corrected by deleting and re-registering,
+ *  matching how MQR/PM handle it). `dealer_id` *is* editable here (NTR
+ *  Form Update, 2026-07) - but only a role that `seesAllDealers` may
+ *  actually change it; the route layer (`api/ntr-records/[id]/route.ts`)
+ *  strips it from any other role's request before it ever reaches this
+ *  type, the same zero-leakage rule the create route already applies via
+ *  `resolveDealerScope`. */
 export type NtrRecordUpdateInput = Partial<
   Pick<
     NtrRecord,
+    | 'dealer_id'
     | 'branch_id'
     | 'salesperson'
     | 'receiving_person'

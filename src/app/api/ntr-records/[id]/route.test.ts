@@ -10,6 +10,12 @@ vi.mock('@/lib/db', async (importOriginal) => {
   return { ...actual, logAuditEvent: vi.fn(), logAuditEvents: vi.fn() };
 });
 
+const mockAssertBranchAccess = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/lib/dealerBranchScope', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/dealerBranchScope')>();
+  return { ...actual, assertBranchAccess: mockAssertBranchAccess };
+});
+
 const mockRepository = {
   getById: vi.fn(),
   findActiveBySerial: vi.fn(),
@@ -65,6 +71,17 @@ const dealerAdminSessionD2 = {
   fullName: 'Dave',
   role: 'DealerAdmin' as const,
   dealerId: 'D2',
+  branch: null,
+  branchId: null,
+  sessionId: 'test-session',
+  forcePasswordChange: false,
+};
+
+const superAdminSession = {
+  username: 'root',
+  fullName: 'Root',
+  role: 'SuperAdmin' as const,
+  dealerId: null,
   branch: null,
   branchId: null,
   sessionId: 'test-session',
@@ -180,6 +197,7 @@ describe('PUT /api/ntr-records/[id]', () => {
     vi.mocked(getSession).mockReset();
     mockRepository.getById.mockReset();
     mockRepository.update.mockReset();
+    mockAssertBranchAccess.mockReset().mockResolvedValue(undefined);
   });
 
   it('returns 401 when unauthorized', async () => {
@@ -210,6 +228,57 @@ describe('PUT /api/ntr-records/[id]', () => {
     expect(res.status).toBe(403);
     expect(json.error.code).toBe('FORBIDDEN');
     expect(mockRepository.update).not.toHaveBeenCalled();
+  });
+
+  describe('Dealer reassignment (NTR Form Update, 2026-07)', () => {
+    it('lets a seesAllDealers actor (SuperAdmin) change dealer_id', async () => {
+      vi.mocked(getSession).mockResolvedValue(superAdminSession);
+      mockRepository.getById.mockResolvedValue(activeRecord); // dealer_id: 'D1'
+      const updated = { ...activeRecord, dealer_id: 'D2' };
+      mockRepository.update.mockResolvedValue(updated);
+
+      const res = await PUT(putRequest({ customer_name: 'New Name', dealer_id: 'D2', branch_id: null }), params);
+      const json = await res.json();
+      expect(res.status).toBe(200);
+      expect(json).toEqual({ ok: true, data: updated });
+      expect(mockAssertBranchAccess).toHaveBeenCalledWith('D2', null);
+      expect(mockRepository.update).toHaveBeenCalledWith('ntr-1', expect.objectContaining({ dealer_id: 'D2' }), expect.anything());
+    });
+
+    it('silently ignores dealer_id from a DealerAdmin (never trusted, no error)', async () => {
+      vi.mocked(getSession).mockResolvedValue(dealerAdminSessionD1);
+      mockRepository.getById.mockResolvedValue(activeRecord); // dealer_id: 'D1'
+      const updated = { ...activeRecord, customer_name: 'New Name' };
+      mockRepository.update.mockResolvedValue(updated);
+
+      const res = await PUT(putRequest({ customer_name: 'New Name', dealer_id: 'D2' }), params);
+      expect(res.status).toBe(200);
+      expect(mockAssertBranchAccess).not.toHaveBeenCalled();
+      const [, calledInput] = mockRepository.update.mock.calls[0];
+      expect(calledInput.dealer_id).toBeUndefined();
+    });
+
+    it('rejects a branch_id that does not belong to the new dealer_id', async () => {
+      vi.mocked(getSession).mockResolvedValue(superAdminSession);
+      mockRepository.getById.mockResolvedValue(activeRecord); // dealer_id: 'D1'
+      mockAssertBranchAccess.mockRejectedValueOnce(new Error('FORBIDDEN_BRANCH'));
+
+      const res = await PUT(putRequest({ customer_name: 'New Name', dealer_id: 'D2', branch_id: 'stale-branch' }), params);
+      const json = await res.json();
+      expect(res.status).toBe(400);
+      expect(json.error.message).toMatch(/branch_id does not belong/);
+      expect(mockRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('does not re-validate branch when dealer_id is unchanged', async () => {
+      vi.mocked(getSession).mockResolvedValue(superAdminSession);
+      mockRepository.getById.mockResolvedValue(activeRecord); // dealer_id: 'D1'
+      mockRepository.update.mockResolvedValue(activeRecord);
+
+      const res = await PUT(putRequest({ customer_name: 'New Name', dealer_id: 'D1' }), params);
+      expect(res.status).toBe(200);
+      expect(mockAssertBranchAccess).not.toHaveBeenCalled();
+    });
   });
 });
 

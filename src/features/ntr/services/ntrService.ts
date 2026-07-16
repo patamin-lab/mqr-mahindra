@@ -19,6 +19,7 @@ export interface NtrActor {
 }
 
 const NTR_FIELD_LABELS: Record<string, string> = {
+  dealer_id: 'ดีลเลอร์',
   branch_id: 'สาขา',
   salesperson: 'พนักงานขาย',
   receiving_person: 'ผู้รับมอบรถ',

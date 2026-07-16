@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import { canAccessDealerBranch, resolveDealerScope } from '@/lib/dealerBranchScope';
+import { getVehicleBySerial } from '@/lib/db';
 import { createNtrService } from '@/features/ntr/factory';
 import { MasterDataService } from '@/shared/master-data';
+import { seesAllDealers } from '@/lib/scope';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import EmptyState from '@/components/shared/layout/EmptyState';
@@ -48,18 +50,32 @@ export default async function NtrEditPage({ params }: RouteParams) {
   // Vehicle Master / Factory Domain display data - resolved here (same
   // pattern the detail page already uses for branch/product family),
   // never re-derived by the form itself. Branches are scoped to this
-  // record's own (fixed) dealer, since only Branch is editable here -
-  // Dealer itself never changes after an NTR is created.
-  const [dealer, productFamily, branches] = await Promise.all([
+  // record's own (fixed) dealer - the form's own client-side Dealer
+  // change handler refetches a different dealer's branches on demand
+  // (`ntr-form.tsx`'s `handleDealerChange`), so this list only ever needs
+  // to be the *starting* one. Model/Engine Number/Sub Model are
+  // point-in-time snapshots already on the NTR record itself (never a
+  // live join back to `vehicles` - see `NtrRecord`'s own doc comment);
+  // Product Code has no such snapshot column, so it's the one field here
+  // resolved live via `getVehicleBySerial` (previously always `null` - a
+  // gap fixed by the NTR Form Update, 2026-07). `dealers` (the full active
+  // list) is only fetched for a `seesAllDealers` actor - the one role
+  // allowed to actually change Dealer here (also NTR Form Update,
+  // 2026-07) - mirroring `ntr/new/page.tsx`'s own `showDealerField` gate.
+  const showDealerField = seesAllDealers(session.role);
+  const [dealer, productFamily, branches, vehicle, dealers] = await Promise.all([
     MasterDataService.getDealerById(record.dealer_id),
     record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
     MasterDataService.getBranchesForDealer(record.dealer_id),
+    getVehicleBySerial(record.serial, resolveDealerScope(session)),
+    showDealerField ? MasterDataService.getDealers() : Promise.resolve([]),
   ]);
 
   const vehicleInfo = {
     serial: record.serial,
+    model: record.model,
     engineNumber: record.engine_number,
-    productCode: null,
+    productCode: vehicle?.product_code ?? null,
     dealerLabel: dealer?.short_name ?? dealer?.full_name ?? record.dealer_id,
     productFamilyName: productFamily?.name ?? null,
     subModel: record.variant,
@@ -76,7 +92,14 @@ export default async function NtrEditPage({ params }: RouteParams) {
           </Link>
         }
       />
-      <NtrEditForm record={record} vehicleInfo={vehicleInfo} branches={branches} />
+      <NtrEditForm
+        record={record}
+        vehicleInfo={vehicleInfo}
+        branches={branches}
+        dealers={dealers}
+        role={session.role}
+        sessionDealerId={session.dealerId}
+      />
     </div>
   );
 }

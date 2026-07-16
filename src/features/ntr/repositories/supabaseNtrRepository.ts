@@ -149,6 +149,7 @@ export class SupabaseNtrRepository implements NtrRepository {
       updated_at: new Date().toISOString(),
     };
 
+    if (input.dealer_id !== undefined) updatePayload.dealer_id = input.dealer_id;
     if (input.branch_id !== undefined) updatePayload.branch_id = input.branch_id;
     if (input.salesperson !== undefined) updatePayload.salesperson = input.salesperson;
     if (input.receiving_person !== undefined) updatePayload.receiving_person = input.receiving_person;
