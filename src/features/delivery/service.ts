@@ -87,6 +87,15 @@ export class DeliveryService {
     return record;
   }
 
+  /** Delivery Record detail's Training display - thin passthrough to the
+   *  repository method `getDeliveryForMachine()` already calls for the
+   *  Machine Passport summary's `trainingCompleted` flag; this exposes the
+   *  full `DeliveryTraining` row for the detail page instead of just a
+   *  boolean. No new query, no new table access. */
+  async getTraining(id: string): Promise<DeliveryTraining | null> {
+    return this.repo.getTrainingById(id);
+  }
+
   /** Tractor In (stage 1) — this vehicle already exists via the existing
    *  Tractor In Sync (ADR-012, `vehicles`); this call starts the Delivery
    *  aggregate's own tracking, it never re-syncs or duplicates the
@@ -307,6 +316,7 @@ export class DeliveryService {
       pdiResult = inspection?.result ?? null;
     }
     return {
+      id: record.id,
       deliveryRef: record.deliveryRef,
       stage: record.stage,
       overallStatus: record.overallStatus,

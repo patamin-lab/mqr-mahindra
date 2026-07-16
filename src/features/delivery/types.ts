@@ -102,8 +102,10 @@ export interface DeliveryListFilters {
 
 /** Machine Passport's Delivery section - read-only summary, never a
  *  second Delivery table. `null` when this machine has no delivery record
- *  yet (still in dealer stock, no Tractor In record started). */
+ *  yet (still in dealer stock, no Tractor In record started). `id` links
+ *  out to the full Delivery Record detail (`/delivery/records/[id]`). */
 export interface MachineDeliverySummary {
+  id: string;
   deliveryRef: string;
   stage: DeliveryStage;
   overallStatus: DeliveryOverallStatus;
