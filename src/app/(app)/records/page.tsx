@@ -149,6 +149,7 @@ export default async function RecordsPage({
             className="border border-gray-300 rounded px-3 py-2 text-sm"
           >
             <option value="">ทั้งหมด</option>
+            <option value="open">เปิดอยู่ทั้งหมด (ยังไม่ปิด)</option>
             {MasterDataService.statusValues.map((s) => (
               <option key={s} value={s}>
                 {MasterDataService.statusLabel(s)}

@@ -1571,7 +1571,9 @@ export async function listRecords(session: SessionUser, filters: ListRecordsFilt
   let query = supabase.from('records').select('*').order('created_at', { ascending: false });
   query = applyScope(query, session, { dealerId: filters.dealerId, branchId: filters.branchId });
 
-  if (filters.status) {
+  if (filters.status === 'open') {
+    query = query.in('status', OPEN_STATUSES);
+  } else if (filters.status) {
     query = query.eq('status', filters.status);
   }
   if (filters.dateFrom) {
@@ -1623,7 +1625,9 @@ export async function listRecordsPaginated(
   let query = supabase.from('records').select('*', { count: 'exact' }).order('created_at', { ascending: false });
   query = applyScope(query, session, { dealerId: filters.dealerId, branchId: filters.branchId });
 
-  if (filters.status) {
+  if (filters.status === 'open') {
+    query = query.in('status', OPEN_STATUSES);
+  } else if (filters.status) {
     query = query.eq('status', filters.status);
   }
   if (filters.dateFrom) {

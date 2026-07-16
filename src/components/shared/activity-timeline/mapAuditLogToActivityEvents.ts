@@ -192,6 +192,33 @@ function photoCountSummary(photoChanges: ActivityPhotoChange[] | null): string {
 }
 
 /**
+ * Maps an event's `entityType`/`entityId`/`entityRef` to its module's real
+ * detail-page URL, so a cross-module feed (Platform Overview's "Today's
+ * Activities") can link a timeline entry back to the record it's actually
+ * about, instead of being a dead end - see `ActivityTimeline`'s optional
+ * `getEntityHref` prop. `mqr`'s route is keyed by `job_id` (`entityRef`),
+ * every other module's route is keyed by its real id (`entityId`) - matches
+ * each module's own `[id]`/`[jobId]` page today. `delivery` has no detail
+ * page yet (only `pdi` does) - returns `null` rather than guessing a URL.
+ */
+export function getActivityEntityHref(event: Pick<ActivityEvent, 'entityType' | 'entityId' | 'entityRef'>): string | null {
+  switch (event.entityType) {
+    case 'mqr':
+      return `/records/${encodeURIComponent(event.entityRef)}`;
+    case 'pm':
+      return `/pm-records/${encodeURIComponent(event.entityId)}`;
+    case 'ntr':
+      return `/ntr/${encodeURIComponent(event.entityId)}`;
+    case 'knowledge':
+      return `/quality/knowledge/${encodeURIComponent(event.entityId)}`;
+    case 'pdi':
+      return `/delivery/pdi/${encodeURIComponent(event.entityId)}`;
+    case 'delivery':
+      return null;
+  }
+}
+
+/**
  * Cross-record variant for a mixed, multi-module feed (MSEAL Design
  * Framework, ADR-023 refinement - Platform Overview's "Today's Activities"
  * widget). Each `AuditLogEntry` already carries its own `module`/`recordId`/

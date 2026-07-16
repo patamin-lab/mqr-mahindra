@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { ActivityEvent } from './types';
 import { getActivityIcon, getActivityActionLabel } from './activityLabels';
 import DiffViewer from './DiffViewer';
@@ -16,11 +17,15 @@ export interface ActivityEventRowProps {
   /** Quick Navigation - omitted (no button rendered) when the event has no
    *  `navigationTarget`, or the page didn't wire one up. */
   onNavigate?: (target: NonNullable<ActivityEvent['navigationTarget']>) => void;
+  /** See `ActivityTimelineProps.getEntityHref` - renders a "→ {ref}" link to
+   *  the record this event is about when provided and it resolves to a URL. */
+  getEntityHref?: (event: ActivityEvent) => string | null | undefined;
 }
 
-export default function ActivityEventRow({ event, entityLabel, t, formattedDate, onNavigate }: ActivityEventRowProps) {
+export default function ActivityEventRow({ event, entityLabel, t, formattedDate, onNavigate, getEntityHref }: ActivityEventRowProps) {
   const [expanded, setExpanded] = useState(false);
   const hasDetail = (event.changes?.length ?? 0) > 0 || (event.photoChanges?.length ?? 0) > 0;
+  const entityHref = getEntityHref?.(event) ?? null;
 
   return (
     <li className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
@@ -49,15 +54,22 @@ export default function ActivityEventRow({ event, entityLabel, t, formattedDate,
             <div className="text-sm text-gray-700 mt-0.5 break-words">{event.summary}</div>
           </div>
         </div>
-        {hasDetail && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-brand-red hover:underline shrink-0"
-          >
-            {expanded ? t('activityTimeline.hideChanges') : t('activityTimeline.viewChanges')}
-          </button>
-        )}
+        <div className="flex items-center gap-3 shrink-0">
+          {entityHref && (
+            <Link href={entityHref} className="text-xs text-brand-red hover:underline whitespace-nowrap">
+              {event.entityRef} →
+            </Link>
+          )}
+          {hasDetail && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs text-brand-red hover:underline whitespace-nowrap"
+            >
+              {expanded ? t('activityTimeline.hideChanges') : t('activityTimeline.viewChanges')}
+            </button>
+          )}
+        </div>
       </div>
       {expanded && hasDetail && (
         <div className="mt-3 ml-7 space-y-3">
