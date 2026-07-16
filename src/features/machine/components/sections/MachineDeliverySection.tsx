@@ -11,5 +11,5 @@ const machineService = new MachineService();
  */
 export default async function MachineDeliverySection({ serial }: { serial: string }) {
   const delivery = await machineService.getMachineDeliverySummary(serial);
-  return <MachineDeliveryPanel delivery={delivery} />;
+  return <MachineDeliveryPanel delivery={delivery} serial={serial} />;
 }

@@ -210,7 +210,10 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       key: 'deliveryLifecycle',
       icon: '🚚',
       label: t('nav.deliveryLifecycleGroup'),
-      items: [{ href: '/ntr', label: t('nav.ntrRecords') }],
+      items: [
+        { href: '/ntr', label: t('nav.ntrRecords') },
+        { href: '/delivery/records', label: t('nav.deliveryRecords') },
+      ],
     },
     {
       key: 'service',

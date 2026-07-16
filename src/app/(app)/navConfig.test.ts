@@ -45,10 +45,19 @@ describe('getNavGroups (Business Workflow Consolidation, ADR-035/036/037 - lifec
     const groups = getNavGroups(t, session());
     const deliveryLifecycle = groups.find((g) => g.key === 'deliveryLifecycle')!;
     expect(deliveryLifecycle).toBeDefined();
-    expect(deliveryLifecycle.items).toEqual([{ href: '/ntr', label: 'nav.ntrRecords' }]);
+    expect(deliveryLifecycle.items).toEqual([
+      { href: '/ntr', label: 'nav.ntrRecords' },
+      { href: '/delivery/records', label: 'nav.deliveryRecords' },
+    ]);
 
     const vehicleLookup = groups.find((g) => g.key === 'vehicleLookup')!;
     expect(vehicleLookup.items!.some((i) => i.href === '/ntr')).toBe(false);
+  });
+
+  it('Delivery Records (resurfaced stage-tracking UI, Production Pilot) lives under Delivery Lifecycle alongside NTR', () => {
+    const groups = getNavGroups(t, session());
+    const deliveryLifecycle = groups.find((g) => g.key === 'deliveryLifecycle')!;
+    expect(deliveryLifecycle.items!.some((i) => i.href === '/delivery/records')).toBe(true);
   });
 
   it('Historical NTR Import (formerly Legacy Import) and Import History have no nav entry for any role, including SuperAdmin - permanently retired (ADR-038)', () => {

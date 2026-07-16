@@ -198,8 +198,7 @@ function photoCountSummary(photoChanges: ActivityPhotoChange[] | null): string {
  * about, instead of being a dead end - see `ActivityTimeline`'s optional
  * `getEntityHref` prop. `mqr`'s route is keyed by `job_id` (`entityRef`),
  * every other module's route is keyed by its real id (`entityId`) - matches
- * each module's own `[id]`/`[jobId]` page today. `delivery` has no detail
- * page yet (only `pdi` does) - returns `null` rather than guessing a URL.
+ * each module's own `[id]`/`[jobId]` page today.
  */
 export function getActivityEntityHref(event: Pick<ActivityEvent, 'entityType' | 'entityId' | 'entityRef'>): string | null {
   switch (event.entityType) {
@@ -214,7 +213,7 @@ export function getActivityEntityHref(event: Pick<ActivityEvent, 'entityType' | 
     case 'pdi':
       return `/delivery/pdi/${encodeURIComponent(event.entityId)}`;
     case 'delivery':
-      return null;
+      return `/delivery/records/${encodeURIComponent(event.entityId)}`;
   }
 }
 

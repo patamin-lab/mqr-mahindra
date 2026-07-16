@@ -87,6 +87,15 @@ export class DeliveryService {
     return record;
   }
 
+  /** Delivery Record detail's Training display - thin passthrough to the
+   *  repository method `getDeliveryForMachine()` already calls for the
+   *  Machine Passport summary's `trainingCompleted` flag; this exposes the
+   *  full `DeliveryTraining` row for the detail page instead of just a
+   *  boolean. No new query, no new table access. */
+  async getTraining(id: string): Promise<DeliveryTraining | null> {
+    return this.repo.getTrainingById(id);
+  }
+
   /** Tractor In (stage 1) — this vehicle already exists via the existing
    *  Tractor In Sync (ADR-012, `vehicles`); this call starts the Delivery
    *  aggregate's own tracking, it never re-syncs or duplicates the
@@ -109,14 +118,15 @@ export class DeliveryService {
     return created;
   }
 
-  async receiveAtStockYard(id: string, location: string | null, session: SessionUser): Promise<DeliveryRecord> {
+  async receiveAtStockYard(id: string, location: string | null, session: SessionUser, existing?: DeliveryRecord): Promise<DeliveryRecord> {
+    const before = existing ?? (await this.getDelivery(id));
     const updated = await this.repo.update(id, {
       stage: 'StockYard',
       stockYardReceivedAt: new Date().toISOString(),
       stockYardLocation: location,
       updatedBy: session.username,
     });
-    await this.logStageEvent(updated, 'StockYard', session);
+    await this.logStageEvent(updated, before.stage, 'StockYard', session);
     return updated;
   }
 
@@ -126,40 +136,43 @@ export class DeliveryService {
    *  (`canAccessImportInspection`) - a Dealer role must not be able to
    *  read/act on Import Inspection state through this cross-domain link,
    *  even though Import Inspection's own CRUD is already MSEAL-only. */
-  async linkInspection(id: string, inspectionId: string, inspectionCompleted: boolean, session: SessionUser): Promise<DeliveryRecord> {
+  async linkInspection(id: string, inspectionId: string, inspectionCompleted: boolean, session: SessionUser, existing?: DeliveryRecord): Promise<DeliveryRecord> {
     if (!canAccessImportInspection(session.role)) {
       throw new Error(`Role ${session.role} may not link an Import Inspection to a Delivery record`);
     }
+    const before = existing ?? (await this.getDelivery(id));
     const updated = await this.repo.update(id, {
       stage: inspectionCompleted ? 'DealerPreparation' : 'PDI',
       pdiInspectionId: inspectionId,
       updatedBy: session.username,
     });
-    await this.logStageEvent(updated, updated.stage, session);
+    await this.logStageEvent(updated, before.stage, updated.stage, session);
     return updated;
   }
 
-  async completeDealerPrep(id: string, notes: string | null, session: SessionUser): Promise<DeliveryRecord> {
+  async completeDealerPrep(id: string, notes: string | null, session: SessionUser, existing?: DeliveryRecord): Promise<DeliveryRecord> {
+    const before = existing ?? (await this.getDelivery(id));
     const updated = await this.repo.update(id, {
       stage: 'CustomerDelivery',
       dealerPreparationCompletedAt: new Date().toISOString(),
       dealerPreparationNotes: notes,
       updatedBy: session.username,
     });
-    await this.logStageEvent(updated, 'CustomerDelivery', session);
+    await this.logStageEvent(updated, before.stage, 'CustomerDelivery', session);
     return updated;
   }
 
   /** Customer Delivery — links an existing `NtrRecord` (never duplicates
    *  Customer/Machine/Photos/Delivery Date fields that NTR already
    *  captures). Advances to `OperatorTraining`. */
-  async linkNtr(id: string, ntrId: string, session: SessionUser): Promise<DeliveryRecord> {
+  async linkNtr(id: string, ntrId: string, session: SessionUser, existing?: DeliveryRecord): Promise<DeliveryRecord> {
+    const before = existing ?? (await this.getDelivery(id));
     const updated = await this.repo.update(id, {
       stage: 'OperatorTraining',
       ntrId,
       updatedBy: session.username,
     });
-    await this.logStageEvent(updated, 'OperatorTraining', session);
+    await this.logStageEvent(updated, before.stage, 'OperatorTraining', session);
     return updated;
   }
 
@@ -307,6 +320,7 @@ export class DeliveryService {
       pdiResult = inspection?.result ?? null;
     }
     return {
+      id: record.id,
       deliveryRef: record.deliveryRef,
       stage: record.stage,
       overallStatus: record.overallStatus,
@@ -420,13 +434,14 @@ export class DeliveryService {
     );
   }
 
-  private async logStageEvent(record: DeliveryRecord, newStage: string, session: SessionUser): Promise<void> {
+  private async logStageEvent(record: DeliveryRecord, previousStage: string, newStage: string, session: SessionUser): Promise<void> {
     await logAuditEvent({
       module: 'delivery',
       recordId: record.id,
       recordRef: record.deliveryRef,
       eventType: 'StatusChanged',
       fieldName: 'Stage',
+      oldValue: previousStage,
       newValue: newStage,
       performedBy: session.username,
     });
