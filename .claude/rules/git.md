@@ -2,39 +2,102 @@
 
 These rules govern every git/GitHub operation on this repository, including operations performed through the GitHub web UI (this environment has no local clone or push credentials — see `.claude/playbooks/deploy-without-git-cli.md`).
 
-## Hard restrictions (no exception, ever)
+This file is itself a governance artifact, on the same footing as the documents `docs/architecture/PLATFORM_CONSTITUTION.md` names as an "approval authority already defined for architecture-level changes." See **Rule Governance**, below, for how this file may change.
 
-- Never create tags.
-- Never create releases.
-- Never force push.
-- Never rewrite git history (no rebase, no `commit --amend` on already-pushed commits, no `reset --hard` followed by push).
-- Never commit unless explicitly instructed for that specific change.
+## Absolute prohibitions (no exception, ever)
 
-## Conditional operations (merge / branch deletion)
+Never:
 
-Merging a branch and deleting a branch are **not** blanket-forbidden, but each requires every one of its own conditions to hold — if any single condition is unmet, stop and report the blocker instead of proceeding. Meeting the conditions for one operation does not carry over to the other; each still needs its own explicit approval.
+- Force push.
+- Rewrite git history (no rebase, no `commit --amend` on already-pushed commits, no `reset --hard` followed by push).
+- Create a release.
+- Create a tag.
+- Bypass CI (merge with a required check red, missing, or unverified).
+- Bypass Product Owner approval (merge or delete a branch without the specific approval this file requires).
+- Commit unless explicitly instructed for that specific change.
 
-**Merge a PR only when ALL of the following hold:**
+## Scope of the conditional merge process
 
-- The Product Owner has explicitly approved merging *this specific PR*, in this session — an earlier approval for a different PR, or a general "yes go ahead," does not count.
-- The PR reports a clean, conflict-free mergeable state (e.g. GitHub's `mergeable: MERGEABLE` / `mergeStateStatus: CLEAN`), verified freshly, not assumed from an earlier check.
-- Every required CI check reports green, verified freshly.
-- The architecture check passes.
-- The build passes.
-- Use the repository's standard configured merge method (whatever GitHub's branch/PR settings default to for this repo) — never override it with an ad hoc strategy.
+Merging and branch deletion are **not** blanket-forbidden, but they are also not the default. `docs/governance/AI_ENGINEERING_PLAYBOOK.md`'s standing Deliverable template — "Open ONE PR. Never Merge. Stop after reporting." — remains the default outcome for ordinary work. The conditional process below is a distinct, elevated mode that only applies when a task explicitly invokes it for a specific, already-open PR (naming the PR number and asking for merge/deletion). Absent that explicit invocation, fall back to the Playbook default: open the PR, do not merge, stop and report.
 
-**Delete a branch only when ALL of the following hold:**
+## Merge Policy
 
-- That branch's PR was just merged successfully under the rule above.
-- The Product Owner has explicitly approved deleting *that branch* — merge approval does not by itself imply delete approval; if the approval message didn't clearly cover deletion, ask before deleting.
+A merge may proceed only when **all** of the following are true, verified in this order:
 
-## Approval requirement
+**1. Explicit Product Owner approval**
 
-Git operations require explicit user approval. Approval is per change — approving one commit, tag, release, merge, or branch deletion does not authorize the next one. When in doubt, stop and ask before taking the action, not after.
+- The approval must name the specific PR number being merged.
+- Approval for one PR never applies to any other PR, no matter how similar or related.
+- An approval given earlier in the conversation, before the conditions below were last checked, does not carry forward — see Freshness.
 
-## Why this matters
+**2. Freshness**
 
-`main` auto-deploys to production (Vercel) on every push. Tags and releases mark points other tooling or people may rely on; force-pushes and history rewrites can silently break or hide changes, and are difficult to undo cleanly even when GitHub shows an "undo" option — these stay absolute, no-exception restrictions. Merges and branch deletions are the most common legitimate end-of-review actions, so rather than forbidding them outright, this file gates them behind the same evidence a human reviewer would want before clicking the same buttons: fresh mergeability, fresh green CI, a fresh passing build and architecture check, and an explicit, specific approval. Treat every git-affecting action as effectively irreversible, conditional gate or not.
+- Approval is treated as expired — and must be re-confirmed — if, since it was given: new commits were pushed to the PR, its mergeable/mergeStateStatus changed, a required CI check went non-green, or its review status changed.
+- Always re-fetch and use the latest repository/PR state immediately before merging, never a value cached from earlier in the session.
+
+**3. Validation**
+
+Before merging, verify every one of the following, freshly, in the actual PR/branch state:
+
+- Mergeable (clean, conflict-free — e.g. GitHub's `mergeable: MERGEABLE` / `mergeStateStatus: CLEAN`).
+- Every required CI check green.
+- Architecture check passes.
+- Build passes.
+- Typecheck passes.
+- Lint passes.
+- Tests pass.
+
+If any single one of these fails, do not merge — stop and report which check failed instead.
+
+**4. Merge Strategy**
+
+- Use only the repository's configured standard merge strategy (whatever GitHub's branch/PR settings default to for this repo).
+- Never override it with an ad hoc strategy (e.g. forcing a squash when the repo default is a merge commit, or vice versa).
+
+## Branch Deletion
+
+Delete a branch only when **both** of the following are true:
+
+- The merge of that branch's PR just completed successfully, under the Merge Policy above.
+- The Product Owner has explicitly approved deleting *that specific branch*.
+
+Merge approval does **not** imply branch-deletion approval — if the approval message did not clearly cover deletion, ask before deleting.
+
+## Post-Merge
+
+After every successful merge, verify:
+
+- The merge commit exists and is on the target branch.
+- `main`'s HEAD reflects the merge.
+- CI on `main` (post-merge) is green.
+- Deployment status, if this repository has one wired to the merge (e.g. Vercel auto-deploy on `main`).
+
+Never claim a merge completed, or a deployment succeeded, unless each was actually verified — a merge command returning success is not itself proof; check the resulting state.
+
+Then synchronize documentation: update only the specific doc(s) actually affected by the change (Reuse before Rewrite applies to docs too — `docs/governance/AI_ENGINEERING_PLAYBOOK.md`'s own Before-Every-PR rule), among:
+
+- `PROJECT_STATE.md`
+- `ROADMAP.md`
+- `ADR_INDEX.md`
+- `RELEASE_NOTES.md`
+- `CHANGELOG.md`
+
+If a business rule or architecture decision changed, that is an ADR, not a silent doc edit.
+
+## Rollback
+
+If production validation fails after a merge:
+
+- Do **not** silently patch `main` directly.
+- Open a dedicated rollback or hotfix PR.
+- Document the reason for the rollback/hotfix in that PR.
+
+## Rule Governance
+
+`.claude/rules/git.md` is itself governed:
+
+- Future modifications to this file require explicit Product Owner approval and a dedicated documentation PR.
+- Rule changes must never be bundled with application code in the same PR.
 
 ## Note on repo history
 
