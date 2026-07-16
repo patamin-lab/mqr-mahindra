@@ -233,6 +233,8 @@
     "searchMachinesBySerialModel": "ค้นหาเครื่องจักรตามหมายเลขเครื่อง/รุ่น",
     "qualityCasesAction": "รายงานปัญหาคุณภาพ",
     "reviewOpenQualityCases": "ตรวจสอบรายงานปัญหาคุณภาพที่เปิดอยู่",
+    "pmRecordsAction": "งานเช็คระยะ",
+    "managePmRecords": "จัดการงานเช็คระยะ (บำรุงรักษาเชิงป้องกัน) ของเครื่องจักร",
     "todaysActivities": "กิจกรรมวันนี้",
     "comingSoonTitle": "เร็ว ๆ นี้",
     "activeWarrantyTitle": "การรับประกันที่ใช้งานอยู่",

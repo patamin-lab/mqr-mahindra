@@ -233,6 +233,8 @@
     "searchMachinesBySerialModel": "Search machines by serial/model",
     "qualityCasesAction": "รายงานปัญหาคุณภาพ",
     "reviewOpenQualityCases": "ตรวจสอบรายงานปัญหาคุณภาพที่เปิดอยู่",
+    "pmRecordsAction": "Preventive Maintenance",
+    "managePmRecords": "Manage preventive maintenance records",
     "todaysActivities": "Today's Activities",
     "comingSoonTitle": "Coming Soon",
     "activeWarrantyTitle": "Active Warranty",
