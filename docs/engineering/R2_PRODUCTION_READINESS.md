@@ -92,12 +92,21 @@ access, not by this application or its credentials).
 
 **A real CORS preflight was sent this session** - not inferred, an actual
 `OPTIONS` request to the live presigned-PUT URL with
-`Origin: https://mqr-mahindra.vercel.app`, `Access-Control-Request-Method: PUT`,
+`Origin: https://mqr-mahindra.vercel.app` (the production origin as
+documented in root `CLAUDE.md` at the time this review was written -
+since corrected, see below), `Access-Control-Request-Method: PUT`,
 `Access-Control-Request-Headers: content-type` - and it returned **`403`
 with no `Access-Control-Allow-Origin` header at all**. A real browser
 would block the actual `PUT` before sending it. This confirms (not just
 infers) that the large-file direct-upload path is broken for any real
 browser today, while R2 is enabled.
+
+**Correction (2026-07-16)**: `mqr-mahindra.vercel.app` was never actually
+the live production alias (it 404s with `DEPLOYMENT_NOT_FOUND`) - the
+real, working production URL is `masp-mseal.vercel.app`. The `403`/no-
+CORS-header result above still stands (no origin is currently allowed at
+all, per the bucket's own empty CORS config checked earlier in this
+doc), but the required configuration below now lists the correct origin.
 
 **Required CORS configuration** (exact JSON, to be applied via
 Cloudflare dashboard → R2 → bucket `masp` → Settings → CORS Policy):
@@ -106,7 +115,7 @@ Cloudflare dashboard → R2 → bucket `masp` → Settings → CORS Policy):
 [
   {
     "AllowedOrigins": [
-      "https://mqr-mahindra.vercel.app",
+      "https://masp-mseal.vercel.app",
       "http://localhost:3000"
     ],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
@@ -120,7 +129,7 @@ Cloudflare dashboard → R2 → bucket `masp` → Settings → CORS Policy):
 **Per-permission justification** (each one checked against actual code,
 not assumed):
 
-- `AllowedOrigins`: `mqr-mahindra.vercel.app` is the documented production
+- `AllowedOrigins`: `masp-mseal.vercel.app` is the documented production
   origin (root `CLAUDE.md`); `localhost:3000` is this app's local dev
   server default (`next dev`) - both genuinely needed, since R2 is
   currently exercised from local dev only, and the production origin will

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
+import { canManageTractorInSync } from '@/lib/scope';
 import { getTractorInSyncHealth } from '@/lib/db';
 
 /**
@@ -14,7 +15,7 @@ import { getTractorInSyncHealth } from '@/lib/db';
 export async function GET() {
   const session = await getSession();
   if (!session) return unauthorizedError();
-  if (session.role !== 'SuperAdmin') {
+  if (!canManageTractorInSync(session.role)) {
     return forbiddenError();
   }
 

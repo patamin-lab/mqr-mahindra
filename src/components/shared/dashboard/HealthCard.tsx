@@ -1,5 +1,6 @@
 import Card from '@/components/shared/layout/Card';
 import StatusPill from '@/components/shared/status/StatusPill';
+import { t } from '@/lib/i18n/server';
 
 /**
  * Health Card (MSEAL Design Framework, ADR-023, Widget Standard). One
@@ -9,14 +10,27 @@ import StatusPill from '@/components/shared/status/StatusPill';
  * Platform Overview's System Health widget, backed by the existing
  * Tractor-IN sync health check (`getTractorInSyncHealth()`) - no new
  * health-check logic invented here, just a standard way to display one.
+ *
+ * No `'use client'` directive - every current caller renders this from a
+ * Server Component tree (`dashboard/page.tsx`, `MachineHealthPanel.tsx`),
+ * so it reads the request locale directly via `t()` from
+ * `@/lib/i18n/server` for its own fallback strings, rather than requiring
+ * every caller to translate `statusLabel`/the "last checked" prefix itself.
  */
 export type HealthStatus = 'healthy' | 'degraded' | 'down' | 'unknown';
 
-const STATUS_STYLE: Record<HealthStatus, { colorClassName: string; label: string }> = {
-  healthy: { colorClassName: 'bg-green-100 text-green-700', label: 'Healthy' },
-  degraded: { colorClassName: 'bg-amber-100 text-amber-700', label: 'Degraded' },
-  down: { colorClassName: 'bg-red-100 text-red-700', label: 'Down' },
-  unknown: { colorClassName: 'bg-gray-100 text-gray-500', label: 'Unknown' },
+const STATUS_KEY: Record<HealthStatus, string> = {
+  healthy: 'healthCard.statusHealthy',
+  degraded: 'healthCard.statusDegraded',
+  down: 'healthCard.statusDown',
+  unknown: 'healthCard.statusUnknown',
+};
+
+const STATUS_COLOR: Record<HealthStatus, string> = {
+  healthy: 'bg-green-100 text-green-700',
+  degraded: 'bg-amber-100 text-amber-700',
+  down: 'bg-red-100 text-red-700',
+  unknown: 'bg-gray-100 text-gray-500',
 };
 
 export interface HealthCardProps {
@@ -28,15 +42,14 @@ export interface HealthCardProps {
 }
 
 export default function HealthCard({ label, status, statusLabel, detail, lastCheckedAt }: HealthCardProps) {
-  const style = STATUS_STYLE[status];
   return (
     <Card variant="flat" className="p-5">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm text-gray-500">{label}</div>
-        <StatusPill colorClassName={style.colorClassName}>{statusLabel ?? style.label}</StatusPill>
+        <StatusPill colorClassName={STATUS_COLOR[status]}>{statusLabel ?? t(STATUS_KEY[status])}</StatusPill>
       </div>
       {detail && <div className="text-sm text-brand-dark mt-2">{detail}</div>}
-      {lastCheckedAt && <div className="text-xs text-gray-400 mt-1">Last checked: {lastCheckedAt}</div>}
+      {lastCheckedAt && <div className="text-xs text-gray-400 mt-1">{t('healthCard.lastChecked', { time: lastCheckedAt })}</div>}
     </Card>
   );
 }

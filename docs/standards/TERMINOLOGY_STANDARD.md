@@ -108,11 +108,12 @@ below for the current-vs-future distinction for that specific term.
 | Platform Overview (`/dashboard` page title) | ภาพรวมแพลตฟอร์ม | `th`; `en` keeps "Platform Overview" |
 | Platform KPIs (dashboard section heading) | ตัวชี้วัดหลักของแพลตฟอร์ม | `th`; `en` keeps "Platform KPIs" |
 | Registered Machines (KPI label) | เครื่องจักรที่ลงทะเบียน | `th`; `en` keeps "Registered Machines" |
-| Pending Imports (KPI label) | การนำเข้าที่รอดำเนินการ | `th`; `en` keeps "Pending Imports" |
 | System Health (KPI/HealthCard label) | สถานะระบบ (การซิงค์ข้อมูลเครื่องจักรหลัก) | `th`; `en` keeps "System Health (Vehicle Master sync)" |
 | Today's Activities (dashboard section heading) | กิจกรรมวันนี้ | `th`; `en` keeps "Today's Activities" |
 | Quick Actions (dashboard section heading) | การดำเนินการด่วน | `th`; `en` keeps "Quick Actions" |
-| "View ..." action links (e.g. View Machine Registry, View Quality Dashboard, View Import History) | ดู... | `th` translates per destination; `en` keeps "View ..." |
+| "View ..." action links (e.g. View Machine Registry, View Open Cases) | ดู... | `th` translates per destination; `en` keeps "View ..." |
+| Dashboard MSEAL PDI (nav item, `/delivery/pdi/dashboard`, disambiguates from the top-level Platform Overview "Dashboard") | Dashboard MSEAL PDI | Both `en` and `th` - intentional identical-string exception, same rationale as AI Engineering/Predictive Quality below (a fixed internal system name, not translated prose) |
+| Incoming PDI (nav item, `/delivery/pdi`) | ตรวจสอบเครื่องจักรนำเข้าใหม่ MSEAL PDI | `th` translates fully; `en` keeps "Incoming PDI." Note: this is a different surface label than the `pdi.*` screen-content namespace's own official term "Import Inspection" (see Domain ownership below) - both nav items are business-decision renames (Product Owner, 2026-07-16), not yet reconciled with the screen-content wording; tracked here rather than silently left inconsistent. |
 | "Search ..." helper text (e.g. Search machines by serial/model) | ค้นหา... | `th` translates per context; `en` keeps "Search ..." |
 | "Register ..." action labels (e.g. Register New Tractor) | ลงทะเบียน... | `th` translates per context; `en` keeps "Register ..." |
 

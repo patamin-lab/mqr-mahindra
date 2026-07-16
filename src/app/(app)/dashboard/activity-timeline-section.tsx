@@ -3,6 +3,7 @@
 import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTimeline';
 import { ActivityEvent } from '@/components/shared/activity-timeline/types';
 import { getActivityEntityHref } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 /**
  * Client Component wrapper - required by the Next.js App Router rule that a
@@ -16,5 +17,6 @@ import { getActivityEntityHref } from '@/components/shared/activity-timeline/map
  * plain data) crosses the boundary.
  */
 export default function DashboardActivityTimelineSection({ events }: { events: ActivityEvent[] }) {
-  return <ActivityTimeline events={events} entityLabel="Record" getEntityHref={getActivityEntityHref} />;
+  const { t } = useTranslation();
+  return <ActivityTimeline events={events} entityLabel={t('dashboard.activityEntityLabel')} getEntityHref={getActivityEntityHref} />;
 }

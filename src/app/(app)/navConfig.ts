@@ -174,15 +174,20 @@ export function getNavGroups(t: Translate, session: SessionUser): NavGroup[] {
       items: [{ href: '/machines', label: t('nav.vehicle360') }],
     },
     {
-      // Import & Inspection (renamed from "Quality Inspection" - Business
-      // Workflow Consolidation found this group's own label used the wrong
-      // business term; ADR-028 already corrected this domain's name to
-      // "Import Inspection," the item labels below already say so, only
-      // the group label had drifted). Belongs exclusively to MSEAL
-      // (business-domain correction) - hidden from Dealer roles, server-
-      // side route check is the real gate, this only hides the nav entry.
-      // Underlying routes (`/delivery/pdi`, `/delivery/pdi/dashboard`) and
-      // every other Delivery route/API/permission are unchanged.
+      // Import & Inspection (group renamed from "Quality Inspection" -
+      // Business Workflow Consolidation found this group's own label used
+      // the wrong business term; ADR-028 already corrected this domain's
+      // name to "Import Inspection"). The two item labels below were later
+      // renamed again by a separate Product Owner decision (2026-07-16) to
+      // "Dashboard MSEAL PDI"/"Incoming PDI" - they no longer say "Import
+      // Inspection" (that's still the screen-content namespace's own
+      // official term, `pdi.*` keys, docs/standards/TERMINOLOGY_STANDARD.md
+      // documents this as a tracked, not-yet-reconciled naming exception).
+      // Belongs exclusively to MSEAL (business-domain correction) - hidden
+      // from Dealer roles, server-side route check is the real gate, this
+      // only hides the nav entry. Underlying routes (`/delivery/pdi`,
+      // `/delivery/pdi/dashboard`) and every other Delivery route/API/
+      // permission are unchanged.
       key: 'qualityInspection',
       icon: '🔍',
       label: t('nav.importInspectionGroup'),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
+import { canManageTractorInSync } from '@/lib/scope';
 import { TractorInSyncService, DATA_QUALITY_REASON } from '@/features/vehicle/services/tractorInSyncService';
 
 /**
@@ -18,7 +19,7 @@ import { TractorInSyncService, DATA_QUALITY_REASON } from '@/features/vehicle/se
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorizedError();
-  if (session.role !== 'SuperAdmin') {
+  if (!canManageTractorInSync(session.role)) {
     return forbiddenError();
   }
 

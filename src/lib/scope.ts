@@ -70,6 +70,21 @@ export const canApproveDelivery = (role: Role) =>
  *  new one. */
 export const canAccessImportInspection = (role: Role) => seesAllDealers(role);
 
+/** Tractor IN sync (manual trigger + its health/monitoring read) -
+ *  SuperAdmin-only, stricter than the usual SuperAdmin+CentralAdmin
+ *  admin-screen gating (`seesAllDealers`): this is a bulk write across
+ *  every vehicle's `product_family_id`/`sub_model`. Same boundary as
+ *  `canDeleteUsers`, kept as its own named predicate rather than reused,
+ *  per this file's own "distinct, named predicates" convention above. */
+export const canManageTractorInSync = (role: Role) => role === 'SuperAdmin';
+
+/** Force-deleting a *locked* PM record (bypassing the normal edit-window/
+ *  supersession lock) - SuperAdmin-only, stricter than `canDelete`'s usual
+ *  SuperAdmin+DealerAdmin boundary. Same boundary as `canDeleteUsers`/
+ *  `canManageTractorInSync`, kept as its own named predicate for the same
+ *  reason. */
+export const canForceDeleteLockedPm = (role: Role) => role === 'SuperAdmin';
+
 export const roleLabelTh: Record<Role, string> = {
   SuperAdmin: 'ผู้ดูแลระบบสูงสุด',
   CentralAdmin: 'ผู้ดูแลส่วนกลาง',
