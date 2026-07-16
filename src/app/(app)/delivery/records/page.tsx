@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { DeliveryService, type DeliveryStage, DELIVERY_STAGE_ORDER } from '@/features/delivery';
+import { MasterDataService } from '@/shared/master-data';
 import { t } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
@@ -26,11 +27,15 @@ export default async function DeliveryRecordsListPage({ searchParams }: { search
   const scope = resolveDealerScope(session, null);
   const clearHref = searchParams.q || searchParams.stage ? '/delivery/records' : undefined;
 
-  const records = await service.listDeliveries({
-    stage,
-    dealerId: scope.dealerId ?? undefined,
-    q: searchParams.q,
-  });
+  const [records, dealers] = await Promise.all([
+    service.listDeliveries({
+      stage,
+      dealerId: scope.dealerId ?? undefined,
+      q: searchParams.q,
+    }),
+    MasterDataService.getDealers(),
+  ]);
+  const dealerNameById = new Map(dealers.map((d) => [d.id, d.short_name]));
 
   return (
     <div>
@@ -88,7 +93,7 @@ export default async function DeliveryRecordsListPage({ searchParams }: { search
                     </Link>
                   </td>
                   <td className="px-4 py-3">{r.serial}</td>
-                  <td className="px-4 py-3 text-gray-500">{r.dealerId ?? '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{(r.dealerId && dealerNameById.get(r.dealerId)) ?? r.dealerId ?? '-'}</td>
                   <td className="px-4 py-3">{t(`delivery.stage.${r.stage}`)}</td>
                   <td className="px-4 py-3 text-gray-500">{t(`delivery.overallStatus.${r.overallStatus}`)}</td>
                 </tr>

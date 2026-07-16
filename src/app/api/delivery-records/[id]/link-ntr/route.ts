@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ ok: false, error: 'ntrId does not belong to this delivery record\'s serial' }, { status: 400 });
     }
 
-    const updated = await service.linkNtr(params.id, ntrId, session);
+    const updated = await service.linkNtr(params.id, ntrId, session, delivery);
     return NextResponse.json({ ok: true, record: updated });
   } catch (err: any) {
     console.error('link ntr to delivery record error', err);

@@ -72,7 +72,7 @@ describe('POST /api/delivery-records/[id]/receive-stock-yard', () => {
 
     const res = await POST(postRequest({ location: 'Bay 3' }), params);
     expect(res.status).toBe(200);
-    expect(mockReceiveAtStockYard).toHaveBeenCalledWith('del-1', 'Bay 3', expect.anything());
+    expect(mockReceiveAtStockYard).toHaveBeenCalledWith('del-1', 'Bay 3', expect.anything(), expect.anything());
   });
 
   it('normalizes a blank location to null', async () => {
@@ -81,6 +81,6 @@ describe('POST /api/delivery-records/[id]/receive-stock-yard', () => {
     mockReceiveAtStockYard.mockResolvedValue({ id: 'del-1', stage: 'StockYard' });
 
     await POST(postRequest({ location: '   ' }), params);
-    expect(mockReceiveAtStockYard).toHaveBeenCalledWith('del-1', null, expect.anything());
+    expect(mockReceiveAtStockYard).toHaveBeenCalledWith('del-1', null, expect.anything(), expect.anything());
   });
 });

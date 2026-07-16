@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const body = await req.json().catch(() => ({}));
     const notes = typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null;
-    const updated = await service.completeDealerPrep(params.id, notes, session);
+    const updated = await service.completeDealerPrep(params.id, notes, session, existing);
     return NextResponse.json({ ok: true, record: updated });
   } catch (err: any) {
     console.error('complete dealer prep error', err);

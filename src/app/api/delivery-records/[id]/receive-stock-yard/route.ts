@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const body = await req.json().catch(() => ({}));
     const location = typeof body.location === 'string' && body.location.trim() ? body.location.trim() : null;
-    const updated = await service.receiveAtStockYard(params.id, location, session);
+    const updated = await service.receiveAtStockYard(params.id, location, session, existing);
     return NextResponse.json({ ok: true, record: updated });
   } catch (err: any) {
     console.error('receive at stock yard error', err);

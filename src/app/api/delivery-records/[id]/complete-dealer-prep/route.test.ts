@@ -72,6 +72,6 @@ describe('POST /api/delivery-records/[id]/complete-dealer-prep', () => {
 
     const res = await POST(postRequest({ notes: 'ready' }), params);
     expect(res.status).toBe(200);
-    expect(mockCompleteDealerPrep).toHaveBeenCalledWith('del-1', 'ready', expect.anything());
+    expect(mockCompleteDealerPrep).toHaveBeenCalledWith('del-1', 'ready', expect.anything(), expect.anything());
   });
 });

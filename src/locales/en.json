@@ -458,6 +458,7 @@
     "notesLabel": "Notes",
     "recordTrainingAction": "Record Training",
     "recordTrainingSuccess": "Training recorded",
+    "linkInspectionRequiresMseal": "Only MSEAL (Central Admin / Super Admin) may link an Import Inspection to a Delivery record.",
     "acceptanceRequiresApprover": "Only a Central Admin, Dealer Admin, or Super Admin may record Delivery Acceptance.",
     "acceptanceNotesLabel": "Notes",
     "recordAcceptanceAction": "Record Acceptance",

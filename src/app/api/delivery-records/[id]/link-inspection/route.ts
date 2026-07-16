@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ ok: false, error: `Inspection ${inspectionId} not found` }, { status: 404 });
     }
 
-    const updated = await service.linkInspection(params.id, inspectionId, inspection.status === 'Completed', session);
+    const updated = await service.linkInspection(params.id, inspectionId, inspection.status === 'Completed', session, existing);
     return NextResponse.json({ ok: true, record: updated });
   } catch (err: any) {
     console.error('link inspection to delivery record error', err);

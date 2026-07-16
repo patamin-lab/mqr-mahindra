@@ -458,6 +458,7 @@
     "notesLabel": "หมายเหตุ",
     "recordTrainingAction": "บันทึกการอบรม",
     "recordTrainingSuccess": "บันทึกการอบรมแล้ว",
+    "linkInspectionRequiresMseal": "เฉพาะ MSEAL (Central Admin / Super Admin) เท่านั้นที่สามารถเชื่อมโยง Import Inspection กับรายการส่งมอบได้",
     "acceptanceRequiresApprover": "เฉพาะ Central Admin, Dealer Admin หรือ Super Admin เท่านั้นที่สามารถบันทึกการยอมรับการส่งมอบได้",
     "acceptanceNotesLabel": "หมายเหตุ",
     "recordAcceptanceAction": "บันทึกการยอมรับการส่งมอบ",

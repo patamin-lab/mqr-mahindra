@@ -29,12 +29,14 @@ export default function DeliveryRecordActions({
   deliveryId,
   stage,
   canApprove,
+  canLinkInspection,
   availableInspections,
   availableNtrRecords,
 }: {
   deliveryId: string;
   stage: DeliveryStage;
   canApprove: boolean;
+  canLinkInspection: boolean;
   availableInspections: InspectionOption[];
   availableNtrRecords: NtrOption[];
 }) {
@@ -89,6 +91,9 @@ export default function DeliveryRecordActions({
   }
 
   if (stage === 'StockYard' || stage === 'PDI') {
+    if (!canLinkInspection) {
+      return <p className="text-xs text-gray-400">{t('delivery.linkInspectionRequiresMseal')}</p>;
+    }
     return (
       <div className="flex flex-wrap items-end gap-2">
         <div>

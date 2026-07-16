@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { seesAllDealers, canApproveDelivery } from '@/lib/scope';
+import { seesAllDealers, canApproveDelivery, canAccessImportInspection } from '@/lib/scope';
 import { listAuditLog } from '@/lib/db';
 import { DeliveryService, DELIVERY_STAGE_ORDER } from '@/features/delivery';
 import { InspectionService } from '@/features/inspection';
 import { fetchNtrRecordsForSerial } from '@/features/ntr/utils/fetchNtrRecordsForSerial';
+import { MasterDataService } from '@/shared/master-data';
 import { t } from '@/lib/i18n/server';
 import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTimeline';
@@ -54,11 +55,12 @@ export default async function DeliveryRecordDetailPage({ params }: { params: { i
     );
   }
 
-  const [auditLog, inspectionsForSerial, ntrRecordsForSerial, training] = await Promise.all([
+  const [auditLog, inspectionsForSerial, ntrRecordsForSerial, training, dealer] = await Promise.all([
     listAuditLog('delivery', delivery.id),
     inspectionService.listInspectionsForSerial(delivery.serial),
     fetchNtrRecordsForSerial(delivery.serial, session),
     delivery.trainingId ? service.getTraining(delivery.trainingId) : Promise.resolve(null),
+    delivery.dealerId ? MasterDataService.getDealerById(delivery.dealerId) : Promise.resolve(null),
   ]);
 
   const linkedInspection = delivery.pdiInspectionId ? inspectionsForSerial.find((i) => i.id === delivery.pdiInspectionId) ?? null : null;
@@ -109,7 +111,7 @@ export default async function DeliveryRecordDetailPage({ params }: { params: { i
       <Card variant="flat" className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="text-xs text-gray-500">{t('common.dealer')}</p>
-          <p className="text-sm font-medium text-brand-dark">{delivery.dealerId ?? '-'}</p>
+          <p className="text-sm font-medium text-brand-dark">{dealer?.short_name ?? delivery.dealerId ?? '-'}</p>
         </div>
         <div>
           <p className="text-xs text-gray-500">{t('delivery.overallStatusLabel')}</p>
@@ -131,6 +133,7 @@ export default async function DeliveryRecordDetailPage({ params }: { params: { i
           deliveryId={delivery.id}
           stage={delivery.stage}
           canApprove={canApproveDelivery(session.role)}
+          canLinkInspection={canAccessImportInspection(session.role)}
           availableInspections={inspectionsForSerial.map((i) => ({ id: i.id, inspectionRef: i.inspectionRef, status: i.status }))}
           availableNtrRecords={ntrRecordsForSerial.map((n) => ({ id: n.id, ntrNumber: n.ntr_number }))}
         />

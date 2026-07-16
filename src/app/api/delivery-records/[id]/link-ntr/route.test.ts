@@ -90,6 +90,6 @@ describe('POST /api/delivery-records/[id]/link-ntr', () => {
 
     const res = await POST(postRequest({ ntrId: 'ntr-1' }), params);
     expect(res.status).toBe(200);
-    expect(mockLinkNtr).toHaveBeenCalledWith('del-1', 'ntr-1', expect.anything());
+    expect(mockLinkNtr).toHaveBeenCalledWith('del-1', 'ntr-1', expect.anything(), expect.anything());
   });
 });

@@ -93,7 +93,7 @@ describe('POST /api/delivery-records/[id]/link-inspection', () => {
 
     const res = await POST(postRequest({ inspectionId: 'insp-1', inspectionCompleted: false }), params);
     expect(res.status).toBe(200);
-    expect(mockLinkInspection).toHaveBeenCalledWith('del-1', 'insp-1', true, expect.anything());
+    expect(mockLinkInspection).toHaveBeenCalledWith('del-1', 'insp-1', true, expect.anything(), expect.anything());
   });
 
   it('surfaces the service\'s own canAccessImportInspection rejection as 403', async () => {
