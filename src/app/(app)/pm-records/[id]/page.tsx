@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import { seesAllDealers, canDelete } from '@/lib/scope';
+import { seesAllDealers, canDelete, canForceDeleteLockedPm } from '@/lib/scope';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
 import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
 import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanceLock';
@@ -103,7 +103,7 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
   }
 
   const canManageLock = session ? seesAllDealers(session.role) : false; // SuperAdmin/CentralAdmin
-  const canForceDelete = session?.role === 'SuperAdmin';
+  const canForceDelete = session ? canForceDeleteLockedPm(session.role) : false;
   const allowDelete = session ? canDelete(session.role) : false;
   const locale = getServerLocale();
 

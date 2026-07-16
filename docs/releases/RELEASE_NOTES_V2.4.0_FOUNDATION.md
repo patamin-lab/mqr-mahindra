@@ -49,6 +49,11 @@ for how this fits into ongoing planning.
 - Production alias `mqr-mahindra.vercel.app` returns
   `DEPLOYMENT_NOT_FOUND` — a Vercel domain-assignment issue, not an
   application bug. Needs a look at the Vercel dashboard.
+  **Amendment (2026-07-16, added after this release, not rewriting the
+  above):** this was never actually a domain-assignment problem —
+  `mqr-mahindra.vercel.app` was simply never the real production alias.
+  The real one is `https://masp-mseal.vercel.app`, live-verified working.
+  See `docs/ROADMAP.md`'s Known Issues for the corrected entry.
 - Collaboration Layer (Comments, Internal/Customer Notes, @mentions,
   Pinned Events) deferred — tracked in issue #30, pending its own schema/
   RBAC/API review.

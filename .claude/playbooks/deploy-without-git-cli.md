@@ -34,7 +34,7 @@ gets handled in practice.
 ## Verifying
 
 - After any push that touches a user-facing flow, browse the live app
-  (`https://mqr-mahindra.vercel.app`) and exercise the changed flow
+  (`https://masp-mseal.vercel.app`) and exercise the changed flow
   directly — there is no CI/test gate, so this manual check is the only
   safety net.
 - Check Vercel's deployment list for build success before assuming the

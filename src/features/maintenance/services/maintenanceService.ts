@@ -12,6 +12,7 @@
  */
 import { logAuditEvent, logAuditEvents, diffFieldsForAudit } from '@/lib/db';
 import { Role, SessionUser } from '@/lib/types';
+import { seesAllDealers, canForceDeleteLockedPm } from '@/lib/scope';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 import { MaintenanceRepository, MaintenanceFilter } from '../repositories/maintenanceRepository';
@@ -37,7 +38,6 @@ export interface MaintenanceActor {
  *  localized and could read in either Thai or English. */
 export class MaintenanceLockError extends Error {}
 
-const UNLOCK_ROLES: Role[] = ['SuperAdmin', 'CentralAdmin'];
 const DEFAULT_UNLOCK_HOURS = 24;
 
 const PM_FIELD_LABELS: Record<string, string> = {
@@ -151,7 +151,7 @@ export class MaintenanceService {
 
     const lock = evaluateMaintenanceLock(existing);
     if (lock.locked) {
-      if (actor.role !== 'SuperAdmin') {
+      if (!actor.role || !canForceDeleteLockedPm(actor.role)) {
         throw new Error(translate(locale, 'validation.recordLockedDeleteSuperAdminOnly'));
       }
       if (!reason?.trim()) {
@@ -174,7 +174,7 @@ export class MaintenanceService {
    *  already-locked record is a harmless no-op write (idempotent from the
    *  caller's point of view, still logged). */
   async lock(id: string, actor: MaintenanceActor, locale: Locale = 'th'): Promise<MaintenanceRecord> {
-    if (!actor.role || !UNLOCK_ROLES.includes(actor.role)) {
+    if (!actor.role || !seesAllDealers(actor.role)) {
       throw new Error(translate(locale, 'validation.lockRequiresAdmin'));
     }
     const existing = await this.repository.getById(id);
@@ -205,7 +205,7 @@ export class MaintenanceService {
     hours: number = DEFAULT_UNLOCK_HOURS,
     locale: Locale = 'th'
   ): Promise<MaintenanceRecord> {
-    if (!actor.role || !UNLOCK_ROLES.includes(actor.role)) {
+    if (!actor.role || !seesAllDealers(actor.role)) {
       throw new Error(translate(locale, 'validation.unlockRequiresAdmin'));
     }
     const existing = await this.repository.getById(id);

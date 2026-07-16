@@ -14,7 +14,7 @@ Dealers and their technicians file a "quality incident report" (QIR) whenever a 
 - **Google Drive** (OAuth2, not service account) is the file store for report photos/video — not Supabase Storage.
 - **Resend** for transactional email; **react-pdf** for PDF generation (QR code + Sarabun Thai font, TTF not WOFF — react-pdf can't load WOFF server-side).
 - **jose** for JWT session signing; custom SHA-256 password hashing (legacy-compatible with the old Apps Script system it replaced).
-- Repo: `github.com/patamin-lab/mqr-mahindra` (**public** - verified via `gh repo view --json visibility,isPrivate`; corrected by the Platform Governance Framework's repository-visibility resolution, `docs/governance/REPOSITORY_POLICY.md` §1 - this line previously said "private," which had drifted from actual repository state), branch `main`. Live: `mqr-mahindra.vercel.app`.
+- Repo: `github.com/patamin-lab/mqr-mahindra` (**public** - verified via `gh repo view --json visibility,isPrivate`; corrected by the Platform Governance Framework's repository-visibility resolution, `docs/governance/REPOSITORY_POLICY.md` §1 - this line previously said "private," which had drifted from actual repository state), branch `main`. Live: `masp-mseal.vercel.app` - this line previously said `mqr-mahindra.vercel.app`, which was never the real production alias (confirmed 2026-07-16: it 404s with `DEPLOYMENT_NOT_FOUND`; `masp-mseal.vercel.app` is the actual, working production URL, live-verified the same session).
 
 ## 3. Deployment workflow — READ THIS BEFORE PUSHING ANYTHING
 

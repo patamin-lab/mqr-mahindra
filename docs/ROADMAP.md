@@ -203,9 +203,14 @@ Approval process.
 
 ## Known Issues (carried forward, not blocking)
 
-- Production alias `mqr-mahindra.vercel.app` returns `DEPLOYMENT_NOT_FOUND`
-  — needs a look at the Vercel dashboard's domain assignment, unrelated to
-  any application code.
+- **Resolved (2026-07-16)**: `mqr-mahindra.vercel.app` was never actually
+  the live production alias — it returns `DEPLOYMENT_NOT_FOUND` because it
+  was simply the wrong URL, documented in error across `CLAUDE.md` and
+  several docs. The real, working production URL is
+  `https://masp-mseal.vercel.app` (live-verified: `/login` returns 200,
+  every protected route redirects unauthenticated requests correctly, no
+  server exceptions). No Vercel-side domain change was needed — every
+  reference to the old URL has been corrected in this pass.
 - Collaboration Layer (Comments, Internal/Customer Notes, @mentions,
   Pinned Events) deferred — tracked in issue #30, its own schema/RBAC/API
   review.
