@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers } from '@/lib/scope';
-import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
+import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
+import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanceLock';
 import MaintenanceForm from '@/features/maintenance/components/maintenance-form';
 import { t } from '@/lib/i18n/server';
@@ -23,9 +25,33 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
   const session = await getSession();
   if (!session) return null;
 
-  const result = await fetchMaintenance(params.id);
+  // Direct repository/service call - see pm-records/[id]/page.tsx's own
+  // comment for why (this used to self-fetch `/api/pm-records/[id]` over
+  // HTTP, the confirmed root cause of PM's View/Edit-doesn't-open bug).
+  let record;
+  try {
+    const repository = new SupabaseMaintenanceRepository();
+    record = await new MaintenanceService(repository).getById(params.id, session);
+  } catch (error) {
+    console.error('PM record edit load error', error);
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title={t('pmEdit.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
 
-  if ('notFound' in result && result.notFound) {
+        <EmptyState icon="⚠️" title={t('pmEdit.title')} reason={t('pmDetail.errorPrefix', { error: t('pmDetail.unexpectedError') })} nextStep={t('pmDetail.errorNextStep')} />
+      </div>
+    );
+  }
+
+  if (!record) {
     return (
       <div className="space-y-4">
         <PageHeader
@@ -43,43 +69,15 @@ export default async function PmRecordEditPage({ params }: RouteParams) {
     );
   }
 
-  if ('error' in result) {
+  if (!canAccessDealerBranch(session, record.dealer_id, record.branch_id)) {
     return (
       <div className="space-y-4">
-        <PageHeader
-          title={t('pmEdit.title')}
-          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
-          actions={
-            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-              {t('common.backToList')}
-            </Link>
-          }
-        />
-
-        <EmptyState icon="⚠️" title={t('pmEdit.title')} reason={t('pmDetail.errorPrefix', { error: result.error })} nextStep={t('pmDetail.errorNextStep')} />
+        <PageHeader title={t('pmEdit.title')} />
+        <EmptyState icon="🔒" title={t('pmDetail.unauthorizedTitle')} reason={t('validation.unauthorizedRecordAccess')} nextStep={t('pmDetail.unauthorizedNextStep')} />
       </div>
     );
   }
 
-  if (!('record' in result)) {
-    return (
-      <div className="space-y-4">
-        <PageHeader
-          title={t('pmEdit.title')}
-          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
-          actions={
-            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-              {t('common.backToList')}
-            </Link>
-          }
-        />
-
-        <EmptyState icon="⚠️" title={t('pmEdit.title')} reason={t('pmDetail.unexpectedError')} nextStep={t('pmDetail.unexpectedErrorNextStep')} />
-      </div>
-    );
-  }
-
-  const record = result.record;
   const lock = evaluateMaintenanceLock(record);
 
   // A photo uploaded via the Attachment Platform stores its display URL

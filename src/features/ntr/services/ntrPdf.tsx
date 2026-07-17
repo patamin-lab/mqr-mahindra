@@ -136,7 +136,12 @@ function NtrDocument({
 }: NtrDocumentProps) {
   const hasGps = record.latitude !== null && record.longitude !== null;
   const attachments = ntrAttachmentEntries(record, locale);
-  const warranty = calcWarranty(record.retail_date, new Date().toISOString().slice(0, 10), 'other');
+  // Warranty Start must always equal Customer Delivery Date, never an
+  // independently-tracked date (`retail_date` is a legacy/import-only
+  // field, null for every record created via the current manual NTR
+  // form - see docs/architecture/BUSINESS_INVARIANTS.md's "Warranty Start
+  // = Delivery Date" verdict).
+  const warranty = calcWarranty(record.delivery_date, new Date().toISOString().slice(0, 10), 'other');
   const fullCustomerName =
     record.customer_first_name || record.customer_last_name
       ? [record.customer_title, record.customer_first_name, record.customer_last_name].filter(Boolean).join(' ')

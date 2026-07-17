@@ -73,7 +73,7 @@ beforeEach(() => {
 });
 
 describe('runNtrWarrantyOrchestration', () => {
-  it('updates vehicles.delivery_date/product_family_id, activates Warranty via NTR, and resolves the PM schedule when the vehicle and product family exist', async () => {
+  it('updates vehicles.delivery_date/product_family_id/dealer_id/branch_id, activates Warranty via NTR, and resolves the PM schedule when the vehicle and product family exist', async () => {
     const vehicle = { id: 'veh-1' };
     mockGetVehicleBySerial.mockResolvedValue(vehicle);
     const record = baseRecord();
@@ -82,12 +82,17 @@ describe('runNtrWarrantyOrchestration', () => {
     await runNtrWarrantyOrchestration(record, ACTOR, deliveryService);
 
     expect(mockGetVehicleBySerial).toHaveBeenCalledWith('SN-001', expect.anything());
-    expect(mockUpdateVehicleDeliveryInfo).toHaveBeenCalledWith('veh-1', { deliveryDate: '2026-01-02', productFamilyId: 'PF-1' });
+    expect(mockUpdateVehicleDeliveryInfo).toHaveBeenCalledWith('veh-1', {
+      deliveryDate: '2026-01-02',
+      productFamilyId: 'PF-1',
+      dealerId: 'D1',
+      branchId: null,
+    });
     expect(deliveryService.activateWarrantyFromNtr).toHaveBeenCalledWith(
-      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1' },
+      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1', deliveryDate: '2026-01-02' },
       ACTOR
     );
-    expect(mockResolveVehicleProgramVersionStages).toHaveBeenCalledWith('veh-1', 'PF-1', '2026-01-01');
+    expect(mockResolveVehicleProgramVersionStages).toHaveBeenCalledWith('veh-1', 'PF-1', '2026-01-02');
   });
 
   it('does not resolve a PM schedule when the NTR record has no product_family_id', async () => {
@@ -96,7 +101,12 @@ describe('runNtrWarrantyOrchestration', () => {
 
     await runNtrWarrantyOrchestration(record, ACTOR, makeDeliveryService());
 
-    expect(mockUpdateVehicleDeliveryInfo).toHaveBeenCalledWith('veh-1', { deliveryDate: '2026-01-02', productFamilyId: null });
+    expect(mockUpdateVehicleDeliveryInfo).toHaveBeenCalledWith('veh-1', {
+      deliveryDate: '2026-01-02',
+      productFamilyId: null,
+      dealerId: 'D1',
+      branchId: null,
+    });
     expect(mockResolveVehicleProgramVersionStages).not.toHaveBeenCalled();
   });
 

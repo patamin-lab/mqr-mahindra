@@ -57,25 +57,40 @@ function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number):
   return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 }
 
+export interface ProcessImageOptions {
+  /** Document Images (customer ID, signed delivery/registration form,
+   *  invoices, certificates - Image Standardization, Document Image
+   *  Orientation) must preserve their original orientation and aspect
+   *  ratio - never force-rotated to landscape, never cropped, unlike a
+   *  General Photo. `false`/omitted keeps the existing forced-landscape
+   *  behavior every non-document photo slot already relies on (the fixed
+   *  16:9 preview/PDF frame). EXIF-upright correction and the
+   *  resize/re-encode step still apply either way - only the *forced*
+   *  landscape rotation is document-unsafe, not orientation correction
+   *  itself. */
+  preserveOrientation?: boolean;
+}
+
 /**
- * Normalizes one photo upload: EXIF-upright, forced landscape (a portrait
- * result is rotated 90° so every stored photo is landscape - matching the
- * fixed 16:9 preview/PDF frame with minimal letterboxing), resized to fit
- * within 1920x1080 (never upscaled past the original), re-encoded as JPEG
- * at ~85% quality.
+ * Normalizes one photo upload: EXIF-upright, then either forced landscape
+ * (a portrait result is rotated 90° so the stored photo matches the fixed
+ * 16:9 preview/PDF frame with minimal letterboxing - the default, for
+ * General Photos) or the original aspect ratio preserved as-is (Document
+ * Images, `preserveOrientation: true`), resized to fit within 1920x1080
+ * (never upscaled past the original), re-encoded as JPEG at ~85% quality.
  *
  * Non-image files (video) and HEIC/HEIF (already handled server-side by
  * `/api/attachments`'s `heic-convert` step) pass through untouched. Any
  * processing failure returns the original file rather than blocking the
  * upload.
  */
-export async function processImageForUpload(file: File): Promise<File> {
+export async function processImageForUpload(file: File, options: ProcessImageOptions = {}): Promise<File> {
   if (!file.type.startsWith('image/') || isHeic(file)) return file;
 
   try {
     const source = await decodeUpright(file);
     const { width: srcWidth, height: srcHeight } = sourceSize(source);
-    const isPortrait = srcHeight > srcWidth;
+    const isPortrait = !options.preserveOrientation && srcHeight > srcWidth;
     const rotatedWidth = isPortrait ? srcHeight : srcWidth;
     const rotatedHeight = isPortrait ? srcWidth : srcHeight;
     const { width, height } = fitDimensions(rotatedWidth, rotatedHeight, MAX_WIDTH, MAX_HEIGHT);

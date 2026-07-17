@@ -116,3 +116,54 @@ describe('SupabaseNtrRepository branch scoping (session param)', () => {
   });
 });
 
+/** Bug 4 regression (Warranty Start = Delivery Date, never `retail_date` -
+ *  a legacy/import-only field left `null` by the current manual NTR form,
+ *  which previously made every new NTR record fold into "out of
+ *  warranty" regardless of its real delivery date). Asserts the actual
+ *  column names passed to the query builder, not just end-to-end
+ *  filtering, since a spy is the direct, unambiguous way to pin this down. */
+describe('SupabaseNtrRepository.listHistory warranty filter column', () => {
+  function queryBuilderSpy() {
+    const calls: { method: string; args: unknown[] }[] = [];
+    const builder: Record<string, unknown> = {};
+    for (const method of ['select', 'eq', 'ilike', 'gte', 'lte', 'not', 'or', 'order', 'range']) {
+      builder[method] = vi.fn((...args: unknown[]) => {
+        calls.push({ method, args });
+        return builder;
+      });
+    }
+    builder.then = (onFulfilled: (v: { data: unknown[]; error: null; count: number }) => unknown) =>
+      Promise.resolve({ data: [], error: null, count: 0 }).then(onFulfilled);
+    return { builder, calls };
+  }
+
+  it('filters "in_warranty" on delivery_date, never retail_date', async () => {
+    const { builder, calls } = queryBuilderSpy();
+    const from = vi.fn(() => builder);
+    state.client = { rpc: vi.fn(), from } as unknown as { rpc: ReturnType<typeof vi.fn> };
+    const repository = new SupabaseNtrRepository();
+
+    await repository.listHistory({ page: 1, pageSize: 50, warrantyStatus: 'in_warranty' } as any);
+
+    const gte = calls.find((c) => c.method === 'gte');
+    const not = calls.find((c) => c.method === 'not');
+    expect(gte?.args[0]).toBe('delivery_date');
+    expect(not?.args[0]).toBe('delivery_date');
+    expect(calls.some((c) => c.args[0] === 'retail_date')).toBe(false);
+  });
+
+  it('filters "out_of_warranty" on delivery_date, never retail_date', async () => {
+    const { builder, calls } = queryBuilderSpy();
+    const from = vi.fn(() => builder);
+    state.client = { rpc: vi.fn(), from } as unknown as { rpc: ReturnType<typeof vi.fn> };
+    const repository = new SupabaseNtrRepository();
+
+    await repository.listHistory({ page: 1, pageSize: 50, warrantyStatus: 'out_of_warranty' } as any);
+
+    const or = calls.find((c) => c.method === 'or');
+    expect(typeof or?.args[0]).toBe('string');
+    expect(or?.args[0] as string).toContain('delivery_date');
+    expect(or?.args[0] as string).not.toContain('retail_date');
+  });
+});
+

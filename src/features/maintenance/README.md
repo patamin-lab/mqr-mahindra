@@ -34,9 +34,6 @@ Product-Family-based interval resolution (see `PROJECT_STATE.md` Phases
   call; delegates to the injected `MaintenanceRepository` and rejects any
   actor with an empty username before mutating.
 - `utils/validation.ts` — `ValidationError` and `parseWithSchema()`.
-- `utils/fetchMaintenance.ts` — server-side fetch-by-id helper shared by the
-  detail and edit pages (calls the API route, never the repository
-  directly, even from a Server Component).
 - `components/maintenance-search.tsx` — the search-first create workflow
   (`MaintenanceSearch` + `MaintenanceCreateForm`): search→select→autofill→
   enter info→upload photos→save, GPS capture, duplicate check.

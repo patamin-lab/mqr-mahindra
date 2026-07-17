@@ -60,10 +60,30 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
     );
   }
 
+  // Production Stability: `service.getInspection()` above is the only call
+  // wrapped in try/catch (a missing/invalid inspection is the expected,
+  // common failure) - these three reads are a genuinely new attack surface
+  // for the same crash class Bug 5 fixed on Machine Passport (an orphaned
+  // attachment row, a transient DB error, or a legacy inspection with no
+  // `serial` - `getVehicleBySerial` would throw on `serial.trim()`). None
+  // of the three are essential to render the page (audit log/evidence/
+  // vehicle header all already degrade to an empty list or `-` elsewhere
+  // in this file), so a failure here must fail open, not crash the route.
   const [auditLog, evidence, vehicle] = await Promise.all([
-    listAuditLog('pdi', inspection.id),
-    attachmentService.list('pdi', 'Inspection', inspection.id),
-    getVehicleBySerial(inspection.serial, UNRESTRICTED_SCOPE),
+    listAuditLog('pdi', inspection.id).catch((err) => {
+      console.error('PDI detail: listAuditLog failed', err);
+      return [];
+    }),
+    attachmentService.list('pdi', 'Inspection', inspection.id).catch((err) => {
+      console.error('PDI detail: attachmentService.list failed', err);
+      return [];
+    }),
+    inspection.serial
+      ? getVehicleBySerial(inspection.serial, UNRESTRICTED_SCOPE).catch((err) => {
+          console.error('PDI detail: getVehicleBySerial failed', err);
+          return null;
+        })
+      : Promise.resolve(null),
   ]);
   const evidenceWithUrls = await Promise.all(
     evidence.map(async (d) => ({ ...d, url: (await attachmentService.getUrl(d.id).catch(() => null))?.url ?? null }))

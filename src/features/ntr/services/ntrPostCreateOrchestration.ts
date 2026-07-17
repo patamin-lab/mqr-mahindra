@@ -40,13 +40,23 @@ export async function runNtrWarrantyOrchestration(
     const vehicle = await getVehicleBySerial(record.serial, UNRESTRICTED_SCOPE);
     if (!vehicle) return;
 
-    await updateVehicleDeliveryInfo(vehicle.id, { deliveryDate: record.delivery_date, productFamilyId: record.product_family_id });
+    await updateVehicleDeliveryInfo(vehicle.id, {
+      deliveryDate: record.delivery_date,
+      productFamilyId: record.product_family_id,
+      dealerId: record.dealer_id,
+      branchId: record.branch_id,
+    });
     await deliveryService.activateWarrantyFromNtr(
-      { vehicleId: vehicle.id, serial: record.serial, dealerId: record.dealer_id, ntrId: record.id },
+      { vehicleId: vehicle.id, serial: record.serial, dealerId: record.dealer_id, ntrId: record.id, deliveryDate: record.delivery_date },
       actor
     );
     if (record.product_family_id) {
-      await resolveVehicleProgramVersionStages(vehicle.id, record.product_family_id, record.retail_date);
+      // Program version must be resolved as of the vehicle's actual delivery
+      // date, never `retail_date` (legacy/import-only, always null for
+      // records created via the current manual form - see Bug 4/Warranty
+      // Start fix). Falling back to "now" here would pick the wrong
+      // maintenance program version for a backdated delivery.
+      await resolveVehicleProgramVersionStages(vehicle.id, record.product_family_id, record.delivery_date);
     }
   } catch (err) {
     console.error('NTR post-create warranty/PM orchestration error', err);

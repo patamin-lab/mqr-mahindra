@@ -28,8 +28,12 @@ import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import LoadingState from '@/components/shared/admin/LoadingState';
 import EmptyState from '@/components/shared/admin/EmptyState';
+import StatusPill from '@/components/shared/status/StatusPill';
+import Pagination from '@/components/shared/table/Pagination';
+import RowLink from '@/components/shared/table/RowLink';
 import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
 import type { MaintenanceRecord, MaintenanceHistorySortField, MaintenanceHistorySortDir } from '../types';
+import PmRowActions from './PmRowActions';
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -158,6 +162,8 @@ interface Props {
   role?: 'SuperAdmin' | 'CentralAdmin' | 'DealerAdmin' | 'DealerUser';
   sessionBranchId?: string | null;
   pinnedBranchName?: string | null;
+  allowDelete: boolean;
+  canForceDelete: boolean;
 }
 
 export default function MaintenanceHistory({
@@ -168,6 +174,8 @@ export default function MaintenanceHistory({
   role,
   sessionBranchId,
   pinnedBranchName,
+  allowDelete,
+  canForceDelete,
 }: Props) {
   const isBranchPinned = role === 'DealerUser';
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey | null>(null);
@@ -378,7 +386,12 @@ export default function MaintenanceHistory({
           />
         ),
         cell: ({ row }) => (
-          <input type="checkbox" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+          <>
+            <RowLink href={`/pm-records/${encodeURIComponent(row.original.id)}`} label={row.original.pm_number ?? row.original.id} />
+            <span className="relative z-10">
+              <input type="checkbox" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+            </span>
+          </>
         ),
       }),
       columnHelper.accessor('pm_number', { header: 'เลขที่ PM', size: 160 }),
@@ -390,7 +403,7 @@ export default function MaintenanceHistory({
         size: 130,
         cell: (c) =>
           c.getValue() ? (
-            <Link href={`/machines/${encodeURIComponent(c.getValue() as string)}`} className="text-brand-red hover:underline">
+            <Link href={`/machines/${encodeURIComponent(c.getValue() as string)}`} className="relative z-10 text-brand-red hover:underline">
               {c.getValue()}
             </Link>
           ) : (
@@ -407,19 +420,21 @@ export default function MaintenanceHistory({
         cell: (c) => pmIntervalLabel(c.getValue()),
       }),
       columnHelper.accessor('technician_name', { header: 'ช่างซ่อม', size: 120, cell: (c) => c.getValue() ?? '-' }),
-      columnHelper.accessor('status', { header: 'สถานะ', size: 90 }),
+      columnHelper.accessor('status', {
+        header: 'สถานะ',
+        size: 90,
+        cell: (c) => <StatusPill colorClassName="bg-gray-100 text-gray-700">{c.getValue()}</StatusPill>,
+      }),
       columnHelper.display({
         id: 'actions',
         header: 'จัดการ',
-        size: 90,
+        size: 100,
         cell: ({ row }) => (
-          <Link href={`/pm-records/${encodeURIComponent(row.original.id)}`} className="text-brand-red hover:underline">
-            ดูรายละเอียด
-          </Link>
+          <PmRowActions record={row.original} allowDelete={allowDelete} canForceDelete={canForceDelete} onDeleted={loadData} />
         ),
       }),
     ],
-    [pmIntervalLabel]
+    [pmIntervalLabel, allowDelete, canForceDelete, loadData]
   );
 
   const table = useReactTable({
@@ -689,9 +704,13 @@ export default function MaintenanceHistory({
             {!loading && data.length === 0 && <EmptyState colSpan={columns.length} />}
             {!loading &&
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
+                <tr key={row.id} className="relative border-t border-gray-100 hover:bg-gray-50">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3 py-2" style={{ width: cell.column.getSize() }}>
+                    <td
+                      key={cell.id}
+                      className={cell.column.id === 'actions' ? 'relative z-10 px-3 py-2' : 'px-3 py-2'}
+                      style={{ width: cell.column.getSize() }}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -702,47 +721,32 @@ export default function MaintenanceHistory({
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-gray-500">แสดง</span>
-          <select
-            className="rounded border px-2 py-1 text-sm"
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPageIndex(0);
-            }}
-          >
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-          <span className="text-gray-500">ต่อหน้า · ทั้งหมด {total} รายการ</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={pageIndex === 0}
-            onClick={() => setPageIndex((p) => Math.max(p - 1, 0))}
-            className="rounded border border-gray-300 px-3 py-1.5 text-xs disabled:opacity-50"
-          >
-            ก่อนหน้า
-          </button>
-          <span className="text-gray-500">
-            หน้า {pageIndex + 1} / {pageCount}
-          </span>
-          <button
-            type="button"
-            disabled={pageIndex + 1 >= pageCount}
-            onClick={() => setPageIndex((p) => p + 1)}
-            className="rounded border border-gray-300 px-3 py-1.5 text-xs disabled:opacity-50"
-          >
-            ถัดไป
-          </button>
-        </div>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-gray-500">แสดง</span>
+        <select
+          className="rounded border px-2 py-1 text-sm"
+          value={pageSize}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            setPageIndex(0);
+          }}
+        >
+          {PAGE_SIZE_OPTIONS.map((size) => (
+            <option key={size} value={size}>
+              {size}
+            </option>
+          ))}
+        </select>
+        <span className="text-gray-500">ต่อหน้า</span>
       </div>
+      <Pagination
+        page={pageIndex + 1}
+        totalPages={pageCount}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={(p) => setPageIndex(p - 1)}
+        labels={{ previous: 'ก่อนหน้า', next: 'ถัดไป', pageOf: 'หน้า {page} / {totalPages}', showing: 'แสดง {from}-{to} จากทั้งหมด {total} รายการ' }}
+      />
     </div>
   );
 }

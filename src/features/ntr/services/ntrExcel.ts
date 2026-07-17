@@ -54,7 +54,10 @@ export async function buildTractorRegistryWorkbook(records: NtrRecord[], locale:
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   for (const r of records) {
-    const warranty = calcWarranty(r.retail_date, new Date().toISOString().slice(0, 10), 'other');
+    // Warranty Start must always equal Customer Delivery Date (see
+    // BUSINESS_INVARIANTS.md) - `retail_date` is a legacy/import-only
+    // field, null for every manually-registered NTR record.
+    const warranty = calcWarranty(r.delivery_date, new Date().toISOString().slice(0, 10), 'other');
     sheet.addRow({
       ntr_number: r.ntr_number,
       dealer_id: r.dealer_id,

@@ -187,3 +187,99 @@ describe('MachineService.getMachineNtrHistory (Vehicle 360, ADR-030)', () => {
     expect(result).toEqual(ntrRecords);
   });
 });
+
+/** Bug 5 regression (Machine Passport intermittent server-side exception) -
+ *  before this fix, every `MachineService` method propagated a rejected
+ *  dependency straight to the caller, taking down the whole page (no
+ *  error isolation existed anywhere in the Machine Passport tree). Every
+ *  method now routes through a private `safe()` wrapper - these tests
+ *  pin that down directly: a rejected dependency must resolve to the
+ *  method's documented safe fallback, never reject/throw, matching the
+ *  mission's "each section must fail independently" requirement. */
+describe('MachineService defensive programming - rejected dependencies never throw', () => {
+  it('getMachineWarrantySummary resolves to the empty summary (not a rejection) when getVehicleSummary throws', async () => {
+    mockGetVehicleSummary.mockRejectedValue(new Error('supabase timeout'));
+    mockFetchMqrRecords.mockResolvedValue([]);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await service.getMachineWarrantySummary('S1', session());
+
+    expect(result).toEqual({ status: null, ageMonths: null, limitMonths: null, claims: [] });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('getMachineQualitySummary resolves to a zeroed summary when fetchMqrRecords throws', async () => {
+    mockFetchMqrRecords.mockRejectedValue(new Error('supabase timeout'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await service.getMachineQualitySummary('S1', session());
+
+    expect(result).toEqual({ openCount: 0, closedCount: 0, criticalCount: 0, cases: [] });
+    consoleError.mockRestore();
+  });
+
+  it('getMachineAuditTimeline resolves to [] when one of its three record sources throws', async () => {
+    mockFetchMqrRecords.mockResolvedValue([{ id: 'mqr-1' }]);
+    mockFetchMaintenanceHistory.mockRejectedValue(new Error('supabase timeout'));
+    mockFetchNtrRecords.mockResolvedValue([]);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await service.getMachineAuditTimeline('S1', session());
+
+    expect(result).toEqual([]);
+    consoleError.mockRestore();
+  });
+
+  it('getMachineRelatedRecords resolves to [] rather than throwing when a record source rejects', async () => {
+    mockFetchMqrRecords.mockRejectedValue(new Error('supabase timeout'));
+    mockFetchMaintenanceHistory.mockResolvedValue([]);
+    mockFetchNtrRecords.mockResolvedValue([]);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await service.getMachineRelatedRecords('S1', session());
+
+    expect(result).toEqual([]);
+    consoleError.mockRestore();
+  });
+
+  it('getMachineKnowledgeSummary resolves to [] rather than throwing when KnowledgeService rejects', async () => {
+    const fakeKnowledgeService = { getKnowledgeForMachine: vi.fn(() => Promise.reject(new Error('supabase timeout'))) };
+    const scopedService = new MachineService(undefined, fakeKnowledgeService as any);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await scopedService.getMachineKnowledgeSummary('S1');
+
+    expect(result).toEqual([]);
+    consoleError.mockRestore();
+  });
+
+  it('getMachineNtrHistory resolves to [] rather than throwing when fetchNtrRecordsForSerial rejects', async () => {
+    mockFetchNtrRecords.mockRejectedValue(new Error('supabase timeout'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await service.getMachineNtrHistory('S1', session());
+
+    expect(result).toEqual([]);
+    consoleError.mockRestore();
+  });
+
+  it('getMachineAttachments isolates a single failing record - one bad attachment list must not fail the rest', async () => {
+    mockFetchMqrRecords.mockResolvedValue([{ id: 'mqr-1', job_id: 'QIR-1' }, { id: 'mqr-2', job_id: 'QIR-2' }]);
+    mockFetchMaintenanceHistory.mockResolvedValue([]);
+    mockFetchNtrRecords.mockResolvedValue([]);
+    const goodAttachment = { id: 'att-1', filename: 'photo.jpg' };
+    const fakeAttachmentService = {
+      list: vi.fn((module: string, entityType: string, entityId: string) =>
+        entityId === 'QIR-1' ? Promise.resolve([goodAttachment]) : Promise.reject(new Error('orphaned record'))
+      ),
+    };
+    const scopedService = new MachineService(fakeAttachmentService as any);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await scopedService.getMachineAttachments('S1', session());
+
+    expect(result).toEqual([goodAttachment]);
+    consoleError.mockRestore();
+  });
+});

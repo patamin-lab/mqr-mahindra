@@ -7,8 +7,16 @@
  * per-module `<img>`/`<a>` markup, given only what `AttachmentService`
  * already resolved (`url`/`mimeType`/`filename`) - never a storage
  * provider, bucket, or signed-URL detail itself.
+ *
+ * Image Standardization (Document Viewer): the full-screen image preview
+ * supports Fit Width, Fit Height, Zoom, Full Screen, and Temporary Rotate
+ * Left/Right - all local component state (CSS `transform`/sizing only),
+ * reset every time a different attachment is opened (`key={item.id}` on
+ * `ImagePreview` below) and never persisted - this never modifies the
+ * stored file, only how it's momentarily displayed.
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ZoomIn, ZoomOut, RotateCcw, RotateCw, Maximize2, Minimize2, StretchHorizontal, StretchVertical } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
 
 export interface AttachmentViewerItem {
@@ -98,7 +106,7 @@ export default function AttachmentViewer({ items, onDelete, className, emptyMess
       {previewing && previewing.url && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPreviewing(null)}>
           <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
-            <PreviewBody item={previewing} t={t} />
+            <PreviewBody key={previewing.id} item={previewing} t={t} />
             <button type="button" onClick={() => setPreviewing(null)} className="mt-2 w-full rounded bg-white/10 py-2 text-white">
               {t('attachmentViewer.close')}
             </button>
@@ -114,8 +122,7 @@ function PreviewBody({ item, t }: { item: AttachmentViewerItem; t: (key: string)
   if (!item.url) return null;
   switch (kind) {
     case 'image':
-      // eslint-disable-next-line @next/next/no-img-element
-      return <img src={item.url} alt={item.filename} className="max-h-[80vh] w-full object-contain" />;
+      return <ImagePreview url={item.url} filename={item.filename} t={t} />;
     case 'video':
       return <video src={item.url} controls className="max-h-[80vh] w-full" />;
     case 'audio':
@@ -134,4 +141,98 @@ function PreviewBody({ item, t }: { item: AttachmentViewerItem; t: (key: string)
         </div>
       );
   }
+}
+
+type FitMode = 'contain' | 'width' | 'height';
+const ZOOM_STEP = 0.25;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 4;
+
+/** Exported so `AttachmentGallery` (the simpler photo-grid component used
+ *  by MQR/PM/NTR) can reuse the exact same Fit/Zoom/Rotate/Full-Screen
+ *  controls in its own lightbox instead of a second implementation - see
+ *  that file's `linkable` lightbox. */
+export function ImagePreview({ url, filename, t }: { url: string; filename: string; t: (key: string) => string }) {
+  const [fitMode, setFitMode] = useState<FitMode>('contain');
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [fullScreen, setFullScreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setFullScreen(document.fullscreenElement === containerRef.current);
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  async function toggleFullScreen() {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+    } else {
+      await containerRef.current.requestFullscreen?.().catch(() => undefined);
+    }
+  }
+
+  const imgClassName =
+    fitMode === 'width'
+      ? 'w-full h-auto'
+      : fitMode === 'height'
+        ? 'h-[80vh] w-auto max-w-none'
+        : 'max-h-[80vh] w-full object-contain';
+
+  return (
+    <div ref={containerRef} className={`flex flex-col gap-2 ${fullScreen ? 'h-screen w-screen items-center justify-center bg-black' : ''}`}>
+      <div className="flex flex-wrap items-center justify-center gap-1 rounded bg-white/10 p-1">
+        <ViewerButton active={fitMode === 'width'} label={t('attachmentViewer.fitWidth')} icon={StretchHorizontal} onClick={() => setFitMode('width')} />
+        <ViewerButton active={fitMode === 'height'} label={t('attachmentViewer.fitHeight')} icon={StretchVertical} onClick={() => setFitMode('height')} />
+        <ViewerButton label={t('attachmentViewer.zoomOut')} icon={ZoomOut} onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2)))} />
+        <span className="w-12 text-center text-xs text-white">{Math.round(zoom * 100)}%</span>
+        <ViewerButton label={t('attachmentViewer.zoomIn')} icon={ZoomIn} onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)))} />
+        <ViewerButton label={t('attachmentViewer.rotateLeft')} icon={RotateCcw} onClick={() => setRotation((r) => (r - 90 + 360) % 360)} />
+        <ViewerButton label={t('attachmentViewer.rotateRight')} icon={RotateCw} onClick={() => setRotation((r) => (r + 90) % 360)} />
+        <ViewerButton
+          label={fullScreen ? t('attachmentViewer.exitFullScreen') : t('attachmentViewer.fullScreen')}
+          icon={fullScreen ? Minimize2 : Maximize2}
+          onClick={toggleFullScreen}
+        />
+      </div>
+      <div className={fullScreen ? 'flex flex-1 items-center justify-center overflow-auto' : 'overflow-auto'}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={filename}
+          className={imgClassName}
+          style={{ transform: `scale(${zoom}) rotate(${rotation}deg)`, transition: 'transform 150ms ease' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ViewerButton({
+  label,
+  icon: Icon,
+  onClick,
+  active,
+}: {
+  label: string;
+  icon: typeof ZoomIn;
+  onClick: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 ${active ? 'bg-white/25' : ''}`}
+    >
+      <Icon size={16} aria-hidden="true" />
+    </button>
+  );
 }

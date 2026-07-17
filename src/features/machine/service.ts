@@ -34,12 +34,30 @@ export class MachineService {
     private readonly inspectionService: InspectionService = new InspectionService()
   ) {}
 
+  /** Production Stability / Defensive Programming: every Machine Passport
+   *  section must fail independently - a failure in one section's own
+   *  data source (Supabase timeout, orphaned FK, partially-migrated row)
+   *  must never take down the sections above/below it. Every public
+   *  method below routes through this instead of letting a rejection
+   *  propagate, matching the one defensive pattern that already existed
+   *  in this codebase (`MachineDocumentsSection.tsx`'s
+   *  `attachmentService.getUrl(...).catch(() => null)`), generalized here
+   *  so it doesn't have to be re-implemented per call site. */
+  private async safe<T>(label: string, fallback: T, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      console.error(`MachineService.${label} failed`, err);
+      return fallback;
+    }
+  }
+
   async getMachine360(serial: string, session: SessionUser): Promise<MachineSummary | null> {
-    return getVehicleSummary(serial, session);
+    return this.safe('getMachine360', null, () => getVehicleSummary(serial, session));
   }
 
   async getMachineTimeline(serial: string, session: SessionUser): Promise<MachineEvent[]> {
-    return getVehicleTimeline(serial, session);
+    return this.safe('getMachineTimeline', [], () => getVehicleTimeline(serial, session));
   }
 
   /** Machine 360's Attachments section - reads only through
@@ -52,18 +70,23 @@ export class MachineService {
    *  its own two-line block here once it adopts the Attachment Platform -
    *  see docs/engineering/ATTACHMENT_FRAMEWORK.md. */
   async getMachineAttachments(serial: string, session: SessionUser): Promise<Attachment[]> {
-    const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
-      fetchMqrRecords(serial, session),
-      fetchMaintenanceHistoryForSerial(serial, session),
-      fetchNtrRecordsForSerial(serial, session),
-    ]);
+    return this.safe('getMachineAttachments', [], async () => {
+      const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
+        fetchMqrRecords(serial, session),
+        fetchMaintenanceHistoryForSerial(serial, session),
+        fetchNtrRecordsForSerial(serial, session),
+      ]);
 
-    const lists = await Promise.all([
-      ...mqrRecords.map((r) => this.attachmentService.list('mqr', 'record', r.job_id)),
-      ...pmRecords.map((r) => this.attachmentService.list('pm', 'pm_record', r.id)),
-      ...ntrRecords.map((r) => this.attachmentService.list('ntr', 'ntr_record', r.id)),
-    ]);
-    return lists.flat();
+      // Per-record isolation: one orphaned/malformed record (bad
+      // `entity_id`, deleted parent row) must not fail the whole
+      // Documents list for this machine.
+      const lists = await Promise.all([
+        ...mqrRecords.map((r) => this.attachmentService.list('mqr', 'record', r.job_id).catch(() => [])),
+        ...pmRecords.map((r) => this.attachmentService.list('pm', 'pm_record', r.id).catch(() => [])),
+        ...ntrRecords.map((r) => this.attachmentService.list('ntr', 'ntr_record', r.id).catch(() => [])),
+      ]);
+      return lists.flat();
+    });
   }
 
   /**
@@ -81,27 +104,30 @@ export class MachineService {
    * dedicated Warranty table to read from instead.
    */
   async getMachineWarrantySummary(serial: string, session: SessionUser): Promise<MachineWarrantySummary> {
-    const [summary, mqrRecords] = await Promise.all([
-      getVehicleSummary(serial, session),
-      fetchMqrRecords(serial, session),
-    ]);
+    const empty: MachineWarrantySummary = { status: null, ageMonths: null, limitMonths: null, claims: [] };
+    return this.safe('getMachineWarrantySummary', empty, async () => {
+      const [summary, mqrRecords] = await Promise.all([
+        getVehicleSummary(serial, session),
+        fetchMqrRecords(serial, session),
+      ]);
 
-    const overall = summary?.retailDate ? calcWarranty(summary.retailDate, new Date().toISOString().slice(0, 10), 'powertrain') : null;
+      const overall = summary?.retailDate ? calcWarranty(summary.retailDate, new Date().toISOString().slice(0, 10), 'powertrain') : null;
 
-    return {
-      status: overall?.status ?? null,
-      ageMonths: overall?.ageMonths ?? null,
-      limitMonths: overall?.limitMonths ?? null,
-      claims: mqrRecords
-        .filter((r) => !!r.warranty_status)
-        .map((r) => ({
-          jobId: r.job_id,
-          foundDate: r.found_date,
-          problemSystem: r.problem_system,
-          warrantyStatus: r.warranty_status,
-          recordStatus: r.status,
-        })),
-    };
+      return {
+        status: overall?.status ?? null,
+        ageMonths: overall?.ageMonths ?? null,
+        limitMonths: overall?.limitMonths ?? null,
+        claims: mqrRecords
+          .filter((r) => !!r.warranty_status)
+          .map((r) => ({
+            jobId: r.job_id,
+            foundDate: r.found_date,
+            problemSystem: r.problem_system,
+            warrantyStatus: r.warranty_status,
+            recordStatus: r.status,
+          })),
+      };
+    });
   }
 
   /**
@@ -112,24 +138,27 @@ export class MachineService {
    * definition, three consumers, never redefined per caller.
    */
   async getMachineQualitySummary(serial: string, session: SessionUser): Promise<MachineQualitySummary> {
-    const mqrRecords = await fetchMqrRecords(serial, session);
-    const openStatuses = new Set<string>(OPEN_STATUSES);
+    const empty: MachineQualitySummary = { openCount: 0, closedCount: 0, criticalCount: 0, cases: [] };
+    return this.safe('getMachineQualitySummary', empty, async () => {
+      const mqrRecords = await fetchMqrRecords(serial, session);
+      const openStatuses = new Set<string>(OPEN_STATUSES);
 
-    let openCount = 0;
-    let closedCount = 0;
-    let criticalCount = 0;
-    for (const r of mqrRecords) {
-      if (openStatuses.has(r.status)) openCount++;
-      else closedCount++;
-      if (r.severity === 'Critical') criticalCount++;
-    }
+      let openCount = 0;
+      let closedCount = 0;
+      let criticalCount = 0;
+      for (const r of mqrRecords) {
+        if (openStatuses.has(r.status)) openCount++;
+        else closedCount++;
+        if (r.severity === 'Critical') criticalCount++;
+      }
 
-    return {
-      openCount,
-      closedCount,
-      criticalCount,
-      cases: mqrRecords.map((r) => ({ jobId: r.job_id, status: r.status, severity: r.severity, foundDate: r.found_date })),
-    };
+      return {
+        openCount,
+        closedCount,
+        criticalCount,
+        cases: mqrRecords.map((r) => ({ jobId: r.job_id, status: r.status, severity: r.severity, foundDate: r.found_date })),
+      };
+    });
   }
 
   /**
@@ -147,21 +176,23 @@ export class MachineService {
    * for the full distinction - both are shown, neither replaces the other.
    */
   async getMachineAuditTimeline(serial: string, session: SessionUser): Promise<ActivityEvent[]> {
-    const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
-      fetchMqrRecords(serial, session),
-      fetchMaintenanceHistoryForSerial(serial, session),
-      fetchNtrRecordsForSerial(serial, session),
-    ]);
+    return this.safe('getMachineAuditTimeline', [], async () => {
+      const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
+        fetchMqrRecords(serial, session),
+        fetchMaintenanceHistoryForSerial(serial, session),
+        fetchNtrRecordsForSerial(serial, session),
+      ]);
 
-    const refs = [
-      ...mqrRecords.map((r) => ({ module: 'mqr' as const, recordId: r.id })),
-      ...pmRecords.map((r) => ({ module: 'pm' as const, recordId: r.id })),
-      ...ntrRecords.map((r) => ({ module: 'ntr' as const, recordId: r.id })),
-    ];
-    if (refs.length === 0) return [];
+      const refs = [
+        ...mqrRecords.map((r) => ({ module: 'mqr' as const, recordId: r.id })),
+        ...pmRecords.map((r) => ({ module: 'pm' as const, recordId: r.id })),
+        ...ntrRecords.map((r) => ({ module: 'ntr' as const, recordId: r.id })),
+      ];
+      if (refs.length === 0) return [];
 
-    const entries = await listAuditLogForRecords(refs);
-    return mapMixedAuditLogToActivityEvents(entries);
+      const entries = await listAuditLogForRecords(refs);
+      return mapMixedAuditLogToActivityEvents(entries);
+    });
   }
 
   /**
@@ -187,42 +218,44 @@ export class MachineService {
    * against. See `docs/architecture/MACHINE_DATA_OWNERSHIP.md`.
    */
   async getMachineRelatedRecords(serial: string, session: SessionUser): Promise<MachineRelatedRecord[]> {
-    const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
-      fetchMqrRecords(serial, session),
-      fetchMaintenanceHistoryForSerial(serial, session),
-      fetchNtrRecordsForSerial(serial, session),
-    ]);
-    const openStatuses = new Set<string>(OPEN_STATUSES);
+    return this.safe('getMachineRelatedRecords', [], async () => {
+      const [mqrRecords, pmRecords, ntrRecords] = await Promise.all([
+        fetchMqrRecords(serial, session),
+        fetchMaintenanceHistoryForSerial(serial, session),
+        fetchNtrRecordsForSerial(serial, session),
+      ]);
+      const openStatuses = new Set<string>(OPEN_STATUSES);
 
-    return [
-      ...mqrRecords.map((r) => ({
-        module: 'mqr' as const,
-        recordId: r.id,
-        reference: r.job_id,
-        status: r.status,
-        date: r.found_date,
-        href: `/records/${encodeURIComponent(r.job_id)}`,
-        bucket: (openStatuses.has(r.status) ? 'open' : 'history') as 'open' | 'history',
-      })),
-      ...pmRecords.map((r) => ({
-        module: 'pm' as const,
-        recordId: r.id,
-        reference: r.pm_number ?? r.id,
-        status: null,
-        date: r.performed_date,
-        href: `/pm-records/${r.id}`,
-        bucket: 'history' as const,
-      })),
-      ...ntrRecords.map((r) => ({
-        module: 'ntr' as const,
-        recordId: r.id,
-        reference: r.ntr_number,
-        status: r.status,
-        date: r.delivery_date,
-        href: `/ntr/${r.id}`,
-        bucket: 'history' as const,
-      })),
-    ];
+      return [
+        ...mqrRecords.map((r) => ({
+          module: 'mqr' as const,
+          recordId: r.id,
+          reference: r.job_id,
+          status: r.status,
+          date: r.found_date,
+          href: `/records/${encodeURIComponent(r.job_id)}`,
+          bucket: (openStatuses.has(r.status) ? 'open' : 'history') as 'open' | 'history',
+        })),
+        ...pmRecords.map((r) => ({
+          module: 'pm' as const,
+          recordId: r.id,
+          reference: r.pm_number ?? r.id,
+          status: null,
+          date: r.performed_date,
+          href: `/pm-records/${r.id}`,
+          bucket: 'history' as const,
+        })),
+        ...ntrRecords.map((r) => ({
+          module: 'ntr' as const,
+          recordId: r.id,
+          reference: r.ntr_number,
+          status: r.status,
+          date: r.delivery_date,
+          href: `/ntr/${r.id}`,
+          bucket: 'history' as const,
+        })),
+      ];
+    });
   }
 
   /**
@@ -236,7 +269,7 @@ export class MachineService {
    * event source.
    */
   async getMachineKnowledgeSummary(serial: string): Promise<MachineKnownIssue[]> {
-    return this.knowledgeService.getKnowledgeForMachine(serial);
+    return this.safe('getMachineKnowledgeSummary', [], () => this.knowledgeService.getKnowledgeForMachine(serial));
   }
 
   /**
@@ -248,7 +281,7 @@ export class MachineService {
    * `getMachineKnowledgeSummary()` above.
    */
   async getMachineDeliverySummary(serial: string): Promise<MachineDeliverySummary | null> {
-    return this.deliveryService.getDeliveryForMachine(serial);
+    return this.safe('getMachineDeliverySummary', null, () => this.deliveryService.getDeliveryForMachine(serial));
   }
 
   /**
@@ -264,7 +297,7 @@ export class MachineService {
    * gated independently at `/delivery/pdi/[id]`.
    */
   async getMachineImportInspectionHistory(serial: string): Promise<Inspection[]> {
-    return this.inspectionService.listInspectionsForSerial(serial);
+    return this.safe('getMachineImportInspectionHistory', [], () => this.inspectionService.listInspectionsForSerial(serial));
   }
 
   /**
@@ -276,6 +309,6 @@ export class MachineService {
    * existing Import Inspection/Warranty/PM/Quality sections.
    */
   async getMachineNtrHistory(serial: string, session: SessionUser): Promise<NtrRecord[]> {
-    return fetchNtrRecordsForSerial(serial, session);
+    return this.safe('getMachineNtrHistory', [], () => fetchNtrRecordsForSerial(serial, session));
   }
 }

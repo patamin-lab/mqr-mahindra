@@ -211,16 +211,28 @@ export async function getVehicleBySerial(serial: string, scope: AuthorizationSco
   return data;
 }
 
-/** Sets `vehicles.delivery_date`/`product_family_id` from an NTR record -
- *  NTR is the ownership-transfer event, but until this call `vehicles`
- *  itself never learned its own delivery date (a pre-existing gap:
- *  `calcWarranty()` reads `vehicles.delivery_date`, which NTR creation
- *  never wrote). Called from the NTR creation route's own non-blocking
- *  side-effect (business-domain correction), never from `NtrService`
- *  itself - Machine Registry stays the one place this is written. */
-export async function updateVehicleDeliveryInfo(vehicleId: string, input: { deliveryDate: string; productFamilyId: string | null }): Promise<void> {
+/** Sets `vehicles.delivery_date`/`product_family_id`/`dealer_id`/`branch_id`
+ *  from an NTR record - NTR is the ownership-transfer event, and per
+ *  `docs/business/FIELD_OWNERSHIP_MATRIX.md`/`WRITE_PRECEDENCE_MATRIX.md`,
+ *  NTR (Operational) is always allowed to write `dealer_id`/`delivery_date`
+ *  on `vehicles`, and is their intended Source of Truth once an NTR exists
+ *  (`TractorInSyncService` freezes both fields at that point - see
+ *  ADR-037). Before this fix `dealer_id`/`branch_id` were never written by
+ *  any NTR code path, so Vehicle 360 kept showing the pre-NTR dealer
+ *  (usually blank) forever. Called from the NTR creation route's own
+ *  non-blocking side-effect (business-domain correction), never from
+ *  `NtrService` itself - Machine Registry stays the one place this is
+ *  written. */
+export async function updateVehicleDeliveryInfo(
+  vehicleId: string,
+  input: { deliveryDate: string; productFamilyId: string | null; dealerId: string; branchId: string | null }
+): Promise<void> {
   const supabase = getSupabase();
-  const patch: Record<string, unknown> = { delivery_date: input.deliveryDate };
+  const patch: Record<string, unknown> = {
+    delivery_date: input.deliveryDate,
+    dealer_id: input.dealerId,
+    branch_id: input.branchId,
+  };
   if (input.productFamilyId) patch.product_family_id = input.productFamilyId;
   const { error } = await supabase.from('vehicles').update(patch).eq('id', vehicleId);
   if (error) throw error;

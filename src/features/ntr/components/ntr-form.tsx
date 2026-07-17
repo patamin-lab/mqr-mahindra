@@ -75,6 +75,20 @@ const REQUIRED_PHOTO_SLOTS: RequiredPhotoSlot[] = ['customer_id', 'serial_plate'
 const OPTIONAL_DEDICATED_SLOTS: OptionalDedicatedSlot[] = ['hour_meter'];
 const OPTIONAL_TAGGED_SLOTS: OptionalTaggedSlot[] = ['booking_document', 'tax_invoice', 'crm_lead'];
 
+/** Document Images vs General Photos (Image Standardization, Document
+ *  Image Orientation) - a Document slot (an ID card, a signed form, an
+ *  invoice, a lead screenshot) must never be force-rotated to landscape
+ *  by `processImageForUpload()`; `serial_plate`/`hour_meter` are photos of
+ *  the physical machine and keep the existing forced-landscape behavior
+ *  that matches the fixed 16:9 preview/PDF frame. */
+const DOCUMENT_PHOTO_SLOTS: ReadonlySet<PhotoSlot> = new Set<PhotoSlot>([
+  'customer_id',
+  'signed_document',
+  'booking_document',
+  'tax_invoice',
+  'crm_lead',
+]);
+
 function formatPhoneInput(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 10);
   if (digits.length <= 3) return digits;
@@ -290,7 +304,7 @@ export default function NtrForm(props: NtrFormProps) {
     setUploadingSlot(slot);
     try {
       const [processed, photoGps] = await Promise.all([
-        processImageForUpload(file),
+        processImageForUpload(file, { preserveOrientation: DOCUMENT_PHOTO_SLOTS.has(slot) }),
         offerGps && file.type.startsWith('image/') ? readGpsFromImageFile(file) : Promise.resolve(null),
       ]);
       const uploaded = await uploadAttachment(processed, {

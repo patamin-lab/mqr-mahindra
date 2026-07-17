@@ -6,6 +6,7 @@ import { parseWithSchema, ValidationError } from '@/lib/validation';
 import { buildNtrRecordUpdateBodySchema, NtrRecordUpdateBody } from '@/features/ntr/schemas';
 import { NtrRecord } from '@/features/ntr/types';
 import { createNtrService } from '@/features/ntr/factory';
+import { runNtrWarrantyOrchestration } from '@/features/ntr/services/ntrPostCreateOrchestration';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 import type { SessionUser } from '@/lib/types';
@@ -109,6 +110,23 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     const record = await service.update(params.id, input, { username: session.username, role: session.role });
+
+    // Same NTR-is-the-ownership-transfer-event correction as the create
+    // route (`api/ntr-records/route.ts`) - Vehicle360's dealer/branch/
+    // delivery date/PM schedule must always reflect the *latest* NTR, not
+    // just the one at creation time (a dealer correcting Dealer/Delivery
+    // Date after the fact is a normal flow, not an edge case). Every step
+    // inside is already idempotent (`activateWarrantyFromNtr` short-
+    // circuits once `warrantyActivatedAt` is set; `updateVehicleDeliveryInfo`
+    // is a plain overwrite; `resolveVehicleProgramVersionStages` reuses a
+    // still-valid pinned version) so re-running it unconditionally on every
+    // edit is safe, not just on the fields that actually changed.
+    try {
+      await runNtrWarrantyOrchestration(record, { username: session.username, role: session.role });
+    } catch (err) {
+      console.error('NTR post-update warranty/PM orchestration error (ntr-record route)', err);
+    }
+
     return NextResponse.json({ ok: true, data: record }, { status: 200 });
   } catch (error) {
     console.error('NTR record update API error', error);
