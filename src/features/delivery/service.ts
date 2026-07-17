@@ -257,7 +257,10 @@ export class DeliveryService {
    *  NTR-creation paths (the manual route's full session, and Legacy
    *  Import's `{ username }`-only actor), and nothing here ever reads a
    *  role. */
-  async activateWarrantyFromNtr(input: { vehicleId: string; serial: string; dealerId: string | null; ntrId: string }, actor: { username: string }): Promise<DeliveryRecord> {
+  async activateWarrantyFromNtr(
+    input: { vehicleId: string; serial: string; dealerId: string | null; ntrId: string; deliveryDate: string },
+    actor: { username: string }
+  ): Promise<DeliveryRecord> {
     let record = await this.repo.getMostRecentForSerial(input.serial);
     if (!record) {
       record = await this.repo.create({
@@ -291,7 +294,16 @@ export class DeliveryService {
         serial: updated.serial,
         referenceId: updated.deliveryRef,
         entityId: updated.id,
-        eventDatetime: updated.warrantyActivatedAt as string,
+        // Business rule: Warranty Start must always equal Delivery Date, no
+        // exceptions - the Timeline's "เริ่มการรับประกัน" event must show
+        // that date, not `warrantyActivatedAt` (when this code happened to
+        // run, which can trail the real delivery by days - a backdated NTR
+        // is a normal flow, not an edge case). `warrantyActivatedAt` itself
+        // stays the real processing timestamp - it also feeds Delivery's
+        // own lead-time KPIs (`averageDeliveryLeadTimeDays`,
+        // `deliveryDurationDays`), which measure actual processing speed
+        // and must not be corrupted by a backdated business date.
+        eventDatetime: input.deliveryDate,
         actor: { username: actor.username },
         source: 'NTR',
       })

@@ -89,7 +89,7 @@ describe('runNtrWarrantyOrchestration', () => {
       branchId: null,
     });
     expect(deliveryService.activateWarrantyFromNtr).toHaveBeenCalledWith(
-      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1' },
+      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1', deliveryDate: '2026-01-02' },
       ACTOR
     );
     expect(mockResolveVehicleProgramVersionStages).toHaveBeenCalledWith('veh-1', 'PF-1', '2026-01-02');

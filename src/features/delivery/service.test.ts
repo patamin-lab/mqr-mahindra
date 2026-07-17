@@ -118,7 +118,10 @@ describe('DeliveryService.activateWarrantyFromNtr', () => {
     });
     const service = new DeliveryService(repo, undefined, makeMockPublisher());
 
-    const result = await service.activateWarrantyFromNtr({ vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1' }, session());
+    const result = await service.activateWarrantyFromNtr(
+      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1', deliveryDate: '2026-01-30' },
+      session()
+    );
 
     expect(result.warrantyActivationSource).toBe('NTR');
     expect(result.stage).toBe('Completed');
@@ -126,12 +129,41 @@ describe('DeliveryService.activateWarrantyFromNtr', () => {
     expect(mockLogAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ module: 'delivery', fieldName: 'WarrantyActivated', newValue: 'NTR' }));
   });
 
+  /** Regression: Warranty Start must always equal Delivery Date, never the
+   *  moment this code happened to run (a backdated NTR - processed days
+   *  after the real delivery - is a normal flow). The Timeline's
+   *  "เริ่มการรับประกัน" event must be stamped with the delivery date, not
+   *  `warrantyActivatedAt` (which stays the real processing timestamp for
+   *  Delivery's own lead-time KPIs, unaffected). */
+  it('publishes the WARRANTY_ACTIVATED timeline event dated to deliveryDate, never warrantyActivatedAt', async () => {
+    const existing = baseRecord({ stage: 'WarrantyActivation' });
+    const updated = baseRecord({ stage: 'Completed', overallStatus: 'Completed', warrantyActivatedAt: '2026-01-30T09:41:00.000Z', warrantyActivationSource: 'NTR', ntrId: 'ntr-1' });
+    const repo = makeRepo({
+      getMostRecentForSerial: vi.fn(() => Promise.resolve(existing)),
+      update: vi.fn(() => Promise.resolve(updated)),
+    });
+    const publisher = makeMockPublisher();
+    const service = new DeliveryService(repo, undefined, publisher);
+
+    await service.activateWarrantyFromNtr(
+      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1', deliveryDate: '2026-01-26' },
+      session()
+    );
+
+    expect(publisher.publishWarrantyActivated).toHaveBeenCalledWith(
+      expect.objectContaining({ eventDatetime: '2026-01-26' })
+    );
+  });
+
   it('is idempotent - never re-activates a machine whose Warranty already activated', async () => {
     const existing = baseRecord({ stage: 'Completed', warrantyActivatedAt: '2026-01-01T00:00:00Z', warrantyActivationSource: 'NTR' });
     const repo = makeRepo({ getMostRecentForSerial: vi.fn(() => Promise.resolve(existing)) });
     const service = new DeliveryService(repo);
 
-    const result = await service.activateWarrantyFromNtr({ vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-2' }, session());
+    const result = await service.activateWarrantyFromNtr(
+      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-2', deliveryDate: '2026-01-26' },
+      session()
+    );
 
     expect(result).toBe(existing);
     expect(repo.update).not.toHaveBeenCalled();
@@ -147,7 +179,10 @@ describe('DeliveryService.activateWarrantyFromNtr', () => {
     });
     const service = new DeliveryService(repo, undefined, makeMockPublisher());
 
-    const result = await service.activateWarrantyFromNtr({ vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1' }, session());
+    const result = await service.activateWarrantyFromNtr(
+      { vehicleId: 'veh-1', serial: 'SN-001', dealerId: 'D1', ntrId: 'ntr-1', deliveryDate: '2026-01-26' },
+      session()
+    );
 
     expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({ vehicleId: 'veh-1', serial: 'SN-001' }));
     expect(result.warrantyActivationSource).toBe('NTR');

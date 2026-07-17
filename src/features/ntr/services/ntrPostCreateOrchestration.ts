@@ -47,7 +47,7 @@ export async function runNtrWarrantyOrchestration(
       branchId: record.branch_id,
     });
     await deliveryService.activateWarrantyFromNtr(
-      { vehicleId: vehicle.id, serial: record.serial, dealerId: record.dealer_id, ntrId: record.id },
+      { vehicleId: vehicle.id, serial: record.serial, dealerId: record.dealer_id, ntrId: record.id, deliveryDate: record.delivery_date },
       actor
     );
     if (record.product_family_id) {
