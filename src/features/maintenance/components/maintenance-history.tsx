@@ -30,6 +30,7 @@ import LoadingState from '@/components/shared/admin/LoadingState';
 import EmptyState from '@/components/shared/admin/EmptyState';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Pagination from '@/components/shared/table/Pagination';
+import RowLink from '@/components/shared/table/RowLink';
 import type { Dealer, PmInterval, Technician, Branch } from '@/lib/types';
 import type { MaintenanceRecord, MaintenanceHistorySortField, MaintenanceHistorySortDir } from '../types';
 import PmRowActions from './PmRowActions';
@@ -385,7 +386,12 @@ export default function MaintenanceHistory({
           />
         ),
         cell: ({ row }) => (
-          <input type="checkbox" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+          <>
+            <RowLink href={`/pm-records/${encodeURIComponent(row.original.id)}`} label={row.original.pm_number ?? row.original.id} />
+            <span className="relative z-10">
+              <input type="checkbox" checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
+            </span>
+          </>
         ),
       }),
       columnHelper.accessor('pm_number', { header: 'เลขที่ PM', size: 160 }),
@@ -397,7 +403,7 @@ export default function MaintenanceHistory({
         size: 130,
         cell: (c) =>
           c.getValue() ? (
-            <Link href={`/machines/${encodeURIComponent(c.getValue() as string)}`} className="text-brand-red hover:underline">
+            <Link href={`/machines/${encodeURIComponent(c.getValue() as string)}`} className="relative z-10 text-brand-red hover:underline">
               {c.getValue()}
             </Link>
           ) : (
@@ -698,9 +704,13 @@ export default function MaintenanceHistory({
             {!loading && data.length === 0 && <EmptyState colSpan={columns.length} />}
             {!loading &&
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-t border-gray-100 hover:bg-gray-50">
+                <tr key={row.id} className="relative border-t border-gray-100 hover:bg-gray-50">
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-3 py-2" style={{ width: cell.column.getSize() }}>
+                    <td
+                      key={cell.id}
+                      className={cell.column.id === 'actions' ? 'relative z-10 px-3 py-2' : 'px-3 py-2'}
+                      style={{ width: cell.column.getSize() }}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}

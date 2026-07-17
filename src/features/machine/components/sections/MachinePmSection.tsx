@@ -11,6 +11,15 @@ import { MachineSummary } from '../../types';
  * the Upcoming/Overdue/Compliance figures live on it, not on this query.
  */
 export default async function MachinePmSection({ serial, session, summary }: { serial: string; session: SessionUser; summary: MachineSummary }) {
-  const pmRecords = await fetchMaintenanceHistoryForSerial(serial, session);
+  // Production Stability: unlike every other Machine Passport section,
+  // this read does not go through `MachineService`'s `safe()` wrapper (it
+  // predates it and is shared with other non-Passport callers - see this
+  // helper's own doc comment) - a rejection here must not take down the
+  // whole page, so it's caught at this call site instead, same fail-open
+  // shape `safe()` gives every other section.
+  const pmRecords = await fetchMaintenanceHistoryForSerial(serial, session).catch((err) => {
+    console.error('Machine Passport: fetchMaintenanceHistoryForSerial failed', err);
+    return [];
+  });
   return <MachinePmPanel summary={summary} pmRecords={pmRecords} />;
 }

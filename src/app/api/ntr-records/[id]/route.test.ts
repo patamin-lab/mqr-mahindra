@@ -41,6 +41,11 @@ vi.mock('@/features/vehicle-event/factory', () => ({
   createVehicleEventPublisher: vi.fn().mockReturnValue(mockPublisher),
 }));
 
+const mockRunNtrWarrantyOrchestration = vi.fn().mockResolvedValue(undefined);
+vi.mock('@/features/ntr/services/ntrPostCreateOrchestration', () => ({
+  runNtrWarrantyOrchestration: mockRunNtrWarrantyOrchestration,
+}));
+
 const { getSession } = await import('@/lib/auth');
 const { GET, PUT, DELETE } = await import('./route');
 
@@ -198,6 +203,7 @@ describe('PUT /api/ntr-records/[id]', () => {
     mockRepository.getById.mockReset();
     mockRepository.update.mockReset();
     mockAssertBranchAccess.mockReset().mockResolvedValue(undefined);
+    mockRunNtrWarrantyOrchestration.mockClear();
   });
 
   it('returns 401 when unauthorized', async () => {
@@ -230,6 +236,37 @@ describe('PUT /api/ntr-records/[id]', () => {
     expect(mockRepository.update).not.toHaveBeenCalled();
   });
 
+  /** Regression: `runNtrWarrantyOrchestration` must re-run after an edit,
+   *  not only after create - Vehicle360's dealer/branch/delivery date/PM
+   *  schedule must reflect the *latest* NTR, and an edit is the only way
+   *  a dealer corrects a mistaken Dealer/Delivery Date after the fact. */
+  it('re-runs runNtrWarrantyOrchestration with the updated record after a successful edit', async () => {
+    vi.mocked(getSession).mockResolvedValue(dealerAdminSessionD1);
+    mockRepository.getById.mockResolvedValue(activeRecord);
+    const updated = { ...activeRecord, customer_name: 'New Name' };
+    mockRepository.update.mockResolvedValue(updated);
+
+    await PUT(putRequest({ customer_name: 'New Name' }), params);
+
+    expect(mockRunNtrWarrantyOrchestration).toHaveBeenCalledWith(updated, { username: 'bob', role: 'DealerAdmin' });
+  });
+
+  it('does not let a failing orchestration fail the edit response (non-blocking, same as create)', async () => {
+    vi.mocked(getSession).mockResolvedValue(dealerAdminSessionD1);
+    mockRepository.getById.mockResolvedValue(activeRecord);
+    const updated = { ...activeRecord, customer_name: 'New Name' };
+    mockRepository.update.mockResolvedValue(updated);
+    mockRunNtrWarrantyOrchestration.mockRejectedValueOnce(new Error('vehicle sync unavailable'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = await PUT(putRequest({ customer_name: 'New Name' }), params);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toEqual({ ok: true, data: updated });
+    consoleError.mockRestore();
+  });
+
   describe('Dealer reassignment (NTR Form Update, 2026-07)', () => {
     it('lets a seesAllDealers actor (SuperAdmin) change dealer_id', async () => {
       vi.mocked(getSession).mockResolvedValue(superAdminSession);
@@ -243,6 +280,7 @@ describe('PUT /api/ntr-records/[id]', () => {
       expect(json).toEqual({ ok: true, data: updated });
       expect(mockAssertBranchAccess).toHaveBeenCalledWith('D2', null);
       expect(mockRepository.update).toHaveBeenCalledWith('ntr-1', expect.objectContaining({ dealer_id: 'D2' }), expect.anything());
+      expect(mockRunNtrWarrantyOrchestration).toHaveBeenCalledWith(updated, { username: 'root', role: 'SuperAdmin' });
     });
 
     it('silently ignores dealer_id from a DealerAdmin (never trusted, no error)', async () => {
