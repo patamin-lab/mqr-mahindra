@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { seesAllDealers, canDelete, canForceDeleteLockedPm } from '@/lib/scope';
+import { canAccessDealerBranch } from '@/lib/dealerBranchScope';
 import { formatDateTimeLocalized } from '@/lib/thaiDate';
-import { fetchMaintenance } from '@/features/maintenance/utils/fetchMaintenance';
+import { MaintenanceService } from '@/features/maintenance/services/maintenanceService';
+import { SupabaseMaintenanceRepository } from '@/features/maintenance/repositories/supabaseMaintenanceRepository';
 import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanceLock';
 import MaintenanceDeleteButton from './delete-button';
 import MaintenanceUnlockButton from './unlock-button';
@@ -27,9 +29,37 @@ export const dynamic = 'force-dynamic';
 
 export default async function PmRecordDetailPage({ params }: RouteParams) {
   const session = await getSession();
-  const result = await fetchMaintenance(params.id);
 
-  if ('notFound' in result && result.notFound) {
+  // Direct repository/service call (matching NTR's `ntr/[id]/page.tsx` and
+  // MQR's `records/[jobId]/page.tsx`) - previously this Server Component
+  // self-fetched `/api/pm-records/[id]` over HTTP, an extra network hop
+  // that could fail independently of the record/permission/route actually
+  // being correct (see PROJECT_STATE.md's M6.5 entry for this exact
+  // failure class hitting this same page before).
+  let record;
+  try {
+    const repository = new SupabaseMaintenanceRepository();
+    record = await new MaintenanceService(repository).getById(params.id, session ?? undefined);
+  } catch (error) {
+    console.error('PM record detail load error', error);
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title={t('pmDetail.title')}
+          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
+          actions={
+            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
+              {t('common.backToList')}
+            </Link>
+          }
+        />
+
+        <EmptyState icon="⚠️" title={t('pmDetail.title')} reason={t('pmDetail.errorPrefix', { error: t('pmDetail.unexpectedError') })} nextStep={t('pmDetail.errorNextStep')} />
+      </div>
+    );
+  }
+
+  if (!record) {
     return (
       <div className="space-y-4">
         <PageHeader
@@ -47,43 +77,19 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
     );
   }
 
-  if ('error' in result) {
+  // Dealer/Branch Scope Platform Standard, defense in depth - `getById`
+  // above already applies scope internally (returns null when out of
+  // scope), this re-check matches the same two-layer pattern
+  // `api/pm-records/[id]/route.ts`'s own `isOutOfScope` provides today.
+  if (session && !canAccessDealerBranch(session, record.dealer_id, record.branch_id)) {
     return (
       <div className="space-y-4">
-        <PageHeader
-          title={t('pmDetail.title')}
-          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
-          actions={
-            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-              {t('common.backToList')}
-            </Link>
-          }
-        />
-
-        <EmptyState icon="⚠️" title={t('pmDetail.title')} reason={t('pmDetail.errorPrefix', { error: result.error })} nextStep={t('pmDetail.errorNextStep')} />
+        <PageHeader title={t('pmDetail.title')} />
+        <EmptyState icon="🔒" title={t('pmDetail.unauthorizedTitle')} reason={t('validation.unauthorizedRecordAccess')} nextStep={t('pmDetail.unauthorizedNextStep')} />
       </div>
     );
   }
 
-  if (!('record' in result)) {
-    return (
-      <div className="space-y-4">
-        <PageHeader
-          title={t('pmDetail.title')}
-          subtitle={t('pmDetail.recordIdLabel', { id: params.id })}
-          actions={
-            <Link href="/pm-records" className="rounded bg-brand-red px-4 py-2 text-white hover:bg-brand-dark">
-              {t('common.backToList')}
-            </Link>
-          }
-        />
-
-        <EmptyState icon="⚠️" title={t('pmDetail.title')} reason={t('pmDetail.unexpectedError')} nextStep={t('pmDetail.unexpectedErrorNextStep')} />
-      </div>
-    );
-  }
-
-  const record = result.record;
   const lock = evaluateMaintenanceLock(record);
 
   // A photo uploaded via the Attachment Platform stores its display URL

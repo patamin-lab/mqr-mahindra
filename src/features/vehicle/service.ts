@@ -23,7 +23,18 @@ import { VehicleEvent, VehicleSummary } from './types';
 const vehicleHealthService = new VehicleHealthService();
 
 export async function getVehicleTimeline(serial: string, session: SessionUser): Promise<VehicleEvent[]> {
-  const eventLists = await Promise.all(VEHICLE_EVENT_SOURCES.map((source) => source(serial, session)));
+  // Per-source isolation (Production Stability): one failing event source
+  // (a bad row in one module's own table) must not blank the whole
+  // Machine Timeline - it degrades to "this source contributed nothing"
+  // instead.
+  const eventLists = await Promise.all(
+    VEHICLE_EVENT_SOURCES.map((source) =>
+      source(serial, session).catch((err) => {
+        console.error('Vehicle timeline event source failed', err);
+        return [];
+      })
+    )
+  );
   return eventLists.flat().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
@@ -51,10 +62,21 @@ export async function getVehicleSummary(serial: string, session: SessionUser): P
   const vehicle = await getVehicleBySerial(serial, resolveDealerScope(session, null));
   if (!vehicle) return null;
 
+  // Per-provider isolation (Production Stability): one bad NTR/PM/MQR row
+  // (partially-migrated record, orphaned FK) must not null the entire
+  // Machine 360 summary - it degrades to "this provider contributed
+  // nothing" instead, same for the dealer/branch lookups.
   const [dealer, branch, contributions] = await Promise.all([
-    vehicle.dealer_id ? getDealer(vehicle.dealer_id) : Promise.resolve(null),
-    vehicle.branch_id ? getBranchById(vehicle.branch_id) : Promise.resolve(null),
-    Promise.all(VEHICLE_SUMMARY_PROVIDERS.map((provider) => provider.getVehicleSummary(serial, session))),
+    vehicle.dealer_id ? getDealer(vehicle.dealer_id).catch(() => null) : Promise.resolve(null),
+    vehicle.branch_id ? getBranchById(vehicle.branch_id).catch(() => null) : Promise.resolve(null),
+    Promise.all(
+      VEHICLE_SUMMARY_PROVIDERS.map((provider) =>
+        provider.getVehicleSummary(serial, session).catch((err) => {
+          console.error('Vehicle summary provider failed', err);
+          return null;
+        })
+      )
+    ),
   ]);
 
   let merged: Partial<VehicleSummary> = {};

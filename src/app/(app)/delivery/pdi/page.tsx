@@ -5,10 +5,14 @@ import { canAccessImportInspection } from '@/lib/scope';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { listVehiclesByFactoryPdiStatus, FACTORY_PDI_STATUS_PENDING_SENTINEL, type VehicleFactoryPdiStatusResult } from '@/lib/db';
 import { t } from '@/lib/i18n/server';
+import { Eye } from 'lucide-react';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
 import Card from '@/components/shared/layout/Card';
 import EmptyState from '@/components/shared/layout/EmptyState';
+import StatusPill from '@/components/shared/status/StatusPill';
+import RowLink from '@/components/shared/table/RowLink';
+import ActionColumn from '@/components/shared/table/ActionColumn';
 
 const service = new InspectionService();
 const STATUSES: InspectionStatus[] = ['Scheduled', 'InProgress', 'Completed', 'Cancelled'];
@@ -152,30 +156,43 @@ export default async function PdiListPage({ searchParams }: { searchParams: { st
                   <th className="px-4 py-3 text-left">{t('pdi.statusLabel')}</th>
                   <th className="px-4 py-3 text-left">{t('pdi.resultLabel')}</th>
                   <th className="px-4 py-3 text-left">{t('pdi.releaseStatusLabel')}</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {vehicleRows.map(({ vehicle, inspection }) => (
-                  <tr key={vehicle.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono">{vehicle.serial}</td>
+                  <tr key={vehicle.id} className="relative hover:bg-gray-50">
+                    <td className="px-4 py-3 font-mono">
+                      {inspection && <RowLink href={`/delivery/pdi/${inspection.id}`} label={inspection.inspectionRef} />}
+                      <span className="relative">{vehicle.serial}</span>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{vehicle.model ?? '-'}</td>
                     <td className="px-4 py-3 text-gray-500">
                       {vehicle.factoryPdiStatus ? t(`pdi.factoryPdiStatus.${vehicle.factoryPdiStatus === 'QC Passed' ? 'QcPassed' : vehicle.factoryPdiStatus}`) : t('pdi.factoryPdiStatus.Pending')}
                     </td>
                     <td className="px-4 py-3 font-mono">
                       {inspection ? (
-                        <Link href={`/delivery/pdi/${inspection.id}`} className="text-brand-red hover:underline">
+                        <Link href={`/delivery/pdi/${inspection.id}`} className="relative z-10 text-brand-red hover:underline">
                           {inspection.inspectionRef}
                         </Link>
                       ) : (
-                        <Link href="/delivery/pdi/new" className="text-brand-red hover:underline">
+                        <Link href="/delivery/pdi/new" className="relative z-10 text-brand-red hover:underline">
                           {t('pdi.startInspectionAction')}
                         </Link>
                       )}
                     </td>
-                    <td className="px-4 py-3">{inspection ? t(`pdi.status.${inspection.status}`) : t('pdi.notStartedLabel')}</td>
+                    <td className="px-4 py-3">
+                      <StatusPill colorClassName="bg-gray-100 text-gray-700">
+                        {inspection ? t(`pdi.status.${inspection.status}`) : t('pdi.notStartedLabel')}
+                      </StatusPill>
+                    </td>
                     <td className="px-4 py-3 text-gray-500">{inspection?.result ? t(`pdi.result.${inspection.result}`) : '-'}</td>
                     <td className="px-4 py-3 text-gray-500">{inspection ? t(`pdi.releaseStatus.${inspection.releaseStatus}`) : '-'}</td>
+                    <td className="relative z-10 px-4 py-3">
+                      {inspection && (
+                        <ActionColumn actions={[{ key: 'view', icon: Eye, label: t('common.view'), href: `/delivery/pdi/${inspection.id}`, variant: 'view' }]} />
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -196,24 +213,29 @@ export default async function PdiListPage({ searchParams }: { searchParams: { st
                 <th className="px-4 py-3 text-left">{t('pdi.statusLabel')}</th>
                 <th className="px-4 py-3 text-left">{t('pdi.resultLabel')}</th>
                 <th className="px-4 py-3 text-left">{t('pdi.releaseStatusLabel')}</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {inspections.map((i) => (
-                <tr key={i.id} className="hover:bg-gray-50">
+                <tr key={i.id} className="relative hover:bg-gray-50">
                   <td className="px-4 py-3 font-mono">
-                    <Link href={`/delivery/pdi/${i.id}`} className="text-brand-red hover:underline">
-                      {i.inspectionRef}
-                    </Link>
+                    <RowLink href={`/delivery/pdi/${i.id}`} label={i.inspectionRef} />
+                    <span className="relative text-brand-red">{i.inspectionRef}</span>
                   </td>
                   <td className="px-4 py-3">{i.serial}</td>
                   <td className="px-4 py-3 text-gray-500">
                     {i.inspectionType === 'RE_PDI' ? `${t('pdi.type.RE_PDI')} #${i.inspectionSequence}` : t('pdi.type.PDI')}
                   </td>
                   <td className="px-4 py-3 text-gray-500">{i.technicianName}</td>
-                  <td className="px-4 py-3">{t(`pdi.status.${i.status}`)}</td>
+                  <td className="px-4 py-3">
+                    <StatusPill colorClassName="bg-gray-100 text-gray-700">{t(`pdi.status.${i.status}`)}</StatusPill>
+                  </td>
                   <td className="px-4 py-3 text-gray-500">{i.result ? t(`pdi.result.${i.result}`) : '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{t(`pdi.releaseStatus.${i.releaseStatus}`)}</td>
+                  <td className="relative z-10 px-4 py-3">
+                    <ActionColumn actions={[{ key: 'view', icon: Eye, label: t('common.view'), href: `/delivery/pdi/${i.id}`, variant: 'view' }]} />
+                  </td>
                 </tr>
               ))}
             </tbody>

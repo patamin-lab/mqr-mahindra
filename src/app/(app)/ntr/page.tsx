@@ -2,14 +2,18 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { createNtrService } from '@/features/ntr/factory';
 import { parseNtrHistoryFilterFromSearchParams } from '@/features/ntr/utils/parseHistoryFilter';
-import { seesAllDealers, canExport } from '@/lib/scope';
+import { seesAllDealers, canExport, canDelete } from '@/lib/scope';
 import { MasterDataService } from '@/shared/master-data';
 import { formatDateLocalized } from '@/lib/thaiDate';
 import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
 import EmptyState from '@/components/shared/admin/EmptyState';
+import StatusPill from '@/components/shared/status/StatusPill';
+import RowLink from '@/components/shared/table/RowLink';
+import Pagination from '@/components/shared/table/Pagination';
 import NtrFilterBar from './NtrFilterBar';
+import NtrRowActions from './NtrRowActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,6 +51,7 @@ export default async function NtrRegistryPage({
   const pinnedDealer = !showDealerField && session.dealerId ? await MasterDataService.getDealerById(session.dealerId) : null;
   const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await MasterDataService.getBranch(session.branchId) : null;
   const allowExport = canExport(session.role);
+  const allowDelete = canDelete(session.role);
 
   const exportQuery = new URLSearchParams();
   if (searchParams.dealerId) exportQuery.set('dealerId', searchParams.dealerId);
@@ -166,56 +171,51 @@ export default async function NtrRegistryPage({
               <th className="text-left px-4 py-3">{t('csv.customerName')}</th>
               <th className="text-left px-4 py-3">{t('common.dealer')}</th>
               <th className="text-left px-4 py-3">{t('common.status')}</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {result.data.map((r) => (
-              <tr key={r.id} className="hover:bg-gray-50">
+              <tr key={r.id} className="relative hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono">
-                  <Link href={`/ntr/${encodeURIComponent(r.id)}`} className="text-brand-red hover:underline">
-                    {r.ntr_number}
-                  </Link>
+                  <RowLink href={`/ntr/${encodeURIComponent(r.id)}`} label={r.ntr_number} />
+                  <span className="relative text-brand-red">{r.ntr_number}</span>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">{formatDateLocalized(r.delivery_date, locale)}</td>
                 <td className="px-4 py-3">
                   {r.model ?? '-'}{' '}
                   {r.serial && (
-                    <Link href={`/machines/${encodeURIComponent(r.serial)}`} className="text-gray-400 hover:text-brand-red hover:underline">
+                    <Link
+                      href={`/machines/${encodeURIComponent(r.serial)}`}
+                      className="relative z-10 text-gray-400 hover:text-brand-red hover:underline"
+                    >
                       ({r.serial})
                     </Link>
                   )}
                 </td>
                 <td className="px-4 py-3">{r.customer_name}</td>
                 <td className="px-4 py-3">{r.dealer_id}</td>
-                <td className="px-4 py-3">{r.status}</td>
+                <td className="px-4 py-3">
+                  <StatusPill colorClassName="bg-gray-100 text-gray-700">{r.status}</StatusPill>
+                </td>
+                <td className="relative z-10 px-4 py-3">
+                  <NtrRowActions id={r.id} ntrNumber={r.ntr_number} allowDelete={allowDelete} />
+                </td>
               </tr>
             ))}
-            {result.data.length === 0 && <EmptyState colSpan={6} message={t('common.notFound')} />}
+            {result.data.length === 0 && <EmptyState colSpan={7} message={t('common.notFound')} />}
           </tbody>
         </table>
       </div>
 
-      {result.total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-gray-500">
-          <div>
-            {filter.page > 1 ? (
-              <Link href={pageHref(filter.page - 1)} className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
-                {t('common.back')}
-              </Link>
-            ) : null}
-          </div>
-          <div>
-            {filter.page} / {totalPages}
-          </div>
-          <div>
-            {filter.page < totalPages ? (
-              <Link href={pageHref(filter.page + 1)} className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
-                →
-              </Link>
-            ) : null}
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={filter.page}
+        totalPages={totalPages}
+        total={result.total}
+        pageSize={filter.pageSize}
+        buildHref={pageHref}
+        labels={{ previous: t('common.back'), next: t('common.next'), pageOf: t('common.pageOf'), showing: t('common.showingResults') }}
+      />
     </div>
   );
 }

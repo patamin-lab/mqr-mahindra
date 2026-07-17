@@ -91,11 +91,25 @@ export default async function MachinePassportPage({ params }: RouteParams) {
   const session = await getSession();
   if (!session) return null;
 
-  const [summary, timeline, vehicleRow] = await Promise.all([
+  // Production Stability: Identity/Lifecycle/Ownership/Health must still
+  // render even if the timeline feed or the Factory-domain vehicle row
+  // fails - a single rejected promise here used to take down the entire
+  // page (no error isolation existed anywhere in the Machine Passport
+  // tree). `Promise.allSettled` + per-result fallback replaces the
+  // all-or-nothing `Promise.all` that was the root cause.
+  const [summaryResult, timelineResult, vehicleRowResult] = await Promise.allSettled([
     machineService.getMachine360(machineId, session),
     machineService.getMachineTimeline(machineId, session),
     getVehicleBySerial(machineId, resolveDealerScope(session, null)),
   ]);
+
+  if (summaryResult.status === 'rejected') console.error('Machine Passport: getMachine360 failed', summaryResult.reason);
+  if (timelineResult.status === 'rejected') console.error('Machine Passport: getMachineTimeline failed', timelineResult.reason);
+  if (vehicleRowResult.status === 'rejected') console.error('Machine Passport: getVehicleBySerial failed', vehicleRowResult.reason);
+
+  const summary = summaryResult.status === 'fulfilled' ? summaryResult.value : null;
+  const timeline = timelineResult.status === 'fulfilled' ? timelineResult.value : [];
+  const vehicleRow = vehicleRowResult.status === 'fulfilled' ? vehicleRowResult.value : null;
 
   if (!summary) {
     return (

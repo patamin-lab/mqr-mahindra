@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { MasterDataService } from '@/shared/master-data';
-import { seesAllDealers } from '@/lib/scope';
+import { seesAllDealers, canDelete, canForceDeleteLockedPm } from '@/lib/scope';
 import MaintenanceHistory from '@/features/maintenance/components/maintenance-history';
 
 export default async function PmRecordsPage() {
@@ -20,6 +20,8 @@ export default async function PmRecordsPage() {
       role={session.role}
       sessionBranchId={session.branchId}
       pinnedBranchName={pinnedBranch?.name ?? null}
+      allowDelete={canDelete(session.role)}
+      canForceDelete={canForceDeleteLockedPm(session.role)}
     />
   );
 }

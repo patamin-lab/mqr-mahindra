@@ -2,13 +2,16 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { listRecordsPaginated } from '@/lib/db';
 import { MasterDataService } from '@/shared/master-data';
-import { seesAllDealers, canExport } from '@/lib/scope';
+import { seesAllDealers, canExport, canUpdateStatus, canDelete } from '@/lib/scope';
 import type { StatusValue } from '@/lib/types';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
 import EmptyState from '@/components/shared/admin/EmptyState';
+import RowLink from '@/components/shared/table/RowLink';
+import Pagination from '@/components/shared/table/Pagination';
 import RecordsFilterBar from './RecordsFilterBar';
+import RecordsRowActions from './RecordsRowActions';
 
 /** Colors per docs/standards/DOMAIN_LANGUAGE_STANDARD.md's Status Colors
  *  table - Draft has no entry there (predates the standard's status list),
@@ -62,6 +65,8 @@ export default async function RecordsPage({
   const pinnedDealer = !seesAllDealers(session.role) && session.dealerId ? await MasterDataService.getDealerById(session.dealerId) : null;
   const pinnedBranch = session.role === 'DealerUser' && session.branchId ? await MasterDataService.getBranch(session.branchId) : null;
   const allowExport = canExport(session.role);
+  const allowEdit = canUpdateStatus(session.role);
+  const allowDelete = canDelete(session.role);
 
   const exportQuery = new URLSearchParams();
   if (searchParams.status) exportQuery.set('status', searchParams.status);
@@ -202,21 +207,24 @@ export default async function RecordsPage({
               <th className="text-left px-4 py-3">อาการ</th>
               <th className="text-left px-4 py-3">ประกัน</th>
               <th className="text-left px-4 py-3">สถานะ</th>
+              <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {records.map((r) => (
-              <tr key={r.id} className="hover:bg-gray-50">
+              <tr key={r.id} className="relative hover:bg-gray-50">
                 <td className="px-4 py-3 font-mono">
-                  <Link href={`/records/${encodeURIComponent(r.job_id)}`} className="text-brand-red hover:underline">
-                    {r.job_id}
-                  </Link>
+                  <RowLink href={`/records/${encodeURIComponent(r.job_id)}`} label={r.job_id} />
+                  <span className="relative text-brand-red">{r.job_id}</span>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">{r.found_date ?? '-'}</td>
                 <td className="px-4 py-3">
                   {r.model ?? '-'}{' '}
                   {r.serial ? (
-                    <Link href={`/machines/${encodeURIComponent(r.serial)}`} className="text-gray-400 hover:text-brand-red hover:underline">
+                    <Link
+                      href={`/machines/${encodeURIComponent(r.serial)}`}
+                      className="relative z-10 text-gray-400 hover:text-brand-red hover:underline"
+                    >
                       ({r.serial})
                     </Link>
                   ) : (
@@ -231,39 +239,24 @@ export default async function RecordsPage({
                     {MasterDataService.statusLabel(r.status as StatusValue) ?? r.status}
                   </StatusPill>
                 </td>
+                <td className="relative z-10 px-4 py-3">
+                  <RecordsRowActions jobId={r.job_id} allowEdit={allowEdit} allowExport={allowExport} allowDelete={allowDelete} />
+                </td>
               </tr>
             ))}
-            {records.length === 0 && <EmptyState colSpan={7} />}
+            {records.length === 0 && <EmptyState colSpan={8} />}
           </tbody>
         </table>
       </div>
 
-      {total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-gray-500">
-          <div>
-            แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จากทั้งหมด {total} รายการ
-          </div>
-          <div className="flex items-center gap-2">
-            {page > 1 ? (
-              <Link href={pageHref(page - 1)} className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
-                ก่อนหน้า
-              </Link>
-            ) : (
-              <span className="px-3 py-1.5 rounded border border-gray-200 text-gray-300 cursor-not-allowed">ก่อนหน้า</span>
-            )}
-            <span>
-              หน้า {page} / {totalPages}
-            </span>
-            {page < totalPages ? (
-              <Link href={pageHref(page + 1)} className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
-                ถัดไป
-              </Link>
-            ) : (
-              <span className="px-3 py-1.5 rounded border border-gray-200 text-gray-300 cursor-not-allowed">ถัดไป</span>
-            )}
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        pageSize={pageSize}
+        buildHref={pageHref}
+        labels={{ previous: 'ก่อนหน้า', next: 'ถัดไป', pageOf: `หน้า {page} / {totalPages}`, showing: `แสดง {from}-{to} จากทั้งหมด {total} รายการ` }}
+      />
     </div>
   );
 }

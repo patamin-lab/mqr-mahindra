@@ -22,6 +22,7 @@ import DetailRow from '@/components/shared/layout/DetailRow';
 import Timeline from '@/components/shared/timeline/Timeline';
 import TimelineItem from '@/components/shared/timeline/TimelineItem';
 import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
+import { resolveNtrAttachmentUrls } from '@/features/ntr/utils/resolveNtrAttachmentUrls';
 import type { NtrAttachmentType } from '@/features/ntr/types';
 import type { VehicleEvent } from '@/features/vehicle/types';
 
@@ -89,6 +90,8 @@ export default async function NtrDetailPage({ params }: RouteParams) {
 
   const allowDelete = canDelete(session.role);
 
+  await resolveNtrAttachmentUrls(record);
+
   const [branch, productFamily, summary, timeline, auditLog] = await Promise.all([
     record.branch_id ? MasterDataService.getBranch(record.branch_id) : Promise.resolve(null),
     record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
@@ -108,7 +111,11 @@ export default async function NtrDetailPage({ params }: RouteParams) {
     vehicleSerial: record.serial,
   });
 
-  const warranty = calcWarranty(record.retail_date, new Date().toISOString().slice(0, 10), 'other');
+  // Warranty Start must always equal Customer Delivery Date, never an
+  // independently-tracked date - see BUSINESS_INVARIANTS.md's "Warranty
+  // Start = Delivery Date" verdict. `retail_date` is a legacy/import-only
+  // field left null by the current manual NTR form.
+  const warranty = calcWarranty(record.delivery_date, new Date().toISOString().slice(0, 10), 'other');
   const fullCustomerName =
     record.customer_first_name || record.customer_last_name
       ? [record.customer_title, record.customer_first_name, record.customer_last_name].filter(Boolean).join(' ')

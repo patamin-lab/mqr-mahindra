@@ -13,7 +13,7 @@ import { MasterDataService } from '@/shared/master-data';
 import { NtrRepository } from './ntrRepository';
 import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, NtrRecordUpdateInput } from '../types';
 
-/** "In warranty" means `retail_date` within the general (non-powertrain)
+/** "In warranty" means `delivery_date` within the general (non-powertrain)
  *  warranty window - read from the Configuration Platform
  *  (`MasterDataService.getWarrantyLimitMonths()`) rather than a locally
  *  duplicated 24, so NTR's "Warranty Status" filter can never silently
@@ -21,9 +21,15 @@ import { NtrHistoryFilter, NtrHistoryResult, NtrRecord, NtrRecordCreateInput, Nt
  *  which reads the same two numbers independently since `lib/`
  *  Infrastructure may not depend on this Platform service - see that
  *  file's own doc comment). `warrantyStatus` is a computed filter, not a
- *  stored column; a null `retail_date` folds into "out of warranty" for
+ *  stored column; a null `delivery_date` folds into "out of warranty" for
  *  filtering purposes only (the record detail page still shows it
- *  distinctly, via `calcWarranty()`, as "delivery date not specified"). */
+ *  distinctly, via `calcWarranty()`, as "delivery date not specified").
+ *  Filters on `delivery_date`, not `retail_date` - Warranty Start must
+ *  always equal Customer Delivery Date (`BUSINESS_INVARIANTS.md`);
+ *  `retail_date` is a legacy/import-only field, null for every record
+ *  created via the current manual NTR form, which previously made this
+ *  filter fold every new NTR into "out of warranty" regardless of its
+ *  actual delivery date. */
 function warrantyCutoffIso(): string {
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - MasterDataService.getWarrantyLimitMonths('other'));
@@ -264,9 +270,9 @@ export class SupabaseNtrRepository implements NtrRepository {
     if (filter.serial?.trim()) query = query.ilike('serial', `%${filter.serial.trim()}%`);
     if (filter.status?.trim()) query = query.eq('status', filter.status.trim());
     if (filter.warrantyStatus === 'in_warranty') {
-      query = query.not('retail_date', 'is', null).gte('retail_date', warrantyCutoffIso());
+      query = query.not('delivery_date', 'is', null).gte('delivery_date', warrantyCutoffIso());
     } else if (filter.warrantyStatus === 'out_of_warranty') {
-      query = query.or(`retail_date.is.null,retail_date.lt.${warrantyCutoffIso()}`);
+      query = query.or(`delivery_date.is.null,delivery_date.lt.${warrantyCutoffIso()}`);
     }
     if (filter.search?.trim()) {
       const term = filter.search.trim();
