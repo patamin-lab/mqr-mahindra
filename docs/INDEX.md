@@ -7,6 +7,12 @@ here; every other doc is reachable from one of the sections below.
 
 - [`CLAUDE.md`](../CLAUDE.md) — what MQR/PM is, tech stack, DB schema,
   RBAC, deployment workflow. The single most load-bearing doc in the repo.
+- [`ENGINEERING_PLAYBOOK.md`](../ENGINEERING_PLAYBOOK.md) — complete engineering
+  lifecycle, review, validation, release, and maintenance workflow.
+- [`AI_GUIDE.md`](../AI_GUIDE.md) — operating guide and prompt templates for AI
+  assistants.
+- [`DEVELOPMENT_STANDARD.md`](../DEVELOPMENT_STANDARD.md) — branch, commit, PR,
+  review, testing, release, rollback, and deployment standards.
 - [`.claude/CLAUDE.md`](../.claude/CLAUDE.md) — how an AI agent should
   operate in this repository, on top of (not instead of) `CLAUDE.md`.
 - [`AI_CONTEXT.md`](../AI_CONTEXT.md), [`PROJECT_STATE.md`](../PROJECT_STATE.md)
