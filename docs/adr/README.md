@@ -48,8 +48,9 @@ listing alone.
 | ADR-036 | Business Workflow Consolidation (v3.1) | Accepted, P0/P1 implemented | PR #58 (its original branch) superseded/closed - brought to `main` via the Documentation Cleanup PR instead, since #58's diff conflicted with `main` after PR #60. Sharper, field-level pass over ADR-035's ground: confirmed `vehicles.dealer_id`/`delivery_date` Source-of-Truth violations, both now resolved by ADR-037/PR #60. Confirmed Repair/MQR Closed need zero new work. MQR NTR auto-fill and machine-type classification remain open gaps. Companion `docs/architecture/BUSINESS_INVARIANTS.md`. See `docs/architecture/BUSINESS_WORKFLOW_CONSOLIDATION_AUDIT.md` |
 | ADR-037 | Tractor IN Field Scope Amendment (v3.1) | Accepted, implemented | PR #59 (its original branch) superseded/closed - brought to `main` via the Documentation Cleanup PR instead, since #59's diff conflicted with `main` after PR #60. Formal Architecture Amendment resolving the conflict ADR-035/036 named: reopens ADR-029, narrowing Tractor IN's write scope back to Serial/Engine/Model/Product Code/WH Arrival Date - `dealer_id` only until an NTR exists, `delivery_date` never after NTR sets it. `TractorInSyncService`'s guard is implemented, tested, and live on `main` (Production Pilot Readiness, PR #60, squash commit `f927018`, 2026-07-15), alongside three other Production Pilot changes: platform-wide timestamp format, NTR Edit consolidated into the New NTR form (One Form, Dual Mode) with an Activity Timeline added, and the sidebar reorganized by business lifecycle. Companion documents `docs/business/MACHINE_LIFECYCLE.md`, `docs/business/FIELD_OWNERSHIP_MATRIX.md`, `docs/business/WRITE_PRECEDENCE_MATRIX.md`, and `docs/architecture/BUSINESS_ARCHITECTURE_CONSOLIDATION.md` |
 | ADR-038 | Historical NTR Import Retirement | **Accepted, implemented** | Product Owner decision (2026-07-16, effective immediately) - Historical NTR Import (formerly "Legacy Import") is permanently retired, superseding ADR-008/024's Production-status framing and every governance document that still described it as active/supported. Dashboard Quick Action + KPI, both admin pages, the entire `/api/ntr/import/*` surface, the import wizard/service/repository code, `canManageLegacyImport`, and all associated translations/tests removed. Historical `ntr_records` data, its `source`/`import_session_id` provenance fields, and the Universal Import Framework (`src/shared/import/`, a separate ADR-024 layer) are explicitly not touched - see the ADR's own Scope section |
+| ADR-039 | Shared Image Presentation and Editing Platform | **Accepted for shared foundation** | Issue #79A.1 architecture refinement. PR #79B implements the presentation resource layer, explicit display-resource states, transform state, and minimal viewer primitives. Module migration, crop persistence, and storage/API/schema changes remain out of scope. |
 
-**Next available number: ADR-039.**
+**Next available number: ADR-040.**
 
 ## ADR numbering normalization (this pass)
 
@@ -85,7 +86,9 @@ reading the file directly (no remaining `ADR-009` reference in it).
 
 Every ADR number 001-038 above (excluding the explicitly-marked
 "reserved, not yet written" numbers 015/016/019/020) was checked
-against the actual file list in `docs/adr/` (`ls docs/adr/`, re-verified
-2026-07-16 when ADR-038 was added) - no number in this index is asserted
+Every ADR number 001-039 above (excluding the explicitly-marked
+reserved, not-yet-written numbers 015/016/019/020) was checked against the
+actual file list in `docs/adr/` (`ls docs/adr/`, re-verified 2026-07-18 when
+ADR-039 was added) - no number in this index is asserted
 without a corresponding file existing. No duplicate number remains. Next
-available number: **ADR-039**.
+available number: **ADR-040**.

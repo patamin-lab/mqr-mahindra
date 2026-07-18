@@ -79,7 +79,7 @@ Framework are feature-frozen — every module reuses them, none may build a
 parallel implementation without a bug/security/performance justification
 and, for architecture-baseline items, a full Architecture Review (see
 [§2](#2-system-architecture), [§17](#17-repository-governance)). 33 ADRs
-exist (`docs/adr/README.md`, next number 039); governance around them is
+exist (`docs/adr/README.md`, next number 040); governance around them is
 unusually rigorous for this project's size (a duplicate ADR number was
 found and corrected by hand, and that correction is itself documented).
 
@@ -784,7 +784,11 @@ own plan/approval before work begins — see [§14](#14-development-philosophy))
 - **Planned, Priority 1** — Issue #79, Platform Image Management: closes
   the remaining display-standardization gap from PR #77 (PM's detail page
   never got the shared lightbox) and scopes a shared Document Image
-  Editor (rotate/crop/zoom/pan) for already-uploaded attachments.
+  Editor (rotate/crop/zoom/pan) for already-uploaded attachments. The
+  documentation-only architecture refinement is recorded in
+  `docs/architecture/PLATFORM_IMAGE_MANAGEMENT_REVIEW.md` and proposed
+  `docs/adr/ADR-039-Shared-Image-Presentation-and-Editing-Platform.md`;
+  implementation remains not started.
 - **Planned, Priority 2** — Issue #80, Placeholder-based terminology
   preservation (see [§8](#8-decision-log)).
 
