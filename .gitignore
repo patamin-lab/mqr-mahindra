@@ -8,3 +8,6 @@ tsconfig.tsbuildinfo
 
 # IDE-generated skill scaffolding not part of this repo's own .claude/skills/*.md set
 .claude/skills/**
+
+# Generated archive of an unrelated skills marketplace (13MB, not source for this app)
+.claude/skills.zip
