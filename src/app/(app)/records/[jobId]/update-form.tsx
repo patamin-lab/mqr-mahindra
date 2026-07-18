@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   MqrRecord,
@@ -19,6 +19,7 @@ import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } fro
 import { uploadAttachment } from '@/components/shared/attachments/uploadAttachment';
 import { ImageThumbnail } from '@/components/shared/image';
 import { mqrPhotoToImageItem } from '@/lib/mqrImageItems';
+import { createMqrAttachmentResourceProvider } from '@/features/mqr/utils/mqrAttachmentResourceProvider';
 
 export default function UpdateForm({ record, role }: { record: MqrRecord; role: Role }) {
   const router = useRouter();
@@ -41,6 +42,37 @@ export default function UpdateForm({ record, role }: { record: MqrRecord; role: 
   const [afterPhotos, setAfterPhotos] = useState<File[]>([]);
   const [photos, setPhotos] = useState<PhotoLink[]>(record.photo_links ?? []);
   const [saving, setSaving] = useState(false);
+  const initialPhotosRef = useRef(record.photo_links ?? []);
+  const imageResourceProvider = useRef(
+    createMqrAttachmentResourceProvider(
+      initialPhotosRef.current.map((photo, index) => mqrPhotoToImageItem(photo, `${record.job_id}-edit-${index}`, photo.label))
+    )
+  ).current;
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all(
+      initialPhotosRef.current
+        .filter((photo) => Boolean(photo.attachmentId))
+        .map(async (photo) => {
+          try {
+            const resolved = await imageResourceProvider.get(photo.attachmentId as string);
+            return { attachmentId: photo.attachmentId, url: resolved.displayUrl };
+          } catch {
+            return null;
+          }
+        })
+    ).then((resolved) => {
+      if (!active) return;
+      setPhotos((current) => current.map((photo) => {
+        const refreshed = resolved.find((item) => item?.attachmentId === photo.attachmentId);
+        return refreshed?.url ? { ...photo, url: refreshed.url } : photo;
+      }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [imageResourceProvider]);
 
   useEffect(() => {
     setPhotos(record.photo_links ?? []);

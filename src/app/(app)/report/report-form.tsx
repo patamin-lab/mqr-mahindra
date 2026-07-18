@@ -20,6 +20,8 @@ import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } fro
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
 import { ImageThumbnail } from '@/components/shared/image';
 import { mqrPhotoToImageItem } from '@/lib/mqrImageItems';
+import { createMqrAttachmentResourceProvider } from '@/features/mqr/utils/mqrAttachmentResourceProvider';
+import MqrVideoLink from '@/features/mqr/components/MqrVideoLink';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
 import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
@@ -89,6 +91,51 @@ export default function ReportForm({
   const existingDamage1 = existingPhoto('damage_point_1');
   const existingDamage2 = existingPhoto('damage_point_2');
   const existingDamage3 = existingPhoto('damage_point_3');
+  const existingPhotosRef = useRef(
+    [existingOdometer, existingSerialPhoto, existingDamage1, existingDamage2, existingDamage3].filter(
+      (photo): photo is PhotoLink => Boolean(photo)
+    )
+  );
+  const imageResourceProvider = useRef(
+    createMqrAttachmentResourceProvider(
+      existingPhotosRef.current.map((photo) => mqrPhotoToImageItem(photo, `mqr-edit-${photo.category}`, photo.label))
+    )
+  ).current;
+  const [resolvedExistingUrls, setResolvedExistingUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isEdit) return;
+    let active = true;
+    void Promise.all(
+      existingPhotosRef.current
+        .filter((photo) => Boolean(photo.attachmentId))
+        .map(async (photo) => {
+          try {
+            const resolved = await imageResourceProvider.get(photo.attachmentId as string);
+            return { category: photo.category, url: resolved.displayUrl };
+          } catch {
+            return null;
+          }
+        })
+    ).then((resolved) => {
+      if (!active) return;
+      setResolvedExistingUrls((current) => {
+        const next = { ...current };
+        for (const item of resolved) {
+          if (item?.url) next[item.category] = item.url;
+        }
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [imageResourceProvider, isEdit]);
+
+  function displayExistingPhoto(photo: PhotoLink): PhotoLink {
+    const refreshedUrl = resolvedExistingUrls[photo.category];
+    return refreshedUrl ? { ...photo, url: refreshedUrl } : photo;
+  }
 
   // ---- vehicle smart search ----
   // Uploaded via AttachmentService against this temporary ID (the real
@@ -956,7 +1003,7 @@ export default function ReportForm({
               </label>
               {slot.existing && !slot.file && (
                 <div className="mb-2">
-                  <ImageThumbnail item={mqrPhotoToImageItem(slot.existing, `mqr-edit-${slot.existing.category}`, slot.label)} className="rounded border border-gray-200 h-20 w-20 object-contain" />
+                  <ImageThumbnail item={mqrPhotoToImageItem(displayExistingPhoto(slot.existing), `mqr-edit-${slot.existing.category}`, slot.label)} className="rounded border border-gray-200 h-20 w-20 object-contain" />
                   <p className="text-xs text-gray-400 mt-1">รูปปัจจุบัน — เลือกไฟล์ใหม่เพื่อแทนที่</p>
                 </div>
               )}
@@ -979,9 +1026,12 @@ export default function ReportForm({
             {isEdit && record?.video_link && !video && (
               <p className="text-xs text-gray-400 mb-1">
                 มีวิดีโออยู่แล้ว —{' '}
-                <a href={record.video_link} target="_blank" className="text-brand-red hover:underline">
-                  ดูวิดีโอปัจจุบัน
-                </a>{' '}
+                <MqrVideoLink
+                  initialUrl={record.video_link}
+                  attachmentId={record.video_attachment_id}
+                  label="ดูวิดีโอปัจจุบัน"
+                  loadingLabel="ไม่พบวิดีโอ"
+                />{' '}
                 (เลือกไฟล์ใหม่เพื่อแทนที่)
               </p>
             )}

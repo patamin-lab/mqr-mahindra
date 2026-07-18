@@ -1,26 +1,18 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { fetchJson } from '@/lib/fetchJson';
+import { useEffect, useRef, useState } from 'react';
 import {
   ImageThumbnail,
   ImageViewer,
-  InMemoryAttachmentResourceProvider,
-  createImageItem,
   type ImageItem,
   type ViewerToolbarLabels,
 } from '@/components/shared/image';
+import { createMqrAttachmentResourceProvider } from '../utils/mqrAttachmentResourceProvider';
 
 interface MqrImageGalleryProps {
   items: ImageItem[];
   labels: ViewerToolbarLabels;
   navigationLabels: { previous: string; next: string; close: string };
-}
-
-interface AttachmentResourceResponse {
-  ok: boolean;
-  url?: string;
-  expiresAt?: string | null;
 }
 
 /** MQR adapter for the shared image platform. It keeps MQR's category/label
@@ -30,26 +22,28 @@ export default function MqrImageGallery({ items: initialItems, labels, navigatio
   const [items, setItems] = useState(initialItems);
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
-  const provider = useRef(
-    new InMemoryAttachmentResourceProvider(async ({ attachmentId, previous }) => {
-      const response = await fetchJson<AttachmentResourceResponse>(`/api/attachments/${encodeURIComponent(attachmentId)}`);
-      if (!response.url) throw new Error('Image resource is unavailable');
-      return createImageItem({
-        id: previous?.id ?? attachmentId,
-        attachmentId,
-        displayUrl: response.url,
-        sourceKind: 'signed',
-        filename: previous?.filename,
-        mimeType: previous?.mimeType ?? 'image/*',
-        alt: previous?.alt ?? 'MQR image',
-        label: previous?.label,
-        category: previous?.category,
-        width: previous?.width,
-        height: previous?.height,
-        expiresAt: response.expiresAt ?? null,
-      });
-    })
-  ).current;
+  const provider = useRef(createMqrAttachmentResourceProvider(initialItems)).current;
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all(
+      initialItems.map(async (item) => {
+        if (!item.attachmentId) return null;
+        try {
+          return { id: item.id, item: await provider.get(item.attachmentId) };
+        } catch {
+          const snapshot = provider.getSnapshot(item.attachmentId);
+          return { id: item.id, item: { ...item, resourceState: snapshot.state, error: snapshot.error ?? null } };
+        }
+      })
+    ).then((resolved) => {
+      if (!active) return;
+      setItems((current) => current.map((item) => resolved.find((entry) => entry?.id === item.id)?.item ?? item));
+    });
+    return () => {
+      active = false;
+    };
+  }, [initialItems, provider]);
 
   async function resolveForViewer(item: ImageItem, itemIndex: number) {
     setIndex(itemIndex);
