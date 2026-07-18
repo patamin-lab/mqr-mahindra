@@ -8,6 +8,7 @@ export interface ViewerToolbarLabels {
   zoomIn: string;
   rotate: string;
   reset: string;
+  toolbar?: string;
 }
 
 export interface ViewerToolbarProps {
@@ -18,7 +19,7 @@ export interface ViewerToolbarProps {
 
 export default function ViewerToolbar({ state, dispatch, labels }: ViewerToolbarProps) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1 rounded bg-black/60 p-1" role="toolbar" aria-label="Image controls">
+    <div className="flex flex-wrap items-center justify-center gap-1 rounded bg-black/60 p-1" role="toolbar" aria-label={labels.toolbar ?? 'Image controls'}>
       <button type="button" title={labels.zoomOut} aria-label={labels.zoomOut} onClick={() => dispatch({ type: 'zoomOut' })} className="rounded px-2 py-1 text-sm text-white hover:bg-white/20">
         −
       </button>

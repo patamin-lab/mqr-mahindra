@@ -18,6 +18,8 @@ import { calcWarranty } from '@/lib/warranty';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
 import { uploadAttachment, newPendingEntityId } from '@/components/shared/attachments/uploadAttachment';
+import { ImageThumbnail } from '@/components/shared/image';
+import { mqrPhotoToImageItem } from '@/lib/mqrImageItems';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
 import { useDealerBranchScope } from '@/components/shared/scope/useDealerBranchScope';
@@ -954,11 +956,7 @@ export default function ReportForm({
               </label>
               {slot.existing && !slot.file && (
                 <div className="mb-2">
-                  <img
-                    src={slot.existing.url}
-                    alt={slot.label}
-                    className="rounded border border-gray-200 h-20 w-20 object-cover"
-                  />
+                  <ImageThumbnail item={mqrPhotoToImageItem(slot.existing, `mqr-edit-${slot.existing.category}`, slot.label)} className="rounded border border-gray-200 h-20 w-20 object-contain" />
                   <p className="text-xs text-gray-400 mt-1">รูปปัจจุบัน — เลือกไฟล์ใหม่เพื่อแทนที่</p>
                 </div>
               )}

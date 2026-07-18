@@ -17,6 +17,8 @@ import {
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { swalError, swalSuccess, swalLoading, swalUpdateLoading, swalClose } from '@/lib/swal';
 import { uploadAttachment } from '@/components/shared/attachments/uploadAttachment';
+import { ImageThumbnail } from '@/components/shared/image';
+import { mqrPhotoToImageItem } from '@/lib/mqrImageItems';
 
 export default function UpdateForm({ record, role }: { record: MqrRecord; role: Role }) {
   const router = useRouter();
@@ -191,11 +193,7 @@ export default function UpdateForm({ record, role }: { record: MqrRecord; role: 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {photos.map((p, i) => (
               <div key={`${p.url}-${i}`} className="relative">
-                <img
-                  src={p.url}
-                  alt={p.label}
-                  className="rounded border border-gray-200 aspect-square object-cover"
-                />
+                <ImageThumbnail item={mqrPhotoToImageItem(p, `${record.job_id}-edit-${i}`, p.label)} className="rounded border border-gray-200 aspect-square object-contain" />
                 <button
                   type="button"
                   title="ลบรูปนี้"

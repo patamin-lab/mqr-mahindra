@@ -888,6 +888,10 @@
     "zoomOut": "ย่อ",
     "rotateLeft": "หมุนซ้าย",
     "rotateRight": "หมุนขวา",
+    "reset": "รีเซ็ต",
+    "imageControls": "ควบคุมรูปภาพ",
+    "previous": "ภาพก่อนหน้า",
+    "next": "ภาพถัดไป",
     "fullScreen": "เต็มจอ",
     "exitFullScreen": "ออกจากเต็มจอ"
   },

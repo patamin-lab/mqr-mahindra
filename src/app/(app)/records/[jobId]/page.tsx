@@ -16,7 +16,8 @@ import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Card from '@/components/shared/layout/Card';
-import AttachmentGallery from '@/components/shared/attachments/AttachmentGallery';
+import MqrImageGallery from '@/features/mqr/components/MqrImageGallery';
+import { mqrPhotoToImageItem } from '@/lib/mqrImageItems';
 import { AttachmentService } from '@/shared/attachments';
 import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import RecordActivityTimelineSection from './activity-timeline-section';
@@ -275,9 +276,20 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             return (
               <div key={cat.key}>
                 <div className="text-xs text-gray-400 mb-2">{categoryLabel}</div>
-                <AttachmentGallery
-                  linkable
-                  items={photos.map((p, i) => ({ key: i, url: p.url, alt: categoryLabel, caption: categoryLabel }))}
+                <MqrImageGallery
+                  items={photos.map((p, i) => mqrPhotoToImageItem(p, `${record.job_id}-${cat.key}-${i}`, categoryLabel))}
+                  labels={{
+                    zoomOut: t('attachmentViewer.zoomOut'),
+                    zoomIn: t('attachmentViewer.zoomIn'),
+                    rotate: t('attachmentViewer.rotateRight'),
+                    reset: t('attachmentViewer.reset'),
+                    toolbar: t('attachmentViewer.imageControls'),
+                  }}
+                  navigationLabels={{
+                    previous: t('attachmentViewer.previous'),
+                    next: t('attachmentViewer.next'),
+                    close: t('attachmentViewer.close'),
+                  }}
                 />
               </div>
             );

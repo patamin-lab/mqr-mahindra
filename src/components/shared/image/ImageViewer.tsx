@@ -12,9 +12,10 @@ export interface ImageViewerProps {
   labels: ViewerToolbarLabels;
   onClose: () => void;
   onRetry?: (item: ImageItem) => void;
+  navigationLabels?: { previous: string; next: string; close: string };
 }
 
-export default function ImageViewer({ items, initialIndex = 0, open, labels, onClose, onRetry }: ImageViewerProps) {
+export default function ImageViewer({ items, initialIndex = 0, open, labels, onClose, onRetry, navigationLabels }: ImageViewerProps) {
   const [index, setIndex] = useState(initialIndex);
   const item = items[index];
 
@@ -40,9 +41,9 @@ export default function ImageViewer({ items, initialIndex = 0, open, labels, onC
       <div className="w-full max-w-4xl" onClick={(event) => event.stopPropagation()}>
         <ImagePreview item={item} labels={labels} onRetry={onRetry ? () => onRetry(item) : undefined} />
         <div className="mt-2 flex items-center justify-between gap-2">
-          <button type="button" onClick={() => setIndex((current) => Math.max(0, current - 1))} disabled={index === 0} className="rounded bg-white/10 px-3 py-2 text-white disabled:opacity-40">Previous</button>
-          <button type="button" onClick={onClose} className="rounded bg-white/10 px-3 py-2 text-white">Close</button>
-          <button type="button" onClick={() => setIndex((current) => Math.min(items.length - 1, current + 1))} disabled={index === items.length - 1} className="rounded bg-white/10 px-3 py-2 text-white disabled:opacity-40">Next</button>
+          <button type="button" onClick={() => setIndex((current) => Math.max(0, current - 1))} disabled={index === 0} className="rounded bg-white/10 px-3 py-2 text-white disabled:opacity-40">{navigationLabels?.previous ?? 'Previous'}</button>
+          <button type="button" onClick={onClose} className="rounded bg-white/10 px-3 py-2 text-white">{navigationLabels?.close ?? 'Close'}</button>
+          <button type="button" onClick={() => setIndex((current) => Math.min(items.length - 1, current + 1))} disabled={index === items.length - 1} className="rounded bg-white/10 px-3 py-2 text-white disabled:opacity-40">{navigationLabels?.next ?? 'Next'}</button>
         </div>
       </div>
     </div>

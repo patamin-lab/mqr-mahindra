@@ -1,6 +1,7 @@
 'use client';
 
 import { ActivityPhotoChange } from './types';
+import { createImageItem, ImageThumbnail } from '@/components/shared/image';
 
 /**
  * Old → New photo thumbnails for a "Photos Updated" event. Thumbnail
@@ -15,7 +16,7 @@ import { ActivityPhotoChange } from './types';
  * matched exactly "this old one became this new one." Documented as a
  * known limitation, not a bug.
  */
-export default function PhotoDiff({ photoChanges, removedLabel, addedLabel }: { photoChanges: ActivityPhotoChange[]; removedLabel: string; addedLabel: string }) {
+export default function PhotoDiff({ photoChanges, removedLabel, addedLabel, useImagePlatform = false }: { photoChanges: ActivityPhotoChange[]; removedLabel: string; addedLabel: string; useImagePlatform?: boolean }) {
   const removed = photoChanges.filter((p) => p.action === 'removed');
   const added = photoChanges.filter((p) => p.action === 'added');
 
@@ -26,7 +27,11 @@ export default function PhotoDiff({ photoChanges, removedLabel, addedLabel }: { 
           <div className="text-xs font-medium text-gray-500 mb-1">{removedLabel}</div>
           <div className="flex flex-wrap gap-2">
             {removed.map((p, i) => (
-              <img key={`${p.url}-${i}`} src={p.url} alt={p.label} className="h-16 w-16 rounded border border-gray-200 object-cover opacity-60" />
+              useImagePlatform ? (
+                <ImageThumbnail key={`${p.url}-${i}`} item={createImageItem({ id: `removed-${i}-${p.url}`, displayUrl: p.url, sourceKind: 'cdn', mimeType: 'image/*', alt: p.label })} className="h-16 w-16 rounded border border-gray-200 object-contain opacity-60" />
+              ) : (
+                <img key={`${p.url}-${i}`} src={p.url} alt={p.label} className="h-16 w-16 rounded border border-gray-200 object-cover opacity-60" />
+              )
             ))}
           </div>
         </div>
@@ -37,7 +42,11 @@ export default function PhotoDiff({ photoChanges, removedLabel, addedLabel }: { 
           <div className="text-xs font-medium text-gray-500 mb-1">{addedLabel}</div>
           <div className="flex flex-wrap gap-2">
             {added.map((p, i) => (
-              <img key={`${p.url}-${i}`} src={p.url} alt={p.label} className="h-16 w-16 rounded border border-gray-200 object-cover" />
+              useImagePlatform ? (
+                <ImageThumbnail key={`${p.url}-${i}`} item={createImageItem({ id: `added-${i}-${p.url}`, displayUrl: p.url, sourceKind: 'cdn', mimeType: 'image/*', alt: p.label })} className="h-16 w-16 rounded border border-gray-200 object-contain" />
+              ) : (
+                <img key={`${p.url}-${i}`} src={p.url} alt={p.label} className="h-16 w-16 rounded border border-gray-200 object-cover" />
+              )
             ))}
           </div>
         </div>

@@ -888,6 +888,10 @@
     "zoomOut": "Zoom out",
     "rotateLeft": "Rotate left",
     "rotateRight": "Rotate right",
+    "reset": "Reset",
+    "imageControls": "Image controls",
+    "previous": "Previous",
+    "next": "Next",
     "fullScreen": "Full screen",
     "exitFullScreen": "Exit full screen"
   },

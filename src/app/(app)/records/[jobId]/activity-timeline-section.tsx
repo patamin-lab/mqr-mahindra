@@ -19,5 +19,5 @@ export default function RecordActivityTimelineSection({ events }: { events: Acti
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  return <ActivityTimeline events={events} entityLabel="Report" onNavigate={handleNavigate} />;
+  return <ActivityTimeline events={events} entityLabel="Report" onNavigate={handleNavigate} useImagePlatform />;
 }
