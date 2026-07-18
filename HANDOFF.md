@@ -16,6 +16,11 @@ same day found and fixed six defects on branch
 [§9 Production Regression History](#9-production-regression-history) for
 what changed and why it isn't in production yet.
 
+Current PR #79L repository state: Shared Image Platform v1 is implemented,
+production-proven, fully adopted (6/6 consumer groups), and governed by
+ADR-039. Legacy viewer/gallery code was removed in PR #79K. Current release
+record: `docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`.
+
 ---
 
 ## Table of Contents
@@ -782,12 +787,12 @@ own plan/approval before work begins — see [§14](#14-development-philosophy))
   specific milestone yet.
 
 ### Platform (Milestone v2.4)
-- **In progress, Priority 1** — Issue #79, Platform Image Management:
-  MQR, NTR, PM, Delivery/PDI, Vehicle360/Machine Passport, and Knowledge now
-  consume the locked shared image platform. Legacy viewer has no active
-  consumer. The adoption and deprecation
-  inventory is recorded in
-  `docs/architecture/IMAGE_PLATFORM_ADOPTION_REPORT.md`.
+
+Issue #79 Platform Image Management: **COMPLETE** through PR #79L. All six
+tracked consumer groups use locked Shared Image Platform. Legacy viewer/gallery
+code removed in PR #79K. Adoption 100%; no legacy platform remains. Future
+image features must use `ImageItem`, `AttachmentResourceProvider`,
+`ImageThumbnail`, and `ImageViewer`.
 - **Planned, Priority 2** — Issue #80, Placeholder-based terminology
   preservation (see [§8](#8-decision-log)).
 

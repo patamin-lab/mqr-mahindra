@@ -213,6 +213,22 @@ milestone's finding):
 6. Object-path segments derived from caller input are always sanitized
    before becoming part of a storage key (`sanitizePathSegment()`).
 
+## Shared Image Platform rules
+
+Shared Image Platform v1 is the mandatory browser presentation layer for
+image features, governed by ADR-039 and
+`docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`:
+
+1. Map module records to `ImageItem`; use `AttachmentResourceProvider` for
+   browser resource loading, expiry, retry, and cache coordination.
+2. Use shared `ImageThumbnail`, `ImagePreview`, and `ImageViewer` primitives.
+3. Feature modules own domain adapters only. They do not own viewer, preview,
+   transform, loading, retry, cache, storage, authorization, or URL refresh.
+4. No `AttachmentViewer` or `AttachmentGallery` exists in runtime code.
+5. PDF/server URL resolution remains inside existing PDF boundaries.
+6. Legacy URL and attachment-ID compatibility remains until separately
+   retired through approved work.
+
 ## Authorization rules (DealerBranchScope)
 
 The Dealer/Branch Scope Platform Standard (`src/lib/dealerBranchScope.ts`
@@ -418,8 +434,9 @@ A future module or platform service must, before writing any code:
    the boundary being extended. **Updated as of v1.1.0**: this is no
    longer future work - `scripts/architecture-check.ts` exists, is wired
    into CI (`.github/workflows/ci.yml`) ahead of typecheck/lint/test/
-   build, and currently enforces five Storage Platform boundary rules
-   (see `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`). It does not yet
+   build, and currently enforces seven boundary rules, including Shared Image
+   Platform v1 rules (see `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`). It
+   does not yet
    cover the DealerBranchScope authorization rules above or general
    module-to-module isolation repo-wide - extending it to do so remains
    explicit, not-yet-scheduled future work.

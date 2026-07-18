@@ -32,12 +32,13 @@ for.
 | 4 | Only `StorageProviderFactory` constructs a concrete provider (`new SupabaseStorageProvider()`/`new GoogleDriveStorageProvider()`/`new CloudflareR2Provider()`). | All of `src/` (excluding `__tests__`) | FAIL |
 | 5 | No circular dependency exists among the (non-test) files inside `src/shared/attachments`. | `src/shared/attachments/*.ts` (excluding `__tests__`) | FAIL |
 | 6 | No `class *Repository`/`class *Service` defines a field initializer (or constructor-body statement) that performs eager runtime work - a direct lowercase-named function call (`getSupabase()`, `createClient()`, `fetch(...)`) or a direct `process.env` read - at the class's own body level. `new PascalCase(...)` is not flagged (recursively fine, checked when that class's own file is scanned); a lazy `get x()` accessor is the required, exempt pattern. See `docs/standards/SERVICE_CONSTRUCTION_STANDARD.md`. | All of `src/` (excluding `__tests__`) | FAIL (new violations); pre-existing legacy count is grandfathered per file, see below - it cannot increase |
+| 7 | Shared Image Platform boundaries: no `AttachmentViewer`/`AttachmentGallery`; no storage-provider symbols in UI/module code; no page-level attachment URL refresh; feature modules render images through `ImageItem` and shared image primitives rather than direct `<img>`. | Runtime UI/module code; feature direct-image check excludes shared compatibility/PDF/print paths | FAIL |
 
 Every rule prints `PASS` (zero violations) or `FAIL` (one or more,
 listed by file). The script has no `WARNING`-producing rule of its own
 today - `WARNING` is currently used only for the one honest tooling gap
 noted below (CI integration), not for a source-code finding. Exit code
-is `1` if any of the six rules FAILs, `0` otherwise - safe to use as a
+is `1` if any of the seven rules FAILs, `0` otherwise - safe to use as a
 CI gate.
 
 ## Rule 3's allowlist - the documented operational-surface exception
@@ -143,6 +144,25 @@ the same as any other file under `src/app/api/`.)
   `const service = new XxxService();` pattern at the top of nearly every
   page/route handler in this app safe in the first place.
 
+## Rule 7 - Shared Image Platform boundary
+
+Rule 7 enforces production-proven Issue #79 boundaries:
+
+- Removed `AttachmentViewer` and `AttachmentGallery` names cannot return to
+  runtime UI/module code.
+- UI/module code cannot reference `StorageProvider` or concrete provider
+  classes; storage remains behind Attachment Platform boundaries.
+- App pages cannot refresh attachment URLs directly. PDF/server boundaries
+  remain allowed; browser presentation uses `AttachmentResourceProvider`.
+- Feature modules cannot render direct `<img>` elements. They map durable
+  attachment identity through `ImageItem` and use shared image primitives.
+
+Direct-image check intentionally scopes only `src/features/`. Shared
+compatibility components (`PhotoDiff`, `AttachmentPhotoTile`), shared image
+primitives, PDF, and print paths retain documented exceptions. This keeps
+rule strict for new feature work without flagging known compatibility or
+document-rendering behavior.
+
 This script does not yet check the platform's other documented boundary
 rules (e.g. "a module may not import another module's internals
 directly," "`shared/` never imports from a business module" as a fully
@@ -169,7 +189,7 @@ before spending time on the rest of the pipeline:
         run: npx tsc --noEmit
 ```
 
-`npm run architecture` exits non-zero on any Rule 1-6 FAIL (the `CI
+`npm run architecture` exits non-zero on any Rule 1-7 FAIL (the `CI
 Integration` WARNING the script itself prints does not affect its exit
 code), so this step fails the whole workflow run exactly like any other
 step here.

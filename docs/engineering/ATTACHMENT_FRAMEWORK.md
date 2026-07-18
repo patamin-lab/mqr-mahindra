@@ -6,6 +6,11 @@
 > work on this framework is bug fixes and security hardening only, not
 > new capability, until an explicit future decision reopens it.
 
+Image presentation reference: `docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`.
+All browser image features must follow ADR-039 and use the shared image
+platform; this Attachment Framework remains owner of storage and attachment
+operations only.
+
 `src/shared/attachments/` — the platform-wide file storage abstraction
 every module (PM, PDI, NTR, MQR, Campaign, Parts, Machine 360, and beyond)
 is meant to depend on for uploading, listing, signing, archiving, and

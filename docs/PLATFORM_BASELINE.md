@@ -66,12 +66,13 @@ module/service is expected to be checked against it before writing code.
 
 ## CI enforcement
 
-`scripts/architecture-check.ts` (`npm run architecture`) automates five
-of the Storage Platform's boundary rules (business modules never import
+`scripts/architecture-check.ts` (`npm run architecture`) automates seven
+production-proven boundary rules (business modules never import
 platform internals or raw SDKs; only `AttachmentService` + the
 documented operational exception access providers; only
 `StorageProviderFactory` constructs one; no circular dependency inside
-`src/shared/attachments`) plus a sixth self-check confirming it is
+`src/shared/attachments`; and Shared Image Platform v1 presentation
+boundaries) plus a CI self-check confirming it is
 actually wired into CI. `.github/workflows/ci.yml` runs it immediately
 after `npm ci`, before typecheck/lint/test/build - a boundary violation
 fails the pipeline before any other step runs. Full detail, including
@@ -143,9 +144,9 @@ with no open blocker.
   intermediate status the way archiving has `ARCHIVING`.
 - **No automatic scheduling anywhere** - every operational job requires a
   manual/admin-triggered call.
-- **`scripts/architecture-check.ts` is scoped to Storage Platform rules
-  only** - it does not yet enforce `PLATFORM_ARCHITECTURE_STANDARDS.md`'s general
-  module-to-module isolation rules repo-wide.
+- **Architecture checker scope** - seven production-proven boundary rules are
+  enforced; general module-to-module isolation and DealerBranchScope rules
+  remain outside current checker scope.
 - **This repository's own `CLAUDE.md` (§3) still describes deployment as
   "no git CLI / local clone... uploaded through the GitHub web UI"** -
   confirmed inconsistent with the actual current environment, which has a

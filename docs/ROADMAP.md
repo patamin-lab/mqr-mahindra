@@ -252,13 +252,18 @@ work starts, same discipline as every other milestone on this page.
 
 **Priority 1**
 
-- Issue #79 — Platform Image Management: **Migrations and legacy cleanup complete**. MQR, NTR,
+- Issue #79 — Platform Image Management: **COMPLETE — Shared Image Platform v1 released**. MQR, NTR,
   PM, Delivery/PDI, Vehicle360/Machine Passport, and Knowledge consume the
   locked shared presentation platform. Legacy viewer/gallery code was removed
   in PR #79K; compatibility fallbacks remain where required. Legacy viewer has
   no active consumer;
   adoption and deprecation status is in
   `docs/architecture/IMAGE_PLATFORM_ADOPTION_REPORT.md`.
+
+  **Epic #79 status: COMPLETE.** Shared Image Platform v1 is production-proven
+  and governed by ADR-039. Future image capabilities move to separate epics:
+  Crop Editor, Image Metadata, AI Annotation, OCR, Image Compression, and
+  Image Versioning. None start under Epic #79.
 
 **Priority 2**
 

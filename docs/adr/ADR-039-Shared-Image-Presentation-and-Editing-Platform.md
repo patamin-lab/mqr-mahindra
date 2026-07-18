@@ -2,26 +2,30 @@
 
 ## Status
 
-Accepted for the shared foundation only. PR #79B may implement the
-presentation contracts, resource-state/cache abstraction, transform state,
-and minimal viewer primitives described here. Module migrations, crop
-persistence, storage/API/schema changes, and business-rule changes remain
-out of scope and require separate approval.
+Implemented, production-proven, and locked as repository standard.
+
+PR #79B delivered foundation. PRs #79C through #79I migrated all approved
+consumers. PR #79J completed repository audit. PR #79K removed verified-dead
+legacy viewer/gallery code. PR #79L finalizes v1 documentation and governance.
+Future extensions require separate ADR when they change data integrity,
+storage, API, schema, authorization, or business rules.
 
 ## Implementation status
 
-The shared foundation and all approved module migrations are complete through
-PR #79I. Dead legacy viewer/gallery components were removed after the final
-repository audit in PR #79K.
+The shared foundation, all approved module migrations, repository audit, and
+legacy cleanup are complete. Six tracked consumer groups use the platform:
+MQR, NTR, PM, Delivery/PDI, Vehicle360/Machine Passport, and Knowledge.
+Adoption is 100% (6/6).
 
 ## Context
 
 The platform already has a frozen Attachment Platform (`ADR-010`) that owns
 attachment identity, authorization, storage, signed URLs, retention, and
-provider lifecycle. Image rendering is shared only partially: the repository
-contains `AttachmentViewer`, `AttachmentGallery`, `AttachmentPhotoTile`,
-module-specific URL resolution, and shared PDF image fetching with overlapping
-responsibilities.
+provider lifecycle. At decision time, image rendering was shared only
+partially: repository contained legacy viewer/gallery components,
+`AttachmentPhotoTile`, module-specific URL resolution, and shared PDF image
+fetching with overlapping responsibilities. Legacy viewer/gallery code is now
+removed; documented compatibility paths remain where required.
 
 Issue #79A proposes a reusable image presentation system and an eventual
 Document Image Editor. The architecture must improve reuse without reopening
@@ -48,16 +52,16 @@ The Image Platform owns:
 - Zoom, pan, temporary rotation, and reset
 - Keyboard, accessibility, and mobile interaction
 - Explicit viewer loading/error states
-- Local crop-editor interaction state
+- Temporary transform state for ordinary viewing. Crop editing is future work
+  and not part of v1.
 
 Modules own adapters that map domain records to presentation items. Modules do
 not create custom viewers or access storage providers directly.
 
 ## Resource Boundary
 
-The presentation integration is conceptually an
-`AttachmentResourceProvider`, optionally consumed by hooks such as
-`useAttachmentResource()`. It is not a replacement for `AttachmentService`
+The presentation integration is `AttachmentResourceProvider`. It is not a
+replacement for `AttachmentService`
 and does not own authorization or storage decisions.
 
 Its responsibilities are:
@@ -122,7 +126,7 @@ replacement with recoverability and audit behavior.
 
 ## Migration Strategy
 
-The approved incremental order is:
+Historical planned order (superseded):
 
 ```text
 Architecture/ADR
@@ -137,6 +141,10 @@ Architecture/ADR
 → Crop Editor
 → Deprecation cleanup
 ```
+
+Completed order: Architecture/ADR -> Resource Layer -> Shared Viewer -> MQR
+-> NTR -> PM -> URL refresh centralization -> Delivery/PDI -> Vehicle360/
+Machine Passport -> Knowledge -> Repository Audit -> Legacy Cleanup -> v1.
 
 The resource layer precedes viewer migration so the viewer consumes explicit
 resource states rather than implementing URL refresh logic itself. Crop
@@ -162,9 +170,9 @@ Positive:
 
 Trade-offs:
 
-- A resource-layer contract must be introduced before broad migration.
-- Existing `AttachmentViewer` and `AttachmentGallery` require compatibility
-  treatment before deprecation.
+- Resource-layer contract required coordinated adapters across modules.
+- Legacy viewer/gallery compatibility had to remain until all consumers were
+  migrated and audited; both are now removed.
 - Crop persistence remains intentionally unresolved until a separate policy is
   approved.
 - Module adapters remain necessary because labels, categories, ordering, and
@@ -182,7 +190,39 @@ Trade-offs:
 
 ## Review Outcome
 
-## PR #79B Foundation Boundary
+**FINAL: IMPLEMENTED AND PRODUCTION PROVEN.**
+
+Architecture rules, migration behavior, compatibility paths, authorization
+boundaries, PDF behavior, and validation results are recorded in
+`docs/architecture/SHARED_IMAGE_PLATFORM_V1.md` and
+`docs/architecture/FINAL_SHARED_IMAGE_PLATFORM_REPOSITORY_AUDIT.md`.
+
+### Final design decisions
+
+- Durable attachment IDs outrank transient display URLs.
+- `AttachmentResourceProvider` is sole browser presentation owner for signed
+  resource loading, expiry, retry, and in-memory cache.
+- Shared image primitives own rendering and temporary transforms.
+- Feature modules own domain adapters only.
+- Attachment Platform owns authorization, storage, retention, and signed URL
+  generation.
+- PDF renderers retain existing server-side URL refresh and layout.
+
+### Known exceptions
+
+- `PhotoDiff` keeps legacy URL fallback for generic timeline callers.
+- `AttachmentPhotoTile` keeps legacy URL fallback for existing upload records.
+- PDF/print paths keep server-side or document-specific image handling.
+- These exceptions do not create a second browser viewer or URL-refresh owner.
+
+### Future extension points
+
+Crop Editor, Image Metadata, AI Annotation, OCR, Image Compression, and Image
+Versioning are not v1 features. Each requires compatibility review and a
+separate ADR when it introduces persistence, derived files, schema, storage,
+API, authorization, or business-rule effects.
+
+## Historical record: PR #79B Foundation Boundary
 
 PR #79B implements only the shared foundation under
 `src/components/shared/image/`:

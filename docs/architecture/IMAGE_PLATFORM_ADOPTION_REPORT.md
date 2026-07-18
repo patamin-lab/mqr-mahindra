@@ -1,8 +1,10 @@
 # Image Platform Adoption Report
 
-Status: PR #79K — Legacy removal complete
+Status: PR #79L — Shared Image Platform v1 release
 
 Architecture baseline: ADR-039, locked.
+
+Release record: `SHARED_IMAGE_PLATFORM_V1.md`.
 
 ## PR #79K result
 

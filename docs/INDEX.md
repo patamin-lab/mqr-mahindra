@@ -55,6 +55,12 @@ actually ship today — not a green-field proposal.
 
 ## Architecture
 
+- [`SHARED_IMAGE_PLATFORM_V1.md`](architecture/SHARED_IMAGE_PLATFORM_V1.md) —
+  production-proven shared image architecture, platform rules, onboarding,
+  migration history, and v1 future roadmap.
+- [`PLATFORM_ARCHITECTURE_STANDARDS.md`](architecture/PLATFORM_ARCHITECTURE_STANDARDS.md)
+  — binding layer, storage, image-platform, and extension rules.
+
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — current production architecture
   (everything under `src/`) side by side with the target modular layout
   (`modules/`/`shared/`/`templates/`) — that migration has not happened;

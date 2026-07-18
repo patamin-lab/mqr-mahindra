@@ -1,5 +1,9 @@
 # Issue #79A.1 — Platform Image Management
 
+Current status: Architecture implemented and production-proven through PR
+#79L. Shared Image Platform v1 is complete; see
+`SHARED_IMAGE_PLATFORM_V1.md` and ADR-039 for current ownership and rules.
+
 ## Architecture Review Refinement
 
 **Status:** Architecture approved; PR #79B shared foundation implemented;

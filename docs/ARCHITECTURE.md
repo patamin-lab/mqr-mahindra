@@ -1,5 +1,10 @@
 # Architecture
 
+> Current image architecture: Shared Image Platform v1 is implemented and
+> production-proven. See `docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`,
+> ADR-039, and `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`. This Sprint 1
+> document remains historical for its original target-folder discussion.
+
 > Status as of Sprint 1 (Repository Foundation). This document describes
 > **two things side by side**: the architecture as it actually runs in
 > production today, and the target modular architecture this repository is
