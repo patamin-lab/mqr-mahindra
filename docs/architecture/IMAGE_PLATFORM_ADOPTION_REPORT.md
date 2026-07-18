@@ -1,6 +1,6 @@
 # Image Platform Adoption Report
 
-Status: PR #79E — PM migration
+Status: PR #79G — Delivery/PDI migration
 
 Architecture baseline: ADR-039, locked.
 
@@ -25,19 +25,21 @@ The shared image foundation owns presentation state and resource coordination:
 | MQR | Migrated | Gallery, form thumbnails, timeline/photo presentation |
 | NTR | Migrated | Gallery, form thumbnails, timeline/photo presentation |
 | PM | Migrated in PR #79E | Detail gallery, create/edit thumbnails, PDF image identity |
-| Delivery/PDI | Remaining | Legacy `AttachmentViewer` |
+| Delivery/PDI | Migrated in PR #79G | PDI evidence adapter, shared thumbnails/viewer/provider; Delivery detail has no image renderer |
 | Vehicle360 / Machine Passport | Remaining | Legacy `AttachmentViewer` through `MachineDocumentsPanel` |
 | Knowledge attachments | Remaining compatibility consumer | Legacy `AttachmentViewer` |
 
 ## Adoption estimate
 
 The current direct image consumer inventory contains five primary groups:
-MQR, NTR, PM, Delivery/PDI, and Vehicle360/Machine Passport. Three are now
-migrated. Estimated platform adoption is therefore **60% (3/5)**.
+MQR, NTR, PM, Delivery/PDI, and Vehicle360/Machine Passport. Four are now
+migrated. Estimated platform adoption is therefore **80% (4/5)**.
 
-PM architecture compliance is **100% for the approved migration scope**:
-all PM image presentation uses `ImageItem` and shared viewer/thumbnail/state
-surfaces; PM retains only its domain adapter and existing PDF boundary.
+Delivery/PDI architecture compliance is **100% for the approved migration
+scope**: PDI evidence uses `ImageItem`, shared viewer/thumbnail/transform
+state, and the shared resource provider; Delivery retains its existing
+summary/detail/link flows because no Delivery image renderer exists in this
+repository. Authorization remains outside presentation components.
 
 The percentage excludes Knowledge because it is a general attachment viewer,
 not one of the primary image-module migration targets. Including it as a
@@ -51,14 +53,25 @@ No component is removed by PR #79E.
 | --- | --- | --- |
 | `src/components/shared/attachments/AttachmentGallery.tsx` | Candidate for Removal | No PM/MQR/NTR consumer remains. Remove only after remaining legacy consumers and references are audited. |
 | Legacy thumbnail markup inside `AttachmentGallery.tsx` | Candidate for Removal | Direct `<img>` grid behavior is no longer used by migrated consumers; it disappears with the legacy gallery. |
-| `src/components/shared/attachments/AttachmentViewer.tsx` | Compatibility Layer | Still used by Delivery/PDI, Knowledge, and Vehicle360/Machine Passport. Preserve until those consumers migrate. |
+| `src/components/shared/attachments/AttachmentViewer.tsx` | Compatibility Layer | Still used by Knowledge and Vehicle360/Machine Passport. Preserve until those consumers migrate. |
 | Legacy `ImagePreview` exported by `AttachmentViewer.tsx` | Compatibility Layer | Retained for the legacy viewer until its remaining consumers move to `ImagePreview`/`ImageViewer`. |
 | `AttachmentPhotoTile.tsx` | Still Required | Shared upload-slot shell used by PM and NTR. Its optional `ImageItem` path is the compatibility bridge for upload forms. |
-| Page-level URL resolution in Delivery/PDI, Knowledge, and Machine Passport | Compatibility Layer | Legacy consumers still receive resolved URL records. Replace during their migration, not in PM scope. |
+| Page-level URL resolution in Knowledge and Machine Passport | Compatibility Layer | Legacy consumers still receive resolved URL records. Replace during their migration. |
 | `resolvePdfAttachmentUrl` and PDF-side signed URL refresh | Still Required | Server-side PDF rendering needs a fresh resource and must preserve legacy URL fallback. |
 | Legacy preview/transform/loading/retry logic inside `AttachmentViewer.tsx` | Compatibility Layer | Behavior is still required by remaining consumers; shared-platform parity is verified before removal. |
 | PM page-level signed URL resolution | Safe to Remove | Removed from PM detail. PM now refreshes attachment resources through the shared provider. |
 | PM duplicate lightbox/grid (`AttachmentGallery` usage) | Safe to Remove | Removed from PM detail. `MaintenanceImageGallery` uses the shared viewer. |
+| PDI page-level `AttachmentService.getUrl()` orchestration | Safe to Remove | PDI now maps attachment identity and lets the shared resource provider resolve display resources. |
+| PDI `AttachmentViewer` usage | Safe to Remove | Replaced by `InspectionEvidenceGallery` using shared image primitives and compatibility links for non-images. |
+
+## Delivery/PDI flow adoption
+
+| Flow | Old presentation | Shared presentation |
+| --- | --- | --- |
+| Delivery create/detail/evidence | No image renderer in current repository | No migration required; existing stage/link/detail behavior unchanged |
+| PDI inspection/evidence/attachments | `AttachmentViewer` plus page-level `AttachmentService.getUrl()` | `InspectionEvidenceGallery` + `ImageItem` adapter + shared provider/viewer/thumbnail |
+| PDI history/timeline | `ActivityTimeline`; no image renderer in timeline rows | Unchanged timeline; evidence remains in detail section |
+| Mixed evidence | Legacy viewer handled image/document cards | Shared image viewer for images; provider-backed open/download links for non-images |
 
 ## PM flow adoption
 
@@ -73,8 +86,8 @@ No component is removed by PR #79E.
 
 ## Removal gate
 
-Safe deletion begins only after Delivery/PDI and Vehicle360/Machine Passport
-are migrated, Knowledge compatibility use is explicitly retired, and the
+Safe deletion begins only after Vehicle360/Machine Passport are migrated,
+Knowledge compatibility use is explicitly retired, and the
 full architecture/typecheck/lint/test/build suite passes. Crop persistence,
 editing, storage changes, API changes, and business-rule changes remain out
 of scope.
