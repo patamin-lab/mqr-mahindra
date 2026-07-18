@@ -13,16 +13,11 @@
  *
  * Image Standardization: a `linkable` tile now opens the same in-app
  * lightbox (Fit Width/Fit Height/Zoom/Full Screen/Temporary Rotate)
- * `AttachmentViewer` already has, instead of a bare `target="_blank"` new
- * tab - reuses `ImagePreview` from that file rather than a second
- * implementation. "Open in a new tab" remains available from inside the
- * lightbox, so no capability is removed, only the default action improved
- * (every module with photos must support a full-screen viewer, not just a
- * browser-native image tab).
+ * shared image platform rather than a second preview implementation.
  */
 import { useState } from 'react';
 import { useTranslation } from '@/lib/i18n/LocaleProvider';
-import { ImagePreview } from './AttachmentViewer';
+import { ImagePreview, createImageItem } from '@/components/shared/image';
 
 export interface AttachmentGalleryItem {
   key: string | number;
@@ -67,7 +62,23 @@ export default function AttachmentGallery({ items, linkable = false, className, 
       {previewing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPreviewing(null)}>
           <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
-            <ImagePreview key={previewing.key} url={previewing.url} filename={previewing.alt} t={t} />
+            <ImagePreview
+              key={previewing.key}
+              item={createImageItem({
+                id: String(previewing.key),
+                displayUrl: previewing.url,
+                sourceKind: 'cdn',
+                mimeType: 'image/*',
+                alt: previewing.alt,
+              })}
+              labels={{
+                zoomOut: t('attachmentViewer.zoomOut'),
+                zoomIn: t('attachmentViewer.zoomIn'),
+                rotate: t('attachmentViewer.rotateRight'),
+                reset: t('attachmentViewer.reset'),
+                toolbar: t('attachmentViewer.imageControls'),
+              }}
+            />
             <div className="mt-2 flex gap-2">
               <a
                 href={previewing.url}

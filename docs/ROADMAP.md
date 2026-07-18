@@ -252,10 +252,10 @@ work starts, same discipline as every other milestone on this page.
 
 **Priority 1**
 
-- Issue #79 — Platform Image Management: **Primary migrations complete**. MQR,
-  NTR, PM, Delivery/PDI, and Vehicle360/Machine Passport consume the locked
-  shared presentation platform. Knowledge remains compatibility-only; adoption
-  and deprecation status is in
+- Issue #79 — Platform Image Management: **Migrations complete**. MQR, NTR,
+  PM, Delivery/PDI, Vehicle360/Machine Passport, and Knowledge consume the
+  locked shared presentation platform. Legacy viewer has no active consumer;
+  adoption and deprecation status is in
   `docs/architecture/IMAGE_PLATFORM_ADOPTION_REPORT.md`.
 
 **Priority 2**

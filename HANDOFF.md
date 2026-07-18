@@ -474,9 +474,9 @@ a legitimate design choice, unless a documented ADR says otherwise.
 | Component | Location | Owns | Reused by |
 | --- | --- | --- | --- |
 | **Shared PDF Framework** | `src/lib/pdf/` | Header/footer/metadata/filename/style/font/image-resolution for every generated document | MQR, NTR, PM PDF renderers |
-| **Shared Image Platform** | `src/components/shared/image/` (`ImageItem`, `ImageThumbnail`, `ImagePreview`, `ImageViewer`, `AttachmentResourceProvider`) | Shared image identity, thumbnail/preview/viewer state, transforms, signed-resource cache/retry | MQR, NTR, PM, Delivery/PDI, Vehicle360/Machine Passport |
+| **Shared Image Platform** | `src/components/shared/image/` (`ImageItem`, `ImageThumbnail`, `ImagePreview`, `ImageViewer`, `AttachmentResourceProvider`) | Shared image identity, thumbnail/preview/viewer state, transforms, signed-resource cache/retry | MQR, NTR, PM, Delivery/PDI, Vehicle360/Machine Passport, Knowledge |
 | **Attachment Upload Tile** | `src/components/shared/attachments/AttachmentPhotoTile.tsx` | Shared upload-slot shell with `ImageItem` preview path and legacy URL fallback | NTR, PM |
-| **Legacy Attachment Viewer** | `src/components/shared/attachments/AttachmentViewer.tsx` | Compatibility image/document viewer for not-yet-migrated consumers | Knowledge |
+| **Legacy Attachment Viewer** | `src/components/shared/attachments/AttachmentViewer.tsx` | Deprecated image/document viewer retained pending cleanup | No active consumer |
 | **Activity Timeline** | `src/components/shared/activity-timeline/` | Generic, category-agnostic event timeline | Quality Reports today; designed for PM/NTR/Warranty/ORC to plug in without redesign |
 | **Authorization Scope** | `src/lib/scope.ts` + `src/lib/dealerBranchScope.ts` | Role predicates and dealer/branch resolution/access checks | Every module's Repository/Service and every API route |
 | **Translation Provider** | `src/lib/translation/` | The `MachineTranslationProvider` interface + factory | PDF layer's `BilingualField` only |
@@ -783,8 +783,9 @@ own plan/approval before work begins — see [§14](#14-development-philosophy))
 
 ### Platform (Milestone v2.4)
 - **In progress, Priority 1** — Issue #79, Platform Image Management:
-  MQR, NTR, PM, Delivery/PDI, and Vehicle360/Machine Passport now consume the
-  locked shared image platform. Knowledge remains compatibility-only. The adoption and deprecation
+  MQR, NTR, PM, Delivery/PDI, Vehicle360/Machine Passport, and Knowledge now
+  consume the locked shared image platform. Legacy viewer has no active
+  consumer. The adoption and deprecation
   inventory is recorded in
   `docs/architecture/IMAGE_PLATFORM_ADOPTION_REPORT.md`.
 - **Planned, Priority 2** — Issue #80, Placeholder-based terminology

@@ -1,6 +1,6 @@
 # Image Platform Adoption Report
 
-Status: PR #79H — Vehicle360 / Machine Passport migration
+Status: PR #79I — Knowledge migration
 
 Architecture baseline: ADR-039, locked.
 
@@ -27,44 +27,45 @@ The shared image foundation owns presentation state and resource coordination:
 | PM | Migrated in PR #79E | Detail gallery, create/edit thumbnails, PDF image identity |
 | Delivery/PDI | Migrated in PR #79G | PDI evidence adapter, shared thumbnails/viewer/provider; Delivery detail has no image renderer |
 | Vehicle360 / Machine Passport | Migrated in PR #79H | Machine documents adapter, shared thumbnails/viewer/provider; ActivityTimeline photo diffs use shared thumbnails |
-| Knowledge attachments | Remaining compatibility consumer | Legacy `AttachmentViewer` |
+| Knowledge attachments | Migrated in PR #79I | Case-document adapter, shared thumbnails/viewer/provider; ActivityTimeline photo diffs use shared thumbnails |
 
 ## Adoption estimate
 
-The current direct image consumer inventory contains five primary groups:
-MQR, NTR, PM, Delivery/PDI, and Vehicle360/Machine Passport. All five are now
-migrated. Estimated platform adoption is therefore **100% (5/5)**.
+The current direct image consumer inventory contains six tracked groups:
+MQR, NTR, PM, Delivery/PDI, Vehicle360/Machine Passport, and Knowledge. All
+six are now migrated. Estimated platform adoption is therefore **100% (6/6)**.
 
-Vehicle360/Machine Passport architecture compliance is **100% for the
-approved migration scope**: Machine documents use `ImageItem`, shared
-viewer/thumbnail/transform state, and the shared resource provider; historical
-timeline photo diffs use the shared thumbnail path. Authorization remains
-outside presentation components.
+Knowledge architecture compliance is **100% for the approved migration
+scope**: case documents use `ImageItem`, shared viewer/thumbnail/transform
+state, and the shared resource provider; historical timeline photo diffs use
+the shared thumbnail path. Authorization remains outside presentation
+components.
 
-The percentage excludes Knowledge because it is a general attachment viewer,
-not one of the primary image-module migration targets. Including it as a
-sixth consumer group would produce 50%; the underlying inventory is unchanged.
+All tracked image consumers now use the locked presentation platform. PDF
+behavior remains unchanged; no Knowledge PDF renderer exists in this
+repository.
 
 ## Remaining duplicate components and deprecation report
 
-No component is removed by PR #79E.
+No component is removed by PR #79I.
 
 | Component or pattern | Classification | Reason |
 | --- | --- | --- |
 | `src/components/shared/attachments/AttachmentGallery.tsx` | Candidate for Removal | No PM/MQR/NTR consumer remains. Remove only after remaining legacy consumers and references are audited. |
 | Legacy thumbnail markup inside `AttachmentGallery.tsx` | Candidate for Removal | Direct `<img>` grid behavior is no longer used by migrated consumers; it disappears with the legacy gallery. |
-| `src/components/shared/attachments/AttachmentViewer.tsx` | Compatibility Layer | Still used by Knowledge. Preserve until Knowledge compatibility use is retired. |
-| Legacy `ImagePreview` exported by `AttachmentViewer.tsx` | Compatibility Layer | Retained for the legacy viewer until its remaining consumers move to `ImagePreview`/`ImageViewer`. |
+| `src/components/shared/attachments/AttachmentViewer.tsx` | Candidate for Removal | No active consumer remains after Knowledge migration; remove after final repository-reference audit. |
+| Legacy `ImagePreview` exported by `AttachmentViewer.tsx` | Candidate for Removal | No active consumer remains; shared `ImagePreview` now serves all migrated consumers. |
 | `AttachmentPhotoTile.tsx` | Still Required | Shared upload-slot shell used by PM and NTR. Its optional `ImageItem` path is the compatibility bridge for upload forms. |
-| Page-level URL resolution in Knowledge | Compatibility Layer | Legacy consumer still receives resolved URL records. Replace during Knowledge migration. |
+| Page-level URL resolution in Knowledge | Safe to Remove | Knowledge now maps attachment identity and lets shared provider resolve display resources. |
 | `resolvePdfAttachmentUrl` and PDF-side signed URL refresh | Still Required | Server-side PDF rendering needs a fresh resource and must preserve legacy URL fallback. |
-| Legacy preview/transform/loading/retry logic inside `AttachmentViewer.tsx` | Compatibility Layer | Behavior is still required by remaining consumers; shared-platform parity is verified before removal. |
+| Legacy preview/transform/loading/retry logic inside `AttachmentViewer.tsx` | Candidate for Removal | No active consumer remains; shared-platform parity is verified. |
 | PM page-level signed URL resolution | Safe to Remove | Removed from PM detail. PM now refreshes attachment resources through the shared provider. |
 | PM duplicate lightbox/grid (`AttachmentGallery` usage) | Safe to Remove | Removed from PM detail. `MaintenanceImageGallery` uses the shared viewer. |
 | PDI page-level `AttachmentService.getUrl()` orchestration | Safe to Remove | PDI now maps attachment identity and lets the shared resource provider resolve display resources. |
 | PDI `AttachmentViewer` usage | Safe to Remove | Replaced by `InspectionEvidenceGallery` using shared image primitives and compatibility links for non-images. |
 | Machine Passport `AttachmentViewer` usage | Safe to Remove | Replaced by `MachineDocumentsGallery` using shared image primitives and compatibility links for non-images. |
 | Machine Passport page-level `AttachmentService.getUrl()` orchestration | Safe to Remove | Machine documents now pass attachment identity to the shared resource provider. |
+| Knowledge `AttachmentViewer` usage | Safe to Remove | Replaced by `KnowledgeDocumentsGallery` using shared image primitives and compatibility links for non-images. |
 
 ## Delivery/PDI flow adoption
 
@@ -95,10 +96,19 @@ No component is removed by PR #79E.
 | Vehicle timeline | Existing lifecycle `TimelineItem` rows | Unchanged milestone rows; no image renderer exists in lifecycle feed |
 | Activity/history photo diffs | Direct `<img>` fallback | Shared `ImageThumbnail` with legacy URL presentation contract |
 
+## Knowledge flow adoption
+
+| Flow | Old presentation | Shared presentation |
+| --- | --- | --- |
+| Case/article attachments | `AttachmentViewer` plus page-level signed URL resolution | `KnowledgeDocumentsGallery` + `ImageItem` + shared provider/thumbnail/viewer |
+| Photo previews/transforms | Legacy `AttachmentViewer` preview | Shared `ImagePreview` and transform state |
+| Historical activity photo diffs | Direct `<img>` fallback | Shared `ImageThumbnail` with legacy URL presentation contract |
+| Mixed attachments | Legacy image/document viewer | Shared image viewer for images; provider-backed open/download links for non-images |
+
 ## Removal gate
 
-Safe deletion begins only after Vehicle360/Machine Passport are migrated,
-Knowledge compatibility use is explicitly retired, and the
+Safe deletion begins after final repository-reference audit confirms no
+legacy viewer consumers, and the
 full architecture/typecheck/lint/test/build suite passes. Crop persistence,
 editing, storage changes, API changes, and business-rule changes remain out
 of scope.
