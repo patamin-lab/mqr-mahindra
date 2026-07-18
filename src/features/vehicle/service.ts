@@ -27,15 +27,30 @@ export async function getVehicleTimeline(serial: string, session: SessionUser): 
   // (a bad row in one module's own table) must not blank the whole
   // Machine Timeline - it degrades to "this source contributed nothing"
   // instead.
-  const eventLists = await Promise.all(
-    VEHICLE_EVENT_SOURCES.map((source) =>
-      source(serial, session).catch((err) => {
-        console.error('Vehicle timeline event source failed', err);
-        return [];
-      })
-    )
-  );
-  return eventLists.flat().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  const [eventLists, summary] = await Promise.all([
+    Promise.all(
+      VEHICLE_EVENT_SOURCES.map((source) =>
+        source(serial, session).catch((err) => {
+          console.error('Vehicle timeline event source failed', err);
+          return [];
+        })
+      )
+    ),
+    // The Vehicle Summary already resolves NTR's delivery-date fallback for
+    // historic vehicles whose master row was not synchronized. Do not let a
+    // summary failure blank the timeline's independently-isolated sources.
+    getVehicleSummary(serial, session).catch((err) => {
+      console.error('Vehicle timeline summary failed', err);
+      return null;
+    }),
+  ]);
+  return eventLists
+    .flat()
+    // Warranty starts on the customer's delivery date, never when the
+    // activation process ran. Apply the same summary contract every Vehicle
+    // 360 consumer uses so legacy master rows cannot reintroduce the bug.
+    .map((event) => (event.type === 'WarrantyActivated' && summary?.retailDate ? { ...event, date: summary.retailDate } : event))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
 /** Merges one provider's contribution into the accumulated summary -

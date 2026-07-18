@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockGetVehicleBySerial, mockGetDealer, mockGetBranchById, mockProvider } = vi.hoisted(() => ({
+const { mockGetVehicleBySerial, mockGetDealer, mockGetBranchById, mockProvider, mockEventSource } = vi.hoisted(() => ({
   mockGetVehicleBySerial: vi.fn(),
   mockGetDealer: vi.fn(),
   mockGetBranchById: vi.fn(),
   mockProvider: vi.fn(),
+  mockEventSource: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({
@@ -21,7 +22,7 @@ vi.mock('@/features/vehicle/providers/registry', () => ({
   VEHICLE_SUMMARY_PROVIDERS: [{ getVehicleSummary: mockProvider }],
 }));
 
-vi.mock('./registry', () => ({ VEHICLE_EVENT_SOURCES: [] }));
+vi.mock('./registry', () => ({ VEHICLE_EVENT_SOURCES: [mockEventSource] }));
 
 vi.mock('@/features/vehicle-health/service', () => ({
   VehicleHealthService: vi.fn(function () {
@@ -29,7 +30,7 @@ vi.mock('@/features/vehicle-health/service', () => ({
   }),
 }));
 
-import { getVehicleSummary } from './service';
+import { getVehicleSummary, getVehicleTimeline } from './service';
 
 const session = { role: 'SuperAdmin', dealerId: null } as any;
 
@@ -37,6 +38,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetBranchById.mockResolvedValue(null);
   mockProvider.mockResolvedValue(null);
+  mockEventSource.mockResolvedValue([]);
 });
 
 describe('getVehicleSummary master-field compatibility', () => {
@@ -72,5 +74,35 @@ describe('getVehicleSummary master-field compatibility', () => {
     const result = await getVehicleSummary('SN-1', session);
 
     expect(result).toMatchObject({ dealerId: 'D1', dealerName: 'D1', retailDate: '2026-07-01' });
+  });
+});
+
+describe('getVehicleTimeline warranty start date', () => {
+  it('uses the NTR delivery-date fallback when a historic vehicle master row is missing delivery_date', async () => {
+    mockGetVehicleBySerial.mockResolvedValue({
+      serial: 'SN-1',
+      model: 'M1',
+      engine_number: 'E1',
+      delivery_date: null,
+      dealer_id: 'D1',
+      branch_id: null,
+    });
+    mockProvider.mockResolvedValue({ retailDate: '2026-07-13' });
+    mockGetDealer.mockResolvedValue({ id: 'D1', short_name: 'D1', full_name: 'Dealer One' });
+    mockEventSource.mockResolvedValue([
+      {
+        type: 'WarrantyActivated',
+        date: '2026-07-17T02:28:39.796+00:00',
+        referenceNumber: 'DEL-2026-000009',
+        description: 'เริ่มการรับประกัน',
+        user: 'patamin',
+        status: 'Completed',
+        href: '#',
+      },
+    ]);
+
+    const timeline = await getVehicleTimeline('SN-1', session);
+
+    expect(timeline).toMatchObject([{ type: 'WarrantyActivated', date: '2026-07-13' }]);
   });
 });

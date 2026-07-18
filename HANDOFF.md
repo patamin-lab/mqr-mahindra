@@ -215,10 +215,11 @@ citations are current as of that trace.
 - Delivery's own Vehicle Timeline `WARRANTY_ACTIVATED` event is
   deliberately dated to `deliveryDate`, **never** `warrantyActivatedAt`
   (the processing timestamp). Vehicle360 also normalizes historic event rows
-  to `vehicles.delivery_date`, so the same invariant holds for records
-  created before the publisher correction. This is regression-tested in
+  to its authoritative `VehicleSummary.retailDate` (the vehicle master, with
+  its existing NTR delivery-date fallback), so the same invariant holds for
+  records created before the publisher correction. This is regression-tested in
   `src/features/delivery/service.test.ts` and
-  `src/features/vehicle/eventSources/platformEvents.test.ts`.
+  `src/features/vehicle/service.test.ts`.
 - PM has no warranty logic at all (not a gap — PM simply doesn't expose
   warranty status).
 
@@ -651,11 +652,11 @@ Chronological, most recent first. "Unresolved" entries are still open.
 Some early `WARRANTY_ACTIVATED` rows stored the time the NTR orchestration
 ran in `vehicle_events.event_datetime`. The Vehicle360 timeline consequently
 displayed that processing time as the warranty start even when the vehicle's
-authoritative delivery date was different. `platformEvents.ts` now maps only
-this event type to `vehicles.delivery_date`; it leaves the processing time in
-`delivery_records.warranty_activated_at` for operational lead-time metrics and
-does not alter event rows, APIs, or the database schema. The mapping is covered
-for historic events, non-warranty events, and a missing-delivery-date fallback.
+authoritative delivery date was different. `getVehicleTimeline()` now maps only
+this event type to `VehicleSummary.retailDate`, which already uses the NTR
+delivery date when a historic vehicle-master row is incomplete. It leaves the
+processing time in `delivery_records.warranty_activated_at` for operational
+lead-time metrics and does not alter event rows, APIs, or the database schema.
 
 ### 2026-07-18 — Import Inspection list server/client boundary
 
