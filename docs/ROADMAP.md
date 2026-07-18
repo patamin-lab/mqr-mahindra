@@ -244,11 +244,11 @@ Approval process.
 
 ## Next Milestones
 
-### Milestone v2.4 (planned, not started)
+### Milestone v2.4 (completed)
 
-Organized from PR #78's release-closing review (2026-07-18). Neither item
-below has been implemented — each requires its own plan/approval before
-work starts, same discipline as every other milestone on this page.
+Closed by PR #79L and this release-finalization pass (2026-07-18). Epic #79
+is complete. The remaining entries below are explicitly future work and have
+not been implemented.
 
 **Priority 1**
 
@@ -260,14 +260,18 @@ work starts, same discipline as every other milestone on this page.
   adoption and deprecation status is in
   `docs/architecture/IMAGE_PLATFORM_ADOPTION_REPORT.md`.
 
-  **Epic #79 status: COMPLETE.** Shared Image Platform v1 is production-proven
+**Epic #79 status: COMPLETE.** Shared Image Platform v1 is production-proven
   and governed by ADR-039. Future image capabilities move to separate epics:
   Crop Editor, Image Metadata, AI Annotation, OCR, Image Compression, and
   Image Versioning. None start under Epic #79.
 
+  **Epic #80 status: DESIGN ONLY.** Image Metadata Foundation proposal and
+  ADR-040 draft define future metadata architecture. No implementation,
+  schema, API, storage, rendering, or business-module work included.
+
 **Priority 2**
 
-- Issue #80 — Placeholder-based terminology preservation: replaces the
+- Future terminology preservation (issue number to be assigned): replaces the
   translation pipeline's current mixed-language injection (approved
   English terms spliced directly into the Thai sentence before
   translation) with a placeholder-token mechanism resolved after
@@ -478,7 +482,7 @@ Forward-looking capabilities that depend on the platform having real, accumulate
 | Introduce a schema-validation library (zod) to stop the client/server validation duplication? | Architecture | Flagged gap, no decision yet — see `modules/template/validation-template.md` |
 | Introduce an automated test framework? | Architecture | Flagged gap, no decision yet — currently zero test coverage; `docs/MODULE_ARCHITECTURE.md` §9 is the interim manual substitute |
 | Standardize on Supabase's native Auth client, or formalize the existing custom `jose`-based session layer as the `auth` service? | Architecture | Flagged in Sprint 5 (`docs/adr/ADR-001-Supabase.md`, `docs/TECH_STACK.md`), no decision yet |
-| Reconcile the stray `.patch`/log files committed at repo root | Housekeeping | Pre-existing, tracked separately, out of scope |
+| Reconcile the stray `.patch`/log files committed at repo root | Housekeeping | **COMPLETE** — removed during repository release finalization |
 
 ## Non-goals (restated for traceability)
 

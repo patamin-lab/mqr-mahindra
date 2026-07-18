@@ -93,9 +93,9 @@ src/
   middleware.ts
 ```
 
-(Repo root also currently holds some local artifacts — `.patch` files, log
-files — left over from earlier patch-based deploys. Out of scope for
-Sprint 1; tracked separately, not touched here.)
+(Historical root-level patch and log artifacts were removed during repository
+release finalization. They were not runtime inputs and are not part of the
+production repository.)
 
 ## 4. Target folder map
 

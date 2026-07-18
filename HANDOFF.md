@@ -9,12 +9,12 @@ wins** — this document describes reality, it does not define it. Root
 `CLAUDE.md` and `.claude/rules/*.md` remain the binding operating rules for
 *how* to work in this repository; this file is *what the system is*.
 
-Snapshot date: 2026-07-18. Baseline commit: `main` @ `641961c` (PR #78,
-Corporate PDF Standardization). A Production Regression Audit performed the
-same day found and fixed six defects on branch
-`fix/production-regression-audit`, not yet merged — see
-[§9 Production Regression History](#9-production-regression-history) for
-what changed and why it isn't in production yet.
+Snapshot date: 2026-07-18. The last merged baseline is `main` @ `641961c`
+(PR #78, Corporate PDF Standardization). The current handoff candidate is
+branch `fix/production-regression-audit`, which contains the audited fixes,
+Shared Image Platform v1 release, and documentation finalization. Production
+deployment remains a merge/deployment concern; this document records the
+current repository state.
 
 Current PR #79L repository state: Shared Image Platform v1 is implemented,
 production-proven, fully adopted (6/6 consumer groups), and governed by
@@ -298,9 +298,8 @@ the dealer/branch resolution itself — see
   Platform, Shared PDF Framework, Translation.
 - **Current status**: production, stable.
 - **Known limitations**: the list/export "Delivery Date" search filter was
-  found querying the wrong column during the 2026-07-18 audit — fixed on
-  `fix/production-regression-audit`, not yet merged
-  ([§9](#9-production-regression-history)).
+  found querying the wrong column during the 2026-07-18 audit — fixed in the
+  current handoff candidate ([§9](#9-production-regression-history)).
 
 ### PM (Preventive Maintenance)
 - **Purpose**: scheduled maintenance records against a vehicle's interval
@@ -351,8 +350,8 @@ the dealer/branch resolution itself — see
   comparison — `DeliveryRecord` has no `branch_id`).
 - **Current status**: production, stable (ADR-017/027/028).
 - **Known limitations**: its non-existent-id error handling returned HTTP
-  400 instead of 404 across all six stage-action routes — fixed on
-  `fix/production-regression-audit`, not yet merged. Two Machine
+  400 instead of 404 across all six stage-action routes — fixed in the
+  current handoff candidate. Two Machine
   Passport/Delivery-detail UI panels labeled a processing timestamp
   (`warrantyActivatedAt`) in a way that could be misread as the warranty
   start date — also fixed on that branch (label-only change, no data/logic
@@ -647,7 +646,7 @@ to change any of the following.
 
 Chronological, most recent first. "Unresolved" entries are still open.
 
-### 2026-07-18 — Production Regression Audit (branch `fix/production-regression-audit`, **not yet merged**)
+### 2026-07-18 — Production Regression Audit (historical branch record)
 
 A full audit was performed across every module (functional CRUD/search/
 pagination, the Warranty and Product-Visibility business rules,
@@ -655,8 +654,8 @@ Authorization, and the PDF/Image/Translation pipeline). Six confirmed
 production defects, grouped into five defect classes below, were fixed with
 regression tests; the current branch verification suite passed in full
 (814/814 tests; typecheck, architecture, lint, and build all passed).
-**These fixes are not yet in production** — they exist only
-on the audit branch pending review and merge.
+The fixes are present in the current handoff candidate; production
+deployment remains outside this repository commit.
 
 | Severity | Module | Symptom | Root Cause | Resolution | Regression Prevention |
 | --- | --- | --- | --- | --- | --- |
@@ -793,8 +792,9 @@ tracked consumer groups use locked Shared Image Platform. Legacy viewer/gallery
 code removed in PR #79K. Adoption 100%; no legacy platform remains. Future
 image features must use `ImageItem`, `AttachmentResourceProvider`,
 `ImageThumbnail`, and `ImageViewer`.
-- **Planned, Priority 2** — Issue #80, Placeholder-based terminology
-  preservation (see [§8](#8-decision-log)).
+- **Planned, Priority 2** — Placeholder-based terminology preservation; issue
+  number to be assigned separately from Epic #80 metadata (see
+  [§8](#8-decision-log)).
 
 ### UX
 - No dedicated UX milestone currently scheduled beyond what's captured in

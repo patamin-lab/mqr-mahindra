@@ -46,6 +46,10 @@ engineering document in this repository.
 
 Most directly useful for someone about to write code:
 
+- [`docs/releases/PRODUCTION_READINESS_REPORT.md`](docs/releases/PRODUCTION_READINESS_REPORT.md)
+  — current handoff status, validation results, risks, and known limitations.
+- [`docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`](docs/architecture/SHARED_IMAGE_PLATFORM_V1.md)
+  — the completed, locked shared image platform release.
 - [`CLAUDE.md`](CLAUDE.md) — what this system does, schema, RBAC, deployment.
 - [`docs/standards/MODULE_DEVELOPMENT_STANDARD.md`](docs/standards/MODULE_DEVELOPMENT_STANDARD.md) — how every module is built.
 - [`docs/standards/API_STANDARD.md`](docs/standards/API_STANDARD.md) — request/response, pagination, error shape.

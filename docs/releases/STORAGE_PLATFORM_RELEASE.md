@@ -6,6 +6,11 @@ Platform baseline. Companion documents: `docs/engineering/STORAGE_PLATFORM_FINAL
 (design rationale/roadmap), `docs/architecture/PLATFORM_ARCHITECTURE_STANDARDS.md`
 (the permanent policy this release freezes into).
 
+This document is a historical storage-platform audit. Its references to the
+legacy `AttachmentViewer` describe an earlier milestone; that component was
+removed in PR #79K. Current image-platform status is maintained in
+`docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`.
+
 ## Completed milestones
 
 In build order:

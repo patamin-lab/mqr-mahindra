@@ -58,6 +58,10 @@ actually ship today — not a green-field proposal.
 - [`SHARED_IMAGE_PLATFORM_V1.md`](architecture/SHARED_IMAGE_PLATFORM_V1.md) —
   production-proven shared image architecture, platform rules, onboarding,
   migration history, and v1 future roadmap.
+- [`IMAGE_METADATA_FOUNDATION_PROPOSAL.md`](architecture/IMAGE_METADATA_FOUNDATION_PROPOSAL.md)
+  — Epic #80 design-only metadata architecture and future extension seams.
+- [`releases/PRODUCTION_READINESS_REPORT.md`](releases/PRODUCTION_READINESS_REPORT.md)
+  — current production handoff assessment and validation record.
 - [`PLATFORM_ARCHITECTURE_STANDARDS.md`](architecture/PLATFORM_ARCHITECTURE_STANDARDS.md)
   — binding layer, storage, image-platform, and extension rules.
 
@@ -146,6 +150,9 @@ actually ship today — not a green-field proposal.
 - [`adr/ADR-007-Scheduler.md`](adr/ADR-007-Scheduler.md)
 - [`adr/ADR-009-Machine-Domain.md`](adr/ADR-009-Machine-Domain.md)
 - [`adr/ADR-010-Attachment-Platform.md`](adr/ADR-010-Attachment-Platform.md)
+- [`adr/ADR-039-Shared-Image-Presentation-and-Editing-Platform.md`](adr/ADR-039-Shared-Image-Presentation-and-Editing-Platform.md)
+- [`adr/ADR-040-Image-Metadata-Foundation.md`](adr/ADR-040-Image-Metadata-Foundation.md)
+  — proposed, design-only future metadata architecture.
 
 ## Product & vision
 

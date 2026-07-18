@@ -6,8 +6,9 @@ Current status: Architecture implemented and production-proven through PR
 
 ## Architecture Review Refinement
 
-**Status:** Architecture approved; PR #79B shared foundation implemented;
-module migration and editing persistence not started
+**Status:** Historical design review. The approved architecture was
+implemented and production-proven through PR #79L; current ownership and
+rules are maintained in ADR-039 and `SHARED_IMAGE_PLATFORM_V1.md`.
 
 **Baseline:** Production baseline `16566d9`
 

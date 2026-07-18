@@ -1,10 +1,12 @@
-# Project State
+# Project State (Historical Snapshot)
 
-Live, point-in-time snapshot of where the repository actually is. Unlike
-the Constitution (permanent principle) and the ADR Index (permanent
-record of decisions), this document is expected to go stale and must be
-re-verified against `git log`/`gh pr list`/`docs/adr/README.md` before
-being trusted, not read as historical fact.
+Historical point-in-time snapshot retained for traceability. It is not the
+current release status and must not override `HANDOFF.md`, the ADR Index, or
+`docs/releases/PRODUCTION_READINESS_REPORT.md`.
+
+The current repository state is Shared Image Platform v1 complete and
+production-proven through PR #79L; Epic #79 is closed. This file's older
+milestone and history sections are preserved as historical context.
 
 **No prior document of this kind existed in the repository** (checked
 `docs/architecture/`, `docs/`, `docs/governance/`, `docs/releases/`) -
