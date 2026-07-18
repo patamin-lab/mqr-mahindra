@@ -787,9 +787,10 @@ exists, not yet merged) / **Planned** (scoped, not started, requires its
 own plan/approval before work begins — see [§14](#14-development-philosophy)).
 
 ### Production Stabilization
-- **In Progress** — the six regression fixes in
-  [§9](#9-production-regression-history) (branch
-  `fix/production-regression-audit`), pending review/merge.
+- **Completed** — the regression audit fixes landed in `12ef00f`; the
+  follow-up Import Inspection server/client rendering recovery landed in
+  `9038a13`, deployed to `main`, and passed live `/delivery/pdi` list,
+  dashboard, and search smoke checks.
 - **Planned** — the High-priority items in
   [§10](#10-known-technical-debt) (auth/scope/db.ts test coverage,
   upload validation hardening, observability layer). None scheduled to a
