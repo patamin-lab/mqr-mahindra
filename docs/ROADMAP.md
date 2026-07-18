@@ -252,10 +252,10 @@ work starts, same discipline as every other milestone on this page.
 
 **Priority 1**
 
-- Issue #79 — Platform Image Management: closes the remaining display-
-  standardization gap (PM's detail page never actually got the shared
-  lightbox) and scopes a shared Document Image Editor (rotate/crop/zoom/
-  pan) for already-uploaded attachments.
+- Issue #79 — Platform Image Management: **In progress**. MQR, NTR, and PM
+  now consume the locked shared presentation platform. Delivery/PDI and
+  Vehicle360/Machine Passport remain; adoption and deprecation status is in
+  `docs/architecture/IMAGE_PLATFORM_ADOPTION_REPORT.md`.
 
 **Priority 2**
 

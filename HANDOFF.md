@@ -474,8 +474,9 @@ a legitimate design choice, unless a documented ADR says otherwise.
 | Component | Location | Owns | Reused by |
 | --- | --- | --- | --- |
 | **Shared PDF Framework** | `src/lib/pdf/` | Header/footer/metadata/filename/style/font/image-resolution for every generated document | MQR, NTR, PM PDF renderers |
-| **Shared Image Components** | `src/components/shared/attachments/` (`AttachmentGallery`, `imageProcessing.ts`) | Thumbnail grids, upload-time EXIF/orientation processing | MQR, PM, NTR (upload processing is NTR-only today — Issue #79) |
-| **Attachment Viewer** | `AttachmentViewer.tsx` | The single image/document preview surface (zoom/fit/rotate/fullscreen) | MQR, PM, NTR, PDI, Knowledge, Machine Passport |
+| **Shared Image Platform** | `src/components/shared/image/` (`ImageItem`, `ImageThumbnail`, `ImagePreview`, `ImageViewer`, `AttachmentResourceProvider`) | Shared image identity, thumbnail/preview/viewer state, transforms, signed-resource cache/retry | MQR, NTR, PM; Delivery/PDI and Vehicle360 remain |
+| **Attachment Upload Tile** | `src/components/shared/attachments/AttachmentPhotoTile.tsx` | Shared upload-slot shell with `ImageItem` preview path and legacy URL fallback | NTR, PM |
+| **Legacy Attachment Viewer** | `src/components/shared/attachments/AttachmentViewer.tsx` | Compatibility image/document viewer for not-yet-migrated consumers | Delivery/PDI, Knowledge, Machine Passport |
 | **Activity Timeline** | `src/components/shared/activity-timeline/` | Generic, category-agnostic event timeline | Quality Reports today; designed for PM/NTR/Warranty/ORC to plug in without redesign |
 | **Authorization Scope** | `src/lib/scope.ts` + `src/lib/dealerBranchScope.ts` | Role predicates and dealer/branch resolution/access checks | Every module's Repository/Service and every API route |
 | **Translation Provider** | `src/lib/translation/` | The `MachineTranslationProvider` interface + factory | PDF layer's `BilingualField` only |
@@ -781,14 +782,11 @@ own plan/approval before work begins — see [§14](#14-development-philosophy))
   specific milestone yet.
 
 ### Platform (Milestone v2.4)
-- **Planned, Priority 1** — Issue #79, Platform Image Management: closes
-  the remaining display-standardization gap from PR #77 (PM's detail page
-  never got the shared lightbox) and scopes a shared Document Image
-  Editor (rotate/crop/zoom/pan) for already-uploaded attachments. The
-  documentation-only architecture refinement is recorded in
-  `docs/architecture/PLATFORM_IMAGE_MANAGEMENT_REVIEW.md` and proposed
-  `docs/adr/ADR-039-Shared-Image-Presentation-and-Editing-Platform.md`;
-  implementation remains not started.
+- **In progress, Priority 1** — Issue #79, Platform Image Management:
+  MQR, NTR, and PM now consume the locked shared image platform. Delivery/PDI
+  and Vehicle360/Machine Passport remain. The adoption and deprecation
+  inventory is recorded in
+  `docs/architecture/IMAGE_PLATFORM_ADOPTION_REPORT.md`.
 - **Planned, Priority 2** — Issue #80, Placeholder-based terminology
   preservation (see [§8](#8-decision-log)).
 
