@@ -129,6 +129,27 @@ because it shipped and moved to maintenance.
   Stock's fate (ADR-035 R-1), Troubleshooting's fate, MQR NTR auto-fill,
   machine-type classification.
 
+- ✓ **Production Bug Fixes + List/Image Standardization** (PR #77,
+  merge `13d62c4`, 2026-07-17) — Vehicle360 Dealer sync on NTR create and
+  edit, Warranty Start always equal to Delivery Date, NTR photo display
+  after signed-URL expiry, Machine Passport crash hardening (per-section
+  `safe()` isolation, route-segment and app-shell Error Boundaries), and
+  the platform list standard (shared `ActionColumn`/`ActionButton`/
+  `RowLink`/`Pagination`) rolled out to Records/NTR/PM/PDI.
+- ✓ **Corporate PDF Standardization** (PR #78, merge `6ef759d`,
+  2026-07-18) — one shared PDF framework (`src/lib/pdf/`: `PdfHeader`,
+  `PdfFooter`, document metadata, filename convention) replacing three
+  independently-drifting header/footer implementations across MQR/NTR/PM;
+  fixed the root cause of photos silently missing from generated PDFs
+  (export routes never refreshed a record's signed URLs before
+  rendering) and a photo-cropping bug (`objectFit: 'cover'` on a fixed
+  box); added bilingual Thai/English PDF output via a new
+  `TranslationService` → `MachineTranslationProvider` architecture, a
+  Google Cloud Translation provider (`GOOGLE_TRANSLATE_API_KEY`, graceful
+  no-op fallback if unconfigured), an engineering terminology glossary,
+  and acronym protection. Full detail:
+  `docs/releases/RELEASE_NOTES_CORPORATE_PDF_v1.0.md`,
+  `docs/releases/SMOKE_TEST_CHECKLIST_CORPORATE_PDF_v1.0.md`.
 - **Master Data Governance** — Province/District/Subdistrict formalized as
   System Master Data: business modules are read-only (`MasterDataService`),
   no `INSERT`/`UPDATE`/`DELETE` RLS policy exists on any of the six
@@ -223,9 +244,39 @@ Approval process.
 
 ## Next Milestones
 
-Baseline this section starts from: Tractor IN is the master source,
-`vehicles` is the application master, NTR and PM read from `vehicles`.
-Full operational detail: `docs/OPERATIONS.md`.
+### Milestone v2.4 (planned, not started)
+
+Organized from PR #78's release-closing review (2026-07-18). Neither item
+below has been implemented — each requires its own plan/approval before
+work starts, same discipline as every other milestone on this page.
+
+**Priority 1**
+
+- Issue #79 — Platform Image Management: closes the remaining display-
+  standardization gap (PM's detail page never actually got the shared
+  lightbox) and scopes a shared Document Image Editor (rotate/crop/zoom/
+  pan) for already-uploaded attachments.
+
+**Priority 2**
+
+- Issue #80 — Placeholder-based terminology preservation: replaces the
+  translation pipeline's current mixed-language injection (approved
+  English terms spliced directly into the Thai sentence before
+  translation) with a placeholder-token mechanism resolved after
+  translation — the same pattern acronym protection already uses.
+  Documented as technical debt against PR #78's translation pipeline,
+  not a defect in the current, shipped implementation.
+
+**Future (not scheduled — do not implement)**: Engineering Language
+Platform — Translation Memory, Translation Review, Translation Approval,
+Corporate Glossary (management UI), Parts Translation, EPC Translation,
+Warranty Translation, AI-assisted Translation Review. These remain
+roadmap ideas only; PR #78's own scope explicitly excluded all of them
+for this release, and none has a plan or approval yet.
+
+Baseline the Phase table below starts from: Tractor IN is the master
+source, `vehicles` is the application master, NTR and PM read from
+`vehicles`. Full operational detail: `docs/OPERATIONS.md`.
 
 | Phase | Focus | Status |
 |---|---|---|
