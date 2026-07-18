@@ -588,6 +588,7 @@
     "issuedBy": "Document issued {at} by the system",
     "noPhoto": "No photo",
     "photoLoadFailed": "Failed to load photo",
+    "photoUnavailableWithReason": "Image unavailable ({reason})",
     "photoMeter": "Hour Meter Photo",
     "photoNameplate": "Nameplate / Engine Number Photo",
     "photoReport": "PM Report Photo",

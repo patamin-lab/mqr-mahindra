@@ -17,7 +17,7 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image, renderToBuffer } from '@react-pdf/renderer';
 import QRCode from 'qrcode';
 import { ensureFontsRegistered } from '@/lib/pdf/fonts';
-import { fetchImageAsDataUri } from '@/lib/pdf/fetchImage';
+import { resolveImageDataUris, ImageFetchResult } from '@/lib/pdf/fetchImage';
 import { sharedPdfStyles } from '@/lib/pdf/sharedStyles';
 import { PdfHeader } from '@/lib/pdf/PdfHeader';
 import { PdfFooter } from '@/lib/pdf/PdfFooter';
@@ -27,6 +27,8 @@ import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
 import { calcWarranty } from '@/lib/warranty';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
+import { AttachmentService } from '@/shared/attachments';
+import { resolvePdfAttachmentUrl } from '@/lib/pdf/resolveAttachmentUrl';
 import { NtrRecord, NtrAttachmentType } from '../types';
 import type { VehicleEvent as PlatformVehicleEvent, VehicleSummary } from '@/features/vehicle/types';
 
@@ -116,7 +118,7 @@ interface NtrDocumentProps {
   productFamilyName?: string | null;
   qrDataUrl: string;
   tractorProfileUrl: string;
-  photoDataUris: Map<string, string | null>;
+  photoDataUris: Map<string, ImageFetchResult>;
   summary: VehicleSummary | null;
   timeline: PlatformVehicleEvent[];
   locale: Locale;
@@ -238,14 +240,16 @@ function NtrDocument({
             <Text style={styles.sectionTitle}>{translate(locale, 'ntr.photosTitle')}</Text>
             <View style={styles.photoGrid2col}>
               {attachments.map((a, i) => {
-                const dataUri = photoDataUris.get(a.url);
+                const result = photoDataUris.get(a.url);
                 return (
                   <View key={`${a.type}-${i}`} style={styles.photoBox2col} wrap={false}>
-                    {dataUri ? (
-                      <Image src={dataUri} style={styles.photo2col} />
+                    {result?.ok ? (
+                      <Image src={result.dataUri} style={styles.photo2col} />
                     ) : (
                       <View style={styles.photoPlaceholder2col}>
-                        <Text style={styles.photoPlaceholderText}>{translate(locale, 'pdf.photoLoadFailed')}</Text>
+                        <Text style={styles.photoPlaceholderText}>
+                          {translate(locale, 'pdf.photoUnavailableWithReason', { reason: result?.reason ?? 'Unknown error' })}
+                        </Text>
                       </View>
                     )}
                     <Text style={styles.photoLabel}>{a.label}</Text>
@@ -322,10 +326,38 @@ function NtrDocument({
 
 /** Resolves every attachment URL (4 fixed + additional) to a data URI in
  *  parallel. */
-async function resolvePhotoDataUris(record: NtrRecord, locale: Locale): Promise<Map<string, string | null>> {
+async function resolvePhotoDataUris(record: NtrRecord, locale: Locale): Promise<Map<string, ImageFetchResult>> {
   const urls = ntrAttachmentEntries(record, locale).map((e) => e.url);
-  const resolved = await Promise.all(urls.map((u) => fetchImageAsDataUri(u)));
-  return new Map(urls.map((u, i) => [u, resolved[i]]));
+  return resolveImageDataUris(urls);
+}
+
+/** Defect 1 root cause fix: `record`'s own `photo_*_url`/`additional_photos[].url`
+ *  columns are whatever signed URL was current at upload time - the export
+ *  route never re-resolved them (unlike the app's own NTR detail page),
+ *  so any photo older than the signed-URL TTL 403'd and silently vanished
+ *  from the PDF. Returns a shallow copy with every URL refreshed via its
+ *  `attachmentId`, failing open to the original URL for a legacy record
+ *  with no attachment_id at all. */
+async function resolveNtrPdfRecordUrls(record: NtrRecord, attachmentService: AttachmentService): Promise<NtrRecord> {
+  const [customerId, customerTractor, serialPlate, hourMeter, signedDocument, additionalPhotos] = await Promise.all([
+    resolvePdfAttachmentUrl(attachmentService, record.photo_customer_id_attachment_id, record.photo_customer_id_url),
+    resolvePdfAttachmentUrl(attachmentService, record.photo_customer_tractor_attachment_id, record.photo_customer_tractor_url),
+    resolvePdfAttachmentUrl(attachmentService, record.photo_serial_plate_attachment_id, record.photo_serial_plate_url),
+    resolvePdfAttachmentUrl(attachmentService, record.photo_hour_meter_attachment_id, record.photo_hour_meter_url),
+    resolvePdfAttachmentUrl(attachmentService, record.photo_signed_document_attachment_id, record.photo_signed_document_url),
+    Promise.all(
+      record.additional_photos.map(async (p) => ({ ...p, url: (await resolvePdfAttachmentUrl(attachmentService, p.attachmentId, p.url)) ?? p.url }))
+    ),
+  ]);
+  return {
+    ...record,
+    photo_customer_id_url: customerId,
+    photo_customer_tractor_url: customerTractor,
+    photo_serial_plate_url: serialPlate,
+    photo_hour_meter_url: hourMeter,
+    photo_signed_document_url: signedDocument,
+    additional_photos: additionalPhotos,
+  };
 }
 
 export async function renderNtrRecordPdf(
@@ -344,15 +376,16 @@ export async function renderNtrRecordPdf(
   // Corporate PDF Standardization: PDF content is always English, never
   // the viewing user's own UI locale - see PDF_LOCALE's own doc comment.
   const locale = PDF_LOCALE;
+  const resolvedRecord = await resolveNtrPdfRecordUrls(record, new AttachmentService());
   // Per spec: the QR opens the Tractor Profile, not this PDF/record.
   const tractorProfileUrl = `${baseUrl}/vehicles/${encodeURIComponent(record.serial)}`;
   const [qrDataUrl, photoDataUris] = await Promise.all([
     QRCode.toDataURL(tractorProfileUrl, { margin: 0, width: 160 }),
-    resolvePhotoDataUris(record, locale),
+    resolvePhotoDataUris(resolvedRecord, locale),
   ]);
   return renderToBuffer(
     <NtrDocument
-      record={record}
+      record={resolvedRecord}
       dealerName={options?.dealerName}
       branchName={options?.branchName}
       productFamilyName={options?.productFamilyName}

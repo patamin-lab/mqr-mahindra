@@ -588,6 +588,7 @@
     "issuedBy": "เอกสารออกเมื่อ {at} โดยระบบ",
     "noPhoto": "ไม่มีรูป",
     "photoLoadFailed": "โหลดรูปไม่สำเร็จ",
+    "photoUnavailableWithReason": "ไม่สามารถแสดงรูปภาพได้ ({reason})",
     "photoMeter": "รูปมิเตอร์ชั่วโมง",
     "photoNameplate": "รูป Nameplate / หมายเลขเครื่อง",
     "photoReport": "รูปใบรายงาน PM",
