@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { MqrRecord } from './types';
 import { renderRecordPdf } from './exportPdf';
+import { buildPdfFilename } from './pdf/filename';
 import { logAuthEvent } from './authServices/auditService';
 
 let client: Resend | null = null;
@@ -102,13 +103,12 @@ export async function sendRecordNotification(
   try {
     const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
     const pdf = await renderRecordPdf(record, baseUrl, dealerName);
-    const safeJobId = record.job_id.replace(/[^a-zA-Z0-9_-]/g, '_');
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
       to,
       subject: `[MQR] ${SUBJECT_PREFIX[kind]} — ${record.job_id}`,
       html: buildHtml(record, dealerName, kind, recordUrl),
-      attachments: [{ filename: `${safeJobId}.pdf`, content: pdf }],
+      attachments: [{ filename: buildPdfFilename(record.job_id), content: pdf }],
     });
   } catch (err) {
     console.error('sendRecordNotification error', err);

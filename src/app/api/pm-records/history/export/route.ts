@@ -9,6 +9,7 @@ import type { MaintenanceRecord } from '@/features/maintenance/types';
 import type { SessionUser } from '@/lib/types';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { PDF_LOCALE } from '@/lib/pdf/locale';
 
 export const runtime = 'nodejs';
 
@@ -52,7 +53,9 @@ export async function GET(req: NextRequest) {
     const filenameBase = `pm-history-${new Date().toISOString().slice(0, 10)}`;
 
     if (format === 'pdf') {
-      const buf = await renderMaintenanceListPdf(records, translate(locale, 'pdf.pmListTitle'), locale);
+      // PDF content is always English (PDF_LOCALE) - `locale` here still
+      // resolves the CSV export and this route's own JSON error messages.
+      const buf = await renderMaintenanceListPdf(records, translate(PDF_LOCALE, 'pdf.pmListTitle'));
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           'Content-Type': 'application/pdf',

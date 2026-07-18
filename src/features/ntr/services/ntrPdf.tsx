@@ -18,15 +18,17 @@ import { Document, Page, Text, View, StyleSheet, Image, renderToBuffer } from '@
 import QRCode from 'qrcode';
 import { ensureFontsRegistered } from '@/lib/pdf/fonts';
 import { fetchImageAsDataUri } from '@/lib/pdf/fetchImage';
-import { PdfBrandLogo } from '@/lib/pdf/PdfBrandLogo';
 import { sharedPdfStyles } from '@/lib/pdf/sharedStyles';
+import { PdfHeader } from '@/lib/pdf/PdfHeader';
+import { PdfFooter } from '@/lib/pdf/PdfFooter';
+import { PDF_LOCALE } from '@/lib/pdf/locale';
+import { buildPdfDocumentMeta } from '@/lib/pdf/metadata';
 import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
 import { calcWarranty } from '@/lib/warranty';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 import { NtrRecord, NtrAttachmentType } from '../types';
 import type { VehicleEvent as PlatformVehicleEvent, VehicleSummary } from '@/features/vehicle/types';
-import { APP_NAME, APP_VERSION } from '@/lib/branding';
 
 const styles = StyleSheet.create({
   ...sharedPdfStyles,
@@ -143,31 +145,24 @@ function NtrDocument({
       : record.customer_name;
 
   return (
-    <Document>
+    <Document {...buildPdfDocumentMeta(`${record.ntr_number} - ${translate(locale, 'pdf.ntrTitle')}`, translate(locale, 'ntr.registerTitle'))}>
       <Page size="A4" style={styles.page} wrap>
         {/* Header */}
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <PdfBrandLogo />
-            <Text style={styles.title}>{translate(locale, 'pdf.ntrTitle')}</Text>
-            <Text style={styles.subtitle}>{translate(locale, 'ntr.registerTitle')}</Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'csv.ntrNumber')} {record.ntr_number} — {dealerName ?? record.dealer_id}
-              {branchName ? ` / ${branchName}` : ''}
-            </Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'ntr.documentSubmissionDate')}: {formatDateTimeLocalized(record.created_at, locale)}
-            </Text>
-            <View style={styles.badgeRow}>
-              <Text style={styles.badge}>{record.status}</Text>
-            </View>
-          </View>
-          <View>
-            <Image src={qrDataUrl} style={styles.qr} />
-            <Text style={styles.qrCaption}>{translate(locale, 'ntr.qrScanCaption')}</Text>
-          </View>
-        </View>
-        <View style={styles.titleRule} />
+        <PdfHeader
+          title={translate(locale, 'pdf.ntrTitle')}
+          subtitleLines={[
+            translate(locale, 'ntr.registerTitle'),
+            `${translate(locale, 'csv.ntrNumber')} ${record.ntr_number} — ${dealerName ?? record.dealer_id}${branchName ? ` / ${branchName}` : ''}`,
+            `${translate(locale, 'ntr.documentSubmissionDate')}: ${formatDateTimeLocalized(record.created_at, locale)}`,
+          ]}
+          badges={[
+            <Text key="status" style={styles.badge}>
+              {record.status}
+            </Text>,
+          ]}
+          qrDataUrl={qrDataUrl}
+          qrCaption={translate(locale, 'ntr.qrScanCaption')}
+        />
 
         {/* Section 1: Registration Information */}
         <Text style={styles.sectionTitle}>{translate(locale, 'ntr.registrationInfoTitle')}</Text>
@@ -319,17 +314,7 @@ function NtrDocument({
         )}
 
         {/* Footer */}
-        <View style={{ marginTop: 10 }}>
-          <Text style={styles.auditText}>
-            {APP_NAME} — {translate(locale, 'ntr.footerGeneratedAt')}: {formatDateTimeLocalized(new Date(), locale)}
-            {' — '}
-            {translate(locale, 'ntr.footerGeneratedBy')}: {generatedBy}
-            {' — '}
-            {translate(locale, 'ntr.footerSystemVersion')}: {APP_NAME} {APP_VERSION}
-          </Text>
-        </View>
-
-        <Text style={styles.footer}>{tractorProfileUrl}</Text>
+        <PdfFooter generatedBy={generatedBy} documentUrl={tractorProfileUrl} />
       </Page>
     </Document>
   );
@@ -353,11 +338,12 @@ export async function renderNtrRecordPdf(
     summary?: VehicleSummary | null;
     timeline?: PlatformVehicleEvent[];
     generatedBy?: string;
-    locale?: Locale;
   }
 ): Promise<Buffer> {
   ensureFontsRegistered();
-  const locale = options?.locale ?? 'th';
+  // Corporate PDF Standardization: PDF content is always English, never
+  // the viewing user's own UI locale - see PDF_LOCALE's own doc comment.
+  const locale = PDF_LOCALE;
   // Per spec: the QR opens the Tractor Profile, not this PDF/record.
   const tractorProfileUrl = `${baseUrl}/vehicles/${encodeURIComponent(record.serial)}`;
   const [qrDataUrl, photoDataUris] = await Promise.all([

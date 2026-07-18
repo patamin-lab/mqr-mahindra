@@ -4,10 +4,14 @@ import QRCode from 'qrcode';
 import { MqrRecord, Severity, PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY } from './types';
 import { formatDateTimeLocalized } from './thaiDate';
 import { PdfBrandLogo } from './pdf/PdfBrandLogo';
+import { PdfHeader } from './pdf/PdfHeader';
+import { PdfFooter } from './pdf/PdfFooter';
 import { ensureFontsRegistered } from './pdf/fonts';
 import { fetchImageAsDataUri } from './pdf/fetchImage';
 import { PDF_BRAND_RED } from './pdf/brand';
 import { sharedPdfStyles } from './pdf/sharedStyles';
+import { PDF_LOCALE } from './pdf/locale';
+import { buildPdfDocumentMeta } from './pdf/metadata';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 
@@ -80,7 +84,7 @@ function listCols(locale: Locale): { key: keyof MqrRecord | 'vehicle'; label: st
 function RecordsListDocument({ records, title, locale }: { records: MqrRecord[]; title: string; locale: Locale }) {
   const cols = listCols(locale);
   return (
-    <Document>
+    <Document {...buildPdfDocumentMeta(translate(locale, 'pdf.mqrTitle'), title)}>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <PdfBrandLogo />
         <Text style={styles.title}>{translate(locale, 'pdf.mqrTitle')}</Text>
@@ -170,6 +174,7 @@ function RecordDocument({
   recordUrl,
   photoDataUris,
   locale,
+  generatedBy,
 }: {
   record: MqrRecord;
   dealerName?: string;
@@ -177,6 +182,7 @@ function RecordDocument({
   recordUrl: string;
   photoDataUris: Map<string, string | null>;
   locale: Locale;
+  generatedBy?: string;
 }) {
   const statusLabel = translate(locale, `mqrStatus.${record.status}`);
   // Coerced to a real boolean: with `||`, if every RCA field is null/undefined
@@ -196,33 +202,27 @@ function RecordDocument({
   );
 
   return (
-    <Document>
+    <Document {...buildPdfDocumentMeta(`${record.job_id} - ${translate(locale, 'pdf.mqrTitle')}`, translate(locale, 'pdf.mqrTitle'))}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <PdfBrandLogo />
-            <Text style={styles.title}>{translate(locale, 'pdf.mqrTitle')}</Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'pdf.reportNumber')} {record.job_id} — {dealerName ?? record.dealer_id}
-            </Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'pdf.printedAt')} {formatDateTimeLocalized(new Date(), locale)}
-            </Text>
-            <View style={styles.badgeRow}>
-              <Text style={[styles.badge, { backgroundColor: '#555' }]}>{statusLabel}</Text>
-              {record.severity ? (
-                <Text style={[styles.badge, { backgroundColor: SEVERITY_COLORS[record.severity as Severity] }]}>
-                  {translate(locale, `severity.${record.severity}`)}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-          <View>
-            <Image src={qrDataUrl} style={styles.qr} />
-            <Text style={styles.qrCaption}>{translate(locale, 'pdf.scanToOpen')}</Text>
-          </View>
-        </View>
-        <View style={styles.titleRule} />
+        <PdfHeader
+          title={translate(locale, 'pdf.mqrTitle')}
+          subtitleLines={[
+            `${translate(locale, 'pdf.reportNumber')} ${record.job_id} — ${dealerName ?? record.dealer_id}`,
+            `${translate(locale, 'pdf.printedAt')} ${formatDateTimeLocalized(new Date(), locale)}`,
+          ]}
+          badges={[
+            <Text key="status" style={[styles.badge, { backgroundColor: '#555' }]}>
+              {statusLabel}
+            </Text>,
+            record.severity ? (
+              <Text key="severity" style={[styles.badge, { backgroundColor: SEVERITY_COLORS[record.severity as Severity] }]}>
+                {translate(locale, `severity.${record.severity}`)}
+              </Text>
+            ) : null,
+          ]}
+          qrDataUrl={qrDataUrl}
+          qrCaption={translate(locale, 'pdf.scanToOpen')}
+        />
 
         <View style={styles.infoTable}>
           <Row2
@@ -351,32 +351,24 @@ function RecordDocument({
                 })}`
               : ''}
           </Text>
-          <Text style={styles.issuedText}>
-            {translate(locale, 'pdf.issuedBy', { at: formatDateTimeLocalized(new Date(), locale) })} MQR
-          </Text>
         </View>
 
-        <Text style={styles.footer}>{recordUrl}</Text>
+        <PdfFooter generatedBy={generatedBy} documentUrl={recordUrl} />
       </Page>
     </Document>
   );
 }
 
-export async function renderRecordsListPdf(
-  records: MqrRecord[],
-  title: string,
-  baseUrl: string,
-  locale: Locale = 'th'
-): Promise<Buffer> {
+export async function renderRecordsListPdf(records: MqrRecord[], title: string, baseUrl: string): Promise<Buffer> {
   ensureFontsRegistered();
-  return renderToBuffer(<RecordsListDocument records={records} title={title} locale={locale} />);
+  return renderToBuffer(<RecordsListDocument records={records} title={title} locale={PDF_LOCALE} />);
 }
 
 export async function renderRecordPdf(
   record: MqrRecord,
   baseUrl: string,
   dealerName?: string,
-  locale: Locale = 'th'
+  generatedBy?: string
 ): Promise<Buffer> {
   ensureFontsRegistered();
   const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
@@ -391,7 +383,8 @@ export async function renderRecordPdf(
       qrDataUrl={qrDataUrl}
       recordUrl={recordUrl}
       photoDataUris={photoDataUris}
-      locale={locale}
+      locale={PDF_LOCALE}
+      generatedBy={generatedBy}
     />
   );
 }

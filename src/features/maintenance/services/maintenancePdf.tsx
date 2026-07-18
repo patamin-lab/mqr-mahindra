@@ -15,8 +15,12 @@ import QRCode from 'qrcode';
 import { ensureFontsRegistered } from '@/lib/pdf/fonts';
 import { fetchImageAsDataUri } from '@/lib/pdf/fetchImage';
 import { PdfBrandLogo } from '@/lib/pdf/PdfBrandLogo';
+import { PdfHeader } from '@/lib/pdf/PdfHeader';
+import { PdfFooter } from '@/lib/pdf/PdfFooter';
+import { PDF_LOCALE } from '@/lib/pdf/locale';
+import { buildPdfDocumentMeta } from '@/lib/pdf/metadata';
 import { sharedPdfStyles } from '@/lib/pdf/sharedStyles';
-import { formatDateTimeLocalized } from '@/lib/thaiDate';
+import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 import { MaintenanceRecord, maintenanceAttachmentsOf, MaintenanceAttachmentKind } from '../types';
@@ -75,6 +79,7 @@ interface MaintenanceDocumentProps {
   recordUrl: string;
   photoDataUris: Map<string, string | null>;
   locale: Locale;
+  generatedBy?: string;
 }
 
 function MaintenanceDocument({
@@ -85,37 +90,34 @@ function MaintenanceDocument({
   recordUrl,
   photoDataUris,
   locale,
+  generatedBy,
 }: MaintenanceDocumentProps) {
   const lock = evaluateMaintenanceLock(record);
   const attachments = maintenanceAttachmentsOf(record);
   const hasGps = record.latitude !== null && record.longitude !== null;
 
   return (
-    <Document>
+    <Document {...buildPdfDocumentMeta(`${record.pm_number ?? record.id} - ${translate(locale, 'pdf.pmTitle')}`, translate(locale, 'pdf.pmTitle'))}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <PdfBrandLogo />
-            <Text style={styles.title}>{translate(locale, 'pdf.pmTitle')}</Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'common.pmNumber')} {record.pm_number ?? record.id} — {dealerName ?? record.dealer_id}
-            </Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'pdf.printedAt')} {formatDateTimeLocalized(new Date(), locale)}
-            </Text>
-            <View style={styles.badgeRow}>
-              <Text style={styles.badge}>{record.status}</Text>
-              {lock.locked && (
-                <Text style={styles.lockedBadge}>🔒 {translate(locale, `lockReason.${lock.reason}`)}</Text>
-              )}
-            </View>
-          </View>
-          <View>
-            <Image src={qrDataUrl} style={styles.qr} />
-            <Text style={styles.qrCaption}>{translate(locale, 'pdf.scanToOpen')}</Text>
-          </View>
-        </View>
-        <View style={styles.titleRule} />
+        <PdfHeader
+          title={translate(locale, 'pdf.pmTitle')}
+          subtitleLines={[
+            `${translate(locale, 'common.pmNumber')} ${record.pm_number ?? record.id} — ${dealerName ?? record.dealer_id}`,
+            `${translate(locale, 'pdf.printedAt')} ${formatDateTimeLocalized(new Date(), locale)}`,
+          ]}
+          badges={[
+            <Text key="status" style={styles.badge}>
+              {record.status}
+            </Text>,
+            lock.locked ? (
+              <Text key="locked" style={styles.lockedBadge}>
+                🔒 {translate(locale, `lockReason.${lock.reason}`)}
+              </Text>
+            ) : null,
+          ]}
+          qrDataUrl={qrDataUrl}
+          qrCaption={translate(locale, 'pdf.scanToOpen')}
+        />
 
         <View style={styles.infoTable}>
           <Row2 l1={translate(locale, 'csv.model')} v1={record.model} l2={translate(locale, 'pdf.serial')} v2={record.serial} />
@@ -123,7 +125,7 @@ function MaintenanceDocument({
             l1={translate(locale, 'common.engineNumber')}
             v1={record.engine_number}
             l2={translate(locale, 'pdf.deliveryDate')}
-            v2={record.delivery_date}
+            v2={record.delivery_date ? formatDateLocalized(record.delivery_date, locale) : null}
           />
           <Row2
             l1={translate(locale, 'pdf.customerName')}
@@ -139,11 +141,16 @@ function MaintenanceDocument({
           />
           <Row2
             l1={translate(locale, 'common.performedDate')}
-            v1={record.performed_date}
+            v1={record.performed_date ? formatDateLocalized(record.performed_date, locale) : null}
             l2={translate(locale, 'pdf.hourMeter')}
             v2={record.hour_meter}
           />
-          <Row2 l1={translate(locale, 'pdf.pmInterval')} v1={intervalLabel} l2={translate(locale, 'pdf.nextPmDue')} v2={record.next_pm_due} />
+          <Row2
+            l1={translate(locale, 'pdf.pmInterval')}
+            v1={intervalLabel}
+            l2={translate(locale, 'pdf.nextPmDue')}
+            v2={record.next_pm_due ? formatDateLocalized(record.next_pm_due, locale) : null}
+          />
           {record.notes && <RowFull label={translate(locale, 'common.notes')} value={record.notes} />}
         </View>
 
@@ -192,12 +199,9 @@ function MaintenanceDocument({
                 })}`
               : ''}
           </Text>
-          <Text style={styles.issuedText}>
-            {translate(locale, 'pdf.issuedBy', { at: formatDateTimeLocalized(new Date(), locale) })} PM
-          </Text>
         </View>
 
-        <Text style={styles.footer}>{recordUrl}</Text>
+        <PdfFooter generatedBy={generatedBy} documentUrl={recordUrl} />
       </Page>
     </Document>
   );
@@ -231,7 +235,7 @@ const listStyles = StyleSheet.create({
 function MaintenanceListDocument({ records, title, locale }: { records: MaintenanceRecord[]; title: string; locale: Locale }) {
   const cols = listCols(locale);
   return (
-    <Document>
+    <Document {...buildPdfDocumentMeta(translate(locale, 'pdf.pmListTitle'), title)}>
       <Page size="A4" orientation="landscape" style={listStyles.page}>
         <PdfBrandLogo />
         <Text style={listStyles.title}>{translate(locale, 'pdf.pmListTitle')}</Text>
@@ -272,10 +276,12 @@ async function resolveAttachmentDataUris(record: MaintenanceRecord): Promise<Map
 export async function renderMaintenanceRecordPdf(
   record: MaintenanceRecord,
   baseUrl: string,
-  options?: { dealerName?: string; intervalLabel?: string; locale?: Locale }
+  options?: { dealerName?: string; intervalLabel?: string; generatedBy?: string }
 ): Promise<Buffer> {
   ensureFontsRegistered();
-  const locale = options?.locale ?? 'th';
+  // Corporate PDF Standardization: PDF content is always English, never
+  // the viewing user's own UI locale - see PDF_LOCALE's own doc comment.
+  const locale = PDF_LOCALE;
   const recordUrl = `${baseUrl}/pm-records/${encodeURIComponent(record.id)}`;
   const [qrDataUrl, photoDataUris] = await Promise.all([
     QRCode.toDataURL(recordUrl, { margin: 0, width: 160 }),
@@ -290,11 +296,12 @@ export async function renderMaintenanceRecordPdf(
       recordUrl={recordUrl}
       photoDataUris={photoDataUris}
       locale={locale}
+      generatedBy={options?.generatedBy}
     />
   );
 }
 
-export async function renderMaintenanceListPdf(records: MaintenanceRecord[], title: string, locale: Locale = 'th'): Promise<Buffer> {
+export async function renderMaintenanceListPdf(records: MaintenanceRecord[], title: string): Promise<Buffer> {
   ensureFontsRegistered();
-  return renderToBuffer(<MaintenanceListDocument records={records} title={title} locale={locale} />);
+  return renderToBuffer(<MaintenanceListDocument records={records} title={title} locale={PDF_LOCALE} />);
 }

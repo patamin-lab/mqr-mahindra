@@ -8,6 +8,7 @@ import { buildSingleRecordWorkbook } from '@/lib/exportExcel';
 import { renderRecordPdf } from '@/lib/exportPdf';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { buildPdfFilename } from '@/lib/pdf/filename';
 
 export const runtime = 'nodejs';
 
@@ -35,11 +36,15 @@ export async function GET(req: NextRequest, { params }: { params: { jobId: strin
     const safeJobId = record.job_id.replace(/[^a-zA-Z0-9_-]/g, '_');
 
     if (format === 'pdf') {
-      const buf = await renderRecordPdf(record, origin, dealer?.full_name, locale);
+      // PDF content is always English (PDF_LOCALE, decided inside
+      // renderRecordPdf) - `locale` here still resolves this route's own
+      // JSON error messages and the Excel export below, which follow the
+      // viewer's own UI locale as before.
+      const buf = await renderRecordPdf(record, origin, dealer?.full_name, session.username);
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${safeJobId}.pdf"`,
+          'Content-Disposition': `attachment; filename="${buildPdfFilename(record.job_id)}"`,
         },
       });
     }
