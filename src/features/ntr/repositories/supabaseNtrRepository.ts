@@ -264,8 +264,15 @@ export class SupabaseNtrRepository implements NtrRepository {
     if (filter.model?.trim()) query = query.ilike('model', `%${filter.model.trim()}%`);
     if (filter.province?.trim()) query = query.ilike('customer_province', `%${filter.province.trim()}%`);
     if (filter.district?.trim()) query = query.ilike('customer_district', `%${filter.district.trim()}%`);
-    if (filter.retailDateFrom) query = query.gte('retail_date', filter.retailDateFrom);
-    if (filter.retailDateTo) query = query.lte('retail_date', filter.retailDateTo);
+    // Filters on `delivery_date`, not the legacy `retail_date` column the
+    // field names still reference - `retail_date` is null for every record
+    // created via the current manual NTR form (see the delivery_date/
+    // retail_date invariant this file documents elsewhere), so filtering
+    // on it silently returned zero rows for any modern NTR (production
+    // regression audit, 2026-07-18). The UI label is "Delivery Date" and
+    // has always meant `delivery_date`.
+    if (filter.retailDateFrom) query = query.gte('delivery_date', filter.retailDateFrom);
+    if (filter.retailDateTo) query = query.lte('delivery_date', filter.retailDateTo);
     if (filter.customerName?.trim()) query = query.ilike('customer_name', `%${filter.customerName.trim()}%`);
     if (filter.serial?.trim()) query = query.ilike('serial', `%${filter.serial.trim()}%`);
     if (filter.status?.trim()) query = query.eq('status', filter.status.trim());

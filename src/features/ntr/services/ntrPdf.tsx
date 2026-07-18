@@ -30,6 +30,8 @@ import { Locale } from '@/lib/i18n/types';
 import { AttachmentService } from '@/shared/attachments';
 import { resolvePdfAttachmentUrl } from '@/lib/pdf/resolveAttachmentUrl';
 import { NtrRecord, NtrAttachmentType } from '../types';
+import { ntrImageReferenceToImageItem } from '../utils/ntrImageItems';
+import type { ImageItem } from '@/components/shared/image';
 import type { VehicleEvent as PlatformVehicleEvent, VehicleSummary } from '@/features/vehicle/types';
 
 const styles = StyleSheet.create({
@@ -90,18 +92,23 @@ interface NtrAttachmentEntry {
   url: string;
   type: NtrAttachmentType;
   label: string;
+  item: ImageItem;
 }
 
 function ntrAttachmentEntries(record: NtrRecord, locale: Locale): NtrAttachmentEntry[] {
   const label = (type: NtrAttachmentType) => translate(locale, `ntr.attachmentType_${type}`);
+  const entry = (id: string, url: string, attachmentId: string | null, type: NtrAttachmentType, itemLabel: string): NtrAttachmentEntry => {
+    const item = ntrImageReferenceToImageItem({ id, url, attachmentId, label: itemLabel, category: type });
+    return { url, type, label: itemLabel, item };
+  };
   const fixed: NtrAttachmentEntry[] = [
-    record.photo_customer_id_url && { url: record.photo_customer_id_url, type: 'CUSTOMER_ID' as const, label: label('CUSTOMER_ID') },
-    record.photo_customer_tractor_url && { url: record.photo_customer_tractor_url, type: 'CUSTOMER_TRACTOR' as const, label: label('CUSTOMER_TRACTOR') },
-    record.photo_serial_plate_url && { url: record.photo_serial_plate_url, type: 'SERIAL_PLATE' as const, label: label('SERIAL_PLATE') },
-    record.photo_hour_meter_url && { url: record.photo_hour_meter_url, type: 'HOUR_METER' as const, label: label('HOUR_METER') },
-    record.photo_signed_document_url && { url: record.photo_signed_document_url, type: 'DELIVERY_SHEET' as const, label: label('DELIVERY_SHEET') },
+    record.photo_customer_id_url && entry(`${record.id}-customer-id`, record.photo_customer_id_url, record.photo_customer_id_attachment_id, 'CUSTOMER_ID', label('CUSTOMER_ID')),
+    record.photo_customer_tractor_url && entry(`${record.id}-customer-tractor`, record.photo_customer_tractor_url, record.photo_customer_tractor_attachment_id, 'CUSTOMER_TRACTOR', label('CUSTOMER_TRACTOR')),
+    record.photo_serial_plate_url && entry(`${record.id}-serial-plate`, record.photo_serial_plate_url, record.photo_serial_plate_attachment_id, 'SERIAL_PLATE', label('SERIAL_PLATE')),
+    record.photo_hour_meter_url && entry(`${record.id}-hour-meter`, record.photo_hour_meter_url, record.photo_hour_meter_attachment_id, 'HOUR_METER', label('HOUR_METER')),
+    record.photo_signed_document_url && entry(`${record.id}-delivery-sheet`, record.photo_signed_document_url, record.photo_signed_document_attachment_id, 'DELIVERY_SHEET', label('DELIVERY_SHEET')),
   ].filter(Boolean) as NtrAttachmentEntry[];
-  const additional: NtrAttachmentEntry[] = record.additional_photos.map((p) => ({ url: p.url, type: p.type ?? 'OTHER', label: p.label }));
+  const additional: NtrAttachmentEntry[] = record.additional_photos.map((p, index) => entry(`${record.id}-additional-${index}`, p.url, p.attachmentId ?? null, p.type ?? 'OTHER', p.label));
   return [...fixed, ...additional];
 }
 
@@ -332,7 +339,9 @@ function NtrDocument({
 /** Resolves every attachment URL (4 fixed + additional) to a data URI in
  *  parallel. */
 async function resolvePhotoDataUris(record: NtrRecord, locale: Locale): Promise<Map<string, ImageFetchResult>> {
-  const urls = ntrAttachmentEntries(record, locale).map((e) => e.url);
+  const urls = ntrAttachmentEntries(record, locale)
+    .map((e) => e.item.displayUrl)
+    .filter((url): url is string => Boolean(url));
   return resolveImageDataUris(urls);
 }
 

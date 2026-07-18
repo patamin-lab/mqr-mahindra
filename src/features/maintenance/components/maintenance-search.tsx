@@ -18,6 +18,7 @@ import type { AttachmentType } from '@/shared/attachments';
 import type { Dealer, PmInterval, Technician, Role } from '@/lib/types';
 import type { PmVehicleSearchResult } from '@/lib/db';
 import type { MaintenanceRecord } from '../types';
+import { maintenancePhotoSlotToImageItem } from '../utils/maintenanceImageItems';
 
 const EMPTY_GPS: GpsLocation = { latitude: null, longitude: null, accuracy: null, googleMapsUrl: null };
 
@@ -520,6 +521,7 @@ function MaintenanceCreateForm({
               label={PHOTO_LABELS[slot]}
               required={slot === 'report'}
               url={photos[slot].url}
+              imageItem={photos[slot].url || photos[slot].attachmentId ? maintenancePhotoSlotToImageItem(slot, photos[slot], PHOTO_LABELS[slot]) : null}
               uploading={uploadingSlot === slot}
               disabled={submitting || uploadingSlot === slot}
               noPhotoYetText="ยังไม่มีรูป"

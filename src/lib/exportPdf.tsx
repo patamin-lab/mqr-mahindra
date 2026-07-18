@@ -14,6 +14,7 @@ import { PDF_BRAND_RED } from './pdf/brand';
 import { sharedPdfStyles } from './pdf/sharedStyles';
 import { PDF_LOCALE } from './pdf/locale';
 import { buildPdfDocumentMeta } from './pdf/metadata';
+import { mqrPhotoToImageItem } from './mqrImageItems';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 import { AttachmentService } from '@/shared/attachments';
@@ -35,7 +36,9 @@ async function resolveMqrTranslations(record: MqrRecord, translationService: Tra
 
 /** Resolves every photo URL on a record to a data URI in parallel, keyed by the original URL. */
 async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, ImageFetchResult>> {
-  const urls = (record.photo_links ?? []).map((p) => p.url);
+  const urls = (record.photo_links ?? [])
+    .map((p, i) => mqrPhotoToImageItem(p, `${record.job_id}-pdf-${i}`, p.label).displayUrl)
+    .filter((url): url is string => !!url);
   return resolveImageDataUris(urls);
 }
 

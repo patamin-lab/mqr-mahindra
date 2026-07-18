@@ -3,7 +3,6 @@ import { getSession } from '@/lib/auth';
 import { canAccessDealerBranch, resolveDealerScope } from '@/lib/dealerBranchScope';
 import { getVehicleBySerial } from '@/lib/db';
 import { createNtrService } from '@/features/ntr/factory';
-import { resolveNtrAttachmentUrls } from '@/features/ntr/utils/resolveNtrAttachmentUrls';
 import { MasterDataService } from '@/shared/master-data';
 import { seesAllDealers } from '@/lib/scope';
 import { t } from '@/lib/i18n/server';
@@ -47,8 +46,6 @@ export default async function NtrEditPage({ params }: RouteParams) {
       </div>
     );
   }
-
-  await resolveNtrAttachmentUrls(record);
 
   // Vehicle Master / Factory Domain display data - resolved here (same
   // pattern the detail page already uses for branch/product family),

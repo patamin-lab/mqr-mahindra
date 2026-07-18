@@ -2,7 +2,7 @@
  * Architecture Enforcement (docs/engineering/ARCHITECTURE_ENFORCEMENT.md).
  *
  * Static, dependency-free source scan (no bundler/AST needed - a regex
- * scan over import statements is enough for the shape of violation this
+ * scan over source boundaries is enough for the shape of violation this
  * tool looks for). Run via `npm run architecture`. Exits non-zero if any
  * rule FAILs - safe to wire into CI as a required check.
  *
@@ -61,6 +61,21 @@ function isBusinessModuleFile(file: string): boolean {
     rel.startsWith('components' + path.sep) ||
     rel === 'middleware.ts'
   );
+}
+
+function isUiFile(file: string): boolean {
+  const rel = path.relative(SRC, file);
+  return (
+    rel.startsWith('app' + path.sep) ||
+    rel.startsWith('features' + path.sep) ||
+    rel.startsWith('components' + path.sep) ||
+    rel === 'middleware.ts'
+  );
+}
+
+function isPageFile(file: string): boolean {
+  const rel = path.relative(SRC, file);
+  return rel.startsWith('app' + path.sep) && !rel.startsWith('app' + path.sep + 'api' + path.sep);
 }
 
 function isAttachmentsPlatformFile(file: string): boolean {
@@ -410,6 +425,47 @@ function checkRule6(files: string[]): RuleResult {
   return { rule: 'Rule 6 - No eager runtime work in Repository/Service construction', severity: details.length ? 'FAIL' : 'PASS', details };
 }
 
+// ---------------------------------------------------------------------
+// Rule 7: migrated image presentation boundaries remain enforced
+// ---------------------------------------------------------------------
+
+const FORBIDDEN_LEGACY_IMAGE_COMPONENTS = /\bAttachment(?:Viewer|Gallery)\b/;
+const FORBIDDEN_UI_STORAGE_SYMBOLS = /\b(?:StorageProvider|StorageProviderFactory|SupabaseStorageProvider|GoogleDriveStorageProvider|CloudflareR2Provider)\b/;
+const FORBIDDEN_PAGE_URL_REFRESH = /\b(?:resolve[A-Z]\w*Attachment\w*Url|refresh(?:Signed|Attachment)?Url)\s*\(|\bAttachmentService\b[\s\S]*?\.getUrl\s*\(/;
+
+function checkRule7(files: string[]): RuleResult {
+  const details: string[] = [];
+  for (const file of files) {
+    if (isTestFile(file) || !isBusinessModuleFile(file)) continue;
+    const source = stripComments(fs.readFileSync(file, 'utf8'));
+    const rel = relPath(file);
+
+    if (FORBIDDEN_LEGACY_IMAGE_COMPONENTS.test(source)) {
+      details.push(`${rel}: references removed legacy image component - use the shared image platform`);
+    }
+
+    if (isUiFile(file) && FORBIDDEN_UI_STORAGE_SYMBOLS.test(source)) {
+      details.push(`${rel}: references a storage-provider symbol in UI/module code - use AttachmentService or AttachmentResourceProvider`);
+    }
+
+    if (isPageFile(file) && FORBIDDEN_PAGE_URL_REFRESH.test(source)) {
+      details.push(`${rel}: performs page-level attachment URL refresh - use AttachmentResourceProvider (PDF/server boundaries remain separate)`);
+    }
+
+    // Feature modules have no approved direct-image exception. Shared
+    // compatibility components, shared primitives, PDF, and print code sit
+    // outside this scope and retain their documented fallbacks.
+    if (rel.startsWith('src/features/') && /<img\b/.test(source)) {
+      details.push(`${rel}: renders an image with direct <img> - use ImageItem and shared image primitives`);
+    }
+  }
+  return {
+    rule: 'Rule 7 - Shared Image Platform boundaries are enforced',
+    severity: details.length ? 'FAIL' : 'PASS',
+    details,
+  };
+}
+
 /** Strips comments so brace-depth tracking above isn't confused by
  *  braces mentioned in comments - a light, deliberately simple pass (no
  *  string-literal awareness), matching this script's existing "static
@@ -430,7 +486,7 @@ function printResult(result: RuleResult): void {
 
 function main(): void {
   const files = walk(SRC);
-  const results = [checkRule1(files), checkRule2(files), checkRule3(files), checkRule4(files), checkRule5(files), checkRule6(files)];
+  const results = [checkRule1(files), checkRule2(files), checkRule3(files), checkRule4(files), checkRule5(files), checkRule6(files), checkRule7(files)];
 
   console.log('Architecture Enforcement Report');
   console.log('================================');
@@ -453,7 +509,7 @@ function main(): void {
   const failCount = results.filter((r) => r.severity === 'FAIL').length;
   console.log('\n================================');
   console.log(
-    `Summary: ${results.filter((r) => r.severity === 'PASS').length} PASS, ${ciWiredIn ? 0 : 1} WARNING, ${failCount} FAIL (rules 1-6) + CI integration check`
+    `Summary: ${results.filter((r) => r.severity === 'PASS').length} PASS, ${ciWiredIn ? 0 : 1} WARNING, ${failCount} FAIL (rules 1-7) + CI integration check`
   );
 
   if (failCount > 0) {

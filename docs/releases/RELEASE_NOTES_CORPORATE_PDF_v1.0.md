@@ -5,6 +5,11 @@
 **Merged**: 2026-07-18, by `patamin-lab`
 **Predecessor**: PR #77 (Production bug fixes + list/image standardization, Phase 1-3), merge commit `13d62c4`
 
+Historical note: the follow-up items listed in this release record were
+closed or superseded by later work. Issue #79 was completed through PR #79L;
+the current release and handoff status is in
+`docs/releases/PRODUCTION_READINESS_REPORT.md`.
+
 This release standardizes every existing production PDF (NTR, PM, MQR — Quality Report) onto one shared framework, fixes a production defect where photos were missing from generated PDFs, and adds bilingual Thai/English output for free-text fields via Google Cloud Translation. No business logic, database schema, or authorization behavior changed — every change is presentation/generation infrastructure.
 
 ## New Features
@@ -41,5 +46,7 @@ Per this release's own scope boundary: no Translation Memory, no AI-assisted tra
 
 ## Follow-up work tracked separately
 
-- Issue #79 — Platform Image Management (shared thumbnail/viewer standardization gaps, Document Image Editor).
-- Issue #80 — Placeholder-based terminology preservation (replaces mixed-language injection with a placeholder/restore mechanism, the same pattern acronym protection already uses).
+- Issue #79 — Platform Image Management: **completed through PR #79L**; see
+  `docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`.
+- Historical follow-up item — Placeholder-based terminology preservation
+  (issue numbering predates the Epic #80 metadata proposal).

@@ -20,9 +20,10 @@ export interface ActivityEventRowProps {
   /** See `ActivityTimelineProps.getEntityHref` - renders a "→ {ref}" link to
    *  the record this event is about when provided and it resolves to a URL. */
   getEntityHref?: (event: ActivityEvent) => string | null | undefined;
+  useImagePlatform?: boolean;
 }
 
-export default function ActivityEventRow({ event, entityLabel, t, formattedDate, onNavigate, getEntityHref }: ActivityEventRowProps) {
+export default function ActivityEventRow({ event, entityLabel, t, formattedDate, onNavigate, getEntityHref, useImagePlatform = false }: ActivityEventRowProps) {
   const [expanded, setExpanded] = useState(false);
   const hasDetail = (event.changes?.length ?? 0) > 0 || (event.photoChanges?.length ?? 0) > 0;
   const entityHref = getEntityHref?.(event) ?? null;
@@ -79,6 +80,7 @@ export default function ActivityEventRow({ event, entityLabel, t, formattedDate,
               photoChanges={event.photoChanges}
               removedLabel={t('activityTimeline.removedPhotos')}
               addedLabel={t('activityTimeline.addedPhotos')}
+              useImagePlatform={useImagePlatform}
             />
           )}
         </div>

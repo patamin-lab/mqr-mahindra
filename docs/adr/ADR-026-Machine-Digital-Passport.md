@@ -47,7 +47,8 @@ call.
 The Passport page is composed from ten presentational panels
 (`src/features/machine/components/`) built entirely from existing MSEAL
 Design Framework primitives (`Card`, `DetailRow`, `KpiCard`, `StatusPill`,
-`EmptyState`, `Skeleton`, `Timeline`/`TimelineItem`, `AttachmentViewer`,
+`EmptyState`, `Skeleton`, `Timeline`/`TimelineItem`, the shared image
+platform,
 `<ActivityTimeline>`) - no new visual language introduced. Five of the
 heavier panels (Warranty, PM, Quality, Documents, Activity) are each
 fetched by their own small async Server Component and wrapped in a

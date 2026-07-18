@@ -29,6 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ ok: true, record: updated });
   } catch (err: any) {
     console.error('receive at stock yard error', err);
-    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: 400 });
+    const notFound = typeof err?.message === 'string' && err.message.includes('not found');
+    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: notFound ? 404 : 400 });
   }
 }

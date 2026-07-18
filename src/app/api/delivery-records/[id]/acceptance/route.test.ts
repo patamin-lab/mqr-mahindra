@@ -74,6 +74,16 @@ describe('POST /api/delivery-records/[id]/acceptance', () => {
     expect(res.status).toBe(403);
   });
 
+  /** Production regression audit (2026-07-18): a non-existent delivery id
+   *  previously fell through to the generic catch's 400, not 404. */
+  it('returns 404, not 400, for a non-existent delivery id', async () => {
+    vi.mocked(getSession).mockResolvedValue(session());
+    mockGetDelivery.mockRejectedValue(new Error('Delivery record del-1 not found'));
+
+    const res = await POST(postRequest({}), params);
+    expect(res.status).toBe(404);
+  });
+
   it('records acceptance for an authorized role in the same dealer', async () => {
     vi.mocked(getSession).mockResolvedValue(session({ role: 'DealerAdmin', dealerId: 'D1' }));
     mockGetDelivery.mockResolvedValue({ id: 'del-1', dealerId: 'D1' });

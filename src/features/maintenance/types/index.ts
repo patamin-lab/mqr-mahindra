@@ -237,14 +237,25 @@ export type MaintenanceAttachmentKind = 'meter' | 'nameplate' | 'report';
 export interface MaintenanceAttachment {
   kind: MaintenanceAttachmentKind;
   url: string;
+  attachmentId: string | null;
 }
 
 /** Derives the standardized `MaintenanceAttachment[]` view from a record's
  *  3 flat photo URL columns - skips any that are missing. */
-export function maintenanceAttachmentsOf(record: Pick<MaintenanceRecord, 'meter_photo_url' | 'nameplate_photo_url' | 'report_photo_url'>): MaintenanceAttachment[] {
+export function maintenanceAttachmentsOf(
+  record: Pick<
+    MaintenanceRecord,
+    | 'meter_photo_url'
+    | 'nameplate_photo_url'
+    | 'report_photo_url'
+    | 'meter_photo_attachment_id'
+    | 'nameplate_photo_attachment_id'
+    | 'report_photo_attachment_id'
+  >
+): MaintenanceAttachment[] {
   const attachments: MaintenanceAttachment[] = [];
-  if (record.meter_photo_url) attachments.push({ kind: 'meter', url: record.meter_photo_url });
-  if (record.nameplate_photo_url) attachments.push({ kind: 'nameplate', url: record.nameplate_photo_url });
-  if (record.report_photo_url) attachments.push({ kind: 'report', url: record.report_photo_url });
+  if (record.meter_photo_url) attachments.push({ kind: 'meter', url: record.meter_photo_url, attachmentId: record.meter_photo_attachment_id });
+  if (record.nameplate_photo_url) attachments.push({ kind: 'nameplate', url: record.nameplate_photo_url, attachmentId: record.nameplate_photo_attachment_id });
+  if (record.report_photo_url) attachments.push({ kind: 'report', url: record.report_photo_url, attachmentId: record.report_photo_attachment_id });
   return attachments;
 }

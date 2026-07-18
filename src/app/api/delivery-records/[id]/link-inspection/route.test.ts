@@ -96,6 +96,16 @@ describe('POST /api/delivery-records/[id]/link-inspection', () => {
     expect(mockLinkInspection).toHaveBeenCalledWith('del-1', 'insp-1', true, expect.anything(), expect.anything());
   });
 
+  /** Production regression audit (2026-07-18): a non-existent delivery id
+   *  previously fell through to the generic catch's 400, not 404. */
+  it('returns 404, not 400, for a non-existent delivery id', async () => {
+    vi.mocked(getSession).mockResolvedValue(session());
+    mockGetDelivery.mockRejectedValue(new Error('Delivery record del-1 not found'));
+
+    const res = await POST(postRequest({ inspectionId: 'insp-1' }), params);
+    expect(res.status).toBe(404);
+  });
+
   it('surfaces the service\'s own canAccessImportInspection rejection as 403', async () => {
     vi.mocked(getSession).mockResolvedValue(session({ dealerId: 'D1' }));
     mockGetDelivery.mockResolvedValue({ id: 'del-1', dealerId: 'D1' });

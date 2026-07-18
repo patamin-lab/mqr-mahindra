@@ -9,15 +9,13 @@ import { evaluateMaintenanceLock } from '@/features/maintenance/utils/maintenanc
 import MaintenanceDeleteButton from './delete-button';
 import MaintenanceUnlockButton from './unlock-button';
 import MaintenanceGpsDetail from '@/features/maintenance/components/maintenance-gps-detail';
+import MaintenanceImageGallery from '@/features/maintenance/components/MaintenanceImageGallery';
+import { maintenanceRecordToImageItems } from '@/features/maintenance/utils/maintenanceImageItems';
 import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import EmptyState from '@/components/shared/layout/EmptyState';
-import AttachmentGallery, { AttachmentGalleryItem } from '@/components/shared/attachments/AttachmentGallery';
 import DetailRow from '@/components/shared/layout/DetailRow';
-import { AttachmentService } from '@/shared/attachments';
-
-const attachmentService = new AttachmentService();
 
 interface RouteParams {
   params: {
@@ -91,22 +89,6 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
   }
 
   const lock = evaluateMaintenanceLock(record);
-
-  // A photo uploaded via the Attachment Platform stores its display URL
-  // as a Supabase signed URL that expires - resolve a fresh one here,
-  // server-side (see docs/engineering/ATTACHMENT_FRAMEWORK.md).
-  if (record.meter_photo_attachment_id) {
-    const resolved = await attachmentService.getUrl(record.meter_photo_attachment_id).catch(() => null);
-    if (resolved) record.meter_photo_url = resolved.url;
-  }
-  if (record.nameplate_photo_attachment_id) {
-    const resolved = await attachmentService.getUrl(record.nameplate_photo_attachment_id).catch(() => null);
-    if (resolved) record.nameplate_photo_url = resolved.url;
-  }
-  if (record.report_photo_attachment_id) {
-    const resolved = await attachmentService.getUrl(record.report_photo_attachment_id).catch(() => null);
-    if (resolved) record.report_photo_url = resolved.url;
-  }
 
   const canManageLock = session ? seesAllDealers(session.role) : false; // SuperAdmin/CentralAdmin
   const canForceDelete = session ? canForceDeleteLockedPm(session.role) : false;
@@ -197,20 +179,31 @@ export default async function PmRecordDetailPage({ params }: RouteParams) {
           />
         )}
 
-        {(record.meter_photo_url || record.nameplate_photo_url || record.report_photo_url) && (
+        {maintenanceRecordToImageItems(record, {
+          meter: t('pdf.photoMeter'),
+          nameplate: t('pdf.photoNameplate'),
+          report: t('pdf.photoReport'),
+        }).length > 0 && (
           <div>
             <h2 className="text-sm font-semibold text-brand-dark">{t('pmDetail.photosTitle')}</h2>
             <div className="mt-2">
-              <AttachmentGallery
-                className="grid gap-3 sm:grid-cols-3"
-                imgClassName="h-32 w-full rounded border object-cover"
-                items={
-                  [
-                    record.meter_photo_url && { key: 'meter', url: record.meter_photo_url, alt: t('pdf.photoMeter') },
-                    record.nameplate_photo_url && { key: 'nameplate', url: record.nameplate_photo_url, alt: t('pdf.photoNameplate') },
-                    record.report_photo_url && { key: 'report', url: record.report_photo_url, alt: t('pdf.photoReport') },
-                  ].filter(Boolean) as AttachmentGalleryItem[]
-                }
+              <MaintenanceImageGallery
+                items={maintenanceRecordToImageItems(record, {
+                  meter: t('pdf.photoMeter'),
+                  nameplate: t('pdf.photoNameplate'),
+                  report: t('pdf.photoReport'),
+                })}
+                labels={{
+                  zoomIn: t('attachmentViewer.zoomIn'),
+                  zoomOut: t('attachmentViewer.zoomOut'),
+                  rotate: t('attachmentViewer.rotateRight'),
+                  reset: t('attachmentViewer.reset'),
+                }}
+                navigationLabels={{
+                  previous: t('attachmentViewer.previous'),
+                  next: t('attachmentViewer.next'),
+                  close: t('attachmentViewer.close'),
+                }}
               />
             </div>
           </div>

@@ -17,6 +17,8 @@ import TextField from '@/components/shared/forms/TextField';
 import SelectField from '@/components/shared/forms/SelectField';
 import GpsLocationPicker from '@/components/shared/gps/GpsLocationPicker';
 import type { GpsLocation } from '@/components/shared/gps/types';
+import { maintenancePhotoSlotToImageItem } from '../utils/maintenanceImageItems';
+import { createMaintenanceAttachmentResourceProvider } from '../utils/maintenanceAttachmentResourceProvider';
 
 type PhotoSlot = 'meter' | 'nameplate' | 'report';
 const PHOTO_ATTACHMENT_TYPE: Record<PhotoSlot, AttachmentType> = {
@@ -110,9 +112,44 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
     googleMapsUrl: initial?.google_maps_url ?? null,
   });
   const [submitting, setSubmitting] = useState(false);
+  const initialPhotosRef = useRef(photos);
+  const imageResourceProvider = useRef(
+    createMaintenanceAttachmentResourceProvider(
+      Object.entries(photos).map(([slot, photo]) => maintenancePhotoSlotToImageItem(slot as PhotoSlot, photo, slot))
+    )
+  ).current;
 
   const showDealerInput = mode === 'create' && showDealerField;
   const cancelHref = props.mode === 'create' ? '/pm-records' : `/pm-records/${encodeURIComponent(props.recordId)}`;
+
+  useEffect(() => {
+    if (mode !== 'edit') return;
+    let active = true;
+    void Promise.all(
+      Object.entries(initialPhotosRef.current)
+        .filter(([, photo]) => Boolean(photo.attachmentId))
+        .map(async ([slot, photo]) => {
+          try {
+            const resolved = await imageResourceProvider.get(photo.attachmentId as string);
+            return { slot: slot as PhotoSlot, url: resolved.displayUrl, attachmentId: resolved.attachmentId ?? photo.attachmentId };
+          } catch {
+            return null;
+          }
+        })
+    ).then((resolved) => {
+      if (!active) return;
+      setPhotos((current) => {
+        const next = { ...current };
+        for (const item of resolved) {
+          if (item) next[item.slot] = { url: item.url, attachmentId: item.attachmentId };
+        }
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [imageResourceProvider, mode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -347,6 +384,7 @@ export default function MaintenanceForm(props: MaintenanceFormProps) {
               label={t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)}
               required={slot === 'report'}
               url={photos[slot].url}
+              imageItem={photos[slot].url || photos[slot].attachmentId ? maintenancePhotoSlotToImageItem(slot, photos[slot], t(`pdf.photo${slot === 'meter' ? 'Meter' : slot === 'nameplate' ? 'Nameplate' : 'Report'}`)) : null}
               uploading={uploadingSlot === slot}
               disabled={submitting || uploadingSlot === slot}
               noPhotoYetText={t('pmEdit.noPhotoYet')}

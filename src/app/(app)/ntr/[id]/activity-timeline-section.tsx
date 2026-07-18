@@ -9,5 +9,5 @@ import { ActivityEvent } from '@/components/shared/activity-timeline/types';
  *  MQR-specific); the timeline still renders and filters normally
  *  without it. */
 export default function NtrActivityTimelineSection({ events }: { events: ActivityEvent[] }) {
-  return <ActivityTimeline events={events} entityLabel="NTR" />;
+  return <ActivityTimeline events={events} entityLabel="NTR" useImagePlatform />;
 }

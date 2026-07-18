@@ -42,6 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   } catch (err: any) {
     console.error('link inspection to delivery record error', err);
     const forbidden = typeof err?.message === 'string' && err.message.includes('may not link an Import Inspection');
-    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: forbidden ? 403 : 400 });
+    const notFound = typeof err?.message === 'string' && err.message.includes('not found');
+    return NextResponse.json({ ok: false, error: err?.message ?? 'internal error' }, { status: forbidden ? 403 : notFound ? 404 : 400 });
   }
 }

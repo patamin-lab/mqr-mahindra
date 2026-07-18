@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { listAuditLog } from '@/lib/db';
 import { KnowledgeService } from '@/features/knowledge';
+import KnowledgeDocumentsGallery from '@/features/knowledge/components/KnowledgeDocumentsGallery';
+import { knowledgeAttachmentsToImageItems } from '@/features/knowledge/utils/knowledgeImageItems';
 import { canReviewKnowledge } from '@/lib/scope';
 import { AttachmentService } from '@/shared/attachments';
 import { MasterDataService } from '@/shared/master-data';
@@ -11,7 +13,6 @@ import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTime
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import EmptyState from '@/components/shared/layout/EmptyState';
-import AttachmentViewer from '@/components/shared/attachments/AttachmentViewer';
 import MaturityPill from '@/features/knowledge/components/MaturityPill';
 import ConfidencePill from '@/features/knowledge/components/ConfidencePill';
 import KnowledgeMaturityControl from '@/features/knowledge/components/KnowledgeMaturityControl';
@@ -63,9 +64,7 @@ export default async function KnowledgeCaseDetailPage({ params }: { params: { id
     attachmentService.list('knowledge', 'knowledge_case', kase.id),
     kase.productFamilyId ? MasterDataService.getProductFamilyById(kase.productFamilyId) : Promise.resolve(null),
   ]);
-  const documentsWithUrls = await Promise.all(
-    documents.map(async (d) => ({ ...d, url: (await attachmentService.getUrl(d.id).catch(() => null))?.url ?? null }))
-  );
+  const documentItems = knowledgeAttachmentsToImageItems(documents);
   const activityEvents = mapAuditLogToActivityEvents(auditLog, {
     entityType: 'knowledge',
     entityId: kase.id,
@@ -107,7 +106,25 @@ export default async function KnowledgeCaseDetailPage({ params }: { params: { id
 
       <Card variant="flat" className="p-5">
         <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('knowledge.relatedDocumentsTitle')}</h2>
-        <AttachmentViewer items={documentsWithUrls} emptyMessage={t('knowledge.noRelatedRecords')} />
+        <KnowledgeDocumentsGallery
+          items={documentItems}
+          emptyMessage={t('knowledge.noRelatedRecords')}
+          unavailableMessage={t('attachmentViewer.unavailable')}
+          openLabel={t('attachmentViewer.open')}
+          downloadLabel={t('attachmentViewer.download')}
+          labels={{
+            zoomOut: t('attachmentViewer.zoomOut'),
+            zoomIn: t('attachmentViewer.zoomIn'),
+            rotate: t('attachmentViewer.rotateRight'),
+            reset: t('attachmentViewer.reset'),
+            toolbar: t('attachmentViewer.imageControls'),
+          }}
+          navigationLabels={{
+            previous: t('attachmentViewer.previous'),
+            next: t('attachmentViewer.next'),
+            close: t('attachmentViewer.close'),
+          }}
+        />
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -177,7 +194,7 @@ export default async function KnowledgeCaseDetailPage({ params }: { params: { id
       )}
 
       <Card as="section" variant="flat" className="p-5">
-        <ActivityTimeline events={activityEvents} entityLabel={t('knowledge.title')} />
+        <ActivityTimeline events={activityEvents} entityLabel={t('knowledge.title')} useImagePlatform />
       </Card>
 
       <KnowledgeFutureAiPanel />

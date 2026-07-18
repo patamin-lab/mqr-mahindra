@@ -3,6 +3,8 @@ import { getSession } from '@/lib/auth';
 import { listAuditLog, getVehicleBySerial } from '@/lib/db';
 import { UNRESTRICTED_SCOPE } from '@/lib/dealerBranchScope';
 import { InspectionService } from '@/features/inspection';
+import InspectionEvidenceGallery from '@/features/inspection/components/InspectionEvidenceGallery';
+import { inspectionAttachmentsToImageItems } from '@/features/inspection/utils/inspectionImageItems';
 import { canAccessImportInspection } from '@/lib/scope';
 import { AttachmentService } from '@/shared/attachments';
 import { t } from '@/lib/i18n/server';
@@ -11,7 +13,6 @@ import ActivityTimeline from '@/components/shared/activity-timeline/ActivityTime
 import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import EmptyState from '@/components/shared/layout/EmptyState';
-import AttachmentViewer from '@/components/shared/attachments/AttachmentViewer';
 import ChecklistEditor from '@/features/inspection/components/ChecklistEditor';
 import FindingsSection from '@/features/inspection/components/FindingsSection';
 import MeasurementsSection from '@/features/inspection/components/MeasurementsSection';
@@ -85,9 +86,7 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
         })
       : Promise.resolve(null),
   ]);
-  const evidenceWithUrls = await Promise.all(
-    evidence.map(async (d) => ({ ...d, url: (await attachmentService.getUrl(d.id).catch(() => null))?.url ?? null }))
-  );
+  const evidenceItems = inspectionAttachmentsToImageItems(evidence);
   const activityEvents = mapAuditLogToActivityEvents(auditLog, {
     entityType: 'pdi',
     entityId: inspection.id,
@@ -192,7 +191,25 @@ export default async function InspectionDetailPage({ params }: { params: { id: s
 
       <Card variant="flat" className="p-5">
         <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('knowledge.relatedDocumentsTitle')}</h2>
-        <AttachmentViewer items={evidenceWithUrls} emptyMessage={t('knowledge.noRelatedRecords')} />
+        <InspectionEvidenceGallery
+          items={evidenceItems}
+          emptyMessage={t('knowledge.noRelatedRecords')}
+          unavailableMessage={t('attachmentViewer.unavailable')}
+          openLabel={t('attachmentViewer.open')}
+          downloadLabel={t('attachmentViewer.download')}
+          labels={{
+            zoomOut: t('attachmentViewer.zoomOut'),
+            zoomIn: t('attachmentViewer.zoomIn'),
+            rotate: t('attachmentViewer.rotateRight'),
+            reset: t('attachmentViewer.reset'),
+            toolbar: t('attachmentViewer.imageControls'),
+          }}
+          navigationLabels={{
+            previous: t('attachmentViewer.previous'),
+            next: t('attachmentViewer.next'),
+            close: t('attachmentViewer.close'),
+          }}
+        />
       </Card>
 
       <Card as="section" variant="flat" className="p-5">

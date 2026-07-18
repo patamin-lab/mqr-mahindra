@@ -53,9 +53,12 @@ export interface ActivityTimelineProps {
    *  no-op link, not a fix. Returning `null`/undefined renders no link for
    *  that event, same as omitting the prop entirely. */
   getEntityHref?: (event: ActivityEvent) => string | null | undefined;
+  /** MQR-only migration flag; other timeline consumers retain their current
+   * renderer until their own image-platform migration. */
+  useImagePlatform?: boolean;
 }
 
-export default function ActivityTimeline({ events, entityLabel, onNavigate, getEntityHref }: ActivityTimelineProps) {
+export default function ActivityTimeline({ events, entityLabel, onNavigate, getEntityHref, useImagePlatform = false }: ActivityTimelineProps) {
   const { t, locale } = useTranslation();
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [query, setQuery] = useState('');
@@ -137,6 +140,7 @@ export default function ActivityTimeline({ events, entityLabel, onNavigate, getE
               formattedDate={formatDateTimeLocalized(event.timestamp, locale)}
               onNavigate={onNavigate}
               getEntityHref={getEntityHref}
+              useImagePlatform={useImagePlatform}
             />
           ))}
         </ol>

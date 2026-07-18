@@ -17,13 +17,13 @@ import PageHeader from '@/components/shared/layout/PageHeader';
 import Card from '@/components/shared/layout/Card';
 import EmptyState from '@/components/shared/layout/EmptyState';
 import StatusPill from '@/components/shared/status/StatusPill';
-import AttachmentGallery, { AttachmentGalleryItem } from '@/components/shared/attachments/AttachmentGallery';
+import NtrImageGallery from '@/features/ntr/components/NtrImageGallery';
+import NtrVideoLink from '@/features/ntr/components/NtrVideoLink';
 import DetailRow from '@/components/shared/layout/DetailRow';
 import Timeline from '@/components/shared/timeline/Timeline';
 import TimelineItem from '@/components/shared/timeline/TimelineItem';
 import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
-import { resolveNtrAttachmentUrls } from '@/features/ntr/utils/resolveNtrAttachmentUrls';
-import type { NtrAttachmentType } from '@/features/ntr/types';
+import { ntrRecordToImageItems } from '@/features/ntr/utils/ntrImageItems';
 import type { VehicleEvent } from '@/features/vehicle/types';
 
 interface RouteParams {
@@ -90,8 +90,6 @@ export default async function NtrDetailPage({ params }: RouteParams) {
 
   const allowDelete = canDelete(session.role);
 
-  await resolveNtrAttachmentUrls(record);
-
   const [branch, productFamily, summary, timeline, auditLog] = await Promise.all([
     record.branch_id ? MasterDataService.getBranch(record.branch_id) : Promise.resolve(null),
     record.product_family_id ? MasterDataService.getProductFamilyById(record.product_family_id) : Promise.resolve(null),
@@ -122,32 +120,14 @@ export default async function NtrDetailPage({ params }: RouteParams) {
       : record.customer_name;
 
   // Standardized attachment taxonomy (docs/standards/DOMAIN_LANGUAGE_STANDARD.md) -
-  // hide any card with no uploaded file, never show an empty placeholder.
-  const attachments: (AttachmentGalleryItem & { type: NtrAttachmentType })[] = [
-    record.photo_customer_id_url && {
-      key: 'customer_id', type: 'CUSTOMER_ID' as const, url: record.photo_customer_id_url,
-      alt: t('ntr.attachmentType_CUSTOMER_ID'), caption: t('ntr.attachmentType_CUSTOMER_ID'),
-    },
-    record.photo_customer_tractor_url && {
-      key: 'customer_tractor', type: 'CUSTOMER_TRACTOR' as const, url: record.photo_customer_tractor_url,
-      alt: t('ntr.attachmentType_CUSTOMER_TRACTOR'), caption: t('ntr.attachmentType_CUSTOMER_TRACTOR'),
-    },
-    record.photo_serial_plate_url && {
-      key: 'serial_plate', type: 'SERIAL_PLATE' as const, url: record.photo_serial_plate_url,
-      alt: t('ntr.attachmentType_SERIAL_PLATE'), caption: t('ntr.attachmentType_SERIAL_PLATE'),
-    },
-    record.photo_hour_meter_url && {
-      key: 'hour_meter', type: 'HOUR_METER' as const, url: record.photo_hour_meter_url,
-      alt: t('ntr.attachmentType_HOUR_METER'), caption: t('ntr.attachmentType_HOUR_METER'),
-    },
-    record.photo_signed_document_url && {
-      key: 'signed_document', type: 'DELIVERY_SHEET' as const, url: record.photo_signed_document_url,
-      alt: t('ntr.attachmentType_DELIVERY_SHEET'), caption: t('ntr.attachmentType_DELIVERY_SHEET'),
-    },
-    ...record.additional_photos.map((p, i) => ({
-      key: `additional_${i}`, type: (p.type ?? 'OTHER') as NtrAttachmentType, url: p.url, alt: p.label, caption: p.label,
-    })),
-  ].filter(Boolean) as (AttachmentGalleryItem & { type: NtrAttachmentType })[];
+  // preserve stored order and hide only references with neither URL nor ID.
+  const imageItems = ntrRecordToImageItems(record, {
+    customerId: t('ntr.attachmentType_CUSTOMER_ID'),
+    customerTractor: t('ntr.attachmentType_CUSTOMER_TRACTOR'),
+    serialPlate: t('ntr.attachmentType_SERIAL_PLATE'),
+    hourMeter: t('ntr.attachmentType_HOUR_METER'),
+    deliverySheet: t('ntr.attachmentType_DELIVERY_SHEET'),
+  });
 
   return (
     <div className="space-y-4 print:space-y-2">
@@ -265,19 +245,31 @@ export default async function NtrDetailPage({ params }: RouteParams) {
       )}
 
       {/* Section 5: Attachments - responsive 2-column gallery, hidden cards for anything not uploaded */}
-      {attachments.length > 0 && (
+      {imageItems.length > 0 && (
         <Card variant="compact" className="p-6">
           <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('ntr.photosTitle')}</h2>
-          <AttachmentGallery className="grid gap-3 sm:grid-cols-2" imgClassName="aspect-video w-full rounded border bg-gray-100 object-contain" items={attachments} linkable />
+          <NtrImageGallery
+            items={imageItems}
+            labels={{
+              zoomOut: t('attachmentViewer.zoomOut'),
+              zoomIn: t('attachmentViewer.zoomIn'),
+              rotate: t('attachmentViewer.rotateRight'),
+              reset: t('attachmentViewer.reset'),
+              toolbar: t('attachmentViewer.imageControls'),
+            }}
+            navigationLabels={{
+              previous: t('attachmentViewer.previous'),
+              next: t('attachmentViewer.next'),
+              close: t('attachmentViewer.close'),
+            }}
+          />
         </Card>
       )}
 
-      {record.video_url && (
+      {(record.video_url || record.video_attachment_id) && (
         <Card variant="compact" className="p-6">
           <h2 className="mb-2 text-sm font-semibold text-brand-dark">{t('pdf.videoLabel')}</h2>
-          <a href={record.video_url} target="_blank" rel="noreferrer" className="text-sm text-brand-red hover:underline">
-            {t('pdf.openVideo')}
-          </a>
+          <NtrVideoLink initialUrl={record.video_url} attachmentId={record.video_attachment_id} label={t('pdf.openVideo')} loadingLabel={t('ntr.uploading')} />
         </Card>
       )}
 

@@ -31,6 +31,7 @@ import { createMachineTranslationProvider } from '@/lib/translation/factory';
 import type { TranslationResult } from '@/lib/translation/types';
 import { MaintenanceRecord, maintenanceAttachmentsOf, MaintenanceAttachmentKind } from '../types';
 import { evaluateMaintenanceLock } from '../utils/maintenanceLock';
+import { maintenanceImageReferenceToImageItem } from '../utils/maintenanceImageItems';
 
 const ATTACHMENT_I18N_KEY: Record<MaintenanceAttachmentKind, string> = {
   meter: 'photoMeter',
@@ -103,7 +104,16 @@ function MaintenanceDocument({
   notesTranslation,
 }: MaintenanceDocumentProps) {
   const lock = evaluateMaintenanceLock(record);
-  const attachments = maintenanceAttachmentsOf(record);
+  const attachments = maintenanceAttachmentsOf(record).map((attachment) => ({
+    ...attachment,
+    item: maintenanceImageReferenceToImageItem({
+      id: `${record.id}-${attachment.kind}`,
+      url: attachment.url,
+      attachmentId: attachment.attachmentId,
+      label: translate(locale, `pdf.${ATTACHMENT_I18N_KEY[attachment.kind]}`),
+      category: attachment.kind,
+    }),
+  }));
   const hasGps = record.latitude !== null && record.longitude !== null;
 
   return (
@@ -183,7 +193,7 @@ function MaintenanceDocument({
         )}
 
         {attachments.map((a) => {
-          const result = photoDataUris.get(a.url);
+          const result = photoDataUris.get(a.item.displayUrl ?? a.url);
           const label = translate(locale, `pdf.${ATTACHMENT_I18N_KEY[a.kind]}`);
           return (
             <View key={a.kind}>

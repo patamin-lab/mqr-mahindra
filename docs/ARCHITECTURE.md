@@ -1,5 +1,10 @@
 # Architecture
 
+> Current image architecture: Shared Image Platform v1 is implemented and
+> production-proven. See `docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`,
+> ADR-039, and `docs/engineering/ARCHITECTURE_ENFORCEMENT.md`. This Sprint 1
+> document remains historical for its original target-folder discussion.
+
 > Status as of Sprint 1 (Repository Foundation). This document describes
 > **two things side by side**: the architecture as it actually runs in
 > production today, and the target modular architecture this repository is
@@ -88,9 +93,9 @@ src/
   middleware.ts
 ```
 
-(Repo root also currently holds some local artifacts — `.patch` files, log
-files — left over from earlier patch-based deploys. Out of scope for
-Sprint 1; tracked separately, not touched here.)
+(Historical root-level patch and log artifacts were removed during repository
+release finalization. They were not runtime inputs and are not part of the
+production repository.)
 
 ## 4. Target folder map
 

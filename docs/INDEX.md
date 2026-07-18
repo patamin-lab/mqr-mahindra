@@ -7,6 +7,12 @@ here; every other doc is reachable from one of the sections below.
 
 - [`CLAUDE.md`](../CLAUDE.md) — what MQR/PM is, tech stack, DB schema,
   RBAC, deployment workflow. The single most load-bearing doc in the repo.
+- [`ENGINEERING_PLAYBOOK.md`](../ENGINEERING_PLAYBOOK.md) — complete engineering
+  lifecycle, review, validation, release, and maintenance workflow.
+- [`AI_GUIDE.md`](../AI_GUIDE.md) — operating guide and prompt templates for AI
+  assistants.
+- [`DEVELOPMENT_STANDARD.md`](../DEVELOPMENT_STANDARD.md) — branch, commit, PR,
+  review, testing, release, rollback, and deployment standards.
 - [`.claude/CLAUDE.md`](../.claude/CLAUDE.md) — how an AI agent should
   operate in this repository, on top of (not instead of) `CLAUDE.md`.
 - [`AI_CONTEXT.md`](../AI_CONTEXT.md), [`PROJECT_STATE.md`](../PROJECT_STATE.md)
@@ -50,10 +56,22 @@ actually ship today — not a green-field proposal.
 - [`UI_COMPONENT_STANDARD.md`](standards/UI_COMPONENT_STANDARD.md) —
   frozen design tokens (spacing, typography, color, status colors, icon
   usage, button hierarchy) and the shared component inventory
-  (`PageHeader`, `StatusPill`, `Card`, `Timeline`, `AttachmentGallery`,
+  (`PageHeader`, `StatusPill`, `Card`, `Timeline`, `ImageThumbnail`,
   `SearchToolbar`, `DetailRow`, shared PDF theme).
 
 ## Architecture
+
+- [`SHARED_IMAGE_PLATFORM_V1.md`](architecture/SHARED_IMAGE_PLATFORM_V1.md) —
+  production-proven shared image architecture, platform rules, onboarding,
+  migration history, and v1 future roadmap.
+- [`IMAGE_METADATA_FOUNDATION_PROPOSAL.md`](architecture/IMAGE_METADATA_FOUNDATION_PROPOSAL.md)
+  — Epic #80 design-only metadata architecture and future extension seams.
+- [`releases/PRODUCTION_READINESS_REPORT.md`](releases/PRODUCTION_READINESS_REPORT.md)
+  — current production handoff assessment and validation record.
+- [`releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`](releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md)
+  — v2.4.0 Shared Image Platform v1 release notes.
+- [`PLATFORM_ARCHITECTURE_STANDARDS.md`](architecture/PLATFORM_ARCHITECTURE_STANDARDS.md)
+  — binding layer, storage, image-platform, and extension rules.
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — current production architecture
   (everything under `src/`) side by side with the target modular layout
@@ -140,6 +158,9 @@ actually ship today — not a green-field proposal.
 - [`adr/ADR-007-Scheduler.md`](adr/ADR-007-Scheduler.md)
 - [`adr/ADR-009-Machine-Domain.md`](adr/ADR-009-Machine-Domain.md)
 - [`adr/ADR-010-Attachment-Platform.md`](adr/ADR-010-Attachment-Platform.md)
+- [`adr/ADR-039-Shared-Image-Presentation-and-Editing-Platform.md`](adr/ADR-039-Shared-Image-Presentation-and-Editing-Platform.md)
+- [`adr/ADR-040-Image-Metadata-Foundation.md`](adr/ADR-040-Image-Metadata-Foundation.md)
+  — proposed, design-only future metadata architecture.
 
 ## Product & vision
 

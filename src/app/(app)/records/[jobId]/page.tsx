@@ -16,8 +16,9 @@ import { t, getServerLocale } from '@/lib/i18n/server';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import StatusPill from '@/components/shared/status/StatusPill';
 import Card from '@/components/shared/layout/Card';
-import AttachmentGallery from '@/components/shared/attachments/AttachmentGallery';
-import { AttachmentService } from '@/shared/attachments';
+import MqrImageGallery from '@/features/mqr/components/MqrImageGallery';
+import MqrVideoLink from '@/features/mqr/components/MqrVideoLink';
+import { mqrPhotoToImageItem } from '@/lib/mqrImageItems';
 import { mapAuditLogToActivityEvents } from '@/components/shared/activity-timeline/mapAuditLogToActivityEvents';
 import RecordActivityTimelineSection from './activity-timeline-section';
 
@@ -30,8 +31,6 @@ import RecordActivityTimelineSection from './activity-timeline-section';
  *  be the same labels, not `['Repaired', 'Closed']`, or this never matches. */
 const MQR_CLOSING_STATUSES = [STATUS_LABELS.Repaired, STATUS_LABELS.Closed];
 
-const attachmentService = new AttachmentService();
-
 export default async function RecordDetailPage({ params }: { params: { jobId: string } }) {
   const session = await getSession();
   if (!session) return null;
@@ -40,24 +39,6 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
   const jobId = decodeURIComponent(params.jobId);
   const record = await getRecordByJobId(jobId, session);
   if (!record) notFound();
-
-  // A photo/video uploaded via the Attachment Platform stores only
-  // `attachmentId` durably - its `url` may be a Supabase signed URL that
-  // has since expired, so it's never trusted directly. Resolve a fresh
-  // one here, server-side, at request time - a pre-migration entry with
-  // no `attachmentId` keeps using its stored Drive URL unchanged. See
-  // docs/engineering/ATTACHMENT_FRAMEWORK.md.
-  record.photo_links = await Promise.all(
-    (record.photo_links ?? []).map(async (p) => {
-      if (!p.attachmentId) return p;
-      const resolved = await attachmentService.getUrl(p.attachmentId).catch(() => null);
-      return resolved ? { ...p, url: resolved.url } : p;
-    })
-  );
-  if (record.video_attachment_id) {
-    const resolved = await attachmentService.getUrl(record.video_attachment_id).catch(() => null);
-    if (resolved) record.video_link = resolved.url;
-  }
 
   const dealer = await MasterDataService.getDealerById(record.dealer_id);
   const history = record.serial ? await getVehicleHistory(record.serial, session) : [];
@@ -275,9 +256,20 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
             return (
               <div key={cat.key}>
                 <div className="text-xs text-gray-400 mb-2">{categoryLabel}</div>
-                <AttachmentGallery
-                  linkable
-                  items={photos.map((p, i) => ({ key: i, url: p.url, alt: categoryLabel, caption: categoryLabel }))}
+                <MqrImageGallery
+                  items={photos.map((p, i) => mqrPhotoToImageItem(p, `${record.job_id}-${cat.key}-${i}`, categoryLabel))}
+                  labels={{
+                    zoomOut: t('attachmentViewer.zoomOut'),
+                    zoomIn: t('attachmentViewer.zoomIn'),
+                    rotate: t('attachmentViewer.rotateRight'),
+                    reset: t('attachmentViewer.reset'),
+                    toolbar: t('attachmentViewer.imageControls'),
+                  }}
+                  navigationLabels={{
+                    previous: t('attachmentViewer.previous'),
+                    next: t('attachmentViewer.next'),
+                    close: t('attachmentViewer.close'),
+                  }}
                 />
               </div>
             );
@@ -285,19 +277,14 @@ export default async function RecordDetailPage({ params }: { params: { jobId: st
           {record.video_link && (
             <div className="print:hidden">
               <div className="text-xs text-gray-400 mb-2">{t('pdf.videoLabel')}</div>
-              <iframe
-                src={record.video_link.replace('/view', '/preview')}
-                className="w-full aspect-video rounded border border-gray-200"
-                allow="autoplay; fullscreen"
-                allowFullScreen
+              <MqrVideoLink
+                initialUrl={record.video_link}
+                attachmentId={record.video_attachment_id}
+                label={t('recordDetail.openVideoNewTab')}
+                openLabel={t('recordDetail.openVideoNewTab')}
+                loadingLabel={t('attachmentViewer.unavailable')}
+                embed
               />
-              <a
-                href={record.video_link}
-                target="_blank"
-                className="inline-block text-xs text-brand-red hover:underline mt-1"
-              >
-                {t('recordDetail.openVideoNewTab')}
-              </a>
             </div>
           )}
         </Card>
