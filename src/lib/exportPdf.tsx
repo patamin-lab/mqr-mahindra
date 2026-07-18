@@ -18,6 +18,7 @@ import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 import { AttachmentService } from '@/shared/attachments';
 import { TranslationService } from './translation/translationService';
+import { createMachineTranslationProvider } from './translation/factory';
 import type { TranslationResult } from './translation/types';
 
 const MQR_TRANSLATABLE_FIELDS = ['attachment', 'cause', 'damaged_parts', 'technician_action', 'corrective_action', 'preventive_action'] as const;
@@ -418,7 +419,7 @@ export async function renderRecordPdf(
   const [qrDataUrl, photoDataUris, translations] = await Promise.all([
     QRCode.toDataURL(recordUrl, { margin: 0, width: 160 }),
     resolvePhotoDataUris(resolvedRecord),
-    resolveMqrTranslations(resolvedRecord, new TranslationService()),
+    resolveMqrTranslations(resolvedRecord, new TranslationService(createMachineTranslationProvider())),
   ]);
   return renderToBuffer(
     <RecordDocument

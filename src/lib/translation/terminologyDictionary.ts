@@ -2,10 +2,15 @@
  * Engineering terminology normalization (Defect 2). Generic machine
  * translation alone is insufficient for a cross-country engineering
  * report - a tractor part name translated word-for-word by a general-
- * purpose model frequently misses the actual industry term. This table
- * is applied as a normalization PASS on top of whatever
- * `MachineTranslationProvider` returns (see `translationService.ts`),
- * never as a replacement for real translation.
+ * purpose model frequently misses the actual industry term. This table is
+ * applied to the Thai SOURCE text before it reaches a
+ * `MachineTranslationProvider` (see `translationService.ts`), never as a
+ * post-process over the provider's own output - a real translator (e.g.
+ * Google Cloud Translation) returns fully English text with no Thai
+ * substrings left in it, so matching this table against a translation
+ * result can never find anything to fix. Pre-substituting means the
+ * approved English term is what the provider actually sees/passes
+ * through, not something reconstructed after the fact.
  *
  * IMPORTANT: this list is exactly the term set explicitly provided when
  * this feature was scoped. It is deliberately NOT expanded with
@@ -35,9 +40,11 @@ export const ENGINEERING_TERMINOLOGY: ReadonlyArray<{ th: string; en: string }> 
 /**
  * Acronyms that must never be run through machine translation (a general
  * MT provider will sometimes "translate" an acronym into an unrelated
- * word or expand it incorrectly). Applied as a protect-list: these
- * substrings are held back before a provider call and restored verbatim
- * afterward.
+ * word, expand it, or alter its casing). Held back with a placeholder
+ * before a provider call (`protectAcronyms`) and restored verbatim
+ * afterward (`restoreAcronyms`) - a guaranteed round-trip, unlike the
+ * terminology table above which relies on the provider passing an
+ * already-English phrase through mostly unchanged.
  */
 export const PROTECTED_ACRONYMS: ReadonlyArray<string> = ['PTO', 'RPM', 'ECU', 'CAN', 'VIN', 'ABS', '4WD', '2WD'];
 
@@ -47,14 +54,12 @@ const SORTED_TERMS = [...ENGINEERING_TERMINOLOGY].sort((a, b) => b.th.length - a
 
 /**
  * Applies the terminology table directly to Thai source text, replacing
- * every known term with its normalized English form in place. This is
+ * every known term with its normalized English form in place, before
+ * that text is ever sent to a `MachineTranslationProvider`. This is
  * intentionally a narrow, literal find-and-replace over ONLY the terms
- * above - not a translator. It runs both (a) as a normalization pass
- * over whatever a real `MachineTranslationProvider` returns, so a known
- * term is always rendered with the exact approved English term rather
- * than whatever a general-purpose model chose, and (b) standalone when no
- * provider is configured, so a recognizable term still surfaces correctly
- * even with translation otherwise unavailable.
+ * above - not a translator - and doubles as the entire normalization when
+ * no provider is configured, so a recognizable term still surfaces
+ * correctly even with live translation unavailable.
  */
 export function applyTerminologyNormalization(text: string): string {
   let result = text;
@@ -62,4 +67,33 @@ export function applyTerminologyNormalization(text: string): string {
     result = result.split(th).join(en);
   }
   return result;
+}
+
+/** Longest-match-first for the same reason as terminology above (e.g.
+ *  "4WD" must never be caught mid-match by a shorter, unrelated
+ *  acronym). */
+const SORTED_ACRONYMS = [...PROTECTED_ACRONYMS].sort((a, b) => b.length - a.length);
+
+/**
+ * Replaces every occurrence of a protected acronym with a unique
+ * placeholder token before the text is sent to a translation provider,
+ * and returns a `restore` function that puts the original acronym back
+ * verbatim afterward. The placeholder shape (`@@P0@@`) uses characters no
+ * legitimate engineering free-text field would contain, and is
+ * distinctive enough that a translation provider passes it through
+ * unmodified rather than "translating" it.
+ */
+export function protectAcronyms(text: string): { text: string; restore: (translated: string) => string } {
+  let working = text;
+  const replacements: { placeholder: string; original: string }[] = [];
+  SORTED_ACRONYMS.forEach((acronym, index) => {
+    if (!working.includes(acronym)) return;
+    const placeholder = `@@P${index}@@`;
+    working = working.split(acronym).join(placeholder);
+    replacements.push({ placeholder, original: acronym });
+  });
+  return {
+    text: working,
+    restore: (translated: string) => replacements.reduce((t, { placeholder, original }) => t.split(placeholder).join(original), translated),
+  };
 }

@@ -36,12 +36,38 @@ describe('TranslationService', () => {
     expect(result).toEqual({ ok: false, reason: 'quota exceeded' });
   });
 
-  it('applies terminology and unit normalization on top of a successful provider translation', async () => {
-    const provider = fakeProvider(async () => ({ ok: true, text: 'Replace the ลูกปืน after 20 ชั่วโมง of use' }));
+  it('substitutes known terminology/units into the Thai SOURCE before calling the provider, not after', async () => {
+    // A real provider (Google Translate) returns fully English text with
+    // no Thai substrings left - post-processing its output could never
+    // match anything. The provider must receive the already-substituted
+    // text, and its own (here: pass-through) response is the final result.
+    const provider = fakeProvider(async (req) => ({ ok: true, text: req.text }));
     const service = new TranslationService(provider);
 
     const result = await service.translateToEnglish('เปลี่ยนลูกปืนหลังใช้งาน 20 ชั่วโมง');
-    expect(result).toEqual({ ok: true, text: 'Replace the Bearing after 20 hours of use' });
+
+    expect(provider.translate).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'เปลี่ยนBearingหลังใช้งาน 20 hours' })
+    );
+    expect(result).toEqual({ ok: true, text: 'เปลี่ยนBearingหลังใช้งาน 20 hours' });
+  });
+
+  it('protects a known acronym with a placeholder before the provider call and restores it verbatim afterward', async () => {
+    // Simulates a provider that would otherwise mangle a bare acronym -
+    // the placeholder must survive the round trip untouched by the
+    // (fake, deliberately mischievous) provider.
+    const provider = fakeProvider(async (req) => ({ ok: true, text: `${req.text} (translated)` }));
+    const service = new TranslationService(provider);
+
+    const result = await service.translateToEnglish('ตรวจสอบ PTO ก่อนใช้งาน');
+
+    const [[calledRequest]] = (provider.translate as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calledRequest.text).not.toContain('PTO');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.text).toContain('PTO');
+      expect(result.text).not.toContain('@@P');
+    }
   });
 
   it('defaults to NoopMachineTranslationProvider, which always resolves to the documented "unavailable" outcome', async () => {

@@ -27,6 +27,7 @@ import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 import { AttachmentService } from '@/shared/attachments';
 import { TranslationService } from '@/lib/translation/translationService';
+import { createMachineTranslationProvider } from '@/lib/translation/factory';
 import type { TranslationResult } from '@/lib/translation/types';
 import { MaintenanceRecord, maintenanceAttachmentsOf, MaintenanceAttachmentKind } from '../types';
 import { evaluateMaintenanceLock } from '../utils/maintenanceLock';
@@ -317,7 +318,7 @@ export async function renderMaintenanceRecordPdf(
   const [qrDataUrl, photoDataUris, notesTranslation] = await Promise.all([
     QRCode.toDataURL(recordUrl, { margin: 0, width: 160 }),
     resolveAttachmentDataUris(resolvedRecord),
-    new TranslationService().translateToEnglish(resolvedRecord.notes),
+    new TranslationService(createMachineTranslationProvider()).translateToEnglish(resolvedRecord.notes),
   ]);
   return renderToBuffer(
     <MaintenanceDocument
