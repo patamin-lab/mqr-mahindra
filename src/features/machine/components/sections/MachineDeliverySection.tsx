@@ -9,7 +9,7 @@ const machineService = new MachineService();
  * so its own `<Suspense>` boundary can stream it in separately - same
  * shape as `MachineWarrantySection`/`MachineKnowledgeSection`.
  */
-export default async function MachineDeliverySection({ serial }: { serial: string }) {
+export default async function MachineDeliverySection({ serial, warrantyStartDate }: { serial: string; warrantyStartDate: string | null }) {
   const delivery = await machineService.getMachineDeliverySummary(serial);
-  return <MachineDeliveryPanel delivery={delivery} serial={serial} />;
+  return <MachineDeliveryPanel delivery={delivery} serial={serial} warrantyStartDate={warrantyStartDate} />;
 }

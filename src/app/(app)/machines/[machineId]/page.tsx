@@ -166,7 +166,7 @@ export default async function MachinePassportPage({ params }: RouteParams) {
       </Suspense>
 
       <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>
-        <MachineDeliverySection serial={machineId} />
+        <MachineDeliverySection serial={machineId} warrantyStartDate={summary?.retailDate ?? null} />
       </Suspense>
 
       <Suspense fallback={<Skeleton lines={3} className="rounded border border-gray-200 bg-white p-6" />}>

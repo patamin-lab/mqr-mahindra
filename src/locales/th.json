@@ -764,6 +764,7 @@
     "deliveryPdiResult": "ผลตรวจ PDI",
     "deliveryTrainingCompleted": "การอบรมผู้ใช้งาน",
     "deliveryWarrantyActivated": "บันทึกการเริ่มใช้ประกันเมื่อ",
+    "deliveryWarrantyStartDate": "วันเริ่มการรับประกัน",
     "deliveryNoRecord": "ไม่มีข้อมูลการส่งมอบ",
     "deliveryNoRecordNextStep": "กดเริ่มติดตามการส่งมอบด้านล่างเพื่อเริ่มบันทึกการรับที่ลานพักรถ, การตรวจสภาพก่อนส่งมอบ, การเตรียมความพร้อมของดีลเลอร์, การส่งมอบลูกค้า, การอบรมผู้ใช้งาน และการยอมรับการส่งมอบสำหรับเครื่องจักรนี้",
     "viewFullDeliveryRecord": "ดูข้อมูลการส่งมอบฉบับเต็ม",

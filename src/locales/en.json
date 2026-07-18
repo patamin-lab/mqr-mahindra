@@ -764,6 +764,7 @@
     "deliveryPdiResult": "PDI Result",
     "deliveryTrainingCompleted": "Operator Training",
     "deliveryWarrantyActivated": "Warranty Activation Logged At",
+    "deliveryWarrantyStartDate": "Warranty Start Date",
     "deliveryNoRecord": "No delivery record on file",
     "deliveryNoRecordNextStep": "Start Delivery Tracking below to begin recording Stock Yard receipt, Import Inspection, Dealer Preparation, Customer Delivery, Operator Training, and Delivery Acceptance for this machine.",
     "viewFullDeliveryRecord": "View full Delivery Record",

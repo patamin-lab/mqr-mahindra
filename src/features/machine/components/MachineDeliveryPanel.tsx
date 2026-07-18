@@ -17,7 +17,15 @@ import StartDeliveryTrackingButton from '@/features/delivery/components/StartDel
  * Records/Detail/Stage Tracking" scope) and reachable from navigation,
  * the link is restored.
  */
-export default function MachineDeliveryPanel({ delivery, serial }: { delivery: MachineDeliverySummary | null; serial: string }) {
+export default function MachineDeliveryPanel({
+  delivery,
+  serial,
+  warrantyStartDate,
+}: {
+  delivery: MachineDeliverySummary | null;
+  serial: string;
+  warrantyStartDate: string | null;
+}) {
   if (!delivery) {
     return (
       <Card variant="compact" className="p-6" as="section" id="delivery">
@@ -41,7 +49,7 @@ export default function MachineDeliveryPanel({ delivery, serial }: { delivery: M
         <DetailRow label={t('machinePassport.deliveryOverallStatus')} value={delivery.overallStatus} />
         <DetailRow label={t('machinePassport.deliveryPdiResult')} value={delivery.pdiResult ?? 'N/A'} />
         <DetailRow label={t('machinePassport.deliveryTrainingCompleted')} value={delivery.trainingCompleted ? '✓' : '—'} />
-        <DetailRow label={t('machinePassport.deliveryWarrantyActivated')} value={delivery.warrantyActivatedAt ?? '—'} />
+        <DetailRow label={t('machinePassport.deliveryWarrantyStartDate')} value={warrantyStartDate ?? '—'} />
       </div>
       <p className="mt-4 text-xs text-gray-400">
         <Link href={`/delivery/records/${delivery.id}`} className="text-brand-red hover:underline">
