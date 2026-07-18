@@ -948,6 +948,19 @@ export async function listVehicles(dealerId: string | null): Promise<VehicleSear
  *  module doc comment for the full grounding. */
 export const FACTORY_PDI_STATUS_PENDING_SENTINEL = 'Pending';
 
+/** The Factory PDI column was introduced additively. Keep older production
+ *  schemas usable while they are being rolled forward; callers can fall
+ *  back to the pre-column inspection calculation/filter. */
+export function isMissingFactoryPdiStatusColumnError(error: unknown): boolean {
+  const candidate = error as { code?: string; message?: string } | null;
+  const message = candidate?.message?.toLowerCase() ?? '';
+  return (
+    candidate?.code === '42703' ||
+    candidate?.code === 'PGRST204' && message.includes('factory_pdi_status') ||
+    message.includes('factory_pdi_status') && (message.includes('column') || message.includes('schema cache'))
+  );
+}
+
 /** Import Inspection Dashboard KPI - "Pending Import Inspection" (Factory
  *  Domain signal, not the Import Inspection module's own inspection-
  *  record status). Same plain-count-query shape as

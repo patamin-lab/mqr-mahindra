@@ -9,7 +9,10 @@ const styles = StyleSheet.create({
   langRow: { flexDirection: 'row', marginTop: 2 },
   langTag: { width: 22, fontSize: 7, fontWeight: 'bold', color: '#888', paddingTop: 1 },
   langText: { flex: 1, fontSize: 8.5, lineHeight: 1.4 },
-  unavailableText: { flex: 1, fontSize: 8.5, lineHeight: 1.4, color: '#999', fontStyle: 'italic' },
+  // Sarabun intentionally registers only Regular and Bold. Keep the
+  // unavailable marker visually distinct without requesting an unregistered
+  // italic face from react-pdf.
+  unavailableText: { flex: 1, fontSize: 8.5, lineHeight: 1.4, color: '#999' },
 });
 
 /**

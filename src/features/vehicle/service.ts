@@ -66,8 +66,7 @@ export async function getVehicleSummary(serial: string, session: SessionUser): P
   // (partially-migrated record, orphaned FK) must not null the entire
   // Machine 360 summary - it degrades to "this provider contributed
   // nothing" instead, same for the dealer/branch lookups.
-  const [dealer, branch, contributions] = await Promise.all([
-    vehicle.dealer_id ? getDealer(vehicle.dealer_id).catch(() => null) : Promise.resolve(null),
+  const [branch, contributions] = await Promise.all([
     vehicle.branch_id ? getBranchById(vehicle.branch_id).catch(() => null) : Promise.resolve(null),
     Promise.all(
       VEHICLE_SUMMARY_PROVIDERS.map((provider) =>
@@ -84,6 +83,9 @@ export async function getVehicleSummary(serial: string, session: SessionUser): P
     if (contribution) merged = mergeContribution(merged, contribution);
   }
 
+  const dealerId = vehicle.dealer_id ?? merged.dealerId ?? null;
+  const dealer = dealerId ? await getDealer(dealerId).catch(() => null) : null;
+
   const maintenanceStatus = merged.maintenanceStatus ?? 'none';
   const health = vehicleHealthService.calculate({
     maintenanceStatus,
@@ -99,9 +101,9 @@ export async function getVehicleSummary(serial: string, session: SessionUser): P
     serial: vehicle.serial,
     model: vehicle.model,
     engineNumber: vehicle.engine_number ?? null,
-    retailDate: vehicle.delivery_date,
-    dealerId: vehicle.dealer_id,
-    dealerName: dealer?.short_name ?? null,
+    retailDate: vehicle.delivery_date || merged.retailDate || null,
+    dealerId,
+    dealerName: dealer?.short_name || dealer?.full_name || null,
     branchName: branch?.name ?? null,
 
     ownerName: merged.ownerName ?? null,

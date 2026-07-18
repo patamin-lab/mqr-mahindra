@@ -20,7 +20,7 @@ export class NtrSummaryProvider implements VehicleSummaryProvider {
     const client = getSupabase();
     let query = client
       .from('ntr_records')
-      .select('customer_name, customer_phone, dealer_id')
+      .select('customer_name, customer_phone, dealer_id, delivery_date')
       .eq('serial', serial)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -34,6 +34,12 @@ export class NtrSummaryProvider implements VehicleSummaryProvider {
     return {
       ownerName: data.customer_name ?? null,
       ownerPhone: data.customer_phone ?? null,
+      // Compatibility fallback for vehicle rows written before the NTR
+      // post-create synchronization completed. The vehicle master remains
+      // authoritative whenever it has a value; Vehicle360 only uses these
+      // fields when the master row is missing them.
+      dealerId: data.dealer_id ?? null,
+      retailDate: data.delivery_date ?? null,
       // Tractor Lifecycle foundation (MASP v1.1) - the one rule that
       // exists today: an active NTR on file means the tractor has been
       // delivered. Future modules (PDI, Warranty, Campaign, a retirement

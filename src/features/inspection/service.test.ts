@@ -10,6 +10,10 @@ const { mockLogAuditEvent, mockCountVehiclesPendingFactoryPdi } = vi.hoisted(() 
 vi.mock('@/lib/db', () => ({
   logAuditEvent: mockLogAuditEvent,
   countVehiclesPendingFactoryPdi: mockCountVehiclesPendingFactoryPdi,
+  isMissingFactoryPdiStatusColumnError: (error: unknown) => {
+    const candidate = error as { code?: string; message?: string } | null;
+    return candidate?.code === 'PGRST204' && candidate.message?.includes('factory_pdi_status');
+  },
 }));
 
 import { InspectionService } from './service';
@@ -294,6 +298,21 @@ describe('InspectionService.getDashboardStats - Production Pilot: Factory PDI St
     await service.getDashboardStats(session(), 'D1');
 
     expect(mockCountVehiclesPendingFactoryPdi).toHaveBeenCalledWith('D1');
+  });
+
+  it('falls back to the original inspection-status KPI when the additive Factory PDI column is not deployed yet', async () => {
+    mockCountVehiclesPendingFactoryPdi.mockRejectedValue({
+      code: 'PGRST204',
+      message: "Could not find the 'factory_pdi_status' column of 'vehicles' in the schema cache",
+    });
+    const repo = makeRepo({
+      listActive: vi.fn(() => Promise.resolve([baseInspection({ status: 'Scheduled' }), baseInspection({ id: 'insp-2', status: 'Completed' })])),
+    });
+    const service = new InspectionService(repo);
+
+    const stats = await service.getDashboardStats(session());
+
+    expect(stats.pendingImportInspection).toBe(1);
   });
 
   it('is still gated MSEAL-only, same as every other InspectionService method', async () => {

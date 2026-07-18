@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth';
 import { InspectionService, type InspectionStatus, type Inspection } from '@/features/inspection';
 import { canAccessImportInspection } from '@/lib/scope';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
-import { listVehiclesByFactoryPdiStatus, FACTORY_PDI_STATUS_PENDING_SENTINEL, type VehicleFactoryPdiStatusResult } from '@/lib/db';
+import { listVehiclesByFactoryPdiStatus, FACTORY_PDI_STATUS_PENDING_SENTINEL, isMissingFactoryPdiStatusColumnError, type VehicleFactoryPdiStatusResult } from '@/lib/db';
 import { t } from '@/lib/i18n/server';
 import { Eye } from 'lucide-react';
 import PageHeader from '@/components/shared/layout/PageHeader';
@@ -47,7 +47,7 @@ const FACTORY_PDI_STATUS_OPTIONS: { value: string; labelKey: string }[] = [
  * the table's rows and query are byte-for-byte the original
  * inspection-only behavior - zero regression for the common case.
  */
-export default async function PdiListPage({ searchParams }: { searchParams: { status?: string; q?: string; factoryPdiStatus?: string } }) {
+export default async function PdiListPage({ searchParams }: { searchParams?: { status?: string; q?: string; factoryPdiStatus?: string } }) {
   const session = await getSession();
   if (!session) return null;
   if (!canAccessImportInspection(session.role)) {
@@ -59,30 +59,38 @@ export default async function PdiListPage({ searchParams }: { searchParams: { st
     );
   }
 
-  const factoryPdiStatus = FACTORY_PDI_STATUS_OPTIONS.some((o) => o.value === searchParams.factoryPdiStatus) ? searchParams.factoryPdiStatus : undefined;
-  const status = STATUSES.includes(searchParams.status as InspectionStatus) ? (searchParams.status as InspectionStatus) : undefined;
-  const clearHref = searchParams.q || searchParams.status || factoryPdiStatus ? '/delivery/pdi' : undefined;
+  const params = searchParams ?? {};
+  const factoryPdiStatus = FACTORY_PDI_STATUS_OPTIONS.some((o) => o.value === params.factoryPdiStatus) ? params.factoryPdiStatus : undefined;
+  const status = STATUSES.includes(params.status as InspectionStatus) ? (params.status as InspectionStatus) : undefined;
+  const clearHref = params.q || params.status || factoryPdiStatus ? '/delivery/pdi' : undefined;
 
   let vehicleRows: { vehicle: VehicleFactoryPdiStatusResult; inspection: Inspection | null }[] | null = null;
   let inspections: Inspection[] = [];
 
   if (factoryPdiStatus) {
     const scope = resolveDealerScope(session, null);
-    let vehicles = await listVehiclesByFactoryPdiStatus(factoryPdiStatus, scope.dealerId ?? undefined);
-    if (searchParams.q) {
-      const q = searchParams.q.toLowerCase();
-      vehicles = vehicles.filter((v) => v.serial.toLowerCase().includes(q) || (v.model ?? '').toLowerCase().includes(q));
+    try {
+      let vehicles = await listVehiclesByFactoryPdiStatus(factoryPdiStatus, scope.dealerId ?? undefined);
+      if (params.q) {
+        const q = params.q.toLowerCase();
+        vehicles = vehicles.filter((v) => v.serial.toLowerCase().includes(q) || (v.model ?? '').toLowerCase().includes(q));
+      }
+      const serials = vehicles.map((v) => v.serial);
+      const matchedInspections = serials.length > 0 ? await service.listInspections({ serials }, session) : [];
+      const latestBySerial = new Map<string, Inspection>();
+      for (const i of matchedInspections) {
+        const existing = latestBySerial.get(i.serial);
+        if (!existing || i.inspectionSequence > existing.inspectionSequence) latestBySerial.set(i.serial, i);
+      }
+      vehicleRows = vehicles.map((vehicle) => ({ vehicle, inspection: latestBySerial.get(vehicle.serial) ?? null }));
+    } catch (err) {
+      if (!isMissingFactoryPdiStatusColumnError(err)) throw err;
+      console.error('Factory PDI status column unavailable; using inspection list fallback', err);
+      inspections = await service.listInspections({ status, q: params.q }, session);
+      vehicleRows = null;
     }
-    const serials = vehicles.map((v) => v.serial);
-    const matchedInspections = serials.length > 0 ? await service.listInspections({ serials }, session) : [];
-    const latestBySerial = new Map<string, Inspection>();
-    for (const i of matchedInspections) {
-      const existing = latestBySerial.get(i.serial);
-      if (!existing || i.inspectionSequence > existing.inspectionSequence) latestBySerial.set(i.serial, i);
-    }
-    vehicleRows = vehicles.map((vehicle) => ({ vehicle, inspection: latestBySerial.get(vehicle.serial) ?? null }));
   } else {
-    inspections = await service.listInspections({ status, q: searchParams.q }, session);
+    inspections = await service.listInspections({ status, q: params.q }, session);
   }
 
   return (
@@ -113,11 +121,11 @@ export default async function PdiListPage({ searchParams }: { searchParams: { st
       >
         <div>
           <label className="mb-1 block text-xs font-medium">{t('common.search')}</label>
-          <input name="q" defaultValue={searchParams.q ?? ''} placeholder={t('pdi.searchPlaceholder')} className="w-64 rounded border border-gray-300 px-3 py-2 text-sm" />
+          <input name="q" defaultValue={params.q ?? ''} placeholder={t('pdi.searchPlaceholder')} className="w-64 rounded border border-gray-300 px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">{t('pdi.statusLabel')}</label>
-          <select name="status" defaultValue={searchParams.status ?? ''} className="rounded border border-gray-300 px-3 py-2 text-sm">
+          <select name="status" defaultValue={params.status ?? ''} className="rounded border border-gray-300 px-3 py-2 text-sm">
             <option value="">{t('pdi.statusAllLabel')}</option>
             {STATUSES.map((s) => (
               <option key={s} value={s}>

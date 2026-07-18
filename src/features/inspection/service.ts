@@ -7,7 +7,7 @@
  * server-side by `canAccessImportInspection` (`lib/scope.ts`), never by
  * nav/button visibility alone (`SECURITY_STANDARD.md`).
  */
-import { logAuditEvent, countVehiclesPendingFactoryPdi } from '@/lib/db';
+import { logAuditEvent, countVehiclesPendingFactoryPdi, isMissingFactoryPdiStatusColumnError } from '@/lib/db';
 import type { SessionUser } from '@/lib/types';
 import { canAccessImportInspection } from '@/lib/scope';
 import { KnowledgeService } from '@/features/knowledge';
@@ -139,10 +139,15 @@ export class InspectionService {
    *  see `docs/business/FIELD_OWNERSHIP_MATRIX.md`. */
   async getDashboardStats(session: SessionUser, dealerId?: string): Promise<InspectionDashboardStats> {
     assertMsealAccess(session.role);
-    const [inspections, pendingImportInspection] = await Promise.all([
+    const [inspections, factoryPendingCount] = await Promise.all([
       this.repo.listActive(dealerId),
-      countVehiclesPendingFactoryPdi(dealerId ?? null),
+      countVehiclesPendingFactoryPdi(dealerId ?? null).catch((err) => {
+        if (!isMissingFactoryPdiStatusColumnError(err)) throw err;
+        console.error('Factory PDI status column unavailable; using inspection-status fallback', err);
+        return null;
+      }),
     ]);
+    const pendingImportInspection = factoryPendingCount ?? inspections.filter((i) => i.status === 'Scheduled' || i.status === 'InProgress').length;
     const today = new Date().toISOString().slice(0, 10);
 
     const pendingRePdi = inspections.filter((i) => i.releaseStatus === 'RequiresRePdi').length;
