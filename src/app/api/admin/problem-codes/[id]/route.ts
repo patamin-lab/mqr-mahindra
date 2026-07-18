@@ -33,6 +33,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     );
     return NextResponse.json({ ok: true, problemCode });
   } catch (err: any) {
+    // PGRST116 = PostgREST's "no rows returned" from `.single()` - a
+    // non-existent id, not a server error (production regression audit,
+    // 2026-07-18: this previously fell through to a generic 500).
+    if (err?.code === 'PGRST116') {
+      return NextResponse.json({ ok: false, error: 'ไม่พบรหัสปัญหานี้' }, { status: 404 });
+    }
     console.error('update problem code error', err);
     return NextResponse.json({ ok: false, error: err?.message ?? 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
   }

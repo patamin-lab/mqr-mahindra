@@ -165,5 +165,31 @@ describe('SupabaseNtrRepository.listHistory warranty filter column', () => {
     expect(or?.args[0] as string).toContain('delivery_date');
     expect(or?.args[0] as string).not.toContain('retail_date');
   });
+
+  /** Production regression audit (2026-07-18): the list/export page's
+   *  "Delivery Date" search filter (`retailDateFrom`/`retailDateTo` params
+   *  - named after the legacy field, but labeled and used as Delivery Date
+   *  everywhere else) filtered `retail_date`, which is null for every NTR
+   *  created via the current manual form - the filter silently matched
+   *  zero rows. Must filter `delivery_date`. */
+  it('filters the "Delivery Date" search range on delivery_date, never retail_date', async () => {
+    const { builder, calls } = queryBuilderSpy();
+    const from = vi.fn(() => builder);
+    state.client = { rpc: vi.fn(), from } as unknown as { rpc: ReturnType<typeof vi.fn> };
+    const repository = new SupabaseNtrRepository();
+
+    await repository.listHistory({
+      page: 1,
+      pageSize: 50,
+      retailDateFrom: '2026-01-01',
+      retailDateTo: '2026-01-31',
+    } as any);
+
+    const gte = calls.find((c) => c.method === 'gte' && c.args[1] === '2026-01-01');
+    const lte = calls.find((c) => c.method === 'lte' && c.args[1] === '2026-01-31');
+    expect(gte?.args[0]).toBe('delivery_date');
+    expect(lte?.args[0]).toBe('delivery_date');
+    expect(calls.some((c) => c.args[0] === 'retail_date')).toBe(false);
+  });
 });
 

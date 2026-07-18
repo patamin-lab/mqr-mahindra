@@ -143,6 +143,13 @@ export class AttachmentService {
     return this.repo.listByEntity(module, entityType, entityId);
   }
 
+  /** Raw row lookup - used by API routes that must check Dealer/Branch
+   *  Scope against the owning record (`resolveAttachmentAccess.ts`) before
+   *  deciding whether to serve/delete/reassign an attachment ID. */
+  async getById(id: string): Promise<Attachment | null> {
+    return this.repo.getById(id);
+  }
+
   async getUrl(id: string): Promise<AttachmentUrl | null> {
     const attachment = await this.repo.getById(id);
     if (!attachment) return null;

@@ -646,14 +646,15 @@ Chronological, most recent first. "Unresolved" entries are still open.
 A full audit was performed across every module (functional CRUD/search/
 pagination, the Warranty and Product-Visibility business rules,
 Authorization, and the PDF/Image/Translation pipeline). Six confirmed
-defects were fixed with regression tests; verification suite ([§7](#7-testing-strategy))
-passed in full (793/793 tests, clean typecheck/lint/architecture/build) on
-that branch. **These fixes are not yet in production** — they exist only
+production defects, grouped into five defect classes below, were fixed with
+regression tests; the current branch verification suite passed in full
+(814/814 tests; typecheck, architecture, lint, and build all passed).
+**These fixes are not yet in production** — they exist only
 on the audit branch pending review and merge.
 
 | Severity | Module | Symptom | Root Cause | Resolution | Regression Prevention |
 | --- | --- | --- | --- | --- | --- |
-| Critical | Attachments (all modules) | Any authenticated DealerUser could read/delete another dealer's attachment by ID, or list another dealer's attachments via a guessable `entityId` | The `attachments` table has no `dealer_id`/`branch_id`; the three exposed routes checked only `if (!session)`, never re-resolving the owning record's scope | New `resolveAttachmentAccess.ts` dispatches to each module's own scope-safe Repository/Service accessor before serving/deleting/reassigning | Manually traced against each module's existing scope-check tests; dedicated unit tests for the resolver itself are a follow-up gap, not yet added |
+| Critical | Attachments (all modules) | Any authenticated DealerUser could read/delete another dealer's attachment by ID, or list another dealer's attachments via a guessable `entityId` | The `attachments` table has no `dealer_id`/`branch_id`; the three exposed routes checked only `if (!session)`, never re-resolving the owning record's scope | New `resolveAttachmentAccess.ts` dispatches to each module's own scope-safe Repository/Service accessor before serving/deleting/reassigning | Dedicated resolver unit tests in `src/shared/attachments/__tests__/resolveAttachmentAccess.test.ts`, plus consuming-route coverage |
 | High | NTR | List/export "Delivery Date" search filter always returned zero rows | Filtered the legacy `retail_date` column (always `null` on modern records) instead of `delivery_date` | `supabaseNtrRepository.ts` now filters `delivery_date` | New test asserting the query builder never receives `retail_date` |
 | High | Admin (Dealers/Problem Codes/PM Intervals/Product Families) | `PATCH` on a non-existent id returned an opaque HTTP 500 | No existence pre-check; Supabase's `PGRST116` (0 rows) fell into the generic 500 catch | Catch blocks now map `PGRST116` → 404 | New test on the Dealers route pinning the shared pattern |
 | Medium | Delivery (all six stage-action routes) | `POST` on a non-existent delivery id returned HTTP 400 | Generic catch defaulted anything that wasn't a recognized "forbidden" message to 400 | Catch blocks now detect the "not found" message and return 404 | New test added to all six existing route test files |
@@ -684,10 +685,6 @@ Translation pipeline fixes from PR #78 confirmed intact.
 
 ### Unresolved / not yet scheduled for a fix
 
-- Attachment scope resolver ([§9](#9-production-regression-history)'s top
-  row) has no dedicated unit test yet — flagged, not silently left
-  unverified (the fix itself is covered indirectly by each consuming
-  module's existing scope tests).
 - Every item in [§10](#10-known-technical-debt) is, by definition, known
   and not yet fixed.
 

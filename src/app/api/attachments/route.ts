@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { unauthorizedError } from '@/lib/apiError';
+import { unauthorizedError, forbiddenError } from '@/lib/apiError';
 import { getSession } from '@/lib/auth';
-import { AttachmentService, AttachmentType, toUserFacingAttachmentError } from '@/shared/attachments';
+import { AttachmentService, AttachmentType, toUserFacingAttachmentError, canAccessAttachment } from '@/shared/attachments';
 import convertHeic from 'heic-convert';
 
 const HEIC_EXTENSIONS = new Set(['heic', 'heif']);
@@ -107,6 +107,7 @@ export async function GET(req: NextRequest) {
   if (!moduleName || !entityType || !entityId) {
     return NextResponse.json({ ok: false, error: 'module, entityType, and entityId are required' }, { status: 400 });
   }
+  if (!(await canAccessAttachment({ module: moduleName, entityId }, session))) return forbiddenError();
 
   try {
     const attachments = await attachmentService.list(moduleName, entityType, entityId);

@@ -17,3 +17,4 @@ export { StorageMetricsService } from './StorageMetricsService';
 export { StorageScheduler } from './StorageScheduler';
 export { StorageAuditService } from './StorageAuditService';
 export * from './storageOperationsTypes';
+export { canAccessAttachment } from './resolveAttachmentAccess';
