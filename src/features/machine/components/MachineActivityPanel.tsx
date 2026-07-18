@@ -17,7 +17,7 @@ export default function MachineActivityPanel({ events }: { events: ActivityEvent
   return (
     <Card variant="compact" className="p-6" as="section" id="activity">
       <h2 className="mb-3 text-sm font-semibold text-brand-dark">{t('machinePassport.activityTitle')}</h2>
-      <ActivityTimeline events={events} entityLabel="Machine" />
+      <ActivityTimeline events={events} entityLabel="Machine" useImagePlatform />
     </Card>
   );
 }

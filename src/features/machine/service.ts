@@ -40,9 +40,8 @@ export class MachineService {
    *  must never take down the sections above/below it. Every public
    *  method below routes through this instead of letting a rejection
    *  propagate, matching the one defensive pattern that already existed
-   *  in this codebase (`MachineDocumentsSection.tsx`'s
-   *  `attachmentService.getUrl(...).catch(() => null)`), generalized here
-   *  so it doesn't have to be re-implemented per call site. */
+   *  in this codebase, generalized here so data reads fail independently and
+   *  presentation resource resolution stays with the shared provider. */
   private async safe<T>(label: string, fallback: T, fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();
