@@ -50,7 +50,7 @@ actually ship today — not a green-field proposal.
 - [`UI_COMPONENT_STANDARD.md`](standards/UI_COMPONENT_STANDARD.md) —
   frozen design tokens (spacing, typography, color, status colors, icon
   usage, button hierarchy) and the shared component inventory
-  (`PageHeader`, `StatusPill`, `Card`, `Timeline`, `AttachmentGallery`,
+  (`PageHeader`, `StatusPill`, `Card`, `Timeline`, `ImageThumbnail`,
   `SearchToolbar`, `DetailRow`, shared PDF theme).
 
 ## Architecture

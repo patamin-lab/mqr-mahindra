@@ -160,7 +160,7 @@ Translation (TranslationService → MachineTranslationProvider, consumed
   check — the Repository is the only place that check should exist.
 - **Shared components are preferred over one-off implementations** at
   every layer: one `Pagination`/`ActionColumn` component, one
-  `AttachmentViewer`, one `TranslationService`, one `StorageProviderFactory`
+  shared image platform, one `TranslationService`, one `StorageProviderFactory`
   — see [§5](#5-shared-platform-components) for the full inventory. A new
   module reaches for an existing shared component first; a genuinely new
   cross-module need becomes a new shared component, not a copy-pasted one.
@@ -476,7 +476,7 @@ a legitimate design choice, unless a documented ADR says otherwise.
 | **Shared PDF Framework** | `src/lib/pdf/` | Header/footer/metadata/filename/style/font/image-resolution for every generated document | MQR, NTR, PM PDF renderers |
 | **Shared Image Platform** | `src/components/shared/image/` (`ImageItem`, `ImageThumbnail`, `ImagePreview`, `ImageViewer`, `AttachmentResourceProvider`) | Shared image identity, thumbnail/preview/viewer state, transforms, signed-resource cache/retry | MQR, NTR, PM, Delivery/PDI, Vehicle360/Machine Passport, Knowledge |
 | **Attachment Upload Tile** | `src/components/shared/attachments/AttachmentPhotoTile.tsx` | Shared upload-slot shell with `ImageItem` preview path and legacy URL fallback | NTR, PM |
-| **Legacy Attachment Viewer** | `src/components/shared/attachments/AttachmentViewer.tsx` | Deprecated image/document viewer retained pending cleanup | No active consumer |
+| **Legacy Attachment Viewer** | Removed in PR #79K | Dead legacy viewer/gallery components removed after final repository audit | No active consumer |
 | **Activity Timeline** | `src/components/shared/activity-timeline/` | Generic, category-agnostic event timeline | Quality Reports today; designed for PM/NTR/Warranty/ORC to plug in without redesign |
 | **Authorization Scope** | `src/lib/scope.ts` + `src/lib/dealerBranchScope.ts` | Role predicates and dealer/branch resolution/access checks | Every module's Repository/Service and every API route |
 | **Translation Provider** | `src/lib/translation/` | The `MachineTranslationProvider` interface + factory | PDF layer's `BilingualField` only |
@@ -622,7 +622,7 @@ to change any of the following.
   read-only aggregation layer — it owns no data. Every section
   (`MachineWarrantySection`, `MachineDeliveryPanel`, etc.) calls the
   owning module's own Service layer and renders the same shared
-  `AttachmentViewer`/`ActivityTimeline`/etc. components used elsewhere.
+  shared image platform/`ActivityTimeline` components used elsewhere.
   This is why Vehicle 360 Consolidation (ADR-030) could retire the old
   separate `/vehicles/[serial]` page as a pure redirect — there was never
   a second, parallel data path to reconcile.

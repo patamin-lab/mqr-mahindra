@@ -8,6 +8,12 @@ and minimal viewer primitives described here. Module migrations, crop
 persistence, storage/API/schema changes, and business-rule changes remain
 out of scope and require separate approval.
 
+## Implementation status
+
+The shared foundation and all approved module migrations are complete through
+PR #79I. Dead legacy viewer/gallery components were removed after the final
+repository audit in PR #79K.
+
 ## Context
 
 The platform already has a frozen Attachment Platform (`ADR-010`) that owns

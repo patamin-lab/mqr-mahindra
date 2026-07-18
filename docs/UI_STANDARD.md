@@ -25,7 +25,7 @@ longer-range target vision.
 | Search Toolbar / Filter Bar | `components/shared/layout/SearchToolbar.tsx` | Records, NTR list pages |
 | Dealer/Branch Selector | `components/shared/scope/DealerBranchSelector.tsx` + `useDealerBranchScope.ts` | Dashboard, NTR, PM, Records, Report, Maintenance search |
 | Attachment Photo Tile | `components/shared/attachments/AttachmentPhotoTile.tsx` | NTR create form, PM create/edit forms |
-| Attachment Gallery / Viewer | `components/shared/attachments/AttachmentGallery.tsx` / `AttachmentViewer.tsx` | Record/NTR/PM detail pages |
+| Shared Image Platform | `components/shared/image/` (`ImageItem`, `ImageThumbnail`, `ImagePreview`, `ImageViewer`, `AttachmentResourceProvider`) | All migrated image consumers; legacy attachment gallery/viewer removed in PR #79K |
 | Text Field / Select Field | `components/shared/forms/TextField.tsx` / `SelectField.tsx` | NTR, PM, admin tables |
 | Status Pill / Status Badge | `components/shared/status/StatusPill.tsx` / `StatusBadge.tsx` | Records list, admin tables |
 | Admin CRUD Table shell | `components/shared/admin/AdminCrudTable.tsx` | 9 admin master-data screens |

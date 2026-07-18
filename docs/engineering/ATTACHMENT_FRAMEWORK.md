@@ -161,19 +161,16 @@ Never delete a file before successful verification - `processArchiveQueue()`
 checks both size and checksum against the original before marking
 `ARCHIVED` or touching the Supabase copy.
 
-## AttachmentViewer
+## Image presentation
 
-`src/components/shared/attachments/AttachmentViewer.tsx` - the reusable
-display component every module (and Machine 360) renders attachments
-through, given only `{id, filename, mimeType, url}` (never a storage
-provider, bucket, or signed-URL detail). Grid of tiles (image thumbnail or
-a type icon for PDF/video/audio/Excel/other) with Open/Download/Delete
-actions and a click-to-preview overlay (inline `<img>`/`<video>`/`<audio>`/
-`<iframe>` for PDF; a download prompt for Excel/other, which can't be
-previewed inline). Supersedes nothing - `AttachmentGallery.tsx` (the
-older, image-only, URL-string-based component) still renders MQR/PM's
-pre-migration photo grids unchanged; `AttachmentViewer` is what any new
-rendering (Machine 360's Attachments section) uses going forward.
+The former `AttachmentViewer` and `AttachmentGallery` components were removed
+in PR #79K after the shared image migration and final reference audit. Image
+attachments must use `ImageItem`, `AttachmentResourceProvider`,
+`ImageThumbnail`, `ImagePreview`, and `ImageViewer` from
+`src/components/shared/image/`. Non-image attachments retain provider-backed
+open/download behavior. Authorization and signed-resource access remain in
+the Attachment Platform; presentation components never receive a storage
+provider or perform authorization.
 
 ## Module Adoption Status
 
@@ -199,9 +196,10 @@ rendering (Machine 360's Attachments section) uses going forward.
 4. If uploads happen before the record exists, generate a temporary ID
    client-side (`newPendingEntityId()`) and call `reassignEntity()` once
    the record is saved (see "Uploading before a record exists").
-5. Render attachments through `AttachmentViewer`, given `AttachmentService.list()` +
-   `getUrl()` output - never a raw `<img src>` reading a stored URL column
-   directly (a signed URL expires; resolve fresh, server-side, per request).
+5. Render image attachments through the shared image platform using
+   `ImageItem` identity and `AttachmentResourceProvider`; use the existing
+   Attachment Platform/API boundary for non-image open/download behavior - never
+   read a stored URL column directly as a permanent resource.
 6. Run `enqueueArchiveEligible(module)` then `processArchiveQueue()`
    periodically (a scheduled route, following the existing Scheduler
    pattern in `docs/SCHEDULER_ARCHITECTURE.md`/ADR-007) - not yet wired to

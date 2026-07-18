@@ -76,8 +76,9 @@ against the structure that actually exists in `src/` today.
 - [ ] **Attachment.** Any photo/file goes through the existing
   `/api/upload` (≤4MB direct) / `/api/upload/init`+`chunk`+`finalize`
   (>4MB, Google Drive relay) pipeline — never a new upload path — and
-  renders via the shared `AttachmentGallery` component
-  (`src/components/shared/attachments/`).
+  renders image attachments via `ImageItem` and the shared image platform
+  (`src/components/shared/image/`). Non-image attachments use the existing
+  Attachment Platform open/download boundary.
 - [ ] **Localization.** Every user-facing string routes through `t()`
   (Server Components, `@/lib/i18n/server`) or `useTranslation()` (Client
   Components, `@/lib/i18n/LocaleProvider`) against `src/locales/th.json`

@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 }
 
 /** Lists attachments for one business entity, each with a freshly-resolved
- *  display URL - callers (module pages, `AttachmentViewer`) never resolve
+ *  display URL - callers (module pages, shared presentation components) never resolve
  *  a URL themselves. */
 export async function GET(req: NextRequest) {
   const session = await getSession();

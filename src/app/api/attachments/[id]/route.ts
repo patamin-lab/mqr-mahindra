@@ -12,7 +12,7 @@ interface RouteParams {
 const notFound = () =>
   NextResponse.json({ ok: false, error: toUserFacingAttachmentError(new Error('not found'), 'access') }, { status: 404 });
 
-/** A fresh, on-demand display URL - `AttachmentViewer`'s "Preview"/"Open"/
+/** A fresh, on-demand display URL - the shared image platform's "Preview"/"Open"/
  *  "Download" actions call this rather than relying on a possibly-stale
  *  URL from an earlier list response (a Supabase signed URL expires after
  *  an hour). */

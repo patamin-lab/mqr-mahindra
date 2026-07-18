@@ -139,8 +139,9 @@ pattern applied to more domains, not a new pattern.
 - **Timeline section** reuses `<ActivityTimeline>` unchanged (03) —
   this is exactly the "future Vehicle 360 compatibility" that component
   was built for.
-- **Attachments section** reuses `AttachmentGallery`/`AttachmentService`
-  unchanged (Foundation Frozen, `PLATFORM_ARCHITECTURE_STANDARDS.md`).
+- **Attachments section** uses the shared image platform with
+  `AttachmentService` unchanged (Foundation Frozen,
+  `PLATFORM_ARCHITECTURE_STANDARDS.md`).
 - **AI Insight section** reuses the Evidence-First presentation pattern
   from 08 — confidence band, evidence, supporting cases, never a bare
   score.

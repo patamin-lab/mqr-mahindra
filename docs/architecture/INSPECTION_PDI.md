@@ -134,7 +134,7 @@ view - never a second timeline.
 - **`/delivery/pdi/[id]`** (detail, MSEAL-only) - Checklist editor
   (Pass/Fail/N/A + remark per item), Findings (add + per-finding Factory
   Feedback status + Promote to Knowledge), Measurements (add, auto
-  in-range check), Parts Replacement (add), Evidence (`AttachmentViewer`),
+  in-range check), Parts Replacement (add), Evidence (shared image platform),
   Complete/Sign-off/Release to Dealer/Start RE-PDI actions,
   inspection-level Factory Feedback panel, `<ActivityTimeline
   entityLabel="Import Inspection">`.

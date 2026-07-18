@@ -1,8 +1,16 @@
 # Image Platform Adoption Report
 
-Status: PR #79I — Knowledge migration
+Status: PR #79K — Legacy removal complete
 
 Architecture baseline: ADR-039, locked.
+
+## PR #79K result
+
+The final reference audit passed. `AttachmentViewer.tsx` and
+`AttachmentGallery.tsx`, including their legacy viewer/gallery-only exports,
+were removed because they had no active production consumers. The shared
+platform, PDF resolver, upload compatibility fallbacks, API, storage, and
+authorization boundaries remain unchanged.
 
 ## Shared platform
 
@@ -47,18 +55,23 @@ repository.
 
 ## Remaining duplicate components and deprecation report
 
-No component is removed by PR #79I.
+Final repository audit is recorded in
+FINAL_SHARED_IMAGE_PLATFORM_REPOSITORY_AUDIT.md. No active legacy image
+consumer remains.
+
+PR #79K removed the dead legacy viewer and gallery after the final repository
+reference audit. Compatibility fallbacks and PDF/server boundaries remain.
 
 | Component or pattern | Classification | Reason |
 | --- | --- | --- |
-| `src/components/shared/attachments/AttachmentGallery.tsx` | Candidate for Removal | No PM/MQR/NTR consumer remains. Remove only after remaining legacy consumers and references are audited. |
-| Legacy thumbnail markup inside `AttachmentGallery.tsx` | Candidate for Removal | Direct `<img>` grid behavior is no longer used by migrated consumers; it disappears with the legacy gallery. |
-| `src/components/shared/attachments/AttachmentViewer.tsx` | Candidate for Removal | No active consumer remains after Knowledge migration; remove after final repository-reference audit. |
-| Legacy `ImagePreview` exported by `AttachmentViewer.tsx` | Candidate for Removal | No active consumer remains; shared `ImagePreview` now serves all migrated consumers. |
+| `src/components/shared/attachments/AttachmentGallery.tsx` | Removed in PR #79K | Dead definition with no active production consumer. |
+| Legacy thumbnail markup inside `AttachmentGallery.tsx` | Removed in PR #79K | Removed with the dead legacy gallery. |
+| `src/components/shared/attachments/AttachmentViewer.tsx` | Removed in PR #79K | Dead definition with no active production consumer. |
+| Legacy `ImagePreview` exported by `AttachmentViewer.tsx` | Removed in PR #79K | Removed with the dead legacy viewer. |
 | `AttachmentPhotoTile.tsx` | Still Required | Shared upload-slot shell used by PM and NTR. Its optional `ImageItem` path is the compatibility bridge for upload forms. |
 | Page-level URL resolution in Knowledge | Safe to Remove | Knowledge now maps attachment identity and lets shared provider resolve display resources. |
 | `resolvePdfAttachmentUrl` and PDF-side signed URL refresh | Still Required | Server-side PDF rendering needs a fresh resource and must preserve legacy URL fallback. |
-| Legacy preview/transform/loading/retry logic inside `AttachmentViewer.tsx` | Candidate for Removal | No active consumer remains; shared-platform parity is verified. |
+| Legacy preview/transform/loading/retry logic inside `AttachmentViewer.tsx` | Removed in PR #79K | Removed with the dead legacy viewer; shared-platform parity is verified. |
 | PM page-level signed URL resolution | Safe to Remove | Removed from PM detail. PM now refreshes attachment resources through the shared provider. |
 | PM duplicate lightbox/grid (`AttachmentGallery` usage) | Safe to Remove | Removed from PM detail. `MaintenanceImageGallery` uses the shared viewer. |
 | PDI page-level `AttachmentService.getUrl()` orchestration | Safe to Remove | PDI now maps attachment identity and lets the shared resource provider resolve display resources. |
@@ -107,8 +120,8 @@ No component is removed by PR #79I.
 
 ## Removal gate
 
-Safe deletion begins after final repository-reference audit confirms no
-legacy viewer consumers, and the
-full architecture/typecheck/lint/test/build suite passes. Crop persistence,
+PR #79K completed the safe deletion gate after the final repository-reference
+audit confirmed no legacy viewer consumers and the full
+architecture/typecheck/lint/test/build suite passed. Crop persistence,
 editing, storage changes, API changes, and business-rule changes remain out
 of scope.
