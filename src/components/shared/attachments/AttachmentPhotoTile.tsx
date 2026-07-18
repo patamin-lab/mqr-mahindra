@@ -1,5 +1,7 @@
 'use client';
 
+import { ImageThumbnail, type ImageItem } from '@/components/shared/image';
+
 /**
  * The ONE shared attachment upload tile - label + required/optional
  * marker + preview + file input - used by every module's create/edit
@@ -25,6 +27,9 @@ export interface AttachmentPhotoTileProps {
   label: string;
   required: boolean;
   url: string | null;
+  /** Optional platform item for consumers migrated to the shared image
+   * foundation. Legacy consumers continue using the existing URL fallback. */
+  imageItem?: ImageItem | null;
   uploading: boolean;
   disabled: boolean;
   noPhotoYetText: string;
@@ -41,6 +46,7 @@ export default function AttachmentPhotoTile({
   label,
   required,
   url,
+  imageItem,
   uploading,
   disabled,
   noPhotoYetText,
@@ -53,7 +59,9 @@ export default function AttachmentPhotoTile({
       <p className="mb-2 text-xs text-gray-500">
         {label} {required ? <span className="text-brand-red">*</span> : `(${optionalText})`}
       </p>
-      {url ? (
+      {imageItem ? (
+        <ImageThumbnail item={imageItem} className={`mb-2 ${PHOTO_PREVIEW_CLASS}`} />
+      ) : url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt={label} className={`mb-2 ${PHOTO_PREVIEW_CLASS}`} />
       ) : (

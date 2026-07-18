@@ -19,7 +19,7 @@
  * used at create time (that widget's own role-based dealer-switching
  * doesn't apply once a record's dealer is already fixed).
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchJson, FetchJsonError } from '@/lib/fetchJson';
 import { isValidThaiMobile } from '@/lib/validation';
 import { seesAllDealers } from '@/lib/scope';
@@ -41,6 +41,8 @@ import { CUSTOMER_TITLE_VALUES, CUSTOMER_TITLE_LABELS_TH } from '@/shared/master
 import type { Branch, Dealer, Role } from '@/lib/types';
 import type { NtrTractorSearchResult } from '@/lib/db';
 import type { NtrAdditionalPhoto, NtrAttachmentType, NtrRecord } from '../types';
+import { ntrPhotoSlotToImageItem } from '../utils/ntrImageItems';
+import { createNtrAttachmentResourceProvider } from '../utils/ntrAttachmentResourceProvider';
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -297,6 +299,40 @@ export default function NtrForm(props: NtrFormProps) {
       crm_lead: { url: crm?.url ?? null, attachmentId: crm?.attachmentId ?? null },
     };
   });
+  const initialPhotosRef = useRef(photos);
+  const imageResourceProvider = useRef(
+    createNtrAttachmentResourceProvider(Object.entries(photos).map(([slot, photo]) => ntrPhotoSlotToImageItem(slot, photo, slot)))
+  ).current;
+  const recordId = record?.id;
+
+  useEffect(() => {
+    if (!recordId) return;
+    let active = true;
+    void Promise.all(
+      Object.entries(initialPhotosRef.current)
+        .filter(([, photo]) => Boolean(photo.attachmentId))
+        .map(async ([slot, photo]) => {
+          try {
+            const resolved = await imageResourceProvider.get(photo.attachmentId as string);
+            return { slot: slot as PhotoSlot, url: resolved.displayUrl, attachmentId: resolved.attachmentId ?? photo.attachmentId };
+          } catch {
+            return null;
+          }
+        })
+    ).then((resolved) => {
+      if (!active) return;
+      setPhotos((current) => {
+        const next = { ...current };
+        for (const item of resolved) {
+          if (item) next[item.slot] = { url: item.url, attachmentId: item.attachmentId };
+        }
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [imageResourceProvider, recordId]);
   const [uploadingSlot, setUploadingSlot] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -657,6 +693,7 @@ export default function NtrForm(props: NtrFormProps) {
               label={requiredPhotoLabels[slot]}
               required
               url={photos[slot].url}
+              imageItem={photos[slot].url || photos[slot].attachmentId ? ntrPhotoSlotToImageItem(slot, photos[slot], requiredPhotoLabels[slot]) : null}
               uploading={uploadingSlot === slot}
               disabled={submitting || uploadingSlot === slot}
               noPhotoYetText={t('ntr.noPhotoYet')}
@@ -675,6 +712,7 @@ export default function NtrForm(props: NtrFormProps) {
               label={optionalDedicatedPhotoLabels[slot]}
               required={false}
               url={photos[slot].url}
+              imageItem={photos[slot].url || photos[slot].attachmentId ? ntrPhotoSlotToImageItem(slot, photos[slot], optionalDedicatedPhotoLabels[slot]) : null}
               uploading={uploadingSlot === slot}
               disabled={submitting || uploadingSlot === slot}
               noPhotoYetText={t('ntr.noPhotoYet')}
@@ -689,6 +727,7 @@ export default function NtrForm(props: NtrFormProps) {
               label={optionalTaggedPhotoLabels[slot]}
               required={false}
               url={photos[slot].url}
+              imageItem={photos[slot].url || photos[slot].attachmentId ? ntrPhotoSlotToImageItem(slot, photos[slot], optionalTaggedPhotoLabels[slot]) : null}
               uploading={uploadingSlot === slot}
               disabled={submitting || uploadingSlot === slot}
               noPhotoYetText={t('ntr.noPhotoYet')}
