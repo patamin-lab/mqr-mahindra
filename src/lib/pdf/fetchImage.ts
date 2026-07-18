@@ -9,17 +9,33 @@
  *
  * To make this robust, every photo is fetched up front (with a timeout, a
  * normal browser UA, and a try/catch) and handed to react-pdf as an
- * already-resolved base64 data: URI instead. A failed fetch degrades to
- * `null` (the caller renders a "failed to load" placeholder) rather than
- * crashing the export. Shared by every PDF document that embeds a
- * Drive-hosted photo (MQR, PM).
+ * already-resolved base64 data: URI instead. Shared by every PDF document
+ * in the app (MQR, PM, NTR).
+ *
+ * Defect 1 fix: a failed fetch used to collapse to a bare `null`, with the
+ * actual HTTP status/content-type/error swallowed - "never silently skip
+ * an image" means every failure needs a traceable reason. Every branch
+ * below logs the full diagnostic (URL, HTTP status, content-type, byte
+ * size, the specific failure) server-side for root-cause tracing, and
+ * returns a short, human-readable reason the PDF's own placeholder can
+ * show - concise and professional (this is an official cross-country
+ * engineering report), not a raw signed URL or stack trace dumped onto
+ * the page.
  */
-export async function fetchImageAsDataUri(url: string): Promise<string | null> {
+export type ImageFetchResult = { ok: true; dataUri: string } | { ok: false; reason: string };
+
+export async function fetchImageAsDataUri(url: string): Promise<ImageFetchResult> {
+  const fail = (reason: string, detail: unknown): ImageFetchResult => {
+    console.error(`PDF image fetch failed: ${reason}`, { url, detail });
+    return { ok: false, reason };
+  };
+
+  let res: Response;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const res = await fetch(url, {
+      res = await fetch(url, {
         signal: controller.signal,
         headers: {
           'User-Agent':
@@ -27,16 +43,46 @@ export async function fetchImageAsDataUri(url: string): Promise<string | null> {
           Accept: 'image/*',
         },
       });
-      if (!res.ok) return null;
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.startsWith('image/')) return null;
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length === 0) return null;
-      return `data:${contentType};base64,${buf.toString('base64')}`;
     } finally {
       clearTimeout(timeout);
     }
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return fail('Request timed out', err);
+    }
+    return fail('Network error', err);
   }
+
+  if (!res.ok) {
+    // The single most common real-world case: an expired signed URL
+    // returns 403 (Supabase) or 401/400 (other providers) - surfaced
+    // distinctly so "expired link" is diagnosable at a glance in logs,
+    // not lumped in with every other HTTP failure.
+    const reason = res.status === 401 || res.status === 403 ? 'Image link expired' : `HTTP ${res.status}`;
+    return fail(reason, { status: res.status, statusText: res.statusText });
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.startsWith('image/')) {
+    return fail('Unexpected content type', { contentType });
+  }
+
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length === 0) {
+    return fail('Empty response body', { contentType });
+  }
+
+  return { ok: true, dataUri: `data:${contentType};base64,${buf.toString('base64')}` };
+}
+
+/**
+ * Resolves a list of image URLs in parallel and returns them keyed by
+ * their original URL - the shape every PDF renderer's photo grid needs
+ * (`photoDataUris.get(item.url)`). Extracted so MQR/PM/NTR share the exact
+ * same resolution + Map-building step instead of three copies of the
+ * same `Promise.all(urls.map(fetchImageAsDataUri))`.
+ */
+export async function resolveImageDataUris(urls: string[]): Promise<Map<string, ImageFetchResult>> {
+  const resolved = await Promise.all(urls.map((u) => fetchImageAsDataUri(u)));
+  return new Map(urls.map((u, i) => [u, resolved[i]]));
 }

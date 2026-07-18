@@ -4,18 +4,54 @@ import QRCode from 'qrcode';
 import { MqrRecord, Severity, PHOTO_CATEGORIES, PHOTO_CATEGORY_I18N_KEY } from './types';
 import { formatDateTimeLocalized } from './thaiDate';
 import { PdfBrandLogo } from './pdf/PdfBrandLogo';
+import { PdfHeader } from './pdf/PdfHeader';
+import { PdfFooter } from './pdf/PdfFooter';
+import { BilingualField } from './pdf/BilingualField';
 import { ensureFontsRegistered } from './pdf/fonts';
-import { fetchImageAsDataUri } from './pdf/fetchImage';
+import { resolveImageDataUris, ImageFetchResult } from './pdf/fetchImage';
+import { resolvePdfAttachmentUrl } from './pdf/resolveAttachmentUrl';
 import { PDF_BRAND_RED } from './pdf/brand';
 import { sharedPdfStyles } from './pdf/sharedStyles';
+import { PDF_LOCALE } from './pdf/locale';
+import { buildPdfDocumentMeta } from './pdf/metadata';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
+import { AttachmentService } from '@/shared/attachments';
+import { TranslationService } from './translation/translationService';
+import { createMachineTranslationProvider } from './translation/factory';
+import type { TranslationResult } from './translation/types';
+
+const MQR_TRANSLATABLE_FIELDS = ['attachment', 'cause', 'damaged_parts', 'technician_action', 'corrective_action', 'preventive_action'] as const;
+type MqrTranslatableField = (typeof MQR_TRANSLATABLE_FIELDS)[number];
+
+/** Translates every free-text field this record has (Problem Details +
+ *  the 5 RCA fields) in parallel. A translation failure for one field
+ *  never affects the others or blocks PDF generation - `TranslationService`
+ *  itself already guarantees this per-field, this just fans it out. */
+async function resolveMqrTranslations(record: MqrRecord, translationService: TranslationService): Promise<Record<MqrTranslatableField, TranslationResult>> {
+  const results = await Promise.all(MQR_TRANSLATABLE_FIELDS.map((field) => translationService.translateToEnglish(record[field])));
+  return Object.fromEntries(MQR_TRANSLATABLE_FIELDS.map((field, i) => [field, results[i]])) as Record<MqrTranslatableField, TranslationResult>;
+}
 
 /** Resolves every photo URL on a record to a data URI in parallel, keyed by the original URL. */
-async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, string | null>> {
+async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, ImageFetchResult>> {
   const urls = (record.photo_links ?? []).map((p) => p.url);
-  const resolved = await Promise.all(urls.map((u) => fetchImageAsDataUri(u)));
-  return new Map(urls.map((u, i) => [u, resolved[i]]));
+  return resolveImageDataUris(urls);
+}
+
+/** Defect 1 root cause fix - same pattern as NTR's `resolveNtrPdfRecordUrls`
+ *  and PM's `resolvePmPdfRecordUrls`: the export route never re-resolved
+ *  `photo_links[].url`/`video_link` (each a signed URL with a finite TTL)
+ *  before rendering, unlike the app's own MQR detail page. Returns a
+ *  shallow copy with every photo/video URL refreshed via its
+ *  `attachmentId`, failing open to the original URL for a legacy record
+ *  with no attachment_id. */
+async function resolveMqrPdfRecordUrls(record: MqrRecord, attachmentService: AttachmentService): Promise<MqrRecord> {
+  const photoLinks = await Promise.all(
+    (record.photo_links ?? []).map(async (p) => ({ ...p, url: (await resolvePdfAttachmentUrl(attachmentService, p.attachmentId, p.url)) ?? p.url }))
+  );
+  const videoLink = await resolvePdfAttachmentUrl(attachmentService, record.video_attachment_id, record.video_link);
+  return { ...record, photo_links: photoLinks, video_link: videoLink };
 }
 
 const styles = StyleSheet.create({
@@ -40,7 +76,10 @@ const styles = StyleSheet.create({
   rcaHeaderText: { fontSize: 9, fontWeight: 'bold', color: PDF_BRAND_RED },
 
   photoBox: { width: 120, marginBottom: 8, borderWidth: 1, borderColor: '#ddd', padding: 3 },
-  photo: { width: 112, height: 92, objectFit: 'cover' },
+  // Image Requirements: never crop/stretch/distort a photo - `contain`
+  // (not `cover`) letterboxes within the fixed box instead of cropping to
+  // fill it, same fix already applied to NTR's photo2col style.
+  photo: { width: 112, height: 92, objectFit: 'contain', backgroundColor: '#f3f4f6' },
   photoPlaceholder: {
     width: 112,
     height: 92,
@@ -48,7 +87,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fafafa',
   },
-  photoPlaceholderText: { fontSize: 7, color: '#aaa' },
+  photoPlaceholderText: { fontSize: 7, color: '#aaa', textAlign: 'center', paddingHorizontal: 4 },
 });
 
 const SEVERITY_COLORS: Record<Severity, string> = {
@@ -80,7 +119,7 @@ function listCols(locale: Locale): { key: keyof MqrRecord | 'vehicle'; label: st
 function RecordsListDocument({ records, title, locale }: { records: MqrRecord[]; title: string; locale: Locale }) {
   const cols = listCols(locale);
   return (
-    <Document>
+    <Document {...buildPdfDocumentMeta(translate(locale, 'pdf.mqrTitle'), title)}>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <PdfBrandLogo />
         <Text style={styles.title}>{translate(locale, 'pdf.mqrTitle')}</Text>
@@ -170,13 +209,17 @@ function RecordDocument({
   recordUrl,
   photoDataUris,
   locale,
+  generatedBy,
+  translations,
 }: {
   record: MqrRecord;
   dealerName?: string;
   qrDataUrl: string;
   recordUrl: string;
-  photoDataUris: Map<string, string | null>;
+  photoDataUris: Map<string, ImageFetchResult>;
   locale: Locale;
+  generatedBy?: string;
+  translations: Record<MqrTranslatableField, TranslationResult>;
 }) {
   const statusLabel = translate(locale, `mqrStatus.${record.status}`);
   // Coerced to a real boolean: with `||`, if every RCA field is null/undefined
@@ -196,33 +239,27 @@ function RecordDocument({
   );
 
   return (
-    <Document>
+    <Document {...buildPdfDocumentMeta(`${record.job_id} - ${translate(locale, 'pdf.mqrTitle')}`, translate(locale, 'pdf.mqrTitle'))}>
       <Page size="A4" style={styles.page}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <PdfBrandLogo />
-            <Text style={styles.title}>{translate(locale, 'pdf.mqrTitle')}</Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'pdf.reportNumber')} {record.job_id} — {dealerName ?? record.dealer_id}
-            </Text>
-            <Text style={styles.subtitle}>
-              {translate(locale, 'pdf.printedAt')} {formatDateTimeLocalized(new Date(), locale)}
-            </Text>
-            <View style={styles.badgeRow}>
-              <Text style={[styles.badge, { backgroundColor: '#555' }]}>{statusLabel}</Text>
-              {record.severity ? (
-                <Text style={[styles.badge, { backgroundColor: SEVERITY_COLORS[record.severity as Severity] }]}>
-                  {translate(locale, `severity.${record.severity}`)}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-          <View>
-            <Image src={qrDataUrl} style={styles.qr} />
-            <Text style={styles.qrCaption}>{translate(locale, 'pdf.scanToOpen')}</Text>
-          </View>
-        </View>
-        <View style={styles.titleRule} />
+        <PdfHeader
+          title={translate(locale, 'pdf.mqrTitle')}
+          subtitleLines={[
+            `${translate(locale, 'pdf.reportNumber')} ${record.job_id} — ${dealerName ?? record.dealer_id}`,
+            `${translate(locale, 'pdf.printedAt')} ${formatDateTimeLocalized(new Date(), locale)}`,
+          ]}
+          badges={[
+            <Text key="status" style={[styles.badge, { backgroundColor: '#555' }]}>
+              {statusLabel}
+            </Text>,
+            record.severity ? (
+              <Text key="severity" style={[styles.badge, { backgroundColor: SEVERITY_COLORS[record.severity as Severity] }]}>
+                {translate(locale, `severity.${record.severity}`)}
+              </Text>
+            ) : null,
+          ]}
+          qrDataUrl={qrDataUrl}
+          qrCaption={translate(locale, 'pdf.scanToOpen')}
+        />
 
         <View style={styles.infoTable}>
           <Row2
@@ -282,26 +319,30 @@ function RecordDocument({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{translate(locale, 'pdf.problemDetailSectionTitle')}</Text>
-          <Text style={styles.paragraph}>{record.attachment || '-'}</Text>
+          {record.attachment ? (
+            <BilingualField label={translate(locale, 'pdf.problemDetailSectionTitle')} thaiText={record.attachment} translation={translations.attachment} />
+          ) : (
+            <Text style={styles.paragraph}>-</Text>
+          )}
         </View>
 
         {hasRca && (
-          <View style={[styles.infoTable, { marginBottom: 10 }]}>
+          <View style={[styles.infoTable, { marginBottom: 10, padding: 6 }]}>
             <View style={styles.rcaHeaderRow}>
               <Text style={styles.rcaHeaderText}>{translate(locale, 'pdf.rcaSectionTitle')}</Text>
             </View>
-            {record.cause ? <RowFull label={translate(locale, 'pdf.cause')} value={record.cause} /> : null}
+            {record.cause ? <BilingualField label={translate(locale, 'pdf.cause')} thaiText={record.cause} translation={translations.cause} /> : null}
             {record.damaged_parts ? (
-              <RowFull label={translate(locale, 'pdf.damagedParts')} value={record.damaged_parts} />
+              <BilingualField label={translate(locale, 'pdf.damagedParts')} thaiText={record.damaged_parts} translation={translations.damaged_parts} />
             ) : null}
             {record.technician_action ? (
-              <RowFull label={translate(locale, 'pdf.technicianAction')} value={record.technician_action} />
+              <BilingualField label={translate(locale, 'pdf.technicianAction')} thaiText={record.technician_action} translation={translations.technician_action} />
             ) : null}
             {record.corrective_action ? (
-              <RowFull label={translate(locale, 'pdf.correctiveAction')} value={record.corrective_action} />
+              <BilingualField label={translate(locale, 'pdf.correctiveAction')} thaiText={record.corrective_action} translation={translations.corrective_action} />
             ) : null}
             {record.preventive_action ? (
-              <RowFull label={translate(locale, 'pdf.preventiveAction')} value={record.preventive_action} />
+              <BilingualField label={translate(locale, 'pdf.preventiveAction')} thaiText={record.preventive_action} translation={translations.preventive_action} />
             ) : null}
           </View>
         )}
@@ -319,14 +360,16 @@ function RecordDocument({
               <Text style={styles.photoCategoryLabel}>{categoryLabel}</Text>
               <View style={styles.photoGrid}>
                 {photos.map((p, i) => {
-                  const dataUri = photoDataUris.get(p.url);
+                  const result = photoDataUris.get(p.url);
                   return (
                     <View key={i} style={styles.photoBox} wrap={false}>
-                      {dataUri ? (
-                        <Image src={dataUri} style={styles.photo} />
+                      {result?.ok ? (
+                        <Image src={result.dataUri} style={styles.photo} />
                       ) : (
                         <View style={styles.photoPlaceholder}>
-                          <Text style={styles.photoPlaceholderText}>{translate(locale, 'pdf.photoLoadFailed')}</Text>
+                          <Text style={styles.photoPlaceholderText}>
+                            {translate(locale, 'pdf.photoUnavailableWithReason', { reason: result?.reason ?? 'Unknown error' })}
+                          </Text>
                         </View>
                       )}
                       <Text style={styles.photoLabel}>{categoryLabel}</Text>
@@ -351,47 +394,43 @@ function RecordDocument({
                 })}`
               : ''}
           </Text>
-          <Text style={styles.issuedText}>
-            {translate(locale, 'pdf.issuedBy', { at: formatDateTimeLocalized(new Date(), locale) })} MQR
-          </Text>
         </View>
 
-        <Text style={styles.footer}>{recordUrl}</Text>
+        <PdfFooter generatedBy={generatedBy} documentUrl={recordUrl} />
       </Page>
     </Document>
   );
 }
 
-export async function renderRecordsListPdf(
-  records: MqrRecord[],
-  title: string,
-  baseUrl: string,
-  locale: Locale = 'th'
-): Promise<Buffer> {
+export async function renderRecordsListPdf(records: MqrRecord[], title: string, baseUrl: string): Promise<Buffer> {
   ensureFontsRegistered();
-  return renderToBuffer(<RecordsListDocument records={records} title={title} locale={locale} />);
+  return renderToBuffer(<RecordsListDocument records={records} title={title} locale={PDF_LOCALE} />);
 }
 
 export async function renderRecordPdf(
   record: MqrRecord,
   baseUrl: string,
   dealerName?: string,
-  locale: Locale = 'th'
+  generatedBy?: string
 ): Promise<Buffer> {
   ensureFontsRegistered();
+  const resolvedRecord = await resolveMqrPdfRecordUrls(record, new AttachmentService());
   const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
-  const [qrDataUrl, photoDataUris] = await Promise.all([
+  const [qrDataUrl, photoDataUris, translations] = await Promise.all([
     QRCode.toDataURL(recordUrl, { margin: 0, width: 160 }),
-    resolvePhotoDataUris(record),
+    resolvePhotoDataUris(resolvedRecord),
+    resolveMqrTranslations(resolvedRecord, new TranslationService(createMachineTranslationProvider())),
   ]);
   return renderToBuffer(
     <RecordDocument
-      record={record}
+      record={resolvedRecord}
       dealerName={dealerName}
       qrDataUrl={qrDataUrl}
       recordUrl={recordUrl}
       photoDataUris={photoDataUris}
-      locale={locale}
+      locale={PDF_LOCALE}
+      generatedBy={generatedBy}
+      translations={translations}
     />
   );
 }

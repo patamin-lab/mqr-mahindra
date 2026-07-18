@@ -8,6 +8,7 @@ import { getVehicleSummary, getVehicleTimeline } from '@/features/vehicle/servic
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
 import { unauthorizedError } from '@/lib/apiError';
+import { buildPdfFilename } from '@/lib/pdf/filename';
 
 export const runtime = 'nodejs';
 
@@ -40,8 +41,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       getVehicleSummary(record.serial, session),
       getVehicleTimeline(record.serial, session),
     ]);
-    const safeId = record.ntr_number.replace(/[^a-zA-Z0-9_-]/g, '_');
 
+    // PDF content is always English (PDF_LOCALE, decided inside
+    // renderNtrRecordPdf) - `locale` here still resolves this route's own
+    // JSON error messages, which follow the viewer's own UI locale.
     const buf = await renderNtrRecordPdf(record, origin, {
       dealerName: dealer?.full_name,
       branchName: branch?.name ?? null,
@@ -49,12 +52,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       summary,
       timeline,
       generatedBy: session.username,
-      locale,
     });
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${safeId}.pdf"`,
+        'Content-Disposition': `attachment; filename="${buildPdfFilename(record.ntr_number)}"`,
       },
     });
   } catch (error) {

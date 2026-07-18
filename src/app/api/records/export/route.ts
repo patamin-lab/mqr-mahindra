@@ -8,6 +8,7 @@ import { renderRecordsListPdf } from '@/lib/exportPdf';
 import { buildRecordsCsv } from '@/lib/exportCsv';
 import { getLocaleFromCookieHeader } from '@/lib/i18n/server';
 import { translate } from '@/lib/i18n/translate';
+import { PDF_LOCALE } from '@/lib/pdf/locale';
 
 export const runtime = 'nodejs';
 
@@ -37,7 +38,11 @@ export async function GET(req: NextRequest) {
     const filenameBase = `qir-records-${new Date().toISOString().slice(0, 10)}`;
 
     if (format === 'pdf') {
-      const buf = await renderRecordsListPdf(records, translate(locale, 'pdf.mqrListTitle'), origin, locale);
+      // Corporate PDF Standardization: PDF content is always English
+      // (PDF_LOCALE), regardless of the viewer's own UI locale (`locale`,
+      // still used below for this route's own JSON error messages, and
+      // for the CSV export which is not a "production PDF").
+      const buf = await renderRecordsListPdf(records, translate(PDF_LOCALE, 'pdf.mqrListTitle'), origin);
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           'Content-Type': 'application/pdf',
