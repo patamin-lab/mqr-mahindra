@@ -9,11 +9,10 @@ wins** — this document describes reality, it does not define it. Root
 `CLAUDE.md` and `.claude/rules/*.md` remain the binding operating rules for
 *how* to work in this repository; this file is *what the system is*.
 
-Snapshot date: 2026-07-18. Current release candidate: **v2.4.0 — Shared Image
-Platform v1**, on branch `fix/production-regression-audit`. The last merged
-baseline is `main` @ `641961c` (PR #78, Corporate PDF Standardization). This
-branch contains audited fixes, platform release, governance, and final release
-documentation. Production deployment remains a merge/deployment concern.
+Snapshot date: 2026-07-18. **v2.4.0 — Shared Image Platform v1** was released
+from `main` and tagged `v2.4.0` at `d65bee9`. `main` is the production source
+and may contain focused post-release regression recoveries; never move the
+existing release tag to represent one of those later commits.
 
 Current release state: Shared Image Platform v1 is implemented,
 production-proven, fully adopted (6/6 consumer groups), and governed by
@@ -59,8 +58,9 @@ a unified Machine Digital Passport ("Vehicle360"). Every business report
 generates a bilingual (Thai/English) PDF; vehicle master data syncs in from
 a "Tractor IN" Google Sheet.
 
-**Production status.** Live and stable at `masp-mseal.vercel.app`. No open
-release blocker. Repository is public
+**Production status.** `masp-mseal.vercel.app` auto-deploys `main`. Production
+changes require a successful CI run and a manual smoke check of the affected
+route before the recovery is considered closed. Repository is public
 (`github.com/patamin-lab/mqr-mahindra`), branch `main`.
 
 **Deployment status.** Vercel auto-deploys every push to `main`; CI
@@ -68,14 +68,11 @@ release blocker. Repository is public
 health-check endpoint exists (see [§10](#10-known-technical-debt)) — deploy
 verification today is CI status plus manual smoke testing.
 
-**Current release.** v2.4.0, "Shared Image Platform v1," release candidate
-on `fix/production-regression-audit`. Full notes:
-`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`. Predecessor:
-PR #78, "Corporate PDF Standardization," merge commit
-`6ef759dd01cf5aecc37286c78dfb37c24f2b654c`. Last formal tag:
-`v1.0-platform-foundation` — no tag has been cut since; recent work has
-shipped as ordinary merges to `main` (tags require explicit instruction per
-`.claude/rules/git.md`).
+**Current release.** v2.4.0, "Shared Image Platform v1," released and tagged
+at `d65bee9`. Full notes:
+`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`. Post-release
+regression recoveries ship as focused commits on `main`; assign a new release
+version rather than moving the immutable `v2.4.0` tag.
 
 **Architecture maturity.** The platform has a declared, ADR-governed
 **Frozen Foundation**: Attachment Platform (ADR-010), Storage Platform,
@@ -645,6 +642,19 @@ to change any of the following.
 ## 9. Production Regression History
 
 Chronological, most recent first. "Unresolved" entries are still open.
+
+### 2026-07-18 — Import Inspection list server/client boundary
+
+The production `/delivery/pdi` list rendered the application Error Boundary
+even though its data request succeeded. The server page passed the `Eye`
+Lucide component directly to client-side `ActionColumn`; React Server
+Components cannot serialize component functions across that boundary.
+
+`ActionButton`/`ActionColumn` now accept a serializable `iconName` for
+server-page actions and resolve the icon only in the client bundle. Client-only
+callers retain direct icon components. `PdiListPage` uses `iconName: 'view'`
+for both list paths. `ActionButton.test.ts` covers both paths. No API,
+authorization, database, or business-rule behavior changed.
 
 ### 2026-07-18 — Production Regression Audit (historical branch record)
 

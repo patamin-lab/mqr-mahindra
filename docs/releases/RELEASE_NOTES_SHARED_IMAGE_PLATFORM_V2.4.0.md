@@ -2,11 +2,11 @@
 
 ## Shared Image Platform v1
 
-Release status: **Ready for production release**
+Release status: **Released**
 
-Release candidate branch: `fix/production-regression-audit`
+Release branch: `main`
 
-Release tag recommendation: `v2.4.0`
+Release tag: `v2.4.0` (`d65bee9`)
 
 ## Summary
 
@@ -63,8 +63,7 @@ Adoption: **100% (6/6 tracked consumer groups)**.
 - Lint: PASS — existing image/alt-text warnings only.
 - Tests: PASS — 104 files, 832 tests.
 - Build: PASS — 89 routes generated.
-- Repository hygiene: baseline PASS; current tree contains only these
-  documentation updates pending release-finalization commit.
+- Repository hygiene: PASS for the tagged release baseline.
 
 ## Known limitations
 
@@ -91,11 +90,12 @@ changed for this release.
 
 ## Deployment notes
 
-1. Merge release branch through approved repository workflow.
-2. Create annotated tag `v2.4.0` after merge.
-3. Push merge and tag only with explicit release approval.
-4. Confirm CI, deployment status, authentication, attachment access, signed
-   resource refresh, image rendering, PDFs, and critical module smoke flows.
-5. Use deployment platform rollback to last known-good release if production
+1. The release was merged to `main` and tagged `v2.4.0`.
+2. Post-release fixes must use a new commit and release version; do not move
+   the immutable tag.
+3. Confirm CI, deployment status, authentication, attachment access, signed
+   resource refresh, image rendering, PDFs, and critical module smoke flows
+   after every production recovery.
+4. Use deployment platform rollback to last known-good release if production
    verification fails. Do not reverse database or storage state without an
    approved migration-specific rollback plan.

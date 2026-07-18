@@ -1,6 +1,6 @@
 # Production Readiness Report
 
-Status: **Ready for v2.4.0 production release after documentation commit**
+Status: **Historical v2.4.0 release-readiness record — released and tagged**
 
 Date: 2026-07-18
 
@@ -59,12 +59,12 @@ The build continues to report the existing `libheif` critical-dependency
 warning. Lint continues to report the existing print/PDF/PhotoDiff image
 warnings. Neither warning is introduced by this documentation-only change.
 
-## Outstanding risks
+## Outstanding risks at release approval
 
-No code or architecture blocker was found. Current working tree contains only
-release-document updates pending commit; merge/tag/push must wait until tree
-is clean. Operational deployment still requires normal environment,
-authentication, storage, and production smoke-test checks.
+No code or architecture blocker was found in the release candidate. The
+release was subsequently merged and tagged `v2.4.0` at `d65bee9`. This report
+does not certify later commits on `main`; each post-release recovery requires
+its own CI and production smoke check.
 
 ## Known limitations
 
@@ -87,6 +87,6 @@ Epic #79 is complete. Future work is separate from this release:
 
 ## Final assessment
 
-The repository is internally consistent, architecture-compliant, and
-validated against the current source tree. v2.4.0 is ready for release
-approval after release-document commit and clean-tree verification.
+The release candidate was internally consistent and architecture-compliant.
+v2.4.0 was released from that baseline and is retained as a historical record;
+do not use this report as validation evidence for later `main` commits.

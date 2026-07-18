@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import ActionButton, { ActionButtonProps } from './ActionButton';
+import { resolveActionIcon } from './actionIcons';
 
 /**
  * Platform Action Column (Phase 2 list-page standardization) - the one
@@ -19,9 +20,9 @@ import ActionButton, { ActionButtonProps } from './ActionButton';
  * dismissible - so a row with 3-4 icon buttons doesn't overflow a narrow
  * screen.
  */
-export interface ActionColumnAction extends ActionButtonProps {
+export type ActionColumnAction = ActionButtonProps & {
   key: string;
-}
+};
 
 export default function ActionColumn({ actions }: { actions: ActionColumnAction[] }) {
   const [open, setOpen] = useState(false);
@@ -80,23 +81,26 @@ export default function ActionColumn({ actions }: { actions: ActionColumnAction[
                 className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-gray-100 bg-white py-1 shadow-card-hover"
                 onClick={(e) => e.stopPropagation()}
               >
-                {rest.map((action) => (
-                  <button
-                    key={action.key}
-                    type="button"
-                    role="menuitem"
-                    disabled={action.disabled}
-                    onClick={() => {
-                      setOpen(false);
-                      if (action.href) window.location.href = action.href;
-                      else action.onClick?.();
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <action.icon size={14} aria-hidden="true" />
-                    {action.label}
-                  </button>
-                ))}
+                {rest.map((action) => {
+                  const Icon = resolveActionIcon(action);
+                  return (
+                    <button
+                      key={action.key}
+                      type="button"
+                      role="menuitem"
+                      disabled={action.disabled}
+                      onClick={() => {
+                        setOpen(false);
+                        if (action.href) window.location.href = action.href;
+                        else action.onClick?.();
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Icon size={14} aria-hidden="true" />
+                      {action.label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

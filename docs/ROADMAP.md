@@ -12,10 +12,12 @@ current capability status.
 
 ## Current release: v2.4.0
 
-Shared Image Platform v1 is complete and production-proven through PR #79L.
-Release notes: `docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`.
-Epic #79 is closed. Epic #80 remains design-only under ADR-040; Epic #81 has
-not started.
+Shared Image Platform v1 is complete and was released as tag `v2.4.0`
+(`d65bee9`). Release notes:
+`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`. Epic #79 is
+closed. Focused post-release regressions are maintenance work on `main`, not a
+reopening of the image-platform epic. Epic #80 remains design-only under
+ADR-040; Epic #81 has not started.
 
 ## Release: Foundation v1.0
 

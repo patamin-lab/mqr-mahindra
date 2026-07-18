@@ -14,9 +14,9 @@ governance, validation, limitations, and deployment notes are recorded in
 [`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`](docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md)
 and [`docs/releases/PRODUCTION_READINESS_REPORT.md`](docs/releases/PRODUCTION_READINESS_REPORT.md).
 
-Future modules (NTR, PDI, Warranty, Campaign, Dashboard, AI Copilot) are
-governed by the same engineering standards documented below and are built
-one at a time, each behind its own release (see
+Future capabilities (Warranty expansion, Campaign, Dashboard extensions, and
+AI Copilot) are governed by the same engineering standards documented below
+and are built one at a time, each behind its own release (see
 [`docs/standards/GIT_BRANCH_STANDARD.md`](docs/standards/GIT_BRANCH_STANDARD.md)'s
 Semantic Versioning policy).
 

@@ -1,5 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
+import { resolveActionIcon } from './actionIcons';
+import type { ActionIconProps } from './actionIcons';
+export { ACTION_ICONS, type ActionIconName, resolveActionIcon } from './actionIcons';
 
 /**
  * Platform Action Button (Phase 2 list-page standardization) - one icon
@@ -8,7 +11,8 @@ import Link from 'next/link';
  * Column instead of each page inventing its own row-action markup.
  * Renders a `<Link>` when `href` is given (View/Edit/Export - plain
  * navigation, works inside a Server Component list page) or a `<button>`
- * when `onClick` is given (Delete and any other client-side action).
+ * when `onClick` is given (Delete and any other client-side action). Server
+ * Component callers use `iconName`; client-only callers may use `icon`.
  */
 export type ActionButtonVariant = 'view' | 'edit' | 'export' | 'delete' | 'neutral';
 
@@ -25,8 +29,7 @@ const BASE_CLASSES =
   'hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ' +
   'focus-visible:outline-brand-red disabled:pointer-events-none disabled:opacity-40';
 
-export interface ActionButtonProps {
-  icon: LucideIcon;
+export type ActionButtonProps = ActionIconProps & {
   label: string;
   variant?: ActionButtonVariant;
   href?: string;
@@ -36,18 +39,21 @@ export interface ActionButtonProps {
   /** Opens `href` in a new tab (e.g. an export/print target) rather than
    *  navigating the current page away from the list. */
   external?: boolean;
-}
+};
 
 export default function ActionButton({
-  icon: Icon,
-  label,
-  variant = 'neutral',
-  href,
-  onClick,
-  disabled,
-  download,
-  external,
+  ...action
 }: ActionButtonProps) {
+  const {
+    label,
+    variant = 'neutral',
+    href,
+    onClick,
+    disabled,
+    download,
+    external,
+  } = action;
+  const Icon = resolveActionIcon(action);
   const className = `${BASE_CLASSES} ${VARIANT_CLASSES[variant]}`;
 
   if (href && !disabled) {

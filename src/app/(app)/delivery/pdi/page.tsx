@@ -5,7 +5,6 @@ import { canAccessImportInspection } from '@/lib/scope';
 import { resolveDealerScope } from '@/lib/dealerBranchScope';
 import { listVehiclesByFactoryPdiStatus, FACTORY_PDI_STATUS_PENDING_SENTINEL, isMissingFactoryPdiStatusColumnError, type VehicleFactoryPdiStatusResult } from '@/lib/db';
 import { t } from '@/lib/i18n/server';
-import { Eye } from 'lucide-react';
 import PageHeader from '@/components/shared/layout/PageHeader';
 import SearchToolbar from '@/components/shared/layout/SearchToolbar';
 import Card from '@/components/shared/layout/Card';
@@ -198,7 +197,7 @@ export default async function PdiListPage({ searchParams }: { searchParams?: { s
                     <td className="px-4 py-3 text-gray-500">{inspection ? t(`pdi.releaseStatus.${inspection.releaseStatus}`) : '-'}</td>
                     <td className="relative z-10 px-4 py-3">
                       {inspection && (
-                        <ActionColumn actions={[{ key: 'view', icon: Eye, label: t('common.view'), href: `/delivery/pdi/${inspection.id}`, variant: 'view' }]} />
+                        <ActionColumn actions={[{ key: 'view', iconName: 'view', label: t('common.view'), href: `/delivery/pdi/${inspection.id}`, variant: 'view' }]} />
                       )}
                     </td>
                   </tr>
@@ -242,7 +241,7 @@ export default async function PdiListPage({ searchParams }: { searchParams?: { s
                   <td className="px-4 py-3 text-gray-500">{i.result ? t(`pdi.result.${i.result}`) : '-'}</td>
                   <td className="px-4 py-3 text-gray-500">{t(`pdi.releaseStatus.${i.releaseStatus}`)}</td>
                   <td className="relative z-10 px-4 py-3">
-                    <ActionColumn actions={[{ key: 'view', icon: Eye, label: t('common.view'), href: `/delivery/pdi/${i.id}`, variant: 'view' }]} />
+                    <ActionColumn actions={[{ key: 'view', iconName: 'view', label: t('common.view'), href: `/delivery/pdi/${i.id}`, variant: 'view' }]} />
                   </td>
                 </tr>
               ))}
