@@ -53,7 +53,7 @@ const HREF_BY_MODULE: Record<string, (referenceId: string, entityId: string | nu
   delivery: () => null,
 };
 
-function mapPlatformEvent(event: PlatformEvent): VehicleEvent {
+function mapPlatformEvent(event: PlatformEvent, deliveryDate: string | null): VehicleEvent {
   const eventCode = typeof event.metadata?.event_code === 'string' ? event.metadata.event_code : null;
   const type = (eventCode && EVENT_CODE_TO_TYPE[eventCode]) || 'Other';
   const entityId = typeof event.metadata?.entity_id === 'string' ? event.metadata.entity_id : null;
@@ -61,7 +61,10 @@ function mapPlatformEvent(event: PlatformEvent): VehicleEvent {
   const href = hrefBuilder ? hrefBuilder(event.reference_id, entityId) : null;
   return {
     type,
-    date: event.event_datetime,
+    // Warranty starts on the customer's delivery date.  Early NTR records
+    // persisted the processing time here, so keep the timeline aligned with
+    // the vehicle master for both historic and newly-created events.
+    date: eventCode === 'WARRANTY_ACTIVATED' && deliveryDate ? deliveryDate : event.event_datetime,
     referenceNumber: event.reference_id,
     description: event.title,
     user: event.created_by,
@@ -84,5 +87,5 @@ export async function getPlatformEvents(serial: string, session: SessionUser): P
   if (!vehicle) return [];
 
   const events = await createVehicleEventService().getVehicleEvents(vehicle.id);
-  return events.map(mapPlatformEvent);
+  return events.map((event) => mapPlatformEvent(event, vehicle.delivery_date ?? null));
 }
