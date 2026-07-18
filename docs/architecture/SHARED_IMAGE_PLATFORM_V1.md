@@ -4,6 +4,8 @@ Status: Implemented, production-proven, and locked by ADR-039.
 
 Release: PR #79L, 2026-07-18.
 
+Release version: v2.4.0.
+
 ## Overview
 
 Shared Image Platform v1 is the presentation layer for persisted and local

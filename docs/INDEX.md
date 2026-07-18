@@ -68,6 +68,8 @@ actually ship today — not a green-field proposal.
   — Epic #80 design-only metadata architecture and future extension seams.
 - [`releases/PRODUCTION_READINESS_REPORT.md`](releases/PRODUCTION_READINESS_REPORT.md)
   — current production handoff assessment and validation record.
+- [`releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`](releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md)
+  — v2.4.0 Shared Image Platform v1 release notes.
 - [`PLATFORM_ARCHITECTURE_STANDARDS.md`](architecture/PLATFORM_ARCHITECTURE_STANDARDS.md)
   — binding layer, storage, image-platform, and extension rules.
 

@@ -1,13 +1,18 @@
 # MASP — Mahindra After Sales Platform
 
-Dealer-facing service platform for Mahindra tractors in Thailand. Release
-1.0 covers two modules, both production-ready:
+Dealer-facing service platform for Mahindra tractors in Thailand. Initial
+v1.0 release covered two production-ready modules:
 
 - **MQR (Market Quality Report)** — dealer quality-incident reporting,
   investigation workflow, and audit trail.
 - **PM (Preventive Maintenance)** — search-first maintenance recording,
   Maintenance Due/Health/Compliance engines, and calculation-protection
   locking.
+
+Current release: **v2.4.0 — Shared Image Platform v1**. Platform adoption,
+governance, validation, limitations, and deployment notes are recorded in
+[`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`](docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md)
+and [`docs/releases/PRODUCTION_READINESS_REPORT.md`](docs/releases/PRODUCTION_READINESS_REPORT.md).
 
 Future modules (NTR, PDI, Warranty, Campaign, Dashboard, AI Copilot) are
 governed by the same engineering standards documented below and are built
@@ -50,6 +55,8 @@ Most directly useful for someone about to write code:
   — current handoff status, validation results, risks, and known limitations.
 - [`docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`](docs/architecture/SHARED_IMAGE_PLATFORM_V1.md)
   — the completed, locked shared image platform release.
+- [`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`](docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md)
+  — v2.4.0 release summary, validation, limitations, and deployment notes.
 - [`CLAUDE.md`](CLAUDE.md) — what this system does, schema, RBAC, deployment.
 - [`docs/standards/MODULE_DEVELOPMENT_STANDARD.md`](docs/standards/MODULE_DEVELOPMENT_STANDARD.md) — how every module is built.
 - [`docs/standards/API_STANDARD.md`](docs/standards/API_STANDARD.md) — request/response, pagination, error shape.

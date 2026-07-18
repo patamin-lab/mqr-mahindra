@@ -9,16 +9,16 @@ wins** — this document describes reality, it does not define it. Root
 `CLAUDE.md` and `.claude/rules/*.md` remain the binding operating rules for
 *how* to work in this repository; this file is *what the system is*.
 
-Snapshot date: 2026-07-18. The last merged baseline is `main` @ `641961c`
-(PR #78, Corporate PDF Standardization). The current handoff candidate is
-branch `fix/production-regression-audit`, which contains the audited fixes,
-Shared Image Platform v1 release, and documentation finalization. Production
-deployment remains a merge/deployment concern; this document records the
-current repository state.
+Snapshot date: 2026-07-18. Current release candidate: **v2.4.0 — Shared Image
+Platform v1**, on branch `fix/production-regression-audit`. The last merged
+baseline is `main` @ `641961c` (PR #78, Corporate PDF Standardization). This
+branch contains audited fixes, platform release, governance, and final release
+documentation. Production deployment remains a merge/deployment concern.
 
-Current PR #79L repository state: Shared Image Platform v1 is implemented,
+Current release state: Shared Image Platform v1 is implemented,
 production-proven, fully adopted (6/6 consumer groups), and governed by
-ADR-039. Legacy viewer/gallery code was removed in PR #79K. Current release
+ADR-039. Legacy viewer/gallery code was removed in PR #79K. Release record:
+`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`. Architecture
 record: `docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`.
 
 ---
@@ -68,11 +68,11 @@ release blocker. Repository is public
 health-check endpoint exists (see [§10](#10-known-technical-debt)) — deploy
 verification today is CI status plus manual smoke testing.
 
-**Current release.** PR #78, "Corporate PDF Standardization," merge commit
-`6ef759dd01cf5aecc37286c78dfb37c24f2b654c` (2026-07-18). Full notes:
-`docs/releases/RELEASE_NOTES_CORPORATE_PDF_v1.0.md`. Predecessor: PR #77,
-"Production bug fixes + list/image standardization," merge commit
-`13d62c4b6e632863da902fa03218597e7a004010`. Last formal tag:
+**Current release.** v2.4.0, "Shared Image Platform v1," release candidate
+on `fix/production-regression-audit`. Full notes:
+`docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`. Predecessor:
+PR #78, "Corporate PDF Standardization," merge commit
+`6ef759dd01cf5aecc37286c78dfb37c24f2b654c`. Last formal tag:
 `v1.0-platform-foundation` — no tag has been cut since; recent work has
 shipped as ordinary merges to `main` (tags require explicit instruction per
 `.claude/rules/git.md`).

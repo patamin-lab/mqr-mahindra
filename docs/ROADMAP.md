@@ -10,6 +10,13 @@ separate rewrite/retirement debt - see `docs/architecture/PROJECT_STATE.md`'s
 still-stale sections below doesn't mistake historical build history for
 current capability status.
 
+## Current release: v2.4.0
+
+Shared Image Platform v1 is complete and production-proven through PR #79L.
+Release notes: `docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`.
+Epic #79 is closed. Epic #80 remains design-only under ADR-040; Epic #81 has
+not started.
+
 ## Release: Foundation v1.0
 
 **Foundation Freeze v1.0 declared 2026-07-12, extended to v1.1 on

@@ -1,10 +1,12 @@
 # Production Readiness Report
 
-Status: **Ready for production handoff**
+Status: **Ready for v2.4.0 production release after documentation commit**
 
 Date: 2026-07-18
 
-Scope: Repository finalization after Shared Image Platform v1 release
+Scope: v2.4.0 Shared Image Platform v1 release finalization
+
+Release notes: `RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`
 
 ## Architecture status
 
@@ -38,6 +40,7 @@ The current handoff set is synchronized across:
 - `docs/architecture/SHARED_IMAGE_PLATFORM_V1.md`
 - `docs/INDEX.md` and `README.md`
 - `docs/releases/PRODUCTION_READINESS_REPORT.md`
+- `docs/releases/RELEASE_NOTES_SHARED_IMAGE_PLATFORM_V2.4.0.md`
 
 Historical release, audit, and migration records remain retained where they
 provide traceability and are labeled by their historical scope.
@@ -58,9 +61,10 @@ warnings. Neither warning is introduced by this documentation-only change.
 
 ## Outstanding risks
 
-No release-blocking repository risks were found. Operational deployment still
-requires the normal environment, authentication, storage, and production
-smoke-test checks described in the release checklist.
+No code or architecture blocker was found. Current working tree contains only
+release-document updates pending commit; merge/tag/push must wait until tree
+is clean. Operational deployment still requires normal environment,
+authentication, storage, and production smoke-test checks.
 
 ## Known limitations
 
@@ -83,6 +87,6 @@ Epic #79 is complete. Future work is separate from this release:
 
 ## Final assessment
 
-The repository is internally consistent, architecture-compliant, validated
-against the current source tree, and ready for the requested production
-handoff commit.
+The repository is internally consistent, architecture-compliant, and
+validated against the current source tree. v2.4.0 is ready for release
+approval after release-document commit and clean-tree verification.
