@@ -376,7 +376,7 @@ function RecordDocument({
 }
 
 export async function renderRecordsListPdf(records: MqrRecord[], title: string, baseUrl: string): Promise<Buffer> {
-  ensureFontsRegistered();
+  await ensureFontsRegistered();
   return renderToBuffer(<RecordsListDocument records={records} title={title} locale={PDF_LOCALE} />);
 }
 
@@ -386,7 +386,7 @@ export async function renderRecordPdf(
   dealerName?: string,
   generatedBy?: string
 ): Promise<Buffer> {
-  ensureFontsRegistered();
+  await ensureFontsRegistered();
   const resolvedRecord = await resolveMqrPdfRecordUrls(record, new AttachmentService());
   const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
   const [qrDataUrl, photoDataUris] = await Promise.all([

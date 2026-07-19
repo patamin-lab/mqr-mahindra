@@ -2,7 +2,8 @@ import path from 'path';
 import { Font } from '@react-pdf/renderer';
 
 let fontsRegistered = false;
-let thaiShapingConfigured = false;
+let fontRegistrationPromise: Promise<void> | null = null;
+const configuredThaiFontPrototypes = new WeakSet<object>();
 
 type FontkitLayoutResult = {
   glyphs: Array<{ codePoints: number[] }>;
@@ -36,15 +37,9 @@ type FontkitFont = {
  * mark and the following glyph at the same x-position during layout-based
  * text extraction. One Sarabun unit is 1/1000 em and is visually invisible.
  */
-function configureThaiPdfShaping(fontPath: string): void {
-  if (thaiShapingConfigured) return;
-
-  // fontkit is a transitive dependency of @react-pdf/font. Requiring its
-  // deduplicated Node instance patches the same font prototype react-pdf uses.
-  // It has no published TypeScript declarations.
-  const fontkit = require('fontkit') as { openSync: (source: string) => FontkitFont };
-  const probe = fontkit.openSync(fontPath);
-  const prototype = Object.getPrototypeOf(probe) as { layout: FontkitLayout };
+function configureThaiPdfShaping(font: FontkitFont): void {
+  const prototype = Object.getPrototypeOf(font) as { layout: FontkitLayout };
+  if (configuredThaiFontPrototypes.has(prototype)) return;
   const originalLayout = prototype.layout;
 
   prototype.layout = function layoutThaiPdfText(
@@ -89,7 +84,7 @@ function configureThaiPdfShaping(fontPath: string): void {
     return layout;
   };
 
-  thaiShapingConfigured = true;
+  configuredThaiFontPrototypes.add(prototype);
 }
 
 /**
@@ -134,10 +129,10 @@ function configureThaiPdfShaping(fontPath: string): void {
  * (react-pdf just overwrites the same registration), but there's no
  * reason for each module to duplicate this logic.
  */
-export function ensureFontsRegistered() {
-  if (fontsRegistered) return;
+export function ensureFontsRegistered(): Promise<void> {
+  if (fontRegistrationPromise) return fontRegistrationPromise;
+
   const fontsDir = path.join(process.cwd(), 'public', 'fonts');
-  configureThaiPdfShaping(path.join(fontsDir, 'Sarabun-Regular.ttf'));
   Font.register({
     family: 'Sarabun',
     fonts: [
@@ -146,4 +141,23 @@ export function ensureFontsRegistered() {
     ],
   });
   fontsRegistered = true;
+
+  fontRegistrationPromise = (async () => {
+    await Promise.all([
+      Font.load({ fontFamily: 'Sarabun', fontStyle: 'normal', fontWeight: 'normal' }),
+      Font.load({ fontFamily: 'Sarabun', fontStyle: 'normal', fontWeight: 'bold' }),
+    ]);
+
+    const regular = Font.getFont({ fontFamily: 'Sarabun', fontStyle: 'normal', fontWeight: 'normal' }).data;
+    const bold = Font.getFont({ fontFamily: 'Sarabun', fontStyle: 'normal', fontWeight: 'bold' }).data;
+    if (!regular || !bold) throw new Error('Sarabun font failed to load for PDF rendering');
+
+    // These are the actual FontSource instances owned by react-pdf. Patching
+    // them here, after Font.load(), is required in Next.js bundles where a
+    // separately required fontkit module is not necessarily the same instance.
+    configureThaiPdfShaping(regular as unknown as FontkitFont);
+    configureThaiPdfShaping(bold as unknown as FontkitFont);
+  })();
+
+  return fontRegistrationPromise;
 }

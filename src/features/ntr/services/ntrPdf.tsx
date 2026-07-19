@@ -386,7 +386,7 @@ export async function renderNtrRecordPdf(
     generatedBy?: string;
   }
 ): Promise<Buffer> {
-  ensureFontsRegistered();
+  await ensureFontsRegistered();
   // Corporate PDF Standardization: PDF content is always English, never
   // the viewing user's own UI locale - see PDF_LOCALE's own doc comment.
   const locale = PDF_LOCALE;

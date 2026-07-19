@@ -314,7 +314,7 @@ export async function renderMaintenanceRecordPdf(
   baseUrl: string,
   options?: { dealerName?: string; intervalLabel?: string; generatedBy?: string }
 ): Promise<Buffer> {
-  ensureFontsRegistered();
+  await ensureFontsRegistered();
   // Corporate PDF Standardization: PDF content is always English, never
   // the viewing user's own UI locale - see PDF_LOCALE's own doc comment.
   const locale = PDF_LOCALE;
@@ -339,6 +339,6 @@ export async function renderMaintenanceRecordPdf(
 }
 
 export async function renderMaintenanceListPdf(records: MaintenanceRecord[], title: string): Promise<Buffer> {
-  ensureFontsRegistered();
+  await ensureFontsRegistered();
   return renderToBuffer(<MaintenanceListDocument records={records} title={title} locale={PDF_LOCALE} />);
 }
