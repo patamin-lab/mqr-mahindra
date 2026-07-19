@@ -23,7 +23,11 @@ Run against the live production deployment after PR #78 (merge commit `6ef759d`)
 - [ ] **No image cropping**: confirm a portrait-oriented photo and a landscape-oriented photo both render fully visible in the PDF (letterboxed if needed), never cropped to fill a box.
 - [ ] **Signed URL validation**: export a PDF for a record whose photos were uploaded more than an hour ago (a record from an earlier day, not one just created) — confirm the photos still render in the PDF rather than showing "Image unavailable."
 
-## Translation
+## Translation (retired)
+
+Current PDF policy: free text renders once in its original language. Confirm
+there are no `TH`/`EN` tags or `Translation unavailable` messages. The checks
+below are historical and no longer apply.
 
 - [ ] Create/view a record with Thai text in a free-text field (Problem Details, Root Cause, Corrective Action, Recommendation, or PM Notes) — confirm the PDF shows both "TH" (original Thai, unchanged) and "EN" rows.
 - [ ] **API key configured**: with `GOOGLE_TRANSLATE_API_KEY` set in the environment, confirm the "EN" row shows a real English translation, not "Translation unavailable."

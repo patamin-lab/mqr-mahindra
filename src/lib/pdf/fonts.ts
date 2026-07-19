@@ -2,6 +2,95 @@ import path from 'path';
 import { Font } from '@react-pdf/renderer';
 
 let fontsRegistered = false;
+let thaiShapingConfigured = false;
+
+type FontkitLayoutResult = {
+  glyphs: Array<{ codePoints: number[] }>;
+  positions: Array<{ xAdvance: number }>;
+};
+
+type FontkitLayout = (
+  text: string,
+  features?: Record<string, boolean> | string[],
+  script?: string,
+  language?: string,
+  direction?: string,
+) => FontkitLayoutResult;
+
+type FontkitFont = {
+  familyName?: string;
+  layout: FontkitLayout;
+};
+
+/**
+ * `fontkit` applies its Thai `ccmp` substitution before react-pdf writes the
+ * PDF ToUnicode map. That splits Sara Am (ำ) into two glyphs and can combine
+ * it with a preceding tone mark. The PDF remains visually plausible, but its
+ * Unicode text gains/drops characters (for example, น้ำมัน or อำเภอ).
+ *
+ * Disable only that substitution for Sarabun in server-side PDF rendering.
+ * The font's mark and mkmk positioning remain enabled, so Thai diacritics
+ * retain their normal visual placement while each source character maps to
+ * exactly one extractable Unicode character. A one-unit advance for each
+ * zero-width Thai combining mark also prevents PDF readers from sorting a
+ * mark and the following glyph at the same x-position during layout-based
+ * text extraction. One Sarabun unit is 1/1000 em and is visually invisible.
+ */
+function configureThaiPdfShaping(fontPath: string): void {
+  if (thaiShapingConfigured) return;
+
+  // fontkit is a transitive dependency of @react-pdf/font. Requiring its
+  // deduplicated Node instance patches the same font prototype react-pdf uses.
+  // It has no published TypeScript declarations.
+  const fontkit = require('fontkit') as { openSync: (source: string) => FontkitFont };
+  const probe = fontkit.openSync(fontPath);
+  const prototype = Object.getPrototypeOf(probe) as { layout: FontkitLayout };
+  const originalLayout = prototype.layout;
+
+  prototype.layout = function layoutThaiPdfText(
+    this: FontkitFont,
+    text: string,
+    features?: Record<string, boolean> | string[],
+    script?: string,
+    language?: string,
+    direction?: string,
+  ) {
+    const shouldDisableComposition =
+      this.familyName === 'Sarabun' &&
+      typeof text === 'string' &&
+      /[\u0E00-\u0E7F]/.test(text) &&
+      !Array.isArray(features);
+
+    const layout = originalLayout.call(
+      this,
+      text,
+      shouldDisableComposition ? { ...(features ?? {}), ccmp: false } : features,
+      script,
+      language,
+      direction,
+    );
+
+    if (shouldDisableComposition) {
+      for (let index = 0; index < layout.glyphs.length; index += 1) {
+        const glyph = layout.glyphs[index];
+        const position = layout.positions[index];
+        const isThaiCombiningMark = glyph.codePoints.some(
+          (codePoint) =>
+            (codePoint >= 0x0e31 && codePoint <= 0x0e3a) ||
+            (codePoint >= 0x0e47 && codePoint <= 0x0e4e),
+        );
+
+        if (isThaiCombiningMark && position?.xAdvance === 0) {
+          position.xAdvance = 1;
+        }
+      }
+    }
+
+    return layout;
+  };
+
+  thaiShapingConfigured = true;
+}
 
 /**
  * Fonts are loaded from an on-disk path instead of being fetched over HTTP.
@@ -48,6 +137,7 @@ let fontsRegistered = false;
 export function ensureFontsRegistered() {
   if (fontsRegistered) return;
   const fontsDir = path.join(process.cwd(), 'public', 'fonts');
+  configureThaiPdfShaping(path.join(fontsDir, 'Sarabun-Regular.ttf'));
   Font.register({
     family: 'Sarabun',
     fonts: [

@@ -55,8 +55,8 @@ a KPI dashboard. The platform has grown from a single MQR module into a
 multi-module system covering New Tractor Registration (NTR), Preventive
 Maintenance (PM), Delivery lifecycle tracking, Import Inspection (PDI), and
 a unified Machine Digital Passport ("Vehicle360"). Every business report
-generates a bilingual (Thai/English) PDF; vehicle master data syncs in from
-a "Tractor IN" Google Sheet.
+uses English system labels and preserves original free-text input; vehicle
+master data syncs in from a "Tractor IN" Google Sheet.
 
 **Production status.** `masp-mseal.vercel.app` auto-deploys `main`. Production
 changes require a successful CI run and a manual smoke check of the affected
@@ -102,6 +102,11 @@ found and corrected by hand, and that correction is itself documented).
    "Translation unavailable" until it is set).
 
 ---
+
+**PDF translation policy (2026-07-19):** the historical translation risk and
+implementation notes below are superseded. PDF exports no longer use
+`GOOGLE_TRANSLATE_API_KEY`, `TranslationService`, or bilingual rows; they
+render original free text once.
 
 ## 2. System Architecture
 
@@ -414,7 +419,12 @@ the dealer/branch resolution itself — see
   ([§9](#9-production-regression-history)): the Attachment Platform had no
   scope check at all until the 2026-07-18 audit.
 
-### Translation
+### Translation (retired)
+
+**Current policy (2026-07-19):** automatic PDF free-text translation was
+removed. MQR and PM PDFs now show original free text once, without `TH`/`EN`
+tags or a `Translation unavailable` message. The retained notes below are
+historical context for the removed implementation.
 - **Purpose**: bilingual (Thai source / English translation) rendering for
   PDF free-text fields.
 - **Responsibilities**: `TranslationService.translateToEnglish()` pipeline
@@ -484,7 +494,6 @@ a legitimate design choice, unless a documented ADR says otherwise.
 | **Legacy Attachment Viewer** | Removed in PR #79K | Dead legacy viewer/gallery components removed after final repository audit | No active consumer |
 | **Activity Timeline** | `src/components/shared/activity-timeline/` | Generic, category-agnostic event timeline | Quality Reports today; designed for PM/NTR/Warranty/ORC to plug in without redesign |
 | **Authorization Scope** | `src/lib/scope.ts` + `src/lib/dealerBranchScope.ts` | Role predicates and dealer/branch resolution/access checks | Every module's Repository/Service and every API route |
-| **Translation Provider** | `src/lib/translation/` | The `MachineTranslationProvider` interface + factory | PDF layer's `BilingualField` only |
 | **Repository Layer** | `src/features/<module>/repositories/*.ts` (MQR: `src/lib/db.ts`) | Data access **and** scope filtering for its own module's tables | That module's Service layer only — never called directly from a route or page |
 | **Storage Layer** | `src/shared/attachments/` (`AttachmentService`, `AttachmentRepository`, `StorageProviderFactory`) | File storage abstraction, archive lifecycle | Every module via `AttachmentService` — never a raw provider SDK call from business code |
 

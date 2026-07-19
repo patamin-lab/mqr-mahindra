@@ -18,7 +18,6 @@ import { resolvePdfAttachmentUrl } from '@/lib/pdf/resolveAttachmentUrl';
 import { PdfBrandLogo } from '@/lib/pdf/PdfBrandLogo';
 import { PdfHeader } from '@/lib/pdf/PdfHeader';
 import { PdfFooter } from '@/lib/pdf/PdfFooter';
-import { BilingualField } from '@/lib/pdf/BilingualField';
 import { PDF_LOCALE } from '@/lib/pdf/locale';
 import { buildPdfDocumentMeta } from '@/lib/pdf/metadata';
 import { sharedPdfStyles } from '@/lib/pdf/sharedStyles';
@@ -26,9 +25,6 @@ import { formatDateTimeLocalized, formatDateLocalized } from '@/lib/thaiDate';
 import { translate } from '@/lib/i18n/translate';
 import { Locale } from '@/lib/i18n/types';
 import { AttachmentService } from '@/shared/attachments';
-import { TranslationService } from '@/lib/translation/translationService';
-import { createMachineTranslationProvider } from '@/lib/translation/factory';
-import type { TranslationResult } from '@/lib/translation/types';
 import { MaintenanceRecord, maintenanceAttachmentsOf, MaintenanceAttachmentKind } from '../types';
 import { evaluateMaintenanceLock } from '../utils/maintenanceLock';
 import { maintenanceImageReferenceToImageItem } from '../utils/maintenanceImageItems';
@@ -89,7 +85,6 @@ interface MaintenanceDocumentProps {
   photoDataUris: Map<string, ImageFetchResult>;
   locale: Locale;
   generatedBy?: string;
-  notesTranslation: TranslationResult;
 }
 
 function MaintenanceDocument({
@@ -101,7 +96,6 @@ function MaintenanceDocument({
   photoDataUris,
   locale,
   generatedBy,
-  notesTranslation,
 }: MaintenanceDocumentProps) {
   const lock = evaluateMaintenanceLock(record);
   const attachments = maintenanceAttachmentsOf(record).map((attachment) => ({
@@ -175,7 +169,8 @@ function MaintenanceDocument({
 
         {record.notes && (
           <View style={styles.section}>
-            <BilingualField label={translate(locale, 'common.notes')} thaiText={record.notes} translation={notesTranslation} />
+            <Text style={styles.sectionTitle}>{translate(locale, 'common.notes')}</Text>
+            <Text style={styles.paragraph}>{record.notes}</Text>
           </View>
         )}
 
@@ -325,15 +320,13 @@ export async function renderMaintenanceRecordPdf(
   const locale = PDF_LOCALE;
   const resolvedRecord = await resolvePmPdfRecordUrls(record, new AttachmentService());
   const recordUrl = `${baseUrl}/pm-records/${encodeURIComponent(record.id)}`;
-  const [qrDataUrl, photoDataUris, notesTranslation] = await Promise.all([
+  const [qrDataUrl, photoDataUris] = await Promise.all([
     QRCode.toDataURL(recordUrl, { margin: 0, width: 160 }),
     resolveAttachmentDataUris(resolvedRecord),
-    new TranslationService(createMachineTranslationProvider()).translateToEnglish(resolvedRecord.notes),
   ]);
   return renderToBuffer(
     <MaintenanceDocument
       record={resolvedRecord}
-      notesTranslation={notesTranslation}
       dealerName={options?.dealerName}
       intervalLabel={options?.intervalLabel}
       qrDataUrl={qrDataUrl}

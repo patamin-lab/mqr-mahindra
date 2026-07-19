@@ -10,6 +10,11 @@ separate rewrite/retirement debt - see `docs/architecture/PROJECT_STATE.md`'s
 still-stale sections below doesn't mistake historical build history for
 current capability status.
 
+**PDF translation retirement (2026-07-19):** automatic PDF free-text
+translation, Google Translation configuration, glossary normalization, and
+the `TH`/`EN` layout are removed. PDFs retain original free text; older PR #78
+entries below are historical only.
+
 ## Current release: v2.4.0
 
 Shared Image Platform v1 is complete and was released as tag `v2.4.0`

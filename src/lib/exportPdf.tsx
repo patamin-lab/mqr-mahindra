@@ -6,7 +6,6 @@ import { formatDateTimeLocalized } from './thaiDate';
 import { PdfBrandLogo } from './pdf/PdfBrandLogo';
 import { PdfHeader } from './pdf/PdfHeader';
 import { PdfFooter } from './pdf/PdfFooter';
-import { BilingualField } from './pdf/BilingualField';
 import { ensureFontsRegistered } from './pdf/fonts';
 import { resolveImageDataUris, ImageFetchResult } from './pdf/fetchImage';
 import { resolvePdfAttachmentUrl } from './pdf/resolveAttachmentUrl';
@@ -18,21 +17,6 @@ import { mqrPhotoToImageItem } from './mqrImageItems';
 import { translate } from './i18n/translate';
 import { Locale } from './i18n/types';
 import { AttachmentService } from '@/shared/attachments';
-import { TranslationService } from './translation/translationService';
-import { createMachineTranslationProvider } from './translation/factory';
-import type { TranslationResult } from './translation/types';
-
-const MQR_TRANSLATABLE_FIELDS = ['attachment', 'cause', 'damaged_parts', 'technician_action', 'corrective_action', 'preventive_action'] as const;
-type MqrTranslatableField = (typeof MQR_TRANSLATABLE_FIELDS)[number];
-
-/** Translates every free-text field this record has (Problem Details +
- *  the 5 RCA fields) in parallel. A translation failure for one field
- *  never affects the others or blocks PDF generation - `TranslationService`
- *  itself already guarantees this per-field, this just fans it out. */
-async function resolveMqrTranslations(record: MqrRecord, translationService: TranslationService): Promise<Record<MqrTranslatableField, TranslationResult>> {
-  const results = await Promise.all(MQR_TRANSLATABLE_FIELDS.map((field) => translationService.translateToEnglish(record[field])));
-  return Object.fromEntries(MQR_TRANSLATABLE_FIELDS.map((field, i) => [field, results[i]])) as Record<MqrTranslatableField, TranslationResult>;
-}
 
 /** Resolves every photo URL on a record to a data URI in parallel, keyed by the original URL. */
 async function resolvePhotoDataUris(record: MqrRecord): Promise<Map<string, ImageFetchResult>> {
@@ -213,7 +197,6 @@ function RecordDocument({
   photoDataUris,
   locale,
   generatedBy,
-  translations,
 }: {
   record: MqrRecord;
   dealerName?: string;
@@ -222,7 +205,6 @@ function RecordDocument({
   photoDataUris: Map<string, ImageFetchResult>;
   locale: Locale;
   generatedBy?: string;
-  translations: Record<MqrTranslatableField, TranslationResult>;
 }) {
   const statusLabel = translate(locale, `mqrStatus.${record.status}`);
   // Coerced to a real boolean: with `||`, if every RCA field is null/undefined
@@ -322,11 +304,7 @@ function RecordDocument({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{translate(locale, 'pdf.problemDetailSectionTitle')}</Text>
-          {record.attachment ? (
-            <BilingualField label={translate(locale, 'pdf.problemDetailSectionTitle')} thaiText={record.attachment} translation={translations.attachment} />
-          ) : (
-            <Text style={styles.paragraph}>-</Text>
-          )}
+          <Text style={styles.paragraph}>{record.attachment || '-'}</Text>
         </View>
 
         {hasRca && (
@@ -334,19 +312,11 @@ function RecordDocument({
             <View style={styles.rcaHeaderRow}>
               <Text style={styles.rcaHeaderText}>{translate(locale, 'pdf.rcaSectionTitle')}</Text>
             </View>
-            {record.cause ? <BilingualField label={translate(locale, 'pdf.cause')} thaiText={record.cause} translation={translations.cause} /> : null}
-            {record.damaged_parts ? (
-              <BilingualField label={translate(locale, 'pdf.damagedParts')} thaiText={record.damaged_parts} translation={translations.damaged_parts} />
-            ) : null}
-            {record.technician_action ? (
-              <BilingualField label={translate(locale, 'pdf.technicianAction')} thaiText={record.technician_action} translation={translations.technician_action} />
-            ) : null}
-            {record.corrective_action ? (
-              <BilingualField label={translate(locale, 'pdf.correctiveAction')} thaiText={record.corrective_action} translation={translations.corrective_action} />
-            ) : null}
-            {record.preventive_action ? (
-              <BilingualField label={translate(locale, 'pdf.preventiveAction')} thaiText={record.preventive_action} translation={translations.preventive_action} />
-            ) : null}
+            {record.cause ? <RowFull label={translate(locale, 'pdf.cause')} value={record.cause} /> : null}
+            {record.damaged_parts ? <RowFull label={translate(locale, 'pdf.damagedParts')} value={record.damaged_parts} /> : null}
+            {record.technician_action ? <RowFull label={translate(locale, 'pdf.technicianAction')} value={record.technician_action} /> : null}
+            {record.corrective_action ? <RowFull label={translate(locale, 'pdf.correctiveAction')} value={record.corrective_action} /> : null}
+            {record.preventive_action ? <RowFull label={translate(locale, 'pdf.preventiveAction')} value={record.preventive_action} /> : null}
           </View>
         )}
 
@@ -419,10 +389,9 @@ export async function renderRecordPdf(
   ensureFontsRegistered();
   const resolvedRecord = await resolveMqrPdfRecordUrls(record, new AttachmentService());
   const recordUrl = `${baseUrl}/records/${encodeURIComponent(record.job_id)}`;
-  const [qrDataUrl, photoDataUris, translations] = await Promise.all([
+  const [qrDataUrl, photoDataUris] = await Promise.all([
     QRCode.toDataURL(recordUrl, { margin: 0, width: 160 }),
     resolvePhotoDataUris(resolvedRecord),
-    resolveMqrTranslations(resolvedRecord, new TranslationService(createMachineTranslationProvider())),
   ]);
   return renderToBuffer(
     <RecordDocument
@@ -433,7 +402,6 @@ export async function renderRecordPdf(
       photoDataUris={photoDataUris}
       locale={PDF_LOCALE}
       generatedBy={generatedBy}
-      translations={translations}
     />
   );
 }

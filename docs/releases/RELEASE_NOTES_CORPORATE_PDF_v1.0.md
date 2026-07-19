@@ -10,6 +10,10 @@ closed or superseded by later work. Issue #79 was completed through PR #79L;
 the current release and handoff status is in
 `docs/releases/PRODUCTION_READINESS_REPORT.md`.
 
+**Superseded policy (2026-07-19):** automatic free-text translation and the
+`TH`/`EN` layout were removed. Current PDFs keep English system labels and
+show original free text only; no translation provider or API key is used.
+
 This release standardizes every existing production PDF (NTR, PM, MQR — Quality Report) onto one shared framework, fixes a production defect where photos were missing from generated PDFs, and adds bilingual Thai/English output for free-text fields via Google Cloud Translation. No business logic, database schema, or authorization behavior changed — every change is presentation/generation infrastructure.
 
 ## New Features
